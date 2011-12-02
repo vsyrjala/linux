@@ -1105,5 +1105,9 @@ extern bool drm_region_clip_scaled(struct drm_region *src,
 				   struct drm_region *dst,
 				   const struct drm_region *clip,
 				   int hscale, int vscale);
+extern int drm_calc_hscale(struct drm_region *src, struct drm_region *dst,
+			   int min_hscale, int max_hscale);
+extern int drm_calc_vscale(struct drm_region *src, struct drm_region *dst,
+			   int min_vscale, int max_vscale);
 
 #endif /* __DRM_CRTC_H__ */

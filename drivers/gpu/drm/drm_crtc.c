@@ -4078,3 +4078,105 @@ bool drm_region_clip_scaled(struct drm_region *src, struct drm_region *dst,
 	return drm_region_clip(dst, clip);
 }
 EXPORT_SYMBOL(drm_region_clip_scaled);
+
+/**
+ * drm_calc_hscale - calculate the horizontal scaling factor
+ * @src: source window region
+ * @dst: destination window region
+ * @min_hscale: minimum allowed horizontal scaling factor
+ * @max_hscale: maximum allowed horizontal scaling factor
+ *
+ * Calculate the horizontal scaling factor as
+ * (@src width) / (@dst width).
+ *
+ * If the calculated scaling factor is below @min_hscale,
+ * decrease the width of region @dst to compensate.
+ *
+ * If the calculcated scaling factor is above @max_hscale,
+ * decrease the width of region @src to compensate.
+ *
+ * RETURNS:
+ * The horizontal scaling factor.
+ */
+int drm_calc_hscale(struct drm_region *src, struct drm_region *dst,
+		    int min_hscale, int max_hscale)
+{
+	int src_w = drm_region_width(src);
+	int dst_w = drm_region_width(dst);
+	int hscale;
+
+	if (dst_w <= 0)
+		return 0;
+
+	hscale = src_w / dst_w;
+
+	if (hscale < min_hscale) {
+		int max_dst_w = src_w / min_hscale;
+
+		drm_region_adjust_size(dst, max_dst_w - dst_w, 0);
+
+		return min_hscale;
+	}
+
+	if (hscale > max_hscale) {
+		int max_src_w = dst_w * max_hscale;
+
+		drm_region_adjust_size(src, max_src_w - src_w, 0);
+
+		return max_hscale;
+	}
+
+	return hscale;
+}
+EXPORT_SYMBOL(drm_calc_hscale);
+
+/**
+ * drm_calc_vscale - calculate the vertical scaling factor
+ * @src: source window region
+ * @dst: destination window region
+ * @min_vscale: minimum allowed vertical scaling factor
+ * @max_vscale: maximum allowed vertical scaling factor
+ *
+ * Calculate the vertical scaling factor as
+ * (@src height) / (@dst height).
+ *
+ * If the calculated scaling factor is below @min_vscale,
+ * decrease the height of region @dst to compensate.
+ *
+ * If the calculcated scaling factor is above @max_vscale,
+ * decrease the height of region @src to compensate.
+ *
+ * RETURNS:
+ * The vertical scaling factor.
+ */
+int drm_calc_vscale(struct drm_region *src, struct drm_region *dst,
+		    int min_vscale, int max_vscale)
+{
+	int src_h = drm_region_height(src);
+	int dst_h = drm_region_height(dst);
+	int vscale;
+
+	if (dst_h <= 0)
+		return 0;
+
+	vscale = src_h / dst_h;
+
+	if (vscale < min_vscale) {
+		int max_dst_h = src_h / min_vscale;
+
+		drm_region_adjust_size(dst, 0, max_dst_h - dst_h);
+
+		return min_vscale;
+	}
+
+	if (vscale > max_vscale) {
+		int max_src_h = dst_h * max_vscale;
+
+		drm_region_adjust_size(src, 0, max_src_h - src_h);
+
+		return max_vscale;
+	}
+
+	return vscale;
+}
+EXPORT_SYMBOL(drm_calc_vscale);
