@@ -1082,4 +1082,28 @@ extern int drm_format_plane_cpp(uint32_t format, int plane);
 extern int drm_format_horz_chroma_subsampling(uint32_t format);
 extern int drm_format_vert_chroma_subsampling(uint32_t format);
 
+/**
+ * drm_region - two dimensional region
+ * @x1: horizontal starting coordinate (inclusive)
+ * @x2: horizontal ending coordinate (exclusive)
+ * @y1: vertical starting coordinate (inclusive)
+ * @y2: vertical ending coordinate (exclusive)
+ */
+struct drm_region {
+	int x1, y1, x2, y2;
+};
+
+extern void drm_region_adjust_size(struct drm_region *r, int x, int y);
+extern void drm_region_translate(struct drm_region *r, int x, int y);
+extern void drm_region_subsample(struct drm_region *r, int hsub, int vsub);
+extern int drm_region_width(const struct drm_region *r);
+extern int drm_region_height(const struct drm_region *r);
+extern bool drm_region_visible(const struct drm_region *r);
+extern bool drm_region_clip(struct drm_region *r,
+			    const struct drm_region *clip);
+extern bool drm_region_clip_scaled(struct drm_region *src,
+				   struct drm_region *dst,
+				   const struct drm_region *clip,
+				   int hscale, int vscale);
+
 #endif /* __DRM_CRTC_H__ */

@@ -3923,3 +3923,158 @@ int drm_format_vert_chroma_subsampling(uint32_t format)
 	}
 }
 EXPORT_SYMBOL(drm_format_vert_chroma_subsampling);
+
+/**
+ * drm_region_adjust_size - adjust the size of the region
+ * @r: region to be adjusted
+ * @x: horizontal adjustment
+ * @y: vertical adjustment
+ *
+ * Change the size of region @r by @x in the horizontal direction,
+ * and by @y in the vertical direction, while keeping the center
+ * of @r stationary.
+ *
+ * Positive @x and @y increase the size, negative values decrease it.
+ */
+void drm_region_adjust_size(struct drm_region *r, int x, int y)
+{
+	r->x1 -= x >> 1;
+	r->y1 -= y >> 1;
+	r->x2 += (x + 1) >> 1;
+	r->y2 += (y + 1) >> 1;
+}
+EXPORT_SYMBOL(drm_region_adjust_size);
+
+/**
+ * drm_region_translate - translate the region
+ * @r: region to be tranlated
+ * @x: horizontal translation
+ * @y: vertical translation
+ *
+ * Move region @r by @x in the horizontal direction,
+ * and by @y in the vertical direction.
+ */
+void drm_region_translate(struct drm_region *r, int x, int y)
+{
+	r->x1 += x;
+	r->y1 += y;
+	r->x2 += x;
+	r->y2 += y;
+}
+EXPORT_SYMBOL(drm_region_translate);
+
+/**
+ * drm_region_subsample - subsample a region
+ * @r: region to be subsampled
+ * @hsub: horizontal subsampling factor
+ * @vsub: vertical subsampling factor
+ *
+ * Divide the coordinates of region @r by @hsub and @vsub.
+ */
+void drm_region_subsample(struct drm_region *r, int hsub, int vsub)
+{
+	r->x1 /= hsub;
+	r->y1 /= vsub;
+	r->x2 /= hsub;
+	r->y2 /= vsub;
+}
+EXPORT_SYMBOL(drm_region_subsample);
+
+/**
+ * drm_region_width - determine the region width
+ * @r: region whose width is returned
+ *
+ * RETURNS:
+ * The width of the region.
+ */
+int drm_region_width(const struct drm_region *r)
+{
+	return r->x2 - r->x1;
+}
+EXPORT_SYMBOL(drm_region_width);
+
+/**
+ * drm_region_height - determine the region height
+ * @r: region whose height is returned
+ *
+ * RETURNS:
+ * The height of the region.
+ */
+int drm_region_height(const struct drm_region *r)
+{
+	return r->y2 - r->y1;
+}
+EXPORT_SYMBOL(drm_region_height);
+
+/**
+ * drm_region_visible - determine if the the region is visible
+ * @r: region whose visibility is returned
+ *
+ * RETURNS:
+ * @true if the region is visible, @false otherwise.
+ */
+bool drm_region_visible(const struct drm_region *r)
+{
+	return drm_region_width(r) > 0 && drm_region_height(r) > 0;
+}
+EXPORT_SYMBOL(drm_region_visible);
+
+/**
+ * drm_region_clip - clip one region by another region
+ * @r: region to be clipped
+ * @clip: clip region
+ *
+ * Clip region @r by region @clip.
+ *
+ * RETURNS:
+ * @true if the region is still visible after being clipped,
+ * @false otherwise.
+ */
+bool drm_region_clip(struct drm_region *r, const struct drm_region *clip)
+{
+	r->x1 = max(r->x1, clip->x1);
+	r->y1 = max(r->y1, clip->y1);
+	r->x2 = min(r->x2, clip->x2);
+	r->y2 = min(r->y2, clip->y2);
+
+	return drm_region_visible(r);
+}
+EXPORT_SYMBOL(drm_region_clip);
+
+/**
+ * drm_region_clip_scaled - perform a scaled clip operation
+ * @src: source window region
+ * @dst: destination window region
+ * @clip: clip region
+ * @hscale: horizontal scaling factor
+ * @vscale: vertical scaling factor
+ *
+ * Clip region @dst by region @clip. Clip region @src by the same
+ * amounts multiplied by @hscale and @vscale.
+ *
+ * RETUTRNS:
+ * @true if region @dst is still visible after being clipped,
+ * @false otherwise
+ */
+bool drm_region_clip_scaled(struct drm_region *src, struct drm_region *dst,
+			    const struct drm_region *clip,
+			    int hscale, int vscale)
+{
+	int diff;
+
+	diff = clip->x1 - dst->x1;
+	if (diff > 0)
+		src->x1 += diff * hscale;
+	diff = clip->y1 - dst->y1;
+	if (diff > 0)
+		src->y1 += diff * vscale;
+	diff = dst->x2 - clip->x2;
+	if (diff > 0)
+		src->x2 -= diff * hscale;
+	diff = dst->y2 - clip->y2;
+	if (diff > 0)
+		src->y2 -= diff * vscale;
+
+	return drm_region_clip(dst, clip);
+}
+EXPORT_SYMBOL(drm_region_clip_scaled);
