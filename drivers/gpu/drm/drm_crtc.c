@@ -1852,6 +1852,14 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 	if (!ret) {
 		plane->crtc = crtc;
 		plane->fb = fb;
+		plane->crtc_x = plane_req->crtc_x;
+		plane->crtc_y = plane_req->crtc_y;
+		plane->crtc_w = plane_req->crtc_w;
+		plane->crtc_h = plane_req->crtc_h;
+		plane->src_x = plane_req->src_x;
+		plane->src_y = plane_req->src_y;
+		plane->src_w = plane_req->src_w;
+		plane->src_h = plane_req->src_h;
 	}
 
 out:

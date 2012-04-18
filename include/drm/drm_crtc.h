@@ -672,6 +672,10 @@ struct drm_plane {
 	void *helper_private;
 
 	struct drm_object_properties properties;
+
+	uint32_t src_x, src_y, src_w, src_h;
+	int32_t crtc_x, crtc_y;
+	uint32_t crtc_w, crtc_h;
 };
 
 /**
