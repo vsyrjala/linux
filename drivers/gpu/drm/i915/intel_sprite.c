@@ -120,11 +120,10 @@ ivb_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
 	I915_WRITE(SPRSTRIDE(pipe), fb->pitches[0]);
 	I915_WRITE(SPRPOS(pipe), (crtc_y << 16) | crtc_x);
 
-	linear_offset = y * fb->pitches[0] + x * (fb->bits_per_pixel / 8);
+	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	sprsurf_offset =
 		intel_gen4_compute_offset_xtiled(&x, &y,
-						 fb->bits_per_pixel / 8,
-						 fb->pitches[0]);
+						 pixel_size, fb->pitches[0]);
 	linear_offset -= sprsurf_offset;
 
 	/* HSW consolidates SPRTILEOFF and SPRLINOFF into a single SPROFFSET
@@ -286,11 +285,10 @@ ilk_update_plane(struct drm_plane *plane, struct drm_framebuffer *fb,
 	I915_WRITE(DVSSTRIDE(pipe), fb->pitches[0]);
 	I915_WRITE(DVSPOS(pipe), (crtc_y << 16) | crtc_x);
 
-	linear_offset = y * fb->pitches[0] + x * (fb->bits_per_pixel / 8);
+	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	dvssurf_offset =
 		intel_gen4_compute_offset_xtiled(&x, &y,
-						 fb->bits_per_pixel / 8,
-						 fb->pitches[0]);
+						 pixel_size, fb->pitches[0]);
 	linear_offset -= dvssurf_offset;
 
 	if (obj->tiling_mode != I915_TILING_NONE)
@@ -409,6 +407,20 @@ ilk_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 		key->flags = I915_SET_COLORKEY_NONE;
 }
 
+static bool
+format_is_yuv(uint32_t format)
+{
+	switch (format) {
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_VYUY:
+	case DRM_FORMAT_YVYU:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static int
 intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		   struct drm_framebuffer *fb, int crtc_x, int crtc_y,
@@ -420,34 +432,67 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_plane *intel_plane = to_intel_plane(plane);
-	struct intel_framebuffer *intel_fb;
-	struct drm_i915_gem_object *obj, *old_obj;
+	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
+	struct drm_i915_gem_object *obj = intel_fb->obj;
+	struct drm_i915_gem_object *old_obj = intel_plane->obj;
 	int pipe = intel_plane->pipe;
 	enum transcoder cpu_transcoder = intel_pipe_to_cpu_transcoder(dev_priv,
 								      pipe);
 	int ret = 0;
-	int x = src_x >> 16, y = src_y >> 16;
 	int primary_w = crtc->mode.hdisplay, primary_h = crtc->mode.vdisplay;
 	bool disable_primary = false;
-
-	intel_fb = to_intel_framebuffer(fb);
-	obj = intel_fb->obj;
-
-	old_obj = intel_plane->obj;
-
-	src_w = src_w >> 16;
-	src_h = src_h >> 16;
-
-	/* Pipe must be running... */
-	if (!(I915_READ(PIPECONF(cpu_transcoder)) & PIPECONF_ENABLE))
-		return -EINVAL;
-
-	if (crtc_x >= primary_w || crtc_y >= primary_h)
-		return -EINVAL;
+	bool visible;
+	int hscale, vscale;
+	int cpp = drm_format_plane_cpp(fb->pixel_format, 0);
+	struct drm_region src = {
+		.x1 = src_x,
+		.x2 = src_x + src_w,
+		.y1 = src_y,
+		.y2 = src_y + src_h,
+	};
+	struct drm_region dst = {
+		.x1 = crtc_x,
+		.x2 = crtc_x + crtc_w,
+		.y1 = crtc_y,
+		.y2 = crtc_y + crtc_h,
+	};
+	const struct drm_region clip = {
+		.x2 = crtc->mode.hdisplay,
+		.y2 = crtc->mode.vdisplay,
+	};
 
 	/* Don't modify another pipe's plane */
 	if (intel_plane->pipe != intel_crtc->pipe)
 		return -EINVAL;
+
+	if (fb->width < 3 || fb->height < 3 || fb->pitches[0] > 16384)
+		return -EINVAL;
+
+	/*
+	 * We may not have a scaler, eg. HSW does not have it any more
+	 */
+	if (!intel_plane->can_scale && (((uint64_t) crtc_w << 16) != src_w ||
+					((uint64_t) crtc_h << 16) != src_h))
+		return -EINVAL;
+
+	/*
+	 * FIXME the following code does a bunch of fuzzy adjustments to the
+	 * coordinates and sizes. We probably need some way to decide whether
+	 * strict checking should be done instead.
+	 */
+	hscale = drm_calc_hscale(&src, &dst, 1, intel_plane->max_downscale << 16);
+	vscale = drm_calc_vscale(&src, &dst, 1, intel_plane->max_downscale << 16);
+
+	visible = drm_region_clip_scaled(&src, &dst, &clip, hscale, vscale);
+
+	crtc_x = dst.x1;
+	crtc_y = dst.y1;
+	crtc_w = drm_region_width(&dst);
+	crtc_h = drm_region_height(&dst);
+
+	/* HW doesn't seem to like smaller sprite, even when scaling */
+	if (crtc_w < 3 || crtc_h < 3)
+		visible = false;
 
 	/* Sprite planes can be linear or x-tiled surfaces */
 	switch (obj->tiling_mode) {
@@ -459,43 +504,47 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	}
 
 	/*
-	 * Clamp the width & height into the visible area.  Note we don't
-	 * try to scale the source if part of the visible region is offscreen.
-	 * The caller must handle that by adjusting source offset and size.
+	 * Hardware doesn't handle subpixel coordinates.
+	 * Round to nearest (macro)pixel boundary.
 	 */
-	if ((crtc_x < 0) && ((crtc_x + crtc_w) > 0)) {
-		crtc_w += crtc_x;
-		crtc_x = 0;
+	if (format_is_yuv(fb->pixel_format)) {
+		src_x = ((src.x1 + 0x10000) >> 17) << 1;
+		src_w = (((src.x2 + 0x10000) >> 17) << 1) - src_x;
+	} else {
+		src_x = (src.x1 + 0x8000) >> 16;
+		src_w = ((src.x2 + 0x8000) >> 16) - src_x;
 	}
-	if ((crtc_x + crtc_w) <= 0) /* Nothing to display */
-		goto out;
-	if ((crtc_x + crtc_w) > primary_w)
-		crtc_w = primary_w - crtc_x;
+	src_y = (src.y1 + 0x8000) >> 16;
+	src_h = ((src.y2 + 0x8000) >> 16) - src_y;
 
-	if ((crtc_y < 0) && ((crtc_y + crtc_h) > 0)) {
-		crtc_h += crtc_y;
-		crtc_y = 0;
+	/* Account for minimum source size when scaling */
+	if (visible && (src_w != crtc_w || src_h != crtc_h)) {
+		unsigned int min_w = format_is_yuv(fb->pixel_format) ? 4 : 3;
+
+		if (src_w < min_w) {
+			src_w = min_w;
+			if (src_x > fb->width - src_w)
+				src_x = fb->width - src_w;
+		}
+
+		/* FIXME interlacing */
+		if (src_h < 3) {
+			src_h = 3;
+			if (src_y > fb->height - src_h)
+				src_y = fb->height - src_h;
+		}
 	}
-	if ((crtc_y + crtc_h) <= 0) /* Nothing to display */
-		goto out;
-	if (crtc_y + crtc_h > primary_h)
-		crtc_h = primary_h - crtc_y;
 
-	if (!crtc_w || !crtc_h) /* Again, nothing to display */
-		goto out;
+	/* Check size restrictions when scaling */
+	if (visible && (src_w != crtc_w || src_h != crtc_h)) {
+		if (src_w > 2048 || src_h > 2048 ||
+		    src_w * cpp > 4096 - 64 || fb->pitches[0] > 4096)
+			return -EINVAL;
+	}
 
-	/*
-	 * We may not have a scaler, eg. HSW does not have it any more
-	 */
-	if (!intel_plane->can_scale && (crtc_w != src_w || crtc_h != src_h))
-		return -EINVAL;
-
-	/*
-	 * We can take a larger source and scale it down, but
-	 * only so much...  16x is the max on SNB.
-	 */
-	if (((src_w * src_h) / (crtc_w * crtc_h)) > intel_plane->max_downscale)
-		return -EINVAL;
+	/* Pipe must be running... */
+	if (!(I915_READ(PIPECONF(pipe)) & PIPECONF_ENABLE))
+		return 0;
 
 	/*
 	 * If the sprite is completely covering the primary plane,
@@ -520,11 +569,14 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	if (!disable_primary)
 		intel_enable_primary(crtc);
 
-	intel_plane->update_plane(plane, fb, obj, crtc_x, crtc_y,
-				  crtc_w, crtc_h, x, y, src_w, src_h);
+	if (visible) {
+		intel_plane->update_plane(plane, fb, obj, crtc_x, crtc_y,
+					  crtc_w, crtc_h, src_x, src_y, src_w, src_h);
 
-	if (disable_primary)
-		intel_disable_primary(crtc);
+		if (disable_primary)
+			intel_disable_primary(crtc);
+	} else
+		intel_plane->disable_plane(plane);
 
 	/* Unpin old obj after new one is active to avoid ugliness */
 	if (old_obj) {
@@ -544,7 +596,6 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 out_unlock:
 	mutex_unlock(&dev->struct_mutex);
-out:
 	return ret;
 }
 
