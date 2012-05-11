@@ -2236,13 +2236,30 @@ unsigned int intel_tile_height(struct drm_i915_private *dev_priv,
 }
 
 unsigned int
-intel_fb_align_height(struct drm_device *dev, unsigned int height,
-		      uint32_t pixel_format, uint64_t fb_format_modifier)
+intel_fb_align_height(struct drm_i915_private *dev_priv,
+		      unsigned int height, unsigned int offset,
+		      unsigned int pitch, uint32_t pixel_format,
+		      uint64_t fb_modifier)
 {
 	unsigned int cpp = drm_format_plane_cpp(pixel_format, 0);
+	unsigned int tile_height = intel_tile_height(dev_priv, cpp, fb_modifier);
 
-	return ALIGN(height, intel_tile_height(to_i915(dev), cpp,
-					       fb_format_modifier));
+	return ALIGN(height + offset / pitch, tile_height);
+}
+
+static unsigned int
+_intel_fb_align_height(struct drm_i915_private *dev_priv,
+		       const struct drm_framebuffer *fb)
+{
+	return intel_fb_align_height(dev_priv,
+				     fb->height, fb->offsets[0],
+				     fb->pitches[0], fb->pixel_format,
+				     fb->modifier[0]);
+}
+
+unsigned int intel_fb_height_with_offset(const struct drm_framebuffer *fb)
+{
+	return fb->height + fb->offsets[0] / fb->pitches[0];
 }
 
 static int
@@ -2264,7 +2281,7 @@ intel_fill_fb_ggtt_view(struct i915_ggtt_view *view, struct drm_framebuffer *fb,
 
 	*view = i915_ggtt_view_rotated;
 
-	info->height = fb->height;
+	info->height = intel_fb_height_with_offset(fb);
 	info->pixel_format = fb->pixel_format;
 	info->pitch = fb->pitches[0];
 	info->fb_modifier = fb->modifier[0];
@@ -2273,8 +2290,8 @@ intel_fill_fb_ggtt_view(struct i915_ggtt_view *view, struct drm_framebuffer *fb,
 	tile_width = intel_tile_width(dev_priv, cpp, fb->modifier[0]);
 	tile_height = tile_size / tile_width;
 
-	info->width_pages = DIV_ROUND_UP(fb->pitches[0], tile_width);
-	info->height_pages = DIV_ROUND_UP(fb->height, tile_height);
+	info->width_pages = DIV_ROUND_UP(info->pitch, tile_width);
+	info->height_pages = DIV_ROUND_UP(info->height, tile_height);
 	info->size = info->width_pages * info->height_pages * tile_size;
 
 	return 0;
@@ -2408,6 +2425,24 @@ static void intel_unpin_fb_obj(struct drm_framebuffer *fb,
 
 	i915_gem_object_unpin_fence(obj);
 	i915_gem_object_unpin_from_display_plane(obj, &view);
+}
+
+/*
+ * Include fb->offsets[plane] into the linear offset,
+ * and convert the result back to corresponding x/y
+ * offsets.
+ */
+unsigned int intel_fb_offsets(int *x, int *y,
+			      const struct drm_framebuffer *fb)
+{
+	unsigned int cpp = drm_format_plane_cpp(fb->pixel_format, 0);
+	unsigned int pitch = fb->pitches[0];
+	unsigned int linear_offset = fb->offsets[0] + *y * pitch + *x + cpp;
+
+	*y = linear_offset / pitch;
+	*x = (linear_offset - *y * pitch) / cpp;
+
+	return linear_offset;
 }
 
 /*
@@ -2733,7 +2768,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	if (IS_G4X(dev))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
 
-	linear_offset = y * fb->pitches[0] + x * pixel_size;
+	linear_offset = intel_fb_offsets(&x, &y, fb);
 
 	if (INTEL_INFO(dev)->gen >= 4) {
 		intel_crtc->dspaddr_offset =
@@ -2836,7 +2871,7 @@ static void ironlake_update_primary_plane(struct drm_crtc *crtc,
 	if (!IS_HASWELL(dev) && !IS_BROADWELL(dev))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
 
-	linear_offset = y * fb->pitches[0] + x * pixel_size;
+	linear_offset = intel_fb_offsets(&x, &y, fb);
 	intel_crtc->dspaddr_offset =
 		intel_compute_page_offset(dev_priv, &x, &y,
 					  fb->modifier[0], pixel_size,
@@ -3058,9 +3093,6 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 	plane_ctl |= skl_plane_ctl_rotation(rotation);
 
 	obj = intel_fb_obj(fb);
-	stride_div = intel_fb_stride_alignment(dev, fb->modifier[0],
-					       fb->pixel_format);
-	surf_addr = intel_plane_obj_offset(to_intel_plane(plane), obj);
 
 	/*
 	 * FIXME: intel_plane_state->src, dst aren't set when transitional
@@ -3084,6 +3116,8 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 		src_h = intel_crtc->config->pipe_src_h;
 	}
 
+	intel_fb_offsets(&x, &y, fb);
+
 	r.x1 = x;
 	r.x2 = x + src_w;
 	r.y1 = y;
@@ -3092,7 +3126,7 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 	if (intel_rotation_90_or_270(rotation)) {
 		stride_div = intel_tile_height(dev_priv, pixel_size,
 					       fb->modifier[0]);
-		stride = roundup(fb->height, stride_div);
+		stride = roundup(intel_fb_height_with_offset(fb), stride_div);
 
 		/* Rotate src coordinates to match rotated GTT view */
 		drm_rect_rotate(&r, fb->width, stride, DRM_ROTATE_270);
@@ -8006,9 +8040,7 @@ i9xx_get_initial_plane_config(struct intel_crtc *crtc,
 	val = I915_READ(DSPSTRIDE(pipe));
 	fb->pitches[0] = val & 0xffffffc0;
 
-	aligned_height = intel_fb_align_height(dev, fb->height,
-					       fb->pixel_format,
-					       fb->modifier[0]);
+	aligned_height = _intel_fb_align_height(dev_priv, fb);
 
 	plane_config->size = fb->pitches[0] * aligned_height;
 
@@ -9070,9 +9102,7 @@ skylake_get_initial_plane_config(struct intel_crtc *crtc,
 						fb->pixel_format);
 	fb->pitches[0] = (val & 0x3ff) * stride_mult;
 
-	aligned_height = intel_fb_align_height(dev, fb->height,
-					       fb->pixel_format,
-					       fb->modifier[0]);
+	aligned_height = _intel_fb_align_height(dev_priv, fb);
 
 	plane_config->size = fb->pitches[0] * aligned_height;
 
@@ -9167,9 +9197,7 @@ ironlake_get_initial_plane_config(struct intel_crtc *crtc,
 	val = I915_READ(DSPSTRIDE(pipe));
 	fb->pitches[0] = val & 0xffffffc0;
 
-	aligned_height = intel_fb_align_height(dev, fb->height,
-					       fb->pixel_format,
-					       fb->modifier[0]);
+	aligned_height = _intel_fb_align_height(dev_priv, fb);
 
 	plane_config->size = fb->pitches[0] * aligned_height;
 
@@ -14331,11 +14359,19 @@ static int intel_framebuffer_init(struct drm_device *dev,
 		return -EINVAL;
 	}
 
-	/* FIXME need to adjust LINOFF/TILEOFF accordingly. */
-	if (mode_cmd->offsets[0] != 0)
+	/*
+	 * require the fb offset to be stride aligned. Makes things
+	 * simpler since the byte offset can now only increase the
+	 * Y offset, not the X offset.
+	 */
+	if (mode_cmd->offsets[0] % mode_cmd->pitches[0]) {
+		DRM_DEBUG("fb offset not stride aligned\n");
 		return -EINVAL;
+	}
 
-	aligned_height = intel_fb_align_height(dev, mode_cmd->height,
+	aligned_height = intel_fb_align_height(to_i915(dev), mode_cmd->height,
+					       mode_cmd->offsets[0],
+					       mode_cmd->pitches[0],
 					       mode_cmd->pixel_format,
 					       mode_cmd->modifier[0]);
 	/* FIXME drm helper for size checks (especially planar formats)? */

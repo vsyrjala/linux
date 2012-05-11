@@ -219,6 +219,8 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 	else if (key->flags & I915_SET_COLORKEY_SOURCE)
 		plane_ctl |= PLANE_CTL_KEY_ENABLE_SOURCE;
 
+	intel_fb_offsets(&x, &y, fb);
+
 	r.x1 = x;
 	r.x2 = x + src_w;
 	r.y1 = y;
@@ -227,7 +229,7 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 	if (intel_rotation_90_or_270(rotation)) {
 		stride_div = intel_tile_height(dev_priv, pixel_size,
 					       fb->modifier[0]);
-		stride = roundup(fb->height, stride_div);
+		stride = roundup(intel_fb_height_with_offset(fb), stride_div);
 
 		/* Rotate src coordinates to match rotated GTT view */
 		drm_rect_rotate(&r, fb->width, stride, DRM_ROTATE_270);
@@ -427,7 +429,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	crtc_w--;
 	crtc_h--;
 
-	linear_offset = y * fb->pitches[0] + x * pixel_size;
+	linear_offset = intel_fb_offsets(&x, &y, fb);
 	sprsurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
 						   fb->modifier[0], pixel_size,
 						   fb->pitches[0], false);
@@ -567,7 +569,7 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	if (crtc_w != src_w || crtc_h != src_h)
 		sprscale = SPRITE_SCALE_ENABLE | (src_w << 16) | src_h;
 
-	linear_offset = y * fb->pitches[0] + x * pixel_size;
+	linear_offset = intel_fb_offsets(&x, &y, fb);
 	sprsurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
 						   fb->modifier[0], pixel_size,
 						   fb->pitches[0], false);
@@ -712,7 +714,7 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	if (crtc_w != src_w || crtc_h != src_h)
 		dvsscale = DVS_SCALE_ENABLE | (src_w << 16) | src_h;
 
-	linear_offset = y * fb->pitches[0] + x * pixel_size;
+	linear_offset = intel_fb_offsets(&x, &y, fb);
 	dvssurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
 						   fb->modifier[0], pixel_size,
 						   fb->pitches[0], false);

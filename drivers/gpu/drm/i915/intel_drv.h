@@ -993,8 +993,10 @@ void intel_frontbuffer_flip_complete(struct drm_device *dev,
 				     unsigned frontbuffer_bits);
 void intel_frontbuffer_flip(struct drm_device *dev,
 			    unsigned frontbuffer_bits);
-unsigned int intel_fb_align_height(struct drm_device *dev,
+unsigned int intel_fb_align_height(struct drm_i915_private *dev_priv,
 				   unsigned int height,
+				   unsigned int offset,
+				   unsigned int pitch,
 				   uint32_t pixel_format,
 				   uint64_t fb_format_modifier);
 void intel_fb_obj_flush(struct drm_i915_gem_object *obj, bool retire,
@@ -1123,6 +1125,9 @@ unsigned long intel_compute_page_offset(struct drm_i915_private *dev_priv,
 					unsigned int cpp,
 					unsigned int pitch,
 					bool rotation_90_or_270);
+unsigned int intel_fb_offsets(int *x, int *y,
+			      const struct drm_framebuffer *fb);
+unsigned int intel_fb_height_with_offset(const struct drm_framebuffer *fb);
 void intel_prepare_reset(struct drm_device *dev);
 void intel_finish_reset(struct drm_device *dev);
 void hsw_enable_pc8(struct drm_i915_private *dev_priv);
