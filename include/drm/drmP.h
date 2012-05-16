@@ -958,6 +958,8 @@ struct drm_driver {
 
 	/* List of devices hanging off this driver */
 	struct list_head device_list;
+
+	const struct drm_atomic_funcs *atomic_funcs;
 };
 
 #define DRM_MINOR_UNASSIGNED 0
@@ -1049,6 +1051,12 @@ struct drm_pending_vblank_event {
 	struct drm_pending_event base;
 	int pipe;
 	struct drm_event_vblank event;
+};
+
+struct drm_pending_atomic_event {
+	struct drm_pending_event base;
+	int pipe;
+	struct drm_event_atomic event;
 };
 
 /**

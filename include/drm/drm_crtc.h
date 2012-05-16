@@ -1111,6 +1111,8 @@ extern int drm_mode_obj_get_properties_ioctl(struct drm_device *dev, void *data,
 					     struct drm_file *file_priv);
 extern int drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 					   struct drm_file *file_priv);
+extern int drm_mode_atomic_ioctl(struct drm_device *dev,
+				 void *data, struct drm_file *file_priv);
 
 extern void drm_fb_get_bpp_depth(uint32_t format, unsigned int *depth,
 				 int *bpp);
@@ -1160,5 +1162,16 @@ extern void drm_plane_attach_properties(struct drm_plane *plane);
 
 extern void drm_crtc_update_properties(struct drm_crtc *crtc);
 extern void drm_plane_update_properties(struct drm_plane *plane);
+
+struct drm_atomic_funcs {
+	void *(*begin)(struct drm_device *dev, struct drm_file *file,
+		       uint32_t flags, uint64_t user_data);
+	int (*set)(struct drm_device *dev, void *state,
+		   struct drm_mode_object *obj, struct drm_property *prop,
+		   uint64_t value, void *blob_data);
+	int (*check)(struct drm_device *dev, void *state);
+	int (*commit)(struct drm_device *dev, void *state);
+	void (*end)(struct drm_device *dev, void *state);
+};
 
 #endif /* __DRM_CRTC_H__ */
