@@ -231,6 +231,15 @@ struct intel_crtc {
 	uint32_t ddi_pll_sel;
 };
 
+struct intel_plane_coords {
+	/* disabled or fully clipped? */
+	bool visible;
+	/* coordinates clipped against pipe dimensions */
+	int32_t crtc_x, crtc_y;
+	uint32_t crtc_w, crtc_h;
+	uint32_t src_x, src_y, src_w, src_h;
+};
+
 struct intel_plane {
 	struct drm_plane base;
 	enum pipe pipe;
@@ -240,11 +249,7 @@ struct intel_plane {
 	u32 lut_r[1024], lut_g[1024], lut_b[1024];
 	void (*update_plane)(struct drm_plane *plane,
 			     struct drm_framebuffer *fb,
-			     struct drm_i915_gem_object *obj,
-			     int crtc_x, int crtc_y,
-			     unsigned int crtc_w, unsigned int crtc_h,
-			     uint32_t x, uint32_t y,
-			     uint32_t src_w, uint32_t src_h);
+			     const struct intel_plane_coords *clip);
 	void (*disable_plane)(struct drm_plane *plane);
 	int (*update_colorkey)(struct drm_plane *plane,
 			       struct drm_intel_sprite_colorkey *key);
