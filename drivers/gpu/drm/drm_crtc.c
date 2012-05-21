@@ -3112,8 +3112,8 @@ done:
 	return ret;
 }
 
-static struct drm_property_blob *drm_property_create_blob(struct drm_device *dev, int length,
-							  void *data)
+struct drm_property_blob *drm_property_create_blob(struct drm_device *dev, int length,
+						   void *data)
 {
 	struct drm_property_blob *blob;
 	int ret;
@@ -3138,14 +3138,16 @@ static struct drm_property_blob *drm_property_create_blob(struct drm_device *dev
 	list_add_tail(&blob->head, &dev->mode_config.property_blob_list);
 	return blob;
 }
+EXPORT_SYMBOL(drm_property_create_blob);
 
-static void drm_property_destroy_blob(struct drm_device *dev,
+void drm_property_destroy_blob(struct drm_device *dev,
 			       struct drm_property_blob *blob)
 {
 	drm_mode_object_put(dev, &blob->base);
 	list_del(&blob->head);
 	kfree(blob);
 }
+EXPORT_SYMBOL(drm_property_destroy_blob);
 
 int drm_mode_getblob_ioctl(struct drm_device *dev,
 			   void *data, struct drm_file *file_priv)

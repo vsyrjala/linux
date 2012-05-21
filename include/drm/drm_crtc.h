@@ -970,6 +970,10 @@ struct drm_property *drm_property_create_range(struct drm_device *dev, int flags
 					 const char *name,
 					 uint64_t min, uint64_t max);
 extern void drm_property_destroy(struct drm_device *dev, struct drm_property *property);
+extern struct drm_property_blob *drm_property_create_blob(struct drm_device *dev,
+							  int length, void *data);
+extern void drm_property_destroy_blob(struct drm_device *dev,
+				      struct drm_property_blob *blob);
 extern int drm_property_add_enum(struct drm_property *property, int index,
 				 uint64_t value, const char *name);
 extern int drm_mode_create_dvi_i_properties(struct drm_device *dev);
