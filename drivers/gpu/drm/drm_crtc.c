@@ -3374,6 +3374,19 @@ out:
 	return ret;
 }
 
+static bool object_has_prop(const struct drm_mode_object *obj, u32 prop_id)
+{
+	int i;
+
+	if (!obj->properties)
+		return false;
+
+	for (i = 0; i < obj->properties->count; i++)
+		if (obj->properties->ids[i] == prop_id)
+			return true;
+	return false;
+}
+
 int drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 				    struct drm_file *file_priv)
 {
@@ -3382,7 +3395,6 @@ int drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 	struct drm_mode_object *prop_obj;
 	struct drm_property *property;
 	int ret = -EINVAL;
-	int i;
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
@@ -3395,11 +3407,7 @@ int drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 	if (!arg_obj->properties)
 		goto out;
 
-	for (i = 0; i < arg_obj->properties->count; i++)
-		if (arg_obj->properties->ids[i] == arg->prop_id)
-			break;
-
-	if (i == arg_obj->properties->count)
+	if (!object_has_prop(arg_obj, arg->prop_id))
 		goto out;
 
 	prop_obj = drm_mode_object_find(dev, arg->prop_id,
