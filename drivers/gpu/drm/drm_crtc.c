@@ -3213,14 +3213,25 @@ int drm_mode_connector_update_edid_property(struct drm_connector *connector,
 }
 EXPORT_SYMBOL(drm_mode_connector_update_edid_property);
 
-static bool drm_property_change_is_valid(struct drm_property *property,
+static bool range_property_is_signed(const struct drm_property *property)
+{
+	return property->values[0] > property->values[1];
+}
+
+static bool drm_property_change_is_valid(const struct drm_property *property,
 					 uint64_t value)
 {
 	if (property->flags & DRM_MODE_PROP_IMMUTABLE)
 		return false;
 	if (property->flags & DRM_MODE_PROP_RANGE) {
-		if (value < property->values[0] || value > property->values[1])
-			return false;
+		if (range_property_is_signed(property)) {
+			if ((int64_t)value < (int64_t)property->values[0] ||
+			    (int64_t)value > (int64_t)property->values[1])
+				return false;
+		} else {
+			if (value < property->values[0] || value > property->values[1])
+				return false;
+		}
 		return true;
 	} else if (property->flags & DRM_MODE_PROP_BITMASK) {
 		int i;
