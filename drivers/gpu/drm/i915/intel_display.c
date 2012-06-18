@@ -8439,6 +8439,9 @@ static void intel_setup_outputs(struct drm_device *dev)
 			intel_encoder_clones(encoder);
 	}
 
+	/* FIXME error handling */
+	intel_atomic_init(dev);
+
 	intel_init_pch_refclk(dev);
 
 	drm_helper_move_panel_connectors_to_head(dev);
@@ -9216,6 +9219,8 @@ void intel_modeset_cleanup(struct drm_device *dev)
 
 	/* flush any delayed tasks or pending work */
 	flush_scheduled_work();
+
+	intel_atomic_fini(dev);
 
 	drm_mode_config_cleanup(dev);
 }

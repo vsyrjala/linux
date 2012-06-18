@@ -732,4 +732,7 @@ extern void intel_modeset_commit_output_state(struct drm_device *dev);
 extern void intel_crtc_attach_properties(struct drm_crtc *crtc);
 extern void intel_crtc_update_properties(struct drm_crtc *crtc);
 
+extern int intel_atomic_init(struct drm_device *dev);
+extern void intel_atomic_fini(struct drm_device *dev);
+
 #endif /* __INTEL_DRV_H__ */
