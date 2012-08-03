@@ -6173,12 +6173,12 @@ static void intel_crtc_update_cursor(struct drm_crtc *crtc,
 	}
 }
 
-static int intel_crtc_cursor_prepare(struct drm_crtc *crtc,
-				 struct drm_file *file,
-				 uint32_t handle,
-				 uint32_t width, uint32_t height,
-				 struct drm_i915_gem_object **obj_ret,
-				 uint32_t *addr_ret)
+int intel_crtc_cursor_prepare(struct drm_crtc *crtc,
+			      struct drm_file *file,
+			      uint32_t handle,
+			      uint32_t width, uint32_t height,
+			      struct drm_i915_gem_object **obj_ret,
+			      uint32_t *addr_ret)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -6263,8 +6263,8 @@ fail:
 	return ret;
 }
 
-static void intel_crtc_cursor_bo_unref(struct drm_crtc *crtc,
-				       struct drm_i915_gem_object *obj)
+void intel_crtc_cursor_bo_unref(struct drm_crtc *crtc,
+				struct drm_i915_gem_object *obj)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -6282,10 +6282,10 @@ static void intel_crtc_cursor_bo_unref(struct drm_crtc *crtc,
 	mutex_unlock(&dev->struct_mutex);
 }
 
-static void intel_crtc_cursor_commit(struct drm_crtc *crtc, uint32_t handle,
-				     uint32_t width, uint32_t height,
-				     struct drm_i915_gem_object *obj,
-				     uint32_t addr)
+void intel_crtc_cursor_commit(struct drm_crtc *crtc, uint32_t handle,
+			      uint32_t width, uint32_t height,
+			      struct drm_i915_gem_object *obj,
+			      uint32_t addr)
 {
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 

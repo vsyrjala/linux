@@ -679,4 +679,17 @@ extern bool
 intel_ddi_connector_get_hw_state(struct intel_connector *intel_connector);
 extern void intel_ddi_fdi_disable(struct drm_crtc *crtc);
 
+extern int intel_crtc_cursor_prepare(struct drm_crtc *crtc,
+				     struct drm_file *file,
+				     uint32_t handle,
+				     uint32_t width, uint32_t height,
+				     struct drm_i915_gem_object **obj_ret,
+				     uint32_t *addr_ret);
+extern void intel_crtc_cursor_bo_unref(struct drm_crtc *crtc,
+				       struct drm_i915_gem_object *obj);
+extern void intel_crtc_cursor_commit(struct drm_crtc *crtc, uint32_t handle,
+				     uint32_t width, uint32_t height,
+				     struct drm_i915_gem_object *obj,
+				     uint32_t addr);
+
 #endif /* __INTEL_DRV_H__ */
