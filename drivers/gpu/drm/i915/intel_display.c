@@ -6260,6 +6260,7 @@ static int intel_crtc_cursor_set(struct drm_crtc *crtc,
 	mutex_unlock(&dev->struct_mutex);
 
 	intel_crtc->cursor_addr = addr;
+	intel_crtc->cursor_handle = handle;
 	intel_crtc->cursor_bo = obj;
 	intel_crtc->cursor_width = width;
 	intel_crtc->cursor_height = height;

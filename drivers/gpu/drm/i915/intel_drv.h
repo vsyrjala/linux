@@ -220,7 +220,7 @@ struct intel_crtc {
 	unsigned long dspaddr_offset;
 
 	struct drm_i915_gem_object *cursor_bo;
-	uint32_t cursor_addr;
+	uint32_t cursor_addr, cursor_handle;
 	int16_t cursor_x, cursor_y;
 	int16_t cursor_width, cursor_height;
 	bool cursor_visible;
