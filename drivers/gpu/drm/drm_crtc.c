@@ -2925,6 +2925,9 @@ void drm_property_destroy(struct drm_device *dev, struct drm_property *property)
 {
 	struct drm_property_enum *prop_enum, *pt;
 
+	if (!property)
+		return;
+
 	list_for_each_entry_safe(prop_enum, pt, &property->enum_blob_list, head) {
 		list_del(&prop_enum->head);
 		kfree(prop_enum);
@@ -3114,16 +3117,24 @@ done:
 	return ret;
 }
 
-struct drm_property_blob *drm_property_create_blob(struct drm_device *dev, int length,
-						   void *data)
+struct drm_property_blob *drm_property_create_blob(struct drm_device *dev,
+						   unsigned int length,
+						   unsigned int max_length,
+						   const void *data)
 {
 	struct drm_property_blob *blob;
 	int ret;
 
-	if (!length || !data)
+	if (!!length != !!data)
 		return NULL;
 
-	blob = kzalloc(sizeof(struct drm_property_blob)+length, GFP_KERNEL);
+	if (max_length < length)
+		max_length = length;
+
+	if (max_length == 0)
+		return NULL;
+
+	blob = kzalloc(sizeof(struct drm_property_blob)+max_length, GFP_KERNEL);
 	if (!blob)
 		return NULL;
 
@@ -3133,18 +3144,40 @@ struct drm_property_blob *drm_property_create_blob(struct drm_device *dev, int l
 		return NULL;
 	}
 
+	blob->max_length = max_length;
 	blob->length = length;
 
-	memcpy(blob->data, data, length);
+	if (length)
+		memcpy(blob->data, data, length);
 
 	list_add_tail(&blob->head, &dev->mode_config.property_blob_list);
 	return blob;
 }
 EXPORT_SYMBOL(drm_property_create_blob);
 
+int drm_property_blob_replace_data(struct drm_property_blob *blob,
+				   unsigned int length, const void *data)
+{
+	if (!!length != !!data)
+		return -EINVAL;
+
+	if (length > blob->max_length)
+		return -ENOSPC;
+
+	blob->length = length;
+	if (length)
+		memcpy(blob->data, data, length);
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_property_blob_replace_data);
+
 void drm_property_destroy_blob(struct drm_device *dev,
 			       struct drm_property_blob *blob)
 {
+	if (!blob)
+		return;
+
 	drm_mode_object_put(dev, &blob->base);
 	list_del(&blob->head);
 	kfree(blob);
@@ -3203,7 +3236,7 @@ int drm_mode_connector_update_edid_property(struct drm_connector *connector,
 
 	size = EDID_LENGTH * (1 + edid->extensions);
 	connector->edid_blob_ptr = drm_property_create_blob(connector->dev,
-							    size, edid);
+							    size, 0, edid);
 	if (!connector->edid_blob_ptr)
 		return -EINVAL;
 

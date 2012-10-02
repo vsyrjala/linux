@@ -276,6 +276,7 @@ struct drm_property_blob {
 	struct drm_mode_object base;
 	struct list_head head;
 	unsigned int length;
+	unsigned int max_length;
 	unsigned char data[];
 };
 
@@ -972,7 +973,12 @@ struct drm_property *drm_property_create_range(struct drm_device *dev, int flags
 					 uint64_t min, uint64_t max);
 extern void drm_property_destroy(struct drm_device *dev, struct drm_property *property);
 extern struct drm_property_blob *drm_property_create_blob(struct drm_device *dev,
-							  int length, void *data);
+							  unsigned int level,
+							  unsigned int max_length,
+							  const void *data);
+extern int drm_property_blob_replace_data(struct drm_property_blob *blob,
+					  unsigned int length,
+					  const void *data);
 extern void drm_property_destroy_blob(struct drm_device *dev,
 				      struct drm_property_blob *blob);
 extern int drm_property_add_enum(struct drm_property *property, int index,
