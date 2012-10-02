@@ -1161,8 +1161,8 @@ static void drm_crtc_convert_to_umode(struct drm_mode_modeinfo *out,
  * RETURNS:
  * Zero on success, errno on failure.
  */
-static int drm_crtc_convert_umode(struct drm_display_mode *out,
-				  const struct drm_mode_modeinfo *in)
+int drm_crtc_convert_umode(struct drm_display_mode *out,
+			   const struct drm_mode_modeinfo *in)
 {
 	if (in->clock > INT_MAX || in->vrefresh > INT_MAX)
 		return -ERANGE;
@@ -1186,6 +1186,7 @@ static int drm_crtc_convert_umode(struct drm_display_mode *out,
 
 	return 0;
 }
+EXPORT_SYMBOL(drm_crtc_convert_umode);
 
 /**
  * drm_mode_getresources - get graphics configuration

@@ -1090,6 +1090,8 @@ extern int drm_format_num_planes(uint32_t format);
 extern int drm_format_plane_cpp(uint32_t format, int plane);
 extern int drm_format_horz_chroma_subsampling(uint32_t format);
 extern int drm_format_vert_chroma_subsampling(uint32_t format);
+extern int drm_crtc_convert_umode(struct drm_display_mode *out,
+				  const struct drm_mode_modeinfo *in);
 
 /**
  * drm_region - two dimensional region
