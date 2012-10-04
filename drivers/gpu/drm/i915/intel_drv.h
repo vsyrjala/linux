@@ -590,6 +590,7 @@ extern int intel_pin_and_fence_fb_obj(struct drm_device *dev,
 				      struct drm_i915_gem_object *obj,
 				      struct intel_ring_buffer *pipelined);
 extern void intel_unpin_fb_obj(struct drm_i915_gem_object *obj);
+extern int intel_finish_fb(struct drm_framebuffer *old_fb);
 
 extern int intel_framebuffer_init(struct drm_device *dev,
 				  struct intel_framebuffer *ifb,
