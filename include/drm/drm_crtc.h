@@ -423,6 +423,9 @@ struct drm_crtc {
 	void *helper_private;
 
 	struct drm_object_properties properties;
+
+	struct drm_property_blob *mode_blob;
+	struct drm_property_blob *connector_ids_blob;
 };
 
 
@@ -830,6 +833,25 @@ struct drm_mode_config {
 	struct drm_property *dithering_mode_property;
 	struct drm_property *dirty_info_property;
 
+	/* CRTC/plane properties */
+	struct drm_property *src_x_prop;
+	struct drm_property *src_y_prop;
+	struct drm_property *src_w_prop;
+	struct drm_property *src_h_prop;
+	struct drm_property *crtc_x_prop;
+	struct drm_property *crtc_y_prop;
+	struct drm_property *crtc_w_prop;
+	struct drm_property *crtc_h_prop;
+	struct drm_property *fb_id_prop;
+	struct drm_property *crtc_id_prop;
+	struct drm_property *mode_prop;
+	struct drm_property *connector_ids_prop;
+	struct drm_property *cursor_id_prop;
+	struct drm_property *cursor_x_prop;
+	struct drm_property *cursor_y_prop;
+	struct drm_property *cursor_w_prop;
+	struct drm_property *cursor_h_prop;
+
 	/* dumb ioctl parameters */
 	uint32_t preferred_depth, prefer_shadow;
 };
@@ -1126,5 +1148,17 @@ extern int drm_calc_hscale(struct drm_region *src, struct drm_region *dst,
 			   int min_hscale, int max_hscale);
 extern int drm_calc_vscale(struct drm_region *src, struct drm_region *dst,
 			   int min_vscale, int max_vscale);
+
+extern int drm_mode_create_properties(struct drm_device *dev);
+extern void drm_mode_destroy_properties(struct drm_device *dev);
+
+extern int drm_crtc_create_blobs(struct drm_crtc *crtc);
+extern void drm_crtc_destroy_blobs(struct drm_crtc *crtc);
+
+extern void drm_crtc_attach_properties(struct drm_crtc *crtc);
+extern void drm_plane_attach_properties(struct drm_plane *plane);
+
+extern void drm_crtc_update_properties(struct drm_crtc *crtc);
+extern void drm_plane_update_properties(struct drm_plane *plane);
 
 #endif /* __DRM_CRTC_H__ */

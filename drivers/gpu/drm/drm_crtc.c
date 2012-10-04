@@ -4244,3 +4244,238 @@ int drm_calc_vscale(struct drm_region *src, struct drm_region *dst,
 	return vscale;
 }
 EXPORT_SYMBOL(drm_calc_vscale);
+
+static void drm_crtc_update_connector_ids_property(struct drm_crtc *crtc)
+{
+	struct drm_mode_config *config = &crtc->dev->mode_config;
+	struct drm_connector *connector;
+	uint64_t value = 0;
+	int i = 0;
+	uint32_t connector_ids[config->num_connector];
+
+	list_for_each_entry(connector, &config->connector_list, head) {
+		if (connector->encoder && connector->encoder->crtc == crtc)
+			connector_ids[i++] = connector->base.id;
+	}
+
+	if (i) {
+		drm_property_blob_replace_data(crtc->connector_ids_blob,
+					       i * sizeof connector_ids[0], connector_ids);
+		value = crtc->connector_ids_blob->base.id;
+	} else
+		drm_property_blob_replace_data(crtc->connector_ids_blob, 0, NULL);
+
+	drm_object_property_set_value(&crtc->base, config->connector_ids_prop, value);
+}
+
+static void drm_crtc_update_mode_property(struct drm_crtc *crtc)
+{
+	struct drm_mode_config *config = &crtc->dev->mode_config;
+	uint64_t value = 0;
+
+	if (crtc->enabled) {
+		struct drm_mode_modeinfo umode;
+
+		drm_crtc_convert_to_umode(&umode, &crtc->mode);
+		drm_property_blob_replace_data(crtc->mode_blob, sizeof umode, &umode);
+		value = crtc->mode_blob->base.id;
+	} else
+		drm_property_blob_replace_data(crtc->mode_blob, 0, NULL);
+
+	drm_object_property_set_value(&crtc->base, config->mode_prop, value);
+}
+
+void drm_crtc_update_properties(struct drm_crtc *crtc)
+{
+	struct drm_mode_object *obj = &crtc->base;
+	struct drm_mode_config *config = &crtc->dev->mode_config;
+
+	drm_object_property_set_value(obj, config->src_x_prop, crtc->x);
+	drm_object_property_set_value(obj, config->src_y_prop, crtc->y);
+	drm_object_property_set_value(obj, config->fb_id_prop, crtc->fb ? crtc->fb->base.id : 0);
+
+	drm_crtc_update_mode_property(crtc);
+	drm_crtc_update_connector_ids_property(crtc);
+}
+EXPORT_SYMBOL(drm_crtc_update_properties);
+
+void drm_plane_update_properties(struct drm_plane *plane)
+{
+	struct drm_mode_object *obj = &plane->base;
+	struct drm_mode_config *config = &plane->dev->mode_config;
+
+	drm_object_property_set_value(obj, config->src_x_prop, plane->src_x);
+	drm_object_property_set_value(obj, config->src_y_prop, plane->src_y);
+	drm_object_property_set_value(obj, config->src_w_prop, plane->src_w);
+	drm_object_property_set_value(obj, config->src_h_prop, plane->src_h);
+
+	drm_object_property_set_value(obj, config->crtc_x_prop, plane->crtc_x);
+	drm_object_property_set_value(obj, config->crtc_y_prop, plane->crtc_y);
+	drm_object_property_set_value(obj, config->crtc_w_prop, plane->crtc_w);
+	drm_object_property_set_value(obj, config->crtc_h_prop, plane->crtc_h);
+
+	drm_object_property_set_value(obj, config->fb_id_prop, plane->fb ? plane->fb->base.id : 0);
+	drm_object_property_set_value(obj, config->crtc_id_prop, plane->crtc ? plane->crtc->base.id : 0);
+}
+EXPORT_SYMBOL(drm_plane_update_properties);
+
+int drm_crtc_create_blobs(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+
+	crtc->mode_blob = drm_property_create_blob(dev, 0, sizeof(struct drm_mode_modeinfo), NULL);
+	if (!crtc->mode_blob)
+		return -ENOMEM;
+
+	crtc->connector_ids_blob = drm_property_create_blob(dev, 0, dev->mode_config.num_connector * sizeof(uint32_t), NULL);
+	if (!crtc->connector_ids_blob)
+		return -ENOMEM;
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_crtc_create_blobs);
+
+void drm_crtc_destroy_blobs(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+
+	drm_property_destroy_blob(dev, crtc->mode_blob);
+	drm_property_destroy_blob(dev, crtc->connector_ids_blob);
+}
+EXPORT_SYMBOL(drm_crtc_destroy_blobs);
+
+static void drm_property_destroy_null(struct drm_device *dev, struct drm_property **prop)
+{
+	drm_property_destroy(dev, *prop);
+	*prop = NULL;
+}
+
+void drm_mode_destroy_properties(struct drm_device *dev)
+{
+	struct drm_mode_config *config = &dev->mode_config;
+
+	drm_property_destroy_null(dev, &config->cursor_h_prop);
+	drm_property_destroy_null(dev, &config->cursor_w_prop);
+	drm_property_destroy_null(dev, &config->cursor_y_prop);
+	drm_property_destroy_null(dev, &config->cursor_x_prop);
+	drm_property_destroy_null(dev, &config->cursor_id_prop);
+
+	drm_property_destroy_null(dev, &config->connector_ids_prop);
+	drm_property_destroy_null(dev, &config->mode_prop);
+
+	drm_property_destroy_null(dev, &config->crtc_id_prop);
+	drm_property_destroy_null(dev, &config->fb_id_prop);
+
+	drm_property_destroy_null(dev, &config->crtc_h_prop);
+	drm_property_destroy_null(dev, &config->crtc_w_prop);
+	drm_property_destroy_null(dev, &config->crtc_y_prop);
+	drm_property_destroy_null(dev, &config->crtc_x_prop);
+
+	drm_property_destroy_null(dev, &config->src_h_prop);
+	drm_property_destroy_null(dev, &config->src_w_prop);
+	drm_property_destroy_null(dev, &config->src_y_prop);
+	drm_property_destroy_null(dev, &config->src_x_prop);
+}
+EXPORT_SYMBOL(drm_mode_destroy_properties);
+
+int drm_mode_create_properties(struct drm_device *dev)
+{
+	struct drm_mode_config *config = &dev->mode_config;
+
+	config->src_x_prop = drm_property_create_range(dev, 0, "SRC_X", 0, UINT_MAX);
+	if (!config->src_x_prop)
+		goto out;
+	config->src_y_prop = drm_property_create_range(dev, 0, "SRC_Y", 0, UINT_MAX);
+	if (!config->src_y_prop)
+		goto out;
+	config->src_w_prop = drm_property_create_range(dev, 0, "SRC_W", 0, UINT_MAX);
+	if (!config->src_w_prop)
+		goto out;
+	config->src_h_prop = drm_property_create_range(dev, 0, "SRC_H", 0, UINT_MAX);
+	if (!config->src_h_prop)
+		goto out;
+
+	config->crtc_x_prop = drm_property_create_range(dev, 0, "CRTC_X", INT_MIN, INT_MAX);
+	if (!config->crtc_x_prop)
+		goto out;
+	config->crtc_y_prop = drm_property_create_range(dev, 0, "CRTC_Y", INT_MIN, INT_MAX);
+	if (!config->crtc_y_prop)
+		goto out;
+	config->crtc_w_prop = drm_property_create_range(dev, 0, "CRTC_W", 0, UINT_MAX);
+	if (!config->crtc_w_prop)
+		goto out;
+	config->crtc_h_prop = drm_property_create_range(dev, 0, "CRTC_H", 0, UINT_MAX);
+	if (!config->crtc_h_prop)
+		goto out;
+
+	config->fb_id_prop = drm_property_create_range(dev, 0, "FB_ID", 0, UINT_MAX);
+	if (!config->fb_id_prop)
+		goto out;
+	config->crtc_id_prop = drm_property_create_range(dev, 0, "CRTC_ID", 0, UINT_MAX);
+	if (!config->crtc_id_prop)
+		goto out;
+
+	config->cursor_id_prop = drm_property_create_range(dev, 0, "CURSOR_ID", 0, UINT_MAX);
+	if (!config->cursor_id_prop)
+		goto out;
+	config->cursor_x_prop = drm_property_create_range(dev, 0, "CURSOR_X", INT_MIN, INT_MAX);
+	if (!config->cursor_x_prop)
+		goto out;
+	config->cursor_y_prop = drm_property_create_range(dev, 0, "CURSOR_Y", INT_MIN, INT_MAX);
+	if (!config->cursor_y_prop)
+		goto out;
+	config->cursor_w_prop = drm_property_create_range(dev, 0, "CURSOR_W", 0, UINT_MAX);
+	if (!config->cursor_w_prop)
+		goto out;
+	config->cursor_h_prop = drm_property_create_range(dev, 0, "CURSOR_H", 0, UINT_MAX);
+	if (!config->cursor_h_prop)
+		goto out;
+
+	/* FIXME create special object ID list property type? */
+	config->connector_ids_prop = drm_property_create(dev, DRM_MODE_PROP_BLOB, "CONNECTOR_IDS", 0);
+	if (!config->connector_ids_prop)
+		goto out;
+
+	config->mode_prop = drm_property_create(dev, DRM_MODE_PROP_BLOB, "MODE", 0);
+	if (!config->mode_prop)
+		goto out;
+
+	return 0;
+
+ out:
+	drm_mode_destroy_properties(dev);
+
+	return -ENOMEM; /* FIXME? */
+}
+EXPORT_SYMBOL(drm_mode_create_properties);
+
+void drm_plane_attach_properties(struct drm_plane *plane)
+{
+	struct drm_mode_object *obj = &plane->base;
+	struct drm_mode_config *config = &plane->dev->mode_config;
+
+	drm_object_attach_property(obj, config->src_x_prop, 0);
+	drm_object_attach_property(obj, config->src_y_prop, 0);
+	drm_object_attach_property(obj, config->src_w_prop, 0);
+	drm_object_attach_property(obj, config->src_h_prop, 0);
+	drm_object_attach_property(obj, config->crtc_x_prop, 0);
+	drm_object_attach_property(obj, config->crtc_y_prop, 0);
+	drm_object_attach_property(obj, config->crtc_w_prop, 0);
+	drm_object_attach_property(obj, config->crtc_h_prop, 0);
+	drm_object_attach_property(obj, config->fb_id_prop, 0);
+	drm_object_attach_property(obj, config->crtc_id_prop, 0);
+}
+EXPORT_SYMBOL(drm_plane_attach_properties);
+
+void drm_crtc_attach_properties(struct drm_crtc *crtc)
+{
+	struct drm_mode_object *obj = &crtc->base;
+	struct drm_mode_config *config = &crtc->dev->mode_config;
+
+	drm_object_attach_property(obj, config->src_x_prop, 0);
+	drm_object_attach_property(obj, config->src_y_prop, 0);
+	drm_object_attach_property(obj, config->fb_id_prop, 0);
+	drm_object_attach_property(obj, config->mode_prop, 0);
+	drm_object_attach_property(obj, config->connector_ids_prop, 0);
+}
+EXPORT_SYMBOL(drm_crtc_attach_properties);
