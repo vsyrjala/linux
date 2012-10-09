@@ -4544,25 +4544,20 @@ static void intel_set_pipe_timings(struct intel_crtc *intel_crtc,
 		   ((mode->hdisplay - 1) << 16) | (mode->vdisplay - 1));
 }
 
-static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
-			      struct drm_display_mode *mode,
-			      struct drm_display_mode *adjusted_mode,
-			      int x, int y,
-			      struct drm_framebuffer *fb)
+static bool i9xx_compute_clocks(struct drm_crtc *crtc,
+				const struct drm_display_mode *adjusted_mode,
+				intel_clock_t *clock,
+				bool *has_reduced_clock,
+				intel_clock_t *reduced_clock,
+				int *refclk, int *num_connectors, bool *is_dp)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int pipe = intel_crtc->pipe;
-	int plane = intel_crtc->plane;
-	int refclk, num_connectors = 0;
-	intel_clock_t clock, reduced_clock;
-	u32 dspcntr, pipeconf;
-	bool ok, has_reduced_clock = false, is_sdvo = false;
-	bool is_lvds = false, is_tv = false, is_dp = false;
 	struct intel_encoder *encoder;
 	const intel_limit_t *limit;
-	int ret;
+	bool ret, is_sdvo = false, is_tv = false, is_lvds = false;
+
+	*num_connectors = 0;
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
 		switch (encoder->type) {
@@ -4579,30 +4574,25 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 			is_tv = true;
 			break;
 		case INTEL_OUTPUT_DISPLAYPORT:
-			is_dp = true;
+			*is_dp = true;
 			break;
 		}
 
-		num_connectors++;
+		(*num_connectors)++;
 	}
 
-	refclk = i9xx_get_refclk(crtc, num_connectors);
+	*refclk = i9xx_get_refclk(crtc, *num_connectors);
 
 	/*
 	 * Returns a set of divisors for the desired target clock with the given
 	 * refclk, or FALSE.  The returned values represent the clock equation:
 	 * reflck * (5 * (m1 + 2) + (m2 + 2)) / (n + 2) / p1 / p2.
 	 */
-	limit = intel_limit(crtc, refclk);
-	ok = limit->find_pll(limit, crtc, adjusted_mode->clock, refclk, NULL,
-			     &clock);
-	if (!ok) {
-		DRM_ERROR("Couldn't find PLL settings for mode!\n");
-		return -EINVAL;
-	}
-
-	/* Ensure that the cursor is valid for the new mode before changing... */
-	intel_crtc_update_cursor(crtc, true);
+	limit = intel_limit(crtc, *refclk);
+	ret = limit->find_pll(limit, crtc, adjusted_mode->clock, *refclk, NULL,
+			      clock);
+	if (!ret)
+		return false;
 
 	if (is_lvds && dev_priv->lvds_downclock_avail) {
 		/*
@@ -4611,15 +4601,47 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 		 * by using the FP0/FP1. In such case we will disable the LVDS
 		 * downclock feature.
 		*/
-		has_reduced_clock = limit->find_pll(limit, crtc,
-						    dev_priv->lvds_downclock,
-						    refclk,
-						    &clock,
-						    &reduced_clock);
+		*has_reduced_clock = limit->find_pll(limit, crtc,
+						     dev_priv->lvds_downclock,
+						     *refclk,
+						     clock,
+						     reduced_clock);
 	}
 
 	if (is_sdvo && is_tv)
-		i9xx_adjust_sdvo_tv_clock(adjusted_mode, &clock);
+		i9xx_adjust_sdvo_tv_clock(adjusted_mode, clock);
+
+	return true;
+}
+
+static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
+			      struct drm_display_mode *mode,
+			      struct drm_display_mode *adjusted_mode,
+			      int x, int y,
+			      struct drm_framebuffer *fb)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	int pipe = intel_crtc->pipe;
+	int plane = intel_crtc->plane;
+	int refclk, num_connectors = 0;
+	intel_clock_t clock, reduced_clock;
+	u32 dspcntr, pipeconf;
+	bool ok, has_reduced_clock = false;
+	bool is_dp = false;
+	int ret;
+
+	ok = i9xx_compute_clocks(crtc, adjusted_mode, &clock,
+				 &has_reduced_clock, &reduced_clock,
+				 &refclk, &num_connectors, &is_dp);
+	if (!ok) {
+		DRM_ERROR("Couldn't find PLL settings for mode!\n");
+		return -EINVAL;
+	}
+
+	/* Ensure that the cursor is valid for the new mode before changing... */
+	intel_crtc_update_cursor(crtc, true);
 
 	if (IS_GEN2(dev))
 		i8xx_update_pll(crtc, adjusted_mode, &clock,
