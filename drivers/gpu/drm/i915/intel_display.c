@@ -5686,6 +5686,40 @@ static int haswell_crtc_mode_set(struct drm_crtc *crtc,
 	return ret;
 }
 
+int intel_check_clock(struct drm_crtc *crtc,
+		      const struct drm_display_mode *adjusted_mode)
+{
+	struct drm_device *dev = crtc->dev;
+	intel_clock_t clock, reduced_clock;
+	bool has_reduced_clock = false;
+	bool ok;
+
+	if (IS_HASWELL(dev)) {
+		if (!intel_ddi_pll_mode_set(crtc, adjusted_mode->clock))
+			return -EINVAL;
+
+		if (HAS_PCH_IBX(dev) || HAS_PCH_CPT(dev)) {
+			ok = ironlake_compute_clocks(crtc, adjusted_mode, &clock,
+						     &has_reduced_clock,
+						     &reduced_clock);
+		} else
+			ok = true;
+	} else if (HAS_PCH_SPLIT(dev)) {
+		ok = ironlake_compute_clocks(crtc, adjusted_mode, &clock,
+					     &has_reduced_clock, &reduced_clock);
+	} else {
+		int num_connectors = 0;
+		bool is_dp = false;
+		int refclk;
+
+		ok = i9xx_compute_clocks(crtc, adjusted_mode, &clock,
+					 &has_reduced_clock, &reduced_clock,
+					 &refclk, &num_connectors, &is_dp);
+	}
+
+	return ok ? 0 : -EINVAL;
+}
+
 static int intel_crtc_mode_set(struct drm_crtc *crtc,
 			       struct drm_display_mode *mode,
 			       struct drm_display_mode *adjusted_mode,
