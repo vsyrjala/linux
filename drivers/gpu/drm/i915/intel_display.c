@@ -4159,7 +4159,7 @@ static int i9xx_get_refclk(struct drm_crtc *crtc, int num_connectors)
 	return refclk;
 }
 
-static void i9xx_adjust_sdvo_tv_clock(struct drm_display_mode *adjusted_mode,
+static void i9xx_adjust_sdvo_tv_clock(const struct drm_display_mode *adjusted_mode,
 				      intel_clock_t *clock)
 {
 	/* SDVO TV has fixed PLL values depend on its clock range,
@@ -5113,7 +5113,7 @@ static void haswell_set_pipeconf(struct drm_crtc *crtc,
 }
 
 static bool ironlake_compute_clocks(struct drm_crtc *crtc,
-				    struct drm_display_mode *adjusted_mode,
+				    const struct drm_display_mode *adjusted_mode,
 				    intel_clock_t *clock,
 				    bool *has_reduced_clock,
 				    intel_clock_t *reduced_clock)
