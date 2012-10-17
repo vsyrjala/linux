@@ -194,6 +194,20 @@ struct intel_connector {
 	struct edid *edid;
 };
 
+struct intel_plane_regs {
+	u32 cntr;
+	u32 linoff;
+	u32 stride;
+	u32 pos;
+	u32 size;
+	u32 keyval;
+	u32 keymsk;
+	u32 surf;
+	u32 keymaxval;
+	u32 tileoff;
+	u32 scale;
+};
+
 struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
