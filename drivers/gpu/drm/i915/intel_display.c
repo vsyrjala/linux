@@ -4630,7 +4630,6 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 	u32 dspcntr, pipeconf;
 	bool ok, has_reduced_clock = false;
 	bool is_dp = false;
-	int ret;
 
 	ok = i9xx_compute_clocks(crtc, adjusted_mode, &clock,
 				 &has_reduced_clock, &reduced_clock,
@@ -4738,11 +4737,7 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 	I915_WRITE(DSPCNTR(plane), dspcntr);
 	POSTING_READ(DSPCNTR(plane));
 
-	ret = intel_pipe_set_base(crtc, x, y, fb);
-
-	intel_update_watermarks(dev);
-
-	return ret;
+	return 0;
 }
 
 static void ironlake_init_pch_refclk(struct drm_device *dev)
@@ -5479,7 +5474,6 @@ static int ironlake_crtc_mode_set(struct drm_crtc *crtc,
 	bool ok, has_reduced_clock = false;
 	bool is_lvds = false, is_dp = false, is_cpu_edp = false;
 	struct intel_encoder *encoder;
-	int ret;
 	bool dither, fdi_config_ok;
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
@@ -5590,13 +5584,7 @@ static int ironlake_crtc_mode_set(struct drm_crtc *crtc,
 	I915_WRITE(DSPCNTR(plane), DISPPLANE_GAMMA_ENABLE);
 	POSTING_READ(DSPCNTR(plane));
 
-	ret = intel_pipe_set_base(crtc, x, y, fb);
-
-	intel_update_watermarks(dev);
-
-	intel_update_linetime_watermarks(dev, pipe, adjusted_mode);
-
-	return fdi_config_ok ? ret : -EINVAL;
+	return fdi_config_ok ? 0 : -EINVAL;
 }
 
 static int haswell_crtc_mode_set(struct drm_crtc *crtc,
@@ -5613,7 +5601,6 @@ static int haswell_crtc_mode_set(struct drm_crtc *crtc,
 	int num_connectors = 0;
 	bool is_dp = false, is_cpu_edp = false;
 	struct intel_encoder *encoder;
-	int ret;
 	bool dither;
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
@@ -5677,13 +5664,7 @@ static int haswell_crtc_mode_set(struct drm_crtc *crtc,
 	I915_WRITE(DSPCNTR(plane), DISPPLANE_GAMMA_ENABLE);
 	POSTING_READ(DSPCNTR(plane));
 
-	ret = intel_pipe_set_base(crtc, x, y, fb);
-
-	intel_update_watermarks(dev);
-
-	intel_update_linetime_watermarks(dev, pipe, adjusted_mode);
-
-	return ret;
+	return 0;
 }
 
 int intel_check_clock(struct drm_crtc *crtc,
@@ -5738,6 +5719,16 @@ static int intel_crtc_mode_set(struct drm_crtc *crtc,
 
 	ret = dev_priv->display.crtc_mode_set(crtc, mode, adjusted_mode,
 					      x, y, fb);
+
+	if (!ret) {
+		ret = intel_pipe_set_base(crtc, x, y, fb);
+
+		intel_update_watermarks(dev);
+
+		if (HAS_PCH_SPLIT(dev))
+			intel_update_linetime_watermarks(dev, pipe, adjusted_mode);
+	}
+
 	drm_vblank_post_modeset(dev, pipe);
 
 	if (ret != 0)
