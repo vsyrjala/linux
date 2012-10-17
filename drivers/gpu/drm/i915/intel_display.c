@@ -1979,8 +1979,30 @@ unsigned long intel_gen4_compute_offset_xtiled(int *x, int *y,
 	return tile_rows * pitch * 8 + tiles * 4096;
 }
 
-static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
-			     int x, int y)
+static void intel_commit_plane(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	int plane = intel_crtc->plane;
+	const struct intel_plane_regs *regs = &intel_crtc->primary_regs;
+
+	I915_WRITE(DSPCNTR(plane), regs->cntr);
+	I915_WRITE(DSPSTRIDE(plane), regs->stride);
+
+	if (IS_HASWELL(dev)) {
+		I915_WRITE(DSPOFFSET(plane), regs->tileoff);
+		I915_WRITE(DSPSURF(plane), regs->surf);
+	} else if (INTEL_INFO(dev)->gen >= 4) {
+		I915_WRITE(DSPTILEOFF(plane), regs->tileoff);
+		I915_WRITE(DSPLINOFF(plane), regs->linoff);
+		I915_WRITE(DSPSURF(plane), regs->surf);
+	} else
+		I915_WRITE(DSPADDR(plane), regs->linoff);
+}
+
+static int i9xx_calc_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
+			   int x, int y)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1989,9 +2011,8 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	struct drm_i915_gem_object *obj;
 	int plane = intel_crtc->plane;
 	unsigned long linear_offset;
-	u32 dspcntr;
-	u32 reg;
 	unsigned int cpp = drm_format_plane_cpp(fb->pixel_format, 0);
+	struct intel_plane_regs *regs = &intel_crtc->primary_regs;
 
 	switch (plane) {
 	case 0:
@@ -2005,36 +2026,35 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
-	reg = DSPCNTR(plane);
-	dspcntr = I915_READ(reg);
+	regs->cntr = I915_READ(DSPCNTR(plane));
 	/* Mask out pixel format bits in case we change it */
-	dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
+	regs->cntr &= ~DISPPLANE_PIXFORMAT_MASK;
 	switch (fb->pixel_format) {
 	case DRM_FORMAT_C8:
-		dspcntr |= DISPPLANE_8BPP;
+		regs->cntr |= DISPPLANE_8BPP;
 		break;
 	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_ARGB1555:
-		dspcntr |= DISPPLANE_BGRX555;
+		regs->cntr |= DISPPLANE_BGRX555;
 		break;
 	case DRM_FORMAT_RGB565:
-		dspcntr |= DISPPLANE_BGRX565;
+		regs->cntr |= DISPPLANE_BGRX565;
 		break;
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_ARGB8888:
-		dspcntr |= DISPPLANE_BGRX888;
+		regs->cntr |= DISPPLANE_BGRX888;
 		break;
 	case DRM_FORMAT_XBGR8888:
 	case DRM_FORMAT_ABGR8888:
-		dspcntr |= DISPPLANE_RGBX888;
+		regs->cntr |= DISPPLANE_RGBX888;
 		break;
 	case DRM_FORMAT_XRGB2101010:
 	case DRM_FORMAT_ARGB2101010:
-		dspcntr |= DISPPLANE_BGRX101010;
+		regs->cntr |= DISPPLANE_BGRX101010;
 		break;
 	case DRM_FORMAT_XBGR2101010:
 	case DRM_FORMAT_ABGR2101010:
-		dspcntr |= DISPPLANE_RGBX101010;
+		regs->cntr |= DISPPLANE_RGBX101010;
 		break;
 	default:
 		DRM_ERROR("Unknown pixel format 0x%08x\n", fb->pixel_format);
@@ -2043,12 +2063,10 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 
 	if (INTEL_INFO(dev)->gen >= 4) {
 		if (obj->tiling_mode != I915_TILING_NONE)
-			dspcntr |= DISPPLANE_TILED;
+			regs->cntr |= DISPPLANE_TILED;
 		else
-			dspcntr &= ~DISPPLANE_TILED;
+			regs->cntr &= ~DISPPLANE_TILED;
 	}
-
-	I915_WRITE(reg, dspcntr);
 
 	linear_offset = y * fb->pitches[0] + x * cpp;
 
@@ -2063,21 +2081,37 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 
 	DRM_DEBUG_KMS("Writing base %08X %08lX %d %d %d\n",
 		      obj->gtt_offset, linear_offset, x, y, fb->pitches[0]);
-	I915_WRITE(DSPSTRIDE(plane), fb->pitches[0]);
+	regs->stride = fb->pitches[0];
 	if (INTEL_INFO(dev)->gen >= 4) {
-		I915_MODIFY_DISPBASE(DSPSURF(plane),
-				     obj->gtt_offset + intel_crtc->dspaddr_offset);
-		I915_WRITE(DSPTILEOFF(plane), (y << 16) | x);
-		I915_WRITE(DSPLINOFF(plane), linear_offset);
+		regs->surf = I915_LO_DISPBASE(I915_READ(DSPSURF(plane))) |
+			(obj->gtt_offset + intel_crtc->dspaddr_offset);
+		regs->tileoff = (y << 16) | x;
+		regs->linoff = linear_offset;
 	} else
-		I915_WRITE(DSPADDR(plane), obj->gtt_offset + linear_offset);
-	POSTING_READ(reg);
+		regs->linoff = obj->gtt_offset + linear_offset;
 
 	return 0;
 }
 
-static int ironlake_update_plane(struct drm_crtc *crtc,
-				 struct drm_framebuffer *fb, int x, int y)
+static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
+			     int x, int y)
+{
+	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
+	int ret;
+
+	ret = i9xx_calc_plane(crtc, fb, x, y);
+	if (ret)
+		return ret;
+
+	intel_commit_plane(crtc);
+
+	POSTING_READ(DSPCNTR(to_intel_crtc(crtc)->plane));
+
+	return 0;
+}
+
+static int ironlake_calc_plane(struct drm_crtc *crtc,
+			       struct drm_framebuffer *fb, int x, int y)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -2086,9 +2120,8 @@ static int ironlake_update_plane(struct drm_crtc *crtc,
 	struct drm_i915_gem_object *obj;
 	int plane = intel_crtc->plane;
 	unsigned long linear_offset;
-	u32 dspcntr;
-	u32 reg;
 	unsigned int cpp = drm_format_plane_cpp(fb->pixel_format, 0);
+	struct intel_plane_regs *regs = &intel_crtc->primary_regs;
 
 	switch (plane) {
 	case 0:
@@ -2103,32 +2136,31 @@ static int ironlake_update_plane(struct drm_crtc *crtc,
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
-	reg = DSPCNTR(plane);
-	dspcntr = I915_READ(reg);
+	regs->cntr = I915_READ(DSPCNTR(plane));
 	/* Mask out pixel format bits in case we change it */
-	dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
+	regs->cntr &= ~DISPPLANE_PIXFORMAT_MASK;
 	switch (fb->pixel_format) {
 	case DRM_FORMAT_C8:
-		dspcntr |= DISPPLANE_8BPP;
+		regs->cntr |= DISPPLANE_8BPP;
 		break;
 	case DRM_FORMAT_RGB565:
-		dspcntr |= DISPPLANE_BGRX565;
+		regs->cntr |= DISPPLANE_BGRX565;
 		break;
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_ARGB8888:
-		dspcntr |= DISPPLANE_BGRX888;
+		regs->cntr |= DISPPLANE_BGRX888;
 		break;
 	case DRM_FORMAT_XBGR8888:
 	case DRM_FORMAT_ABGR8888:
-		dspcntr |= DISPPLANE_RGBX888;
+		regs->cntr |= DISPPLANE_RGBX888;
 		break;
 	case DRM_FORMAT_XRGB2101010:
 	case DRM_FORMAT_ARGB2101010:
-		dspcntr |= DISPPLANE_BGRX101010;
+		regs->cntr |= DISPPLANE_BGRX101010;
 		break;
 	case DRM_FORMAT_XBGR2101010:
 	case DRM_FORMAT_ABGR2101010:
-		dspcntr |= DISPPLANE_RGBX101010;
+		regs->cntr |= DISPPLANE_RGBX101010;
 		break;
 	default:
 		DRM_ERROR("Unknown pixel format 0x%08x\n", fb->pixel_format);
@@ -2136,14 +2168,12 @@ static int ironlake_update_plane(struct drm_crtc *crtc,
 	}
 
 	if (obj->tiling_mode != I915_TILING_NONE)
-		dspcntr |= DISPPLANE_TILED;
+		regs->cntr |= DISPPLANE_TILED;
 	else
-		dspcntr &= ~DISPPLANE_TILED;
+		regs->cntr &= ~DISPPLANE_TILED;
 
 	/* must disable */
-	dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
-
-	I915_WRITE(reg, dspcntr);
+	regs->cntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
 
 	linear_offset = y * fb->pitches[0] + x * cpp;
 	intel_crtc->dspaddr_offset =
@@ -2153,16 +2183,28 @@ static int ironlake_update_plane(struct drm_crtc *crtc,
 
 	DRM_DEBUG_KMS("Writing base %08X %08lX %d %d %d\n",
 		      obj->gtt_offset, linear_offset, x, y, fb->pitches[0]);
-	I915_WRITE(DSPSTRIDE(plane), fb->pitches[0]);
-	I915_MODIFY_DISPBASE(DSPSURF(plane),
-			     obj->gtt_offset + intel_crtc->dspaddr_offset);
-	if (IS_HASWELL(dev)) {
-		I915_WRITE(DSPOFFSET(plane), (y << 16) | x);
-	} else {
-		I915_WRITE(DSPTILEOFF(plane), (y << 16) | x);
-		I915_WRITE(DSPLINOFF(plane), linear_offset);
-	}
-	POSTING_READ(reg);
+	regs->stride = fb->pitches[0];
+	regs->surf = I915_LO_DISPBASE(I915_READ(DSPSURF(plane))) |
+		(obj->gtt_offset + intel_crtc->dspaddr_offset);
+	regs->tileoff = (y << 16) | x;
+	regs->linoff = linear_offset;
+
+	return 0;
+}
+
+static int ironlake_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
+				 int x, int y)
+{
+	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
+	int ret;
+
+	ret = ironlake_calc_plane(crtc, fb, x, y);
+	if (ret)
+		return ret;
+
+	intel_commit_plane(crtc);
+
+	POSTING_READ(DSPCNTR(to_intel_crtc(crtc)->plane));
 
 	return 0;
 }
@@ -8498,18 +8540,24 @@ static void intel_init_display(struct drm_device *dev)
 		dev_priv->display.crtc_disable = haswell_crtc_disable;
 		dev_priv->display.off = haswell_crtc_off;
 		dev_priv->display.update_plane = ironlake_update_plane;
+		dev_priv->display.calc_plane = ironlake_calc_plane;
+		dev_priv->display.commit_plane = intel_commit_plane;
 	} else if (HAS_PCH_SPLIT(dev)) {
 		dev_priv->display.crtc_mode_set = ironlake_crtc_mode_set;
 		dev_priv->display.crtc_enable = ironlake_crtc_enable;
 		dev_priv->display.crtc_disable = ironlake_crtc_disable;
 		dev_priv->display.off = ironlake_crtc_off;
 		dev_priv->display.update_plane = ironlake_update_plane;
+		dev_priv->display.calc_plane = ironlake_calc_plane;
+		dev_priv->display.commit_plane = intel_commit_plane;
 	} else {
 		dev_priv->display.crtc_mode_set = i9xx_crtc_mode_set;
 		dev_priv->display.crtc_enable = i9xx_crtc_enable;
 		dev_priv->display.crtc_disable = i9xx_crtc_disable;
 		dev_priv->display.off = i9xx_crtc_off;
 		dev_priv->display.update_plane = i9xx_update_plane;
+		dev_priv->display.calc_plane = i9xx_calc_plane;
+		dev_priv->display.commit_plane = intel_commit_plane;
 	}
 
 	/* Returns the core display clock speed */

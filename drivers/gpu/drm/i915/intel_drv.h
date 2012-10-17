@@ -243,6 +243,7 @@ struct intel_crtc {
 	/* We can share PLLs across outputs if the timings match */
 	struct intel_pch_pll *pch_pll;
 	uint32_t ddi_pll_sel;
+	struct intel_plane_regs primary_regs;
 };
 
 struct intel_plane_coords {
