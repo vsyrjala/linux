@@ -7307,7 +7307,7 @@ static void intel_modeset_commit_output_state(struct drm_device *dev)
 
 static struct drm_display_mode *
 intel_modeset_adjusted_mode(struct drm_crtc *crtc,
-			    struct drm_display_mode *mode)
+			    const struct drm_display_mode *mode)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_display_mode *adjusted_mode;
