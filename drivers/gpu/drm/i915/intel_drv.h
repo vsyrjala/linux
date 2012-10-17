@@ -694,5 +694,6 @@ extern void intel_crtc_cursor_commit(struct drm_crtc *crtc, uint32_t handle,
 				     uint32_t addr);
 
 extern void intel_crtc_update_sarea(struct drm_crtc *crtc, bool enabled);
+extern void intel_crtc_update_sarea_pos(struct drm_crtc *crtc, int x, int y);
 
 #endif /* __INTEL_DRV_H__ */

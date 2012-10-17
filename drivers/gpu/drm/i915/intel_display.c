@@ -2209,7 +2209,7 @@ intel_finish_fb(struct drm_framebuffer *old_fb)
 	return ret;
 }
 
-static void intel_crtc_update_sarea_pos(struct drm_crtc *crtc, int x, int y)
+void intel_crtc_update_sarea_pos(struct drm_crtc *crtc, int x, int y)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_master_private *master_priv;
