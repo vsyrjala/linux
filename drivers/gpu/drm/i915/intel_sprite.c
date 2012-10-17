@@ -203,14 +203,13 @@ int intel_check_plane(const struct drm_plane *plane,
 }
 
 static void
-ivb_update_plane(struct drm_plane *plane,
-		 struct drm_framebuffer *fb,
-		 const struct intel_plane_coords *coords)
+ivb_calc_plane(struct drm_plane *plane,
+	       struct drm_framebuffer *fb,
+	       const struct intel_plane_coords *coords)
 {
 	struct drm_device *dev = plane->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
-	const struct drm_i915_gem_object *obj = to_intel_framebuffer(fb)->obj;
+	const struct drm_i915_gem_object *obj;
 	int crtc_x = coords->crtc_x;
 	int crtc_y = coords->crtc_y;
 	unsigned int crtc_w = coords->crtc_w;
@@ -219,48 +218,56 @@ ivb_update_plane(struct drm_plane *plane,
 	uint32_t y = coords->src_y;
 	uint32_t src_w = coords->src_w;
 	uint32_t src_h = coords->src_h;
-	int pipe = intel_plane->pipe;
-	u32 sprctl, sprscale = 0;
 	unsigned long sprsurf_offset, linear_offset;
-	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
+	int pixel_size;
+	struct intel_plane_regs *regs = &intel_plane->regs;
 
-	sprctl = I915_READ(SPRCTL(pipe));
+	if (!coords->visible) {
+		regs->cntr &= ~SPRITE_ENABLE;
+		/* Disable the scaler */
+		regs->scale = 0;
+		return;
+	}
+
+	obj = to_intel_framebuffer(fb)->obj;
+	pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 
 	/* Mask out pixel format bits in case we change it */
-	sprctl &= ~SPRITE_PIXFORMAT_MASK;
-	sprctl &= ~SPRITE_RGB_ORDER_RGBX;
-	sprctl &= ~SPRITE_YUV_BYTE_ORDER_MASK;
-	sprctl &= ~SPRITE_TILED;
+	regs->cntr &= ~(SPRITE_PIXFORMAT_MASK |
+			SPRITE_RGB_ORDER_RGBX |
+			SPRITE_YUV_BYTE_ORDER_MASK |
+			SPRITE_TILED |
+			SPRITE_ENABLE);
 
 	switch (fb->pixel_format) {
 	case DRM_FORMAT_XBGR8888:
-		sprctl |= SPRITE_FORMAT_RGBX888 | SPRITE_RGB_ORDER_RGBX;
+		regs->cntr |= SPRITE_FORMAT_RGBX888 | SPRITE_RGB_ORDER_RGBX;
 		break;
 	case DRM_FORMAT_XRGB8888:
-		sprctl |= SPRITE_FORMAT_RGBX888;
+		regs->cntr |= SPRITE_FORMAT_RGBX888;
 		break;
 	case DRM_FORMAT_YUYV:
-		sprctl |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_YUYV;
+		regs->cntr |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_YUYV;
 		break;
 	case DRM_FORMAT_YVYU:
-		sprctl |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_YVYU;
+		regs->cntr |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_YVYU;
 		break;
 	case DRM_FORMAT_UYVY:
-		sprctl |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_UYVY;
+		regs->cntr |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_UYVY;
 		break;
 	case DRM_FORMAT_VYUY:
-		sprctl |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_VYUY;
+		regs->cntr |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_VYUY;
 		break;
 	default:
 		BUG();
 	}
 
 	if (obj->tiling_mode != I915_TILING_NONE)
-		sprctl |= SPRITE_TILED;
+		regs->cntr |= SPRITE_TILED;
 
 	/* must disable */
-	sprctl |= SPRITE_TRICKLE_FEED_DISABLE;
-	sprctl |= SPRITE_ENABLE;
+	regs->cntr |= SPRITE_TRICKLE_FEED_DISABLE;
+	regs->cntr |= SPRITE_ENABLE;
 
 	/* Sizes are 0 based */
 	src_w--;
@@ -268,30 +275,12 @@ ivb_update_plane(struct drm_plane *plane,
 	crtc_w--;
 	crtc_h--;
 
-	intel_update_sprite_watermarks(dev, pipe, crtc_w, pixel_size);
+	regs->scale = 0;
+	if (crtc_w != src_w || crtc_h != src_h)
+		regs->scale = SPRITE_SCALE_ENABLE | (src_w << 16) | src_h;
 
-	/*
-	 * IVB workaround: must disable low power watermarks for at least
-	 * one frame before enabling scaling.  LP watermarks can be re-enabled
-	 * when scaling is disabled.
-	 */
-	if (crtc_w != src_w || crtc_h != src_h) {
-		if (!dev_priv->sprite_scaling_enabled) {
-			dev_priv->sprite_scaling_enabled = true;
-			intel_update_watermarks(dev);
-			intel_wait_for_vblank(dev, pipe);
-		}
-		sprscale = SPRITE_SCALE_ENABLE | (src_w << 16) | src_h;
-	} else {
-		if (dev_priv->sprite_scaling_enabled) {
-			dev_priv->sprite_scaling_enabled = false;
-			/* potentially re-enable LP watermarks */
-			intel_update_watermarks(dev);
-		}
-	}
-
-	I915_WRITE(SPRSTRIDE(pipe), fb->pitches[0]);
-	I915_WRITE(SPRPOS(pipe), (crtc_y << 16) | crtc_x);
+	regs->stride = fb->pitches[0];
+	regs->pos = (crtc_y << 16) | crtc_x;
 
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	sprsurf_offset =
@@ -301,18 +290,87 @@ ivb_update_plane(struct drm_plane *plane,
 
 	/* HSW consolidates SPRTILEOFF and SPRLINOFF into a single SPROFFSET
 	 * register */
-	if (IS_HASWELL(dev))
-		I915_WRITE(SPROFFSET(pipe), (y << 16) | x);
-	else if (obj->tiling_mode != I915_TILING_NONE)
-		I915_WRITE(SPRTILEOFF(pipe), (y << 16) | x);
+	if (IS_HASWELL(dev) || obj->tiling_mode != I915_TILING_NONE)
+		regs->tileoff = (y << 16) | x;
 	else
-		I915_WRITE(SPRLINOFF(pipe), linear_offset);
+		regs->linoff = linear_offset;
 
-	I915_WRITE(SPRSIZE(pipe), (crtc_h << 16) | crtc_w);
+	regs->size = (crtc_h << 16) | crtc_w;
+	regs->surf = I915_LO_DISPBASE(regs->surf) | (obj->gtt_offset + sprsurf_offset);
+}
+
+static void
+ivb_commit_plane(struct drm_plane *plane)
+{
+	struct drm_device *dev = plane->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	int pipe = intel_plane->pipe;
+	const struct intel_plane_regs *regs = &intel_plane->regs;
+
+	I915_WRITE(SPRKEYVAL(pipe), regs->keyval);
+	I915_WRITE(SPRKEYMAX(pipe), regs->keymaxval);
+	I915_WRITE(SPRKEYMSK(pipe), regs->keymsk);
+	I915_WRITE(SPRSTRIDE(pipe), regs->stride);
+	I915_WRITE(SPRPOS(pipe), regs->pos);
+	if (IS_HASWELL(dev)) {
+		I915_WRITE(SPROFFSET(pipe), regs->tileoff);
+	} else {
+		I915_WRITE(SPRTILEOFF(pipe), regs->tileoff);
+		I915_WRITE(SPRLINOFF(pipe), regs->linoff);
+	}
+	I915_WRITE(SPRSIZE(pipe), regs->size);
 	if (intel_plane->can_scale)
-		I915_WRITE(SPRSCALE(pipe), sprscale);
-	I915_WRITE(SPRCTL(pipe), sprctl);
-	I915_MODIFY_DISPBASE(SPRSURF(pipe), obj->gtt_offset + sprsurf_offset);
+		I915_WRITE(SPRSCALE(pipe), regs->scale);
+	I915_WRITE(SPRCTL(pipe), regs->cntr);
+	I915_WRITE(SPRSURF(pipe), regs->surf);
+}
+
+static void
+ivb_prepare_plane(struct drm_plane *plane)
+{
+	struct drm_device *dev = plane->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	int pipe = intel_plane->pipe;
+	int pixel_size = plane->fb ? drm_format_plane_cpp(plane->fb->pixel_format, 0) : 0;
+	const struct intel_plane_regs *regs = &intel_plane->regs;
+
+	intel_update_sprite_watermarks(dev, pipe, regs->size & 0xffff, pixel_size);
+
+	/*
+	 * IVB workaround: must disable low power watermarks for at least
+	 * one frame before enabling scaling.  LP watermarks can be re-enabled
+	 * when scaling is disabled.
+	 */
+	if (regs->scale & SPRITE_SCALE_ENABLE) {
+		if (!dev_priv->sprite_scaling_enabled) {
+			dev_priv->sprite_scaling_enabled = true;
+			intel_update_watermarks(dev);
+			intel_wait_for_vblank(dev, pipe);
+		}
+	} else {
+		if (dev_priv->sprite_scaling_enabled) {
+			dev_priv->sprite_scaling_enabled = false;
+			/* potentially re-enable LP watermarks */
+			intel_update_watermarks(dev);
+		}
+	}
+}
+
+static void
+ivb_update_plane(struct drm_plane *plane,
+		 struct drm_framebuffer *fb,
+		 const struct intel_plane_coords *coords)
+{
+	struct drm_device *dev = plane->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	int pipe = intel_plane->pipe;
+
+	ivb_calc_plane(plane, fb, coords);
+	ivb_prepare_plane(plane);
+	ivb_commit_plane(plane);
 	POSTING_READ(SPRSURF(pipe));
 }
 
@@ -323,13 +381,12 @@ ivb_disable_plane(struct drm_plane *plane)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	int pipe = intel_plane->pipe;
+	struct intel_plane_regs *regs = &intel_plane->regs;
 
-	I915_WRITE(SPRCTL(pipe), I915_READ(SPRCTL(pipe)) & ~SPRITE_ENABLE);
+	regs->cntr &= ~SPRITE_ENABLE;
 	/* Can't leave the scaler enabled... */
-	if (intel_plane->can_scale)
-		I915_WRITE(SPRSCALE(pipe), 0);
-	/* Activate double buffered register update */
-	I915_MODIFY_DISPBASE(SPRSURF(pipe), 0);
+	regs->scale = 0;
+	ivb_commit_plane(plane);
 	POSTING_READ(SPRSURF(pipe));
 
 	dev_priv->sprite_scaling_enabled = false;
@@ -342,52 +399,171 @@ ivb_update_colorkey(struct drm_plane *plane,
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_plane *intel_plane;
-	u32 sprctl;
-	int ret = 0;
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	struct intel_plane_regs *regs = &intel_plane->regs;
 
-	intel_plane = to_intel_plane(plane);
+	regs->keyval = key->min_value;
+	regs->keymaxval = key->max_value;
+	regs->keymsk = key->channel_mask;
 
-	I915_WRITE(SPRKEYVAL(intel_plane->pipe), key->min_value);
-	I915_WRITE(SPRKEYMAX(intel_plane->pipe), key->max_value);
-	I915_WRITE(SPRKEYMSK(intel_plane->pipe), key->channel_mask);
-
-	sprctl = I915_READ(SPRCTL(intel_plane->pipe));
-	sprctl &= ~(SPRITE_SOURCE_KEY | SPRITE_DEST_KEY);
+	regs->cntr &= ~(SPRITE_SOURCE_KEY | SPRITE_DEST_KEY);
 	if (key->flags & I915_SET_COLORKEY_DESTINATION)
-		sprctl |= SPRITE_DEST_KEY;
+		regs->cntr |= SPRITE_DEST_KEY;
 	else if (key->flags & I915_SET_COLORKEY_SOURCE)
-		sprctl |= SPRITE_SOURCE_KEY;
-	I915_WRITE(SPRCTL(intel_plane->pipe), sprctl);
+		regs->cntr |= SPRITE_SOURCE_KEY;
 
+	ivb_commit_plane(plane);
 	POSTING_READ(SPRKEYMSK(intel_plane->pipe));
 
-	return ret;
+	return 0;
 }
 
 static void
 ivb_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 {
-	struct drm_device *dev = plane->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_plane *intel_plane;
-	u32 sprctl;
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	const struct intel_plane_regs *regs = &intel_plane->regs;
 
-	intel_plane = to_intel_plane(plane);
-
-	key->min_value = I915_READ(SPRKEYVAL(intel_plane->pipe));
-	key->max_value = I915_READ(SPRKEYMAX(intel_plane->pipe));
-	key->channel_mask = I915_READ(SPRKEYMSK(intel_plane->pipe));
+	key->min_value = regs->keyval;
+	key->max_value = regs->keymaxval;
+	key->channel_mask = regs->keymsk;
 	key->flags = 0;
 
-	sprctl = I915_READ(SPRCTL(intel_plane->pipe));
-
-	if (sprctl & SPRITE_DEST_KEY)
+	if (regs->cntr & SPRITE_DEST_KEY)
 		key->flags = I915_SET_COLORKEY_DESTINATION;
-	else if (sprctl & SPRITE_SOURCE_KEY)
+	else if (regs->cntr & SPRITE_SOURCE_KEY)
 		key->flags = I915_SET_COLORKEY_SOURCE;
 	else
 		key->flags = I915_SET_COLORKEY_NONE;
+}
+
+static void
+ilk_calc_plane(struct drm_plane *plane,
+	       struct drm_framebuffer *fb,
+	       const struct intel_plane_coords *coords)
+{
+	struct drm_device *dev = plane->dev;
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	const struct drm_i915_gem_object *obj;
+	int crtc_x = coords->crtc_x;
+	int crtc_y = coords->crtc_y;
+	unsigned int crtc_w = coords->crtc_w;
+	unsigned int crtc_h = coords->crtc_h;
+	uint32_t x = coords->src_x;
+	uint32_t y = coords->src_y;
+	uint32_t src_w = coords->src_w;
+	uint32_t src_h = coords->src_h;
+	unsigned long dvssurf_offset, linear_offset;
+	int pixel_size;
+	struct intel_plane_regs *regs = &intel_plane->regs;
+
+	if (!coords->visible) {
+		regs->cntr &= ~DVS_ENABLE;
+		/* Disable the scaler */
+		regs->scale = 0;
+		return;
+	}
+
+	obj = to_intel_framebuffer(fb)->obj;
+	pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
+
+	/* Mask out pixel format bits in case we change it */
+	regs->cntr &= ~(DVS_PIXFORMAT_MASK |
+			DVS_RGB_ORDER_XBGR |
+			DVS_YUV_BYTE_ORDER_MASK |
+			DVS_TILED |
+			DVS_ENABLE);
+
+	switch (fb->pixel_format) {
+	case DRM_FORMAT_XBGR8888:
+		regs->cntr |= DVS_FORMAT_RGBX888 | DVS_RGB_ORDER_XBGR;
+		break;
+	case DRM_FORMAT_XRGB8888:
+		regs->cntr |= DVS_FORMAT_RGBX888;
+		break;
+	case DRM_FORMAT_YUYV:
+		regs->cntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_YUYV;
+		break;
+	case DRM_FORMAT_YVYU:
+		regs->cntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_YVYU;
+		break;
+	case DRM_FORMAT_UYVY:
+		regs->cntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_UYVY;
+		break;
+	case DRM_FORMAT_VYUY:
+		regs->cntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_VYUY;
+		break;
+	default:
+		BUG();
+	}
+
+	if (obj->tiling_mode != I915_TILING_NONE)
+		regs->cntr |= DVS_TILED;
+
+	if (IS_GEN6(dev))
+		regs->cntr |= DVS_TRICKLE_FEED_DISABLE; /* must disable */
+	regs->cntr |= DVS_ENABLE;
+
+	/* Sizes are 0 based */
+	src_w--;
+	src_h--;
+	crtc_w--;
+	crtc_h--;
+
+	regs->scale = 0;
+	if (IS_GEN5(dev) || crtc_w != src_w || crtc_h != src_h)
+		regs->scale = DVS_SCALE_ENABLE | (src_w << 16) | src_h;
+
+	regs->stride = fb->pitches[0];
+	regs->pos = (crtc_y << 16) | crtc_x;
+
+	linear_offset = y * fb->pitches[0] + x * pixel_size;
+	dvssurf_offset =
+		intel_gen4_compute_offset_xtiled(&x, &y,
+						 pixel_size, fb->pitches[0]);
+	linear_offset -= dvssurf_offset;
+
+	if (obj->tiling_mode != I915_TILING_NONE)
+		regs->tileoff = (y << 16) | x;
+	else
+		regs->linoff = linear_offset;
+
+	regs->size = (crtc_h << 16) | crtc_w;
+	regs->surf = I915_LO_DISPBASE(regs->surf) | (obj->gtt_offset + dvssurf_offset);
+}
+
+static void
+ilk_prepare_plane(struct drm_plane *plane)
+{
+	struct drm_device *dev = plane->dev;
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	int pipe = intel_plane->pipe;
+	int pixel_size = plane->fb ? drm_format_plane_cpp(plane->fb->pixel_format, 0) : 0;
+	const struct intel_plane_regs *regs = &intel_plane->regs;
+
+	intel_update_sprite_watermarks(dev, pipe, regs->size & 0xffff, pixel_size);
+}
+
+static void
+ilk_commit_plane(struct drm_plane *plane)
+{
+	struct drm_device *dev = plane->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	int pipe = intel_plane->pipe;
+	const struct intel_plane_regs *regs = &intel_plane->regs;
+
+	I915_WRITE(DVSKEYVAL(pipe), regs->keyval);
+	I915_WRITE(DVSKEYMAX(pipe), regs->keymaxval);
+	I915_WRITE(DVSKEYMSK(pipe), regs->keymsk);
+	I915_WRITE(DVSSTRIDE(pipe), regs->stride);
+	I915_WRITE(DVSPOS(pipe), regs->pos);
+	I915_WRITE(DVSTILEOFF(pipe), regs->tileoff);
+	I915_WRITE(DVSLINOFF(pipe), regs->linoff);
+	I915_WRITE(DVSSIZE(pipe), regs->size);
+	I915_WRITE(DVSSCALE(pipe), regs->scale);
+	I915_WRITE(DVSCNTR(pipe), regs->cntr);
+	I915_WRITE(DVSSURF(pipe), regs->surf);
 }
 
 static void
@@ -398,88 +574,11 @@ ilk_update_plane(struct drm_plane *plane,
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
-	const struct drm_i915_gem_object *obj = to_intel_framebuffer(fb)->obj;
-	int crtc_x = coords->crtc_x;
-	int crtc_y = coords->crtc_y;
-	unsigned int crtc_w = coords->crtc_w;
-	unsigned int crtc_h = coords->crtc_h;
-	uint32_t x = coords->src_x;
-	uint32_t y = coords->src_y;
-	uint32_t src_w = coords->src_w;
-	uint32_t src_h = coords->src_h;
 	int pipe = intel_plane->pipe;
-	unsigned long dvssurf_offset, linear_offset;
-	u32 dvscntr, dvsscale;
-	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 
-	dvscntr = I915_READ(DVSCNTR(pipe));
-
-	/* Mask out pixel format bits in case we change it */
-	dvscntr &= ~DVS_PIXFORMAT_MASK;
-	dvscntr &= ~DVS_RGB_ORDER_XBGR;
-	dvscntr &= ~DVS_YUV_BYTE_ORDER_MASK;
-	dvscntr &= ~DVS_TILED;
-
-	switch (fb->pixel_format) {
-	case DRM_FORMAT_XBGR8888:
-		dvscntr |= DVS_FORMAT_RGBX888 | DVS_RGB_ORDER_XBGR;
-		break;
-	case DRM_FORMAT_XRGB8888:
-		dvscntr |= DVS_FORMAT_RGBX888;
-		break;
-	case DRM_FORMAT_YUYV:
-		dvscntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_YUYV;
-		break;
-	case DRM_FORMAT_YVYU:
-		dvscntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_YVYU;
-		break;
-	case DRM_FORMAT_UYVY:
-		dvscntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_UYVY;
-		break;
-	case DRM_FORMAT_VYUY:
-		dvscntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_VYUY;
-		break;
-	default:
-		BUG();
-	}
-
-	if (obj->tiling_mode != I915_TILING_NONE)
-		dvscntr |= DVS_TILED;
-
-	if (IS_GEN6(dev))
-		dvscntr |= DVS_TRICKLE_FEED_DISABLE; /* must disable */
-	dvscntr |= DVS_ENABLE;
-
-	/* Sizes are 0 based */
-	src_w--;
-	src_h--;
-	crtc_w--;
-	crtc_h--;
-
-	intel_update_sprite_watermarks(dev, pipe, crtc_w, pixel_size);
-
-	dvsscale = 0;
-	if (IS_GEN5(dev) || crtc_w != src_w || crtc_h != src_h)
-		dvsscale = DVS_SCALE_ENABLE | (src_w << 16) | src_h;
-
-	I915_WRITE(DVSSTRIDE(pipe), fb->pitches[0]);
-	I915_WRITE(DVSPOS(pipe), (crtc_y << 16) | crtc_x);
-
-	linear_offset = y * fb->pitches[0] + x * pixel_size;
-	dvssurf_offset =
-		intel_gen4_compute_offset_xtiled(&x, &y,
-						 pixel_size, fb->pitches[0]);
-	linear_offset -= dvssurf_offset;
-
-	if (obj->tiling_mode != I915_TILING_NONE)
-		I915_WRITE(DVSTILEOFF(pipe), (y << 16) | x);
-	else
-		I915_WRITE(DVSLINOFF(pipe), linear_offset);
-
-	I915_WRITE(DVSSIZE(pipe), (crtc_h << 16) | crtc_w);
-	I915_WRITE(DVSSCALE(pipe), dvsscale);
-	I915_WRITE(DVSCNTR(pipe), dvscntr);
-	I915_MODIFY_DISPBASE(DVSSURF(pipe), obj->gtt_offset + dvssurf_offset);
+	ilk_calc_plane(plane, fb, coords);
+	ilk_prepare_plane(plane);
+	ilk_commit_plane(plane);
 	POSTING_READ(DVSSURF(pipe));
 }
 
@@ -490,13 +589,25 @@ ilk_disable_plane(struct drm_plane *plane)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	int pipe = intel_plane->pipe;
+	struct intel_plane_regs *regs = &intel_plane->regs;
 
-	I915_WRITE(DVSCNTR(pipe), I915_READ(DVSCNTR(pipe)) & ~DVS_ENABLE);
+	regs->cntr &= ~DVS_ENABLE;
 	/* Disable the scaler */
-	I915_WRITE(DVSSCALE(pipe), 0);
-	/* Flush double buffered register updates */
-	I915_MODIFY_DISPBASE(DVSSURF(pipe), 0);
+	regs->scale = 0;
+	ilk_commit_plane(plane);
 	POSTING_READ(DVSSURF(pipe));
+}
+
+void intel_calc_sprite(struct drm_plane *plane,
+		       struct drm_framebuffer *fb,
+		       const struct intel_plane_coords *coords)
+{
+	struct drm_device *dev = plane->dev;
+
+	if (INTEL_INFO(dev)->gen >= 7)
+		ivb_calc_plane(plane, fb, coords);
+	else
+		ilk_calc_plane(plane, fb, coords);
 }
 
 void
@@ -505,6 +616,7 @@ intel_enable_primary(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_plane_regs *regs = &intel_crtc->primary_regs;
 	int reg = DSPCNTR(intel_crtc->plane);
 
 	if (!intel_crtc->primary_disabled)
@@ -513,7 +625,8 @@ intel_enable_primary(struct drm_crtc *crtc)
 	intel_crtc->primary_disabled = false;
 	intel_update_fbc(dev);
 
-	I915_WRITE(reg, I915_READ(reg) | DISPLAY_PLANE_ENABLE);
+	regs->cntr = I915_READ(reg) | DISPLAY_PLANE_ENABLE;
+	dev_priv->display.commit_plane(crtc);
 }
 
 void
@@ -522,12 +635,14 @@ intel_disable_primary(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_plane_regs *regs = &intel_crtc->primary_regs;
 	int reg = DSPCNTR(intel_crtc->plane);
 
 	if (intel_crtc->primary_disabled)
 		return;
 
-	I915_WRITE(reg, I915_READ(reg) & ~DISPLAY_PLANE_ENABLE);
+	regs->cntr = I915_READ(reg) & ~DISPLAY_PLANE_ENABLE;
+	dev_priv->display.commit_plane(crtc);
 
 	intel_crtc->primary_disabled = true;
 	intel_update_fbc(dev);
@@ -539,49 +654,39 @@ ilk_update_colorkey(struct drm_plane *plane,
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_plane *intel_plane;
-	u32 dvscntr;
-	int ret = 0;
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	struct intel_plane_regs *regs = &intel_plane->regs;
 
-	intel_plane = to_intel_plane(plane);
+	regs->keyval = key->min_value;
+	regs->keymaxval = key->max_value;
+	regs->keymsk = key->channel_mask;
 
-	I915_WRITE(DVSKEYVAL(intel_plane->pipe), key->min_value);
-	I915_WRITE(DVSKEYMAX(intel_plane->pipe), key->max_value);
-	I915_WRITE(DVSKEYMSK(intel_plane->pipe), key->channel_mask);
-
-	dvscntr = I915_READ(DVSCNTR(intel_plane->pipe));
-	dvscntr &= ~(DVS_SOURCE_KEY | DVS_DEST_KEY);
+	regs->cntr &= ~(DVS_SOURCE_KEY | DVS_DEST_KEY);
 	if (key->flags & I915_SET_COLORKEY_DESTINATION)
-		dvscntr |= DVS_DEST_KEY;
+		regs->cntr |= DVS_DEST_KEY;
 	else if (key->flags & I915_SET_COLORKEY_SOURCE)
-		dvscntr |= DVS_SOURCE_KEY;
-	I915_WRITE(DVSCNTR(intel_plane->pipe), dvscntr);
+		regs->cntr |= DVS_SOURCE_KEY;
 
+	ilk_commit_plane(plane);
 	POSTING_READ(DVSKEYMSK(intel_plane->pipe));
 
-	return ret;
+	return 0;
 }
 
 static void
 ilk_get_colorkey(struct drm_plane *plane, struct drm_intel_sprite_colorkey *key)
 {
-	struct drm_device *dev = plane->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_plane *intel_plane;
-	u32 dvscntr;
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	const struct intel_plane_regs *regs = &intel_plane->regs;
 
-	intel_plane = to_intel_plane(plane);
-
-	key->min_value = I915_READ(DVSKEYVAL(intel_plane->pipe));
-	key->max_value = I915_READ(DVSKEYMAX(intel_plane->pipe));
-	key->channel_mask = I915_READ(DVSKEYMSK(intel_plane->pipe));
+	key->min_value = regs->keyval;
+	key->max_value = regs->keymaxval;
+	key->channel_mask = regs->keymsk;
 	key->flags = 0;
 
-	dvscntr = I915_READ(DVSCNTR(intel_plane->pipe));
-
-	if (dvscntr & DVS_DEST_KEY)
+	if (regs->cntr & DVS_DEST_KEY)
 		key->flags = I915_SET_COLORKEY_DESTINATION;
-	else if (dvscntr & DVS_SOURCE_KEY)
+	else if (regs->cntr & DVS_SOURCE_KEY)
 		key->flags = I915_SET_COLORKEY_SOURCE;
 	else
 		key->flags = I915_SET_COLORKEY_NONE;
@@ -819,6 +924,7 @@ static uint32_t snb_plane_formats[] = {
 int
 intel_plane_init(struct drm_device *dev, enum pipe pipe)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane;
 	unsigned long possible_crtcs;
 	const uint32_t *plane_formats;
@@ -842,6 +948,13 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe)
 		intel_plane->update_colorkey = ilk_update_colorkey;
 		intel_plane->get_colorkey = ilk_get_colorkey;
 
+		intel_plane->calc = ilk_calc_plane;
+		intel_plane->prepare = ilk_prepare_plane;
+		intel_plane->commit = ilk_commit_plane;
+
+		intel_plane->regs.cntr = I915_READ(DVSCNTR(pipe));
+		intel_plane->regs.surf = I915_READ(DVSSURF(pipe));
+
 		if (IS_GEN6(dev)) {
 			plane_formats = snb_plane_formats;
 			num_plane_formats = ARRAY_SIZE(snb_plane_formats);
@@ -861,6 +974,13 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe)
 		intel_plane->disable_plane = ivb_disable_plane;
 		intel_plane->update_colorkey = ivb_update_colorkey;
 		intel_plane->get_colorkey = ivb_get_colorkey;
+
+		intel_plane->calc = ivb_calc_plane;
+		intel_plane->prepare = ivb_prepare_plane;
+		intel_plane->commit = ivb_commit_plane;
+
+		intel_plane->regs.cntr = I915_READ(SPRCTL(pipe));
+		intel_plane->regs.surf = I915_READ(SPRSURF(pipe));
 
 		plane_formats = snb_plane_formats;
 		num_plane_formats = ARRAY_SIZE(snb_plane_formats);

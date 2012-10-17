@@ -270,6 +270,11 @@ struct intel_plane {
 			       struct drm_intel_sprite_colorkey *key);
 	void (*get_colorkey)(struct drm_plane *plane,
 			     struct drm_intel_sprite_colorkey *key);
+	void (*calc)(struct drm_plane *plane, struct drm_framebuffer *fb,
+		     const struct intel_plane_coords *clip);
+	void (*prepare)(struct drm_plane *plane);
+	void (*commit)(struct drm_plane *plane);
+	struct intel_plane_regs regs;
 };
 
 struct intel_watermark_params {
