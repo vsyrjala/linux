@@ -3652,8 +3652,8 @@ static void i9xx_crtc_off(struct drm_crtc *crtc)
 {
 }
 
-static void intel_crtc_update_sarea(struct drm_crtc *crtc,
-				    bool enabled)
+void intel_crtc_update_sarea(struct drm_crtc *crtc,
+			     bool enabled)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_master_private *master_priv;

@@ -693,4 +693,6 @@ extern void intel_crtc_cursor_commit(struct drm_crtc *crtc, uint32_t handle,
 				     struct drm_i915_gem_object *obj,
 				     uint32_t addr);
 
+extern void intel_crtc_update_sarea(struct drm_crtc *crtc, bool enabled);
+
 #endif /* __INTEL_DRV_H__ */
