@@ -581,8 +581,10 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 		spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
 
 		for_each_pipe(pipe) {
-			if (pipe_stats[pipe] & PIPE_VBLANK_INTERRUPT_STATUS)
+			if (pipe_stats[pipe] & PIPE_VBLANK_INTERRUPT_STATUS) {
 				drm_handle_vblank(dev, pipe);
+				intel_atomic_handle_vblank(dev, pipe);
+			}
 
 			if (pipe_stats[pipe] & PLANE_FLIPDONE_INT_STATUS_VLV) {
 				intel_prepare_page_flip(dev, pipe);
@@ -727,8 +729,10 @@ static irqreturn_t ivybridge_irq_handler(int irq, void *arg)
 			intel_opregion_gse_intr(dev);
 
 		for (i = 0; i < 3; i++) {
-			if (de_iir & (DE_PIPEA_VBLANK_IVB << (5 * i)))
+			if (de_iir & (DE_PIPEA_VBLANK_IVB << (5 * i))) {
 				drm_handle_vblank(dev, i);
+				intel_atomic_handle_vblank(dev, i);
+			}
 			if (de_iir & (DE_PLANEA_FLIP_DONE_IVB << (5 * i))) {
 				intel_prepare_page_flip(dev, i);
 				intel_finish_page_flip_plane(dev, i);
@@ -807,11 +811,15 @@ static irqreturn_t ironlake_irq_handler(int irq, void *arg)
 	if (de_iir & DE_GSE)
 		intel_opregion_gse_intr(dev);
 
-	if (de_iir & DE_PIPEA_VBLANK)
+	if (de_iir & DE_PIPEA_VBLANK) {
 		drm_handle_vblank(dev, 0);
+		intel_atomic_handle_vblank(dev, 0);
+	}
 
-	if (de_iir & DE_PIPEB_VBLANK)
+	if (de_iir & DE_PIPEB_VBLANK) {
 		drm_handle_vblank(dev, 1);
+		intel_atomic_handle_vblank(dev, 1);
+	}
 
 	if (de_iir & DE_PLANEA_FLIP_DONE) {
 		intel_prepare_page_flip(dev, 0);

@@ -32,6 +32,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_dp_helper.h>
+#include <drm/drm_flip.h>
 
 #define _wait_for(COND, MS, W) ({ \
 	unsigned long timeout__ = jiffies + msecs_to_jiffies(MS);	\
@@ -244,6 +245,9 @@ struct intel_crtc {
 	struct intel_pch_pll *pch_pll;
 	uint32_t ddi_pll_sel;
 	struct intel_plane_regs primary_regs;
+	struct drm_flip_helper flip_helper;
+	wait_queue_head_t vbl_wait;
+	bool vbl_received;
 };
 
 struct intel_plane_coords {
@@ -275,6 +279,7 @@ struct intel_plane {
 	void (*prepare)(struct drm_plane *plane);
 	void (*commit)(struct drm_plane *plane, const struct intel_plane_regs *regs);
 	struct intel_plane_regs regs;
+	struct drm_flip_helper flip_helper;
 };
 
 struct intel_watermark_params {
@@ -734,5 +739,8 @@ extern void intel_crtc_update_properties(struct drm_crtc *crtc);
 
 extern int intel_atomic_init(struct drm_device *dev);
 extern void intel_atomic_fini(struct drm_device *dev);
+extern void intel_atomic_free_events(struct drm_device *dev, struct drm_file *file);
+extern void intel_atomic_handle_vblank(struct drm_device *dev, int pipe);
+extern void intel_atomic_clear_flips(struct drm_crtc *crtc);
 
 #endif /* __INTEL_DRV_H__ */

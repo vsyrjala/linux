@@ -1764,6 +1764,8 @@ int i915_driver_open(struct drm_device *dev, struct drm_file *file)
 
 	idr_init(&file_priv->context_idr);
 
+	INIT_LIST_HEAD(&file_priv->pending_flips);
+
 	return 0;
 }
 
@@ -1804,6 +1806,7 @@ void i915_driver_preclose(struct drm_device * dev, struct drm_file *file_priv)
 {
 	i915_gem_context_close(dev, file_priv);
 	i915_gem_release(dev, file_priv);
+	intel_atomic_free_events(dev, file_priv);
 }
 
 void i915_driver_postclose(struct drm_device *dev, struct drm_file *file)

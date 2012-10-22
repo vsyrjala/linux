@@ -38,6 +38,7 @@
 #include <linux/io-mapping.h>
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
+#include <drm/drm_flip.h>
 #include <drm/intel-gtt.h>
 #include <linux/backlight.h>
 #include <linux/intel-iommu.h>
@@ -959,6 +960,8 @@ typedef struct drm_i915_private {
 	/* Old dri1 support infrastructure, beware the dragons ya fools entering
 	 * here! */
 	struct i915_dri1_state dri1;
+
+	struct drm_flip_driver flip_driver;
 } drm_i915_private_t;
 
 /* Iterate over initialised rings */
@@ -1181,6 +1184,7 @@ struct drm_i915_file_private {
 		struct list_head request_list;
 	} mm;
 	struct idr context_idr;
+	struct list_head pending_flips;
 };
 
 #define INTEL_INFO(dev)	(((struct drm_i915_private *) (dev)->dev_private)->info)

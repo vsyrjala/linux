@@ -3486,6 +3486,7 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 		encoder->disable(encoder);
 
 	intel_crtc_wait_for_pending_flips(crtc);
+	intel_atomic_clear_flips(crtc);
 	drm_vblank_off(dev, pipe);
 	intel_crtc_update_cursor(crtc, false);
 
@@ -3568,6 +3569,7 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 		encoder->disable(encoder);
 
 	intel_crtc_wait_for_pending_flips(crtc);
+	intel_atomic_clear_flips(crtc);
 	drm_vblank_off(dev, pipe);
 	intel_crtc_update_cursor(crtc, false);
 
@@ -3689,6 +3691,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 
 	/* Give the overlay scaler a chance to disable if it's on this pipe */
 	intel_crtc_wait_for_pending_flips(crtc);
+	intel_atomic_clear_flips(crtc);
 	drm_vblank_off(dev, pipe);
 	intel_crtc_dpms_overlay(intel_crtc, false);
 	intel_crtc_update_cursor(crtc, false);

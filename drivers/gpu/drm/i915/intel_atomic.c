@@ -41,8 +41,25 @@
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
+#include <drm/drm_flip.h>
 
 #include "intel_drv.h"
+
+struct intel_flip {
+	struct drm_flip base;
+	u32 vbl_count;
+	bool vblank_ref;
+	bool has_cursor;
+	struct drm_crtc *crtc;
+	struct drm_plane *plane;
+	struct drm_i915_gem_object *old_bo;
+	struct drm_i915_gem_object *old_cursor_bo;
+	struct drm_pending_atomic_event *event;
+	uint32_t old_fb_id;
+	struct list_head pending_head;
+	/* FIXME need cursor regs too */
+	struct intel_plane_regs regs;
+};
 
 struct intel_plane_state {
 	struct drm_plane *plane;
@@ -51,6 +68,7 @@ struct intel_plane_state {
 	bool pinned;
 	bool changed;
 	struct drm_pending_atomic_event *event;
+	struct intel_flip *flip;
 
 	struct {
 		struct drm_crtc *crtc;
@@ -73,6 +91,7 @@ struct intel_crtc_state {
 	unsigned long encoders_bitmask;
 	bool changed;
 	struct drm_pending_atomic_event *event;
+	struct intel_flip *flip;
 
 	struct {
 		bool enabled;
@@ -969,6 +988,22 @@ static void free_event(struct drm_pending_atomic_event *e)
 	kfree(e);
 }
 
+void intel_atomic_free_events(struct drm_device *dev, struct drm_file *file)
+{
+	struct drm_i915_file_private *file_priv = file->driver_priv;
+	struct intel_flip *intel_flip, *next;
+
+	spin_lock_irq(&dev->event_lock);
+
+	list_for_each_entry_safe(intel_flip, next, &file_priv->pending_flips, pending_head) {
+		free_event(intel_flip->event);
+		intel_flip->event = NULL;
+		list_del_init(&intel_flip->pending_head);
+	}
+
+	spin_unlock_irq(&dev->event_lock);
+}
+
 static void queue_event(struct drm_device *dev, struct drm_crtc *crtc,
 			struct drm_pending_atomic_event *e)
 {
@@ -1458,6 +1493,22 @@ static void update_crtc(struct drm_device *dev,
 	}
 }
 
+static void atomic_pipe_commit(struct drm_device *dev,
+			       struct intel_atomic_state *state,
+			       int pipe);
+
+static void apply_nonblocking(struct drm_device *dev, struct intel_atomic_state *s)
+{
+	struct intel_crtc *intel_crtc;
+
+	list_for_each_entry(intel_crtc, &dev->mode_config.crtc_list, base.head)
+		atomic_pipe_commit(dev, s, intel_crtc->pipe);
+
+	/* don't restore the old state in end() */
+	s->dirty = false;
+	s->restore_state = false;
+}
+
 static int alloc_flip_data(struct drm_device *dev, struct intel_atomic_state *s)
 {
 	int i;
@@ -1476,6 +1527,13 @@ static int alloc_flip_data(struct drm_device *dev, struct intel_atomic_state *s)
 
 			st->event = e;
 		}
+
+		if (!st->fb_dirty && !st->mode_dirty && !st->cursor_dirty)
+			continue;
+
+		st->flip = kzalloc(sizeof *st->flip, GFP_KERNEL);
+		if (!st->flip)
+			return -ENOMEM;
 	}
 
 
@@ -1493,6 +1551,13 @@ static int alloc_flip_data(struct drm_device *dev, struct intel_atomic_state *s)
 
 			st->event = e;
 		}
+
+		if (!st->dirty)
+			continue;
+
+		st->flip = kzalloc(sizeof *st->flip, GFP_KERNEL);
+		if (!st->flip)
+			return -ENOMEM;
 	}
 
 	return 0;
@@ -1511,6 +1576,9 @@ static void free_flip_data(struct drm_device *dev, struct intel_atomic_state *s)
 			spin_unlock_irq(&dev->event_lock);
 			st->event = NULL;
 		}
+
+		kfree(st->flip);
+		st->flip = NULL;
 	}
 
 	for (i = 0; i < dev->mode_config.num_plane; i++) {
@@ -1522,6 +1590,9 @@ static void free_flip_data(struct drm_device *dev, struct intel_atomic_state *s)
 			spin_unlock_irq(&dev->event_lock);
 			st->event = NULL;
 		}
+
+		kfree(st->flip);
+		st->flip = NULL;
 	}
 }
 
@@ -1529,9 +1600,6 @@ static int intel_atomic_commit(struct drm_device *dev, void *state)
 {
 	struct intel_atomic_state *s = state;
 	int ret;
-
-	if (s->flags & DRM_MODE_ATOMIC_NONBLOCK)
-		return -ENOSYS;
 
 	ret = alloc_flip_data(dev, s);
 	if (ret)
@@ -1550,17 +1618,22 @@ static int intel_atomic_commit(struct drm_device *dev, void *state)
 	if (ret)
 		return ret;
 
-	/* apply in a blocking manner */
-	ret = apply_config(dev, s);
-	if (ret) {
-		unpin_cursors(dev, s);
-		unpin_fbs(dev, s);
-		s->restore_hw = true;
-		return ret;
-	}
+	/* try to apply in a non blocking manner */
+	if (s->flags & DRM_MODE_ATOMIC_NONBLOCK) {
+		apply_nonblocking(dev, s);
+	} else {
+		/* apply in a blocking manner */
+		ret = apply_config(dev, s);
+		if (ret) {
+			unpin_cursors(dev, s);
+			unpin_fbs(dev, s);
+			s->restore_hw = true;
+			return ret;
+		}
 
-	unpin_old_cursors(dev, s);
-	unpin_old_fbs(dev, s);
+		unpin_old_cursors(dev, s);
+		unpin_old_fbs(dev, s);
+	}
 
 	/*
 	 * Either we took the blocking code path, or perhaps the state of
@@ -1605,6 +1678,9 @@ static const struct drm_atomic_funcs intel_atomic_funcs = {
 	.end = intel_atomic_end,
 };
 
+static void intel_flip_init(struct drm_device *dev);
+static void intel_flip_fini(struct drm_device *dev);
+
 int intel_atomic_init(struct drm_device *dev)
 {
 	struct drm_crtc *crtc;
@@ -1632,6 +1708,8 @@ int intel_atomic_init(struct drm_device *dev)
 
 	dev->driver->atomic_funcs = &intel_atomic_funcs;
 
+	intel_flip_init(dev);
+
 	return 0;
 
  destroy_props:
@@ -1645,9 +1723,488 @@ void intel_atomic_fini(struct drm_device *dev)
 {
 	struct drm_crtc *crtc;
 
+	intel_flip_fini(dev);
+
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		drm_crtc_destroy_blobs(crtc);
 	}
 
 	drm_mode_destroy_properties(dev);
+}
+
+enum {
+	/* somwehat arbitrary value */
+	INTEL_VBL_CNT_TIMEOUT = 5,
+};
+
+static void intel_flip_complete(struct drm_flip *flip)
+{
+	struct intel_flip *intel_flip =
+		container_of(flip, struct intel_flip, base);
+	struct drm_device *dev = intel_flip->crtc->dev;
+	struct drm_crtc *crtc = intel_flip->crtc;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	int pipe = intel_crtc->pipe;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+
+	if (intel_flip->event) {
+		list_del_init(&intel_flip->pending_head);
+		intel_flip->event->event.old_fb_id = intel_flip->old_fb_id;
+		queue_event(dev, crtc, intel_flip->event);
+	}
+
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+
+	if (intel_flip->vblank_ref)
+		drm_vblank_put(dev, pipe);
+}
+
+static void intel_flip_finish(struct drm_flip *flip)
+{
+	struct intel_flip *intel_flip =
+		container_of(flip, struct intel_flip, base);
+	struct drm_device *dev = intel_flip->crtc->dev;
+
+	if (intel_flip->old_bo) {
+		mutex_lock(&dev->struct_mutex);
+
+		intel_unpin_fb_obj(intel_flip->old_bo);
+
+		drm_gem_object_unreference(&intel_flip->old_bo->base);
+
+		mutex_unlock(&dev->struct_mutex);
+	}
+
+	if (intel_flip->old_cursor_bo)
+		intel_crtc_cursor_bo_unref(intel_flip->crtc, intel_flip->old_cursor_bo);
+}
+
+static void intel_flip_cleanup(struct drm_flip *flip)
+{
+	struct intel_flip *intel_flip =
+		container_of(flip, struct intel_flip, base);
+
+	kfree(intel_flip);
+}
+
+static void intel_flip_driver_flush(struct drm_flip_driver *driver)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(driver, struct drm_i915_private, flip_driver);
+
+	/* Flush posted writes */
+	I915_READ(PIPEDSL(PIPE_A));
+}
+
+static bool intel_have_new_frmcount(struct drm_device *dev)
+{
+	return IS_G4X(dev) || INTEL_INFO(dev)->gen >= 5;
+}
+
+static u32 get_vbl_count(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	int pipe = intel_crtc->pipe;
+
+	if (intel_have_new_frmcount(dev)) {
+		return I915_READ(PIPE_FRMCOUNT_GM45(pipe));
+	} else  {
+		u32 high, low1, low2, dsl;
+		unsigned int timeout = 0;
+
+		/*
+		 * FIXME check where the frame counter increments, and if
+		 * it happens in the middle of some line, take appropriate
+		 * measures to get a sensible reading.
+		 */
+
+		/* All reads must be satisfied during the same frame */
+		do {
+			low1 = I915_READ(PIPEFRAMEPIXEL(pipe)) >> PIPE_FRAME_LOW_SHIFT;
+			high = I915_READ(PIPEFRAME(pipe)) << 8;
+			dsl = I915_READ(PIPEDSL(pipe));
+			low2 = I915_READ(PIPEFRAMEPIXEL(pipe)) >> PIPE_FRAME_LOW_SHIFT;
+		} while (low1 != low2 && timeout++ < INTEL_VBL_CNT_TIMEOUT);
+
+		if (timeout >= INTEL_VBL_CNT_TIMEOUT)
+			dev_warn(dev->dev,
+				 "Timed out while determining VBL count for pipe %d\n", pipe);
+
+		return ((high | low2) +
+			((dsl >= crtc->hwmode.crtc_vdisplay) &&
+			 (dsl < crtc->hwmode.crtc_vtotal - 1))) & 0xffffff;
+	}
+}
+
+static unsigned int usecs_to_scanlines(struct drm_crtc *crtc,
+				       unsigned int usecs)
+{
+	/* paranoia */
+	if (!crtc->hwmode.crtc_htotal)
+		return 1;
+
+	return DIV_ROUND_UP(usecs * crtc->hwmode.clock,
+			    1000 * crtc->hwmode.crtc_htotal);
+}
+
+static void intel_pipe_vblank_evade(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	int pipe = intel_crtc->pipe;
+	/* FIXME needs to be calibrated sensibly */
+	u32 min = crtc->hwmode.crtc_vdisplay - usecs_to_scanlines(crtc, 50);
+	u32 max = crtc->hwmode.crtc_vdisplay - 1;
+	long timeout = msecs_to_jiffies(3);
+	u32 val;
+
+	bool vblank_ref = drm_vblank_get(dev, pipe) == 0;
+
+	intel_crtc->vbl_received = false;
+
+	val = I915_READ(PIPEDSL(pipe));
+
+	while (val >= min && val <= max && timeout > 0) {
+		local_irq_enable();
+
+		timeout = wait_event_timeout(intel_crtc->vbl_wait,
+					     intel_crtc->vbl_received,
+					     timeout);
+
+		local_irq_disable();
+
+		intel_crtc->vbl_received = false;
+
+		val = I915_READ(PIPEDSL(pipe));
+	}
+
+	if (vblank_ref)
+		drm_vblank_put(dev, pipe);
+
+	if (val >= min && val <= max)
+		dev_warn(dev->dev,
+			 "Page flipping close to vblank start (DSL=%u, VBL=%u)\n",
+			 val, crtc->hwmode.crtc_vdisplay);
+}
+
+static bool vbl_count_after_eq_new(u32 a, u32 b)
+{
+	return !((a - b) & 0x80000000);
+}
+
+static bool vbl_count_after_eq(u32 a, u32 b)
+{
+	return !((a - b) & 0x800000);
+}
+
+static bool intel_vbl_check(struct drm_flip *pending_flip, u32 vbl_count)
+{
+	struct intel_flip *old_intel_flip =
+		container_of(pending_flip, struct intel_flip, base);
+	struct drm_device *dev = old_intel_flip->crtc->dev;
+
+	if (intel_have_new_frmcount(dev))
+		return vbl_count_after_eq_new(vbl_count, old_intel_flip->vbl_count);
+	else
+		return vbl_count_after_eq(vbl_count, old_intel_flip->vbl_count);
+}
+
+static void intel_flip_prepare(struct drm_flip *flip)
+{
+	struct intel_flip *intel_flip =
+		container_of(flip, struct intel_flip, base);
+
+	if (intel_flip->plane) {
+		struct drm_plane *plane = intel_flip->plane;
+		struct intel_plane *intel_plane = to_intel_plane(plane);
+
+		intel_plane->prepare(plane);
+	}
+}
+
+static bool intel_flip_flip(struct drm_flip *flip,
+			    struct drm_flip *pending_flip)
+{
+	struct intel_flip *intel_flip = container_of(flip, struct intel_flip, base);
+	struct drm_crtc *crtc = intel_flip->crtc;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct drm_device *dev = crtc->dev;
+	int pipe = intel_crtc->pipe;
+	u32 vbl_count;
+
+	intel_flip->vblank_ref = drm_vblank_get(dev, pipe) == 0;
+
+	vbl_count = get_vbl_count(crtc);
+
+	/* arm all the double buffer registers */
+	if (intel_flip->plane) {
+		struct drm_plane *plane = intel_flip->plane;
+		struct intel_plane *intel_plane = to_intel_plane(plane);
+
+		intel_plane->commit(plane, &intel_flip->regs);
+	} else {
+		struct drm_i915_private *dev_priv = dev->dev_private;
+
+		dev_priv->display.commit_plane(crtc, &intel_flip->regs);
+	}
+
+	if (intel_flip->has_cursor)
+		intel_crtc_cursor_commit(crtc,
+					 intel_crtc->cursor_handle,
+					 intel_crtc->cursor_width,
+					 intel_crtc->cursor_height,
+					 intel_crtc->cursor_bo,
+					 intel_crtc->cursor_addr);
+
+	/* This flip will happen on the next vblank */
+	if (intel_have_new_frmcount(dev))
+		intel_flip->vbl_count = vbl_count + 1;
+	else
+		intel_flip->vbl_count = (vbl_count + 1) & 0xffffff;
+
+	if (pending_flip) {
+		struct intel_flip *old_intel_flip =
+			container_of(pending_flip, struct intel_flip, base);
+		bool flipped = intel_vbl_check(pending_flip, vbl_count);
+
+		if (!flipped) {
+			swap(intel_flip->old_fb_id, old_intel_flip->old_fb_id);
+			swap(intel_flip->old_bo, old_intel_flip->old_bo);
+			swap(intel_flip->old_cursor_bo, old_intel_flip->old_cursor_bo);
+		}
+
+		return flipped;
+	}
+
+	return false;
+}
+
+static bool intel_flip_vblank(struct drm_flip *pending_flip)
+{
+	struct intel_flip *old_intel_flip =
+		container_of(pending_flip, struct intel_flip, base);
+	u32 vbl_count = get_vbl_count(old_intel_flip->crtc);
+
+	return intel_vbl_check(pending_flip, vbl_count);
+}
+
+static const struct drm_flip_helper_funcs intel_flip_funcs = {
+	.prepare = intel_flip_prepare,
+	.flip = intel_flip_flip,
+	.vblank = intel_flip_vblank,
+	.complete = intel_flip_complete,
+	.finish = intel_flip_finish,
+	.cleanup = intel_flip_cleanup,
+};
+
+static const struct drm_flip_driver_funcs intel_flip_driver_funcs = {
+	.flush = intel_flip_driver_flush,
+};
+
+static void intel_flip_init(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc;
+	struct intel_plane *intel_plane;
+
+	drm_flip_driver_init(&dev_priv->flip_driver, &intel_flip_driver_funcs);
+
+	list_for_each_entry(intel_crtc, &dev->mode_config.crtc_list, base.head) {
+		init_waitqueue_head(&intel_crtc->vbl_wait);
+
+		drm_flip_helper_init(&intel_crtc->flip_helper,
+				     &dev_priv->flip_driver, &intel_flip_funcs);
+	}
+
+	list_for_each_entry(intel_plane, &dev->mode_config.plane_list, base.head)
+		drm_flip_helper_init(&intel_plane->flip_helper,
+				     &dev_priv->flip_driver, &intel_flip_funcs);
+}
+
+static void intel_flip_fini(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc;
+	struct intel_plane *intel_plane;
+
+	list_for_each_entry(intel_plane, &dev->mode_config.plane_list, base.head)
+		drm_flip_helper_fini(&intel_plane->flip_helper);
+
+	list_for_each_entry(intel_crtc, &dev->mode_config.crtc_list, base.head)
+		drm_flip_helper_fini(&intel_crtc->flip_helper);
+
+	drm_flip_driver_fini(&dev_priv->flip_driver);
+}
+
+static void intel_atomic_schedule_flips(struct drm_i915_private *dev_priv,
+					struct intel_crtc *intel_crtc,
+					struct list_head *flips)
+{
+	if (!intel_crtc->active) {
+		drm_flip_driver_complete_flips(&dev_priv->flip_driver, flips);
+		return;
+	}
+
+	drm_flip_driver_prepare_flips(&dev_priv->flip_driver, flips);
+
+	local_irq_disable();
+
+	intel_pipe_vblank_evade(&intel_crtc->base);
+
+	drm_flip_driver_schedule_flips(&dev_priv->flip_driver, flips);
+
+	local_irq_enable();
+}
+
+static void intel_atomic_flip_init(struct intel_flip *intel_flip,
+				   struct drm_device *dev,
+				   u32 flip_seq,
+				   struct drm_i915_file_private *file_priv,
+				   struct drm_pending_atomic_event *event,
+				   bool unpin_old_fb, struct drm_framebuffer *old_fb)
+{
+	intel_flip->flip_seq = flip_seq;
+
+	if (event) {
+		intel_flip->event = event;
+
+		/* need to keep track of it in case process exits */
+		spin_lock_irq(&dev->event_lock);
+		list_add_tail(&intel_flip->pending_head, &file_priv->pending_flips);
+		spin_unlock_irq(&dev->event_lock);
+	}
+
+	if (old_fb)
+		intel_flip->old_fb_id = old_fb->base.id;
+
+	if (unpin_old_fb && old_fb) {
+		intel_flip->old_bo = to_intel_framebuffer(old_fb)->obj;
+
+		mutex_lock(&dev->struct_mutex);
+		drm_gem_object_reference(&intel_flip->old_bo->base);
+		mutex_unlock(&dev->struct_mutex);
+	}
+}
+
+static void atomic_pipe_commit(struct drm_device *dev,
+			       struct intel_atomic_state *state,
+			       int pipe)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_file_private *file_priv = state->file->driver_priv;
+	struct intel_crtc *intel_crtc = to_intel_crtc(intel_get_crtc_for_pipe(dev, pipe));
+	LIST_HEAD(flips);
+	int i;
+
+	for (i = 0; i < dev->mode_config.num_crtc; i++) {
+		struct intel_crtc_state *st = &state->crtc[i];
+		struct drm_crtc *crtc = st->crtc;
+		struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+		struct intel_flip *intel_flip;
+
+		if (!st->fb_dirty && !st->cursor_dirty)
+			continue;
+
+		if (intel_crtc->pipe != pipe)
+			continue;
+
+		intel_flip = st->flip;
+		st->flip = NULL;
+
+		drm_flip_init(&intel_flip->base, &intel_crtc->flip_helper);
+
+		intel_atomic_flip_init(intel_flip, dev, flip_seq,
+				       file_priv, st->event,
+				       st->fb_dirty, st->old.fb);
+		st->event = NULL;
+
+		intel_flip->crtc = crtc;
+
+		/* update primary_disabled befoer calc_plane() */
+		intel_crtc->primary_disabled = st->primary_disabled;
+
+		/* should already be checked so can't fail */
+		/* FIXME refactor the failing parts? */
+		dev_priv->display.calc_plane(crtc, crtc->fb, crtc->x, crtc->y);
+		intel_flip->regs = intel_crtc->primary_regs;
+
+		if (st->cursor_dirty) {
+			intel_flip->has_cursor = true;
+			intel_flip->old_cursor_bo = st->old.cursor_bo;
+		}
+
+		list_add_tail(&intel_flip->base.list, &flips);
+	}
+
+	for (i = 0; i < dev->mode_config.num_plane; i++) {
+		struct intel_plane_state *st = &state->plane[i];
+		struct drm_plane *plane = st->plane;
+		struct intel_plane *intel_plane = to_intel_plane(plane);
+		struct intel_flip *intel_flip;
+
+		if (!st->dirty)
+			continue;
+
+		if (intel_plane->pipe != pipe)
+			continue;
+
+		intel_flip = st->flip;
+		st->flip = NULL;
+
+		drm_flip_init(&intel_flip->base, &intel_plane->flip_helper);
+
+		intel_atomic_flip_init(intel_flip, dev, flip_seq,
+				       file_priv, st->event,
+				       st->dirty, st->old.fb);
+		st->event = NULL;
+
+		intel_flip->crtc = intel_get_crtc_for_pipe(dev, pipe);
+		intel_flip->plane = plane;
+
+		intel_plane->calc(plane, plane->fb, &st->coords);
+		intel_flip->regs = intel_plane->regs;
+
+		list_add_tail(&intel_flip->base.list, &flips);
+	}
+
+	if (list_empty(&flips))
+		return;
+
+	intel_atomic_schedule_flips(dev_priv, intel_crtc, &flips);
+}
+
+void intel_atomic_handle_vblank(struct drm_device *dev, int pipe)
+{
+	struct intel_crtc *intel_crtc = to_intel_crtc(intel_get_crtc_for_pipe(dev, pipe));
+	struct intel_plane *intel_plane;
+
+	intel_crtc->vbl_received = true;
+	wake_up(&intel_crtc->vbl_wait);
+
+	drm_flip_helper_vblank(&intel_crtc->flip_helper);
+
+	list_for_each_entry(intel_plane, &dev->mode_config.plane_list, base.head) {
+		if (intel_plane->pipe == pipe)
+			drm_flip_helper_vblank(&intel_plane->flip_helper);
+	}
+}
+
+void intel_atomic_clear_flips(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_plane *intel_plane;
+	int pipe = intel_crtc->pipe;
+
+	drm_flip_helper_clear(&intel_crtc->flip_helper);
+
+	list_for_each_entry(intel_plane, &dev->mode_config.plane_list, base.head) {
+		if (intel_plane->pipe == pipe)
+			drm_flip_helper_clear(&intel_plane->flip_helper);
+	}
 }
