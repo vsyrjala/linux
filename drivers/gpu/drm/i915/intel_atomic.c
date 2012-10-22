@@ -50,6 +50,7 @@ struct intel_plane_state {
 	bool dirty;
 	bool pinned;
 	bool changed;
+	struct drm_pending_atomic_event *event;
 
 	struct {
 		struct drm_crtc *crtc;
@@ -71,6 +72,7 @@ struct intel_crtc_state {
 	unsigned long connectors_bitmask;
 	unsigned long encoders_bitmask;
 	bool changed;
+	struct drm_pending_atomic_event *event;
 
 	struct {
 		bool enabled;
@@ -925,6 +927,111 @@ static void update_plane_obj(struct drm_device *dev,
 	}
 }
 
+static struct drm_pending_atomic_event *alloc_event(struct drm_device *dev,
+						    struct drm_file *file_priv,
+						    uint64_t user_data)
+{
+	struct drm_pending_atomic_event *e;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+
+	if (file_priv->event_space < sizeof e->event) {
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+		return ERR_PTR(-ENOSPC);
+	}
+
+	file_priv->event_space -= sizeof e->event;
+	spin_unlock_irqrestore(&dev->event_lock, flags);
+
+	e = kzalloc(sizeof *e, GFP_KERNEL);
+	if (!e) {
+		spin_lock_irqsave(&dev->event_lock, flags);
+		file_priv->event_space += sizeof e->event;
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+
+		return ERR_PTR(-ENOMEM);
+	}
+
+	e->event.base.type = DRM_EVENT_ATOMIC_COMPLETE;
+	e->event.base.length = sizeof e->event;
+	e->event.user_data = user_data;
+	e->base.event = &e->event.base;
+	e->base.file_priv = file_priv;
+	e->base.destroy = (void (*) (struct drm_pending_event *)) kfree;
+
+	return e;
+}
+
+static void free_event(struct drm_pending_atomic_event *e)
+{
+	e->base.file_priv->event_space += sizeof e->event;
+	kfree(e);
+}
+
+static void queue_event(struct drm_device *dev, struct drm_crtc *crtc,
+			struct drm_pending_atomic_event *e)
+{
+	struct timeval tvbl;
+
+	if (crtc) {
+		int pipe = to_intel_crtc(crtc)->pipe;
+
+		/* FIXME this is wrong for flips that are completed not at vblank */
+		e->event.sequence = drm_vblank_count_and_time(dev, pipe, &tvbl);
+		e->event.tv_sec = tvbl.tv_sec;
+		e->event.tv_usec = tvbl.tv_usec;
+	} else {
+		e->event.sequence = 0;
+		e->event.tv_sec = 0;
+		e->event.tv_usec = 0;
+	}
+
+	list_add_tail(&e->base.link, &e->base.file_priv->event_list);
+	wake_up_interruptible(&e->base.file_priv->event_wait);
+}
+
+static void queue_remaining_events(struct drm_device *dev, struct intel_atomic_state *s)
+{
+	int i;
+
+	for (i = 0; i < dev->mode_config.num_crtc; i++) {
+		struct intel_crtc_state *st = &s->crtc[i];
+
+		if (st->event) {
+			if (st->old.fb)
+				st->event->event.old_fb_id = st->old.fb->base.id;
+
+			spin_lock_irq(&dev->event_lock);
+			queue_event(dev, st->crtc, st->event);
+			spin_unlock_irq(&dev->event_lock);
+
+			st->event = NULL;
+		}
+	}
+
+	for (i = 0; i < dev->mode_config.num_plane; i++) {
+		struct intel_plane_state *st = &s->plane[i];
+		struct drm_crtc *crtc;
+
+		if (!st->event)
+			continue;
+
+		crtc = st->plane->crtc;
+		if (!crtc)
+			crtc = st->old.crtc;
+
+		if (st->old.fb)
+			st->event->event.old_fb_id = st->old.fb->base.id;
+
+		spin_lock_irq(&dev->event_lock);
+		queue_event(dev, crtc, st->event);
+		spin_unlock_irq(&dev->event_lock);
+
+		st->event = NULL;
+	}
+}
+
 static int apply_config(struct drm_device *dev,
 			struct intel_atomic_state *s)
 {
@@ -1351,6 +1458,73 @@ static void update_crtc(struct drm_device *dev,
 	}
 }
 
+static int alloc_flip_data(struct drm_device *dev, struct intel_atomic_state *s)
+{
+	int i;
+
+	for (i = 0; i < dev->mode_config.num_crtc; i++) {
+		struct intel_crtc_state *st = &s->crtc[i];
+
+		if (st->changed && s->flags & DRM_MODE_ATOMIC_EVENT) {
+			struct drm_pending_atomic_event *e;
+
+			e = alloc_event(dev, s->file, s->user_data);
+			if (IS_ERR(e))
+				return PTR_ERR(e);
+
+			e->event.obj_id = st->crtc->base.id;
+
+			st->event = e;
+		}
+	}
+
+
+	for (i = 0; i < dev->mode_config.num_plane; i++) {
+		struct intel_plane_state *st = &s->plane[i];
+
+		if (st->changed && s->flags & DRM_MODE_ATOMIC_EVENT) {
+			struct drm_pending_atomic_event *e;
+
+			e = alloc_event(dev, s->file, s->user_data);
+			if (IS_ERR(e))
+				return PTR_ERR(e);
+
+			e->event.obj_id = st->plane->base.id;
+
+			st->event = e;
+		}
+	}
+
+	return 0;
+}
+
+static void free_flip_data(struct drm_device *dev, struct intel_atomic_state *s)
+{
+	int i;
+
+	for (i = 0; i < dev->mode_config.num_crtc; i++) {
+		struct intel_crtc_state *st = &s->crtc[i];
+
+		if (st->event) {
+			spin_lock_irq(&dev->event_lock);
+			free_event(st->event);
+			spin_unlock_irq(&dev->event_lock);
+			st->event = NULL;
+		}
+	}
+
+	for (i = 0; i < dev->mode_config.num_plane; i++) {
+		struct intel_plane_state *st = &s->plane[i];
+
+		if (st->event) {
+			spin_lock_irq(&dev->event_lock);
+			free_event(st->event);
+			spin_unlock_irq(&dev->event_lock);
+			st->event = NULL;
+		}
+	}
+}
+
 static int intel_atomic_commit(struct drm_device *dev, void *state)
 {
 	struct intel_atomic_state *s = state;
@@ -1359,11 +1533,14 @@ static int intel_atomic_commit(struct drm_device *dev, void *state)
 	if (s->flags & DRM_MODE_ATOMIC_NONBLOCK)
 		return -ENOSYS;
 
-	if (s->flags & DRM_MODE_ATOMIC_EVENT)
-		return -ENOSYS;
+	ret = alloc_flip_data(dev, s);
+	if (ret)
+		return ret;
 
-	if (!s->dirty)
+	if (!s->dirty) {
+		queue_remaining_events(dev, s);
 		return 0;
+	}
 
 	ret = pin_fbs(dev, s);
 	if (ret)
@@ -1385,6 +1562,17 @@ static int intel_atomic_commit(struct drm_device *dev, void *state)
 	unpin_old_cursors(dev, s);
 	unpin_old_fbs(dev, s);
 
+	/*
+	 * Either we took the blocking code path, or perhaps the state of
+	 * some objects didn't actually change? Nonetheless the user wanted
+	 * events for all objects he touched, so queue up any events that
+	 * are still pending.
+	 *
+	 * FIXME this needs more work. If the previous flip is still pending
+	 * we shouldn't send this event until that flip completes.
+	 */
+	queue_remaining_events(dev, s);
+
 	update_plane_obj(dev, s);
 
 	update_crtc(dev, s);
@@ -1398,6 +1586,9 @@ static int intel_atomic_commit(struct drm_device *dev, void *state)
 static void intel_atomic_end(struct drm_device *dev, void *state)
 {
 	struct intel_atomic_state *s = state;
+
+	/* don't send events when restoring old state */
+	free_flip_data(dev, state);
 
 	/* restore the state of all objects */
 	if (s->restore_state)
