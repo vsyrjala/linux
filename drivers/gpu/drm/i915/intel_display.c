@@ -3351,7 +3351,8 @@ static void ironlake_crtc_enable(struct drm_crtc *crtc)
 	intel_crtc_load_lut(crtc);
 
 	intel_enable_pipe(dev_priv, pipe, is_pch_port);
-	intel_enable_plane(dev_priv, plane, pipe);
+	if (!intel_crtc->primary_disabled)
+		intel_enable_plane(dev_priv, plane, pipe);
 
 	if (is_pch_port)
 		ironlake_pch_enable(crtc);
@@ -3431,7 +3432,8 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 	intel_ddi_enable_pipe_func(crtc);
 
 	intel_enable_pipe(dev_priv, pipe, is_pch_port);
-	intel_enable_plane(dev_priv, plane, pipe);
+	if (!intel_crtc->primary_disabled)
+		intel_enable_plane(dev_priv, plane, pipe);
 
 	if (is_pch_port)
 		lpt_pch_enable(crtc);
@@ -3645,7 +3647,8 @@ static void i9xx_crtc_enable(struct drm_crtc *crtc)
 
 	intel_enable_pll(dev_priv, pipe);
 	intel_enable_pipe(dev_priv, pipe, false);
-	intel_enable_plane(dev_priv, plane, pipe);
+	if (!intel_crtc->primary_disabled)
+		intel_enable_plane(dev_priv, plane, pipe);
 
 	intel_crtc_load_lut(crtc);
 	intel_update_fbc(dev);
