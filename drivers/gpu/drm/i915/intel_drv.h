@@ -703,4 +703,7 @@ extern bool intel_crtc_mode_fixup(struct drm_crtc *crtc,
 extern bool intel_encoder_crtc_ok(struct drm_encoder *encoder,
 				  struct drm_crtc *crtc);
 
+extern void intel_enable_primary(struct drm_crtc *crtc);
+extern void intel_disable_primary(struct drm_crtc *crtc);
+
 #endif /* __INTEL_DRV_H__ */

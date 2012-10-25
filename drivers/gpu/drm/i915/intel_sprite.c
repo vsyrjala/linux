@@ -499,7 +499,7 @@ ilk_disable_plane(struct drm_plane *plane)
 	POSTING_READ(DVSSURF(pipe));
 }
 
-static void
+void
 intel_enable_primary(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
@@ -516,7 +516,7 @@ intel_enable_primary(struct drm_crtc *crtc)
 	I915_WRITE(reg, I915_READ(reg) | DISPLAY_PLANE_ENABLE);
 }
 
-static void
+void
 intel_disable_primary(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
