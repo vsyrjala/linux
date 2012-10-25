@@ -92,6 +92,7 @@ struct intel_crtc_state {
 	bool changed;
 	struct drm_pending_atomic_event *event;
 	struct intel_flip *flip;
+	bool primary_disabled;
 
 	struct {
 		bool enabled;
@@ -328,6 +329,8 @@ static void *intel_atomic_begin(struct drm_device *dev, struct drm_file *file,
 
 		s->old.connectors_bitmask = s->connectors_bitmask;
 		s->old.encoders_bitmask = s->encoders_bitmask;
+
+		s->primary_disabled = intel_crtc->primary_disabled;
 	}
 
 	i = 0;
@@ -1133,6 +1136,9 @@ static int apply_config(struct drm_device *dev,
 						 intel_crtc->cursor_addr);
 		}
 
+		if (!st->primary_disabled)
+			intel_enable_primary(crtc);
+
 		for (j = 0; j < dev->mode_config.num_plane; j++) {
 			struct intel_plane_state *pst = &s->plane[j];
 			struct drm_plane *plane = pst->plane;
@@ -1146,6 +1152,9 @@ static int apply_config(struct drm_device *dev,
 			else if (!pst->coords.visible && pst->old.crtc == crtc)
 				intel_plane->disable_plane(plane);
 		}
+
+		if (st->primary_disabled)
+			intel_disable_primary(crtc);
 	}
 
 	/* don't restore the old state in end() */
@@ -1183,6 +1192,7 @@ static void restore_state(struct drm_device *dev,
 		intel_crtc->cursor_width = s->saved_crtcs[i].cursor_width;
 		intel_crtc->cursor_height = s->saved_crtcs[i].cursor_height;
 		intel_crtc->cursor_visible = s->saved_crtcs[i].cursor_visible;
+		intel_crtc->primary_disabled = s->saved_crtcs[i].primary_disabled;
 
 		i++;
 	}
@@ -1324,6 +1334,28 @@ static int check_crtc(struct intel_crtc_state *s)
 	return 0;
 }
 
+static void update_primary_visibility(struct drm_device *dev,
+				      struct intel_atomic_state *s,
+				      const struct drm_crtc *crtc,
+				      const struct drm_plane *plane,
+				      const struct intel_plane_coords *coords)
+{
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	bool primary_disabled =
+		coords->visible &&
+		coords->crtc_x == 0 &&
+		coords->crtc_y == 0 &&
+		coords->crtc_w == crtc->mode.hdisplay &&
+		coords->crtc_h == crtc->mode.vdisplay;
+
+	if (primary_disabled != intel_crtc->primary_disabled) {
+		struct intel_crtc_state *st = get_crtc_state(dev, s, crtc);
+		st->fb_dirty = true;
+		st->primary_disabled = primary_disabled;
+		s->dirty = true;
+	}
+}
+
 static int intel_atomic_check(struct drm_device *dev, void *state)
 {
 	struct intel_atomic_state *s = state;
@@ -1408,6 +1440,12 @@ static int intel_atomic_check(struct drm_device *dev, void *state)
 		ret = intel_check_plane(plane, plane->crtc, plane->fb, &st->coords);
 		if (ret)
 			return ret;
+
+		/* FIXME doesn't correctly handle cases where plane moves between crtcs */
+		if (plane->crtc)
+			update_primary_visibility(dev, s, plane->crtc, plane, &st->coords);
+		else if (st->old.crtc)
+			update_primary_visibility(dev, s, st->old.crtc, plane, &st->coords);
 	}
 
 	return 0;
