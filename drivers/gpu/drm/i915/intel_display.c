@@ -2068,6 +2068,11 @@ static int i9xx_calc_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 			regs->cntr &= ~DISPPLANE_TILED;
 	}
 
+	if (intel_crtc->active && !intel_crtc->primary_disabled)
+		regs->cntr |= DISPLAY_PLANE_ENABLE;
+	else
+		regs->cntr &= ~DISPLAY_PLANE_ENABLE;
+
 	linear_offset = y * fb->pitches[0] + x * cpp;
 
 	if (INTEL_INFO(dev)->gen >= 4) {
@@ -2175,6 +2180,11 @@ static int ironlake_calc_plane(struct drm_crtc *crtc,
 
 	/* must disable */
 	regs->cntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
+
+	if (intel_crtc->active && !intel_crtc->primary_disabled)
+		regs->cntr |= DISPLAY_PLANE_ENABLE;
+	else
+		regs->cntr &= ~DISPLAY_PLANE_ENABLE;
 
 	linear_offset = y * fb->pitches[0] + x * cpp;
 	intel_crtc->dspaddr_offset =
