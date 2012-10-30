@@ -780,6 +780,11 @@ int drm_crtc_helper_set_config(struct drm_mode_set *set)
 	kfree(save_connectors);
 	kfree(save_encoders);
 	kfree(save_crtcs);
+
+	/* changes in one CRTC can affect the others */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
+		drm_crtc_update_properties(crtc);
+
 	return 0;
 
 fail:
@@ -808,6 +813,11 @@ fail:
 	kfree(save_connectors);
 	kfree(save_encoders);
 	kfree(save_crtcs);
+
+	/* changes in one CRTC can affect the others */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
+		drm_crtc_update_properties(crtc);
+
 	return ret;
 }
 EXPORT_SYMBOL(drm_crtc_helper_set_config);
