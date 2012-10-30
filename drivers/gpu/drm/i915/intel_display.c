@@ -6368,6 +6368,8 @@ static int intel_crtc_cursor_set(struct drm_crtc *crtc,
 	if (old_obj)
 		intel_crtc_cursor_bo_unref(crtc, old_obj);
 
+	intel_crtc_update_properties(crtc);
+
 	return 0;
 }
 
@@ -6379,6 +6381,8 @@ static int intel_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 	intel_crtc->cursor_y = y;
 
 	intel_crtc_update_cursor(crtc, true);
+
+	intel_crtc_update_properties(crtc);
 
 	return 0;
 }
@@ -7341,6 +7345,8 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 
 	trace_i915_flip_request(intel_crtc->plane, obj);
 
+	intel_crtc_update_properties(crtc);
+
 	return 0;
 
 cleanup_pending:
@@ -8067,6 +8073,7 @@ next_encoder:
 static int intel_crtc_set_config(struct drm_mode_set *set)
 {
 	struct drm_device *dev;
+	struct drm_crtc *crtc;
 	struct drm_mode_set save_set;
 	struct intel_set_config *config;
 	int ret;
@@ -8140,6 +8147,10 @@ static int intel_crtc_set_config(struct drm_mode_set *set)
 
 	intel_set_config_free(config);
 
+	/* changes in one CRTC can affect the others */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
+		intel_crtc_update_properties(crtc);
+
 	return 0;
 
 fail:
@@ -8150,6 +8161,10 @@ fail:
 	    !intel_set_mode(save_set.crtc, save_set.mode,
 			    save_set.x, save_set.y, save_set.fb))
 		DRM_ERROR("failed to restore config after modeset failure\n");
+
+	/* changes in one CRTC can affect the others */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
+		intel_crtc_update_properties(crtc);
 
 out_config:
 	intel_set_config_free(config);
