@@ -407,6 +407,8 @@ void drm_framebuffer_remove(struct drm_framebuffer *fb)
 			/* disconnect the plane from the fb and crtc: */
 			plane->fb = NULL;
 			plane->crtc = NULL;
+
+			drm_plane_update_properties(plane);
 		}
 	}
 
@@ -1779,6 +1781,8 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 		plane->funcs->disable_plane(plane);
 		plane->crtc = NULL;
 		plane->fb = NULL;
+
+		drm_plane_update_properties(plane);
 		goto out;
 	}
 
@@ -1862,6 +1866,8 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 		plane->src_y = plane_req->src_y;
 		plane->src_w = plane_req->src_w;
 		plane->src_h = plane_req->src_h;
+
+		drm_plane_update_properties(plane);
 	}
 
 out:
