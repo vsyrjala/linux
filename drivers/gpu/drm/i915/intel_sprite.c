@@ -345,15 +345,16 @@ ivb_prepare_plane(struct drm_plane *plane)
 	 */
 	if (regs->scale & SPRITE_SCALE_ENABLE) {
 		if (!dev_priv->sprite_scaling_enabled) {
-			dev_priv->sprite_scaling_enabled = true;
+			dev_priv->sprite_scaling_enabled |= 1 << pipe;
 			intel_update_watermarks(dev);
 			intel_wait_for_vblank(dev, pipe);
 		}
 	} else {
-		if (dev_priv->sprite_scaling_enabled) {
-			dev_priv->sprite_scaling_enabled = false;
+		if (dev_priv->sprite_scaling_enabled & (1 << pipe)) {
+			dev_priv->sprite_scaling_enabled &= ~(1 << pipe);
 			/* potentially re-enable LP watermarks */
-			intel_update_watermarks(dev);
+			if (!dev_priv->sprite_scaling_enabled)
+				intel_update_watermarks(dev);
 		}
 	}
 }
@@ -389,7 +390,7 @@ ivb_disable_plane(struct drm_plane *plane)
 	ivb_commit_plane(plane, regs);
 	POSTING_READ(SPRSURF(pipe));
 
-	dev_priv->sprite_scaling_enabled = false;
+	dev_priv->sprite_scaling_enabled &= ~(1 << pipe);
 	intel_update_watermarks(dev);
 }
 
