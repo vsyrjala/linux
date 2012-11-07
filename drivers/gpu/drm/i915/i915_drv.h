@@ -962,6 +962,14 @@ typedef struct drm_i915_private {
 	struct i915_dri1_state dri1;
 
 	struct drm_flip_driver flip_driver;
+
+	struct {
+		struct list_head list;
+		spinlock_t lock;
+		struct work_struct work;
+		struct workqueue_struct *wq;
+		unsigned int next_flip_seq;
+	} flip;
 } drm_i915_private_t;
 
 /* Iterate over initialised rings */

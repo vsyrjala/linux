@@ -45,6 +45,8 @@
 
 #include "intel_drv.h"
 
+#define USE_WRITE_SEQNO
+
 struct intel_flip {
 	struct drm_flip base;
 	u32 vbl_count;
@@ -59,6 +61,9 @@ struct intel_flip {
 	struct list_head pending_head;
 	/* FIXME need cursor regs too */
 	struct intel_plane_regs regs;
+	struct intel_ring_buffer *ring;
+	u32 seqno;
+	unsigned int flip_seq;
 };
 
 struct intel_plane_state {
@@ -834,6 +839,7 @@ static int pin_fbs(struct drm_device *dev,
 		   struct intel_atomic_state *s)
 {
 	int i, ret;
+	bool nonblock = s->flags & DRM_MODE_ATOMIC_NONBLOCK;
 
 	for (i = 0; i < dev->mode_config.num_crtc; i++) {
 		struct intel_crtc_state *st = &s->crtc[i];
@@ -849,7 +855,7 @@ static int pin_fbs(struct drm_device *dev,
 		obj = to_intel_framebuffer(crtc->fb)->obj;
 
 		mutex_lock(&dev->struct_mutex);
-		ret = intel_pin_and_fence_fb_obj(dev, obj, NULL);
+		ret = intel_pin_and_fence_fb_obj(dev, obj, nonblock ? obj->ring : NULL);
 		mutex_unlock(&dev->struct_mutex);
 
 		if (ret)
@@ -872,7 +878,7 @@ static int pin_fbs(struct drm_device *dev,
 		obj = to_intel_framebuffer(plane->fb)->obj;
 
 		mutex_lock(&dev->struct_mutex);
-		ret = intel_pin_and_fence_fb_obj(dev, obj, NULL);
+		ret = intel_pin_and_fence_fb_obj(dev, obj, nonblock ? obj->ring : NULL);
 		mutex_unlock(&dev->struct_mutex);
 
 		if (ret)
@@ -2044,6 +2050,8 @@ static const struct drm_flip_driver_funcs intel_flip_driver_funcs = {
 	.flush = intel_flip_driver_flush,
 };
 
+static void intel_atomic_process_flips_work(struct work_struct *work);
+
 static void intel_flip_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -2062,6 +2070,11 @@ static void intel_flip_init(struct drm_device *dev)
 	list_for_each_entry(intel_plane, &dev->mode_config.plane_list, base.head)
 		drm_flip_helper_init(&intel_plane->flip_helper,
 				     &dev_priv->flip_driver, &intel_flip_funcs);
+
+	INIT_LIST_HEAD(&dev_priv->flip.list);
+	spin_lock_init(&dev_priv->flip.lock);
+	INIT_WORK(&dev_priv->flip.work, intel_atomic_process_flips_work);
+	dev_priv->flip.wq = create_singlethread_workqueue("intel_flip");
 }
 
 static void intel_flip_fini(struct drm_device *dev)
@@ -2077,6 +2090,30 @@ static void intel_flip_fini(struct drm_device *dev)
 		drm_flip_helper_fini(&intel_crtc->flip_helper);
 
 	drm_flip_driver_fini(&dev_priv->flip_driver);
+}
+
+static bool intel_atomic_postpone_flip(struct intel_flip *intel_flip)
+{
+	struct intel_ring_buffer *ring = intel_flip->ring;
+	int ret;
+
+	ret = i915_gem_check_olr(ring, intel_flip->seqno);
+	if (WARN_ON(ret)) {
+		intel_flip->ring = NULL;
+		return false;
+	}
+
+	if (i915_seqno_passed(ring->get_seqno(ring, true), intel_flip->seqno)) {
+		intel_flip->ring = NULL;
+		return false;
+	}
+
+	if (WARN_ON(!ring->irq_get(ring))) {
+		intel_flip->ring = NULL;
+		return false;
+	}
+
+	return true;
 }
 
 static void intel_atomic_schedule_flips(struct drm_i915_private *dev_priv,
@@ -2099,11 +2136,112 @@ static void intel_atomic_schedule_flips(struct drm_i915_private *dev_priv,
 	local_irq_enable();
 }
 
+static  bool intel_atomic_flips_ready(struct drm_device *dev, unsigned int flip_seq)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_flip *intel_flip;
+
+	/* check if all flips w/ same flip_seq are ready */
+	list_for_each_entry(intel_flip, &dev_priv->flip.list, base.list) {
+		if (intel_flip->flip_seq != flip_seq)
+			break;
+
+		if (intel_flip->ring)
+			return false;
+	}
+
+	return true;
+}
+
+static void intel_atomic_process_flips_work(struct work_struct *work)
+{
+	struct drm_i915_private *dev_priv = container_of(work, struct drm_i915_private, flip.work);
+	struct drm_device *dev = dev_priv->dev;
+
+	for (;;) {
+		struct intel_flip *intel_flip, *next;
+		unsigned int flip_seq;
+		struct intel_crtc *intel_crtc;
+		LIST_HEAD(flips);
+		unsigned long flags;
+
+		if (list_empty(&dev_priv->flip.list))
+			return;
+
+		spin_lock_irqsave(&dev_priv->flip.lock, flags);
+
+		intel_flip = list_first_entry(&dev_priv->flip.list, struct intel_flip, base.list);
+		flip_seq = intel_flip->flip_seq;
+		intel_crtc = to_intel_crtc(intel_flip->crtc);
+
+		if (intel_atomic_flips_ready(dev, flip_seq)) {
+			list_for_each_entry_safe(intel_flip, next, &dev_priv->flip.list, base.list) {
+				if (intel_flip->flip_seq != flip_seq)
+					break;
+				list_move_tail(&intel_flip->base.list, &flips);
+			}
+		}
+
+		spin_unlock_irqrestore(&dev_priv->flip.lock, flags);
+
+		if (list_empty(&flips))
+			return;
+
+		mutex_lock(&dev->mode_config.mutex);
+		intel_atomic_schedule_flips(dev_priv, intel_crtc, &flips);
+		mutex_unlock(&dev->mode_config.mutex);
+	}
+}
+
+static void intel_atomic_check_flips_ready(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_flip *intel_flip;
+
+	if (list_empty(&dev_priv->flip.list))
+		return;
+
+	intel_flip = list_first_entry(&dev_priv->flip.list, struct intel_flip, base.list);
+	if (intel_atomic_flips_ready(dev, intel_flip->flip_seq))
+		queue_work(dev_priv->flip.wq, &dev_priv->flip.work);
+}
+
+void intel_atomic_notify_ring(struct drm_device *dev,
+			      struct intel_ring_buffer *ring)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_flip *intel_flip;
+	unsigned long flags;
+	u32 seqno;
+
+	if (list_empty(&dev_priv->flip.list))
+		return;
+
+	seqno = ring->get_seqno(ring, false);
+
+	spin_lock_irqsave(&dev_priv->flip.lock, flags);
+
+	list_for_each_entry(intel_flip, &dev_priv->flip.list, base.list) {
+		if (ring != intel_flip->ring)
+			continue;
+
+		if (i915_seqno_passed(seqno, intel_flip->seqno)) {
+			intel_flip->ring = NULL;
+			ring->irq_put(ring);
+		}
+	}
+
+	intel_atomic_check_flips_ready(dev);
+
+	spin_unlock_irqrestore(&dev_priv->flip.lock, flags);
+}
+
 static void intel_atomic_flip_init(struct intel_flip *intel_flip,
 				   struct drm_device *dev,
 				   u32 flip_seq,
 				   struct drm_i915_file_private *file_priv,
 				   struct drm_pending_atomic_event *event,
+				   struct drm_framebuffer *fb,
 				   bool unpin_old_fb, struct drm_framebuffer *old_fb)
 {
 	intel_flip->flip_seq = flip_seq;
@@ -2115,6 +2253,19 @@ static void intel_atomic_flip_init(struct intel_flip *intel_flip,
 		spin_lock_irq(&dev->event_lock);
 		list_add_tail(&intel_flip->pending_head, &file_priv->pending_flips);
 		spin_unlock_irq(&dev->event_lock);
+	}
+
+	if (fb) {
+		struct drm_i915_gem_object *obj = to_intel_framebuffer(fb)->obj;
+
+		mutex_lock(&dev->struct_mutex);
+#ifdef USE_WRITE_SEQNO
+		intel_flip->seqno = obj->last_write_seqno;
+#else
+		intel_flip->seqno = obj->last_read_seqno;
+#endif
+		intel_flip->ring = obj->ring;
+		mutex_unlock(&dev->struct_mutex);
 	}
 
 	if (old_fb)
@@ -2135,9 +2286,14 @@ static void atomic_pipe_commit(struct drm_device *dev,
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_file_private *file_priv = state->file->driver_priv;
-	struct intel_crtc *intel_crtc = to_intel_crtc(intel_get_crtc_for_pipe(dev, pipe));
 	LIST_HEAD(flips);
 	int i;
+	/* FIXME treat flips for all pipes as one set for GPU sync */
+	unsigned int flip_seq = dev_priv->flip.next_flip_seq++;
+	struct intel_flip *intel_flip, *next;
+	unsigned long flags;
+	struct intel_ring_buffer *ring;
+	unsigned int rings_mask = 0;
 
 	for (i = 0; i < dev->mode_config.num_crtc; i++) {
 		struct intel_crtc_state *st = &state->crtc[i];
@@ -2157,7 +2313,7 @@ static void atomic_pipe_commit(struct drm_device *dev,
 		drm_flip_init(&intel_flip->base, &intel_crtc->flip_helper);
 
 		intel_atomic_flip_init(intel_flip, dev, flip_seq,
-				       file_priv, st->event,
+				       file_priv, st->event, crtc->fb,
 				       st->fb_dirty, st->old.fb);
 		st->event = NULL;
 
@@ -2197,7 +2353,7 @@ static void atomic_pipe_commit(struct drm_device *dev,
 		drm_flip_init(&intel_flip->base, &intel_plane->flip_helper);
 
 		intel_atomic_flip_init(intel_flip, dev, flip_seq,
-				       file_priv, st->event,
+				       file_priv, st->event, plane->fb,
 				       st->dirty, st->old.fb);
 		st->event = NULL;
 
@@ -2213,7 +2369,42 @@ static void atomic_pipe_commit(struct drm_device *dev,
 	if (list_empty(&flips))
 		return;
 
-	intel_atomic_schedule_flips(dev_priv, intel_crtc, &flips);
+	mutex_lock(&dev->struct_mutex);
+
+	list_for_each_entry(intel_flip, &flips, base.list) {
+		struct intel_ring_buffer *ring = intel_flip->ring;
+
+		if (!ring)
+			continue;
+
+		if (intel_atomic_postpone_flip(intel_flip))
+			rings_mask |= intel_ring_flag(ring);
+	}
+
+	spin_lock_irqsave(&dev_priv->flip.lock, flags);
+
+	list_for_each_entry_safe(intel_flip, next, &flips, base.list)
+		list_move_tail(&intel_flip->base.list, &dev_priv->flip.list);
+
+	/* if no rings are involved, we can avoid checking seqnos */
+	if (rings_mask == 0)
+		intel_atomic_check_flips_ready(dev);
+
+	spin_unlock_irqrestore(&dev_priv->flip.lock, flags);
+
+	mutex_unlock(&dev->struct_mutex);
+
+	if (rings_mask == 0)
+		return;
+
+	/*
+	 * Double check to catch cases where the irq
+	 * fired before the flip was placed onto flip.list.
+	 */
+	for_each_ring(ring, dev_priv, i) {
+		if (rings_mask & intel_ring_flag(ring))
+			intel_atomic_notify_ring(dev, ring);
+	}
 }
 
 void intel_atomic_handle_vblank(struct drm_device *dev, int pipe)

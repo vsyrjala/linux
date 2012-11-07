@@ -349,6 +349,8 @@ static void notify_ring(struct drm_device *dev,
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	intel_atomic_notify_ring(dev, ring);
+
 	if (ring->obj == NULL)
 		return;
 
