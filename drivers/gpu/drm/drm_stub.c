@@ -52,6 +52,9 @@ EXPORT_SYMBOL(drm_timestamp_precision);
  */
 unsigned int drm_timestamp_monotonic = 1;
 
+unsigned int drm_async_gpu = 1;	/* 1 to enable async gpu wait */
+EXPORT_SYMBOL(drm_async_gpu);
+
 MODULE_AUTHOR(CORE_AUTHOR);
 MODULE_DESCRIPTION(CORE_DESC);
 MODULE_LICENSE("GPL and additional rights");
@@ -59,11 +62,13 @@ MODULE_PARM_DESC(debug, "Enable debug output");
 MODULE_PARM_DESC(vblankoffdelay, "Delay until vblank irq auto-disable [msecs]");
 MODULE_PARM_DESC(timestamp_precision_usec, "Max. error on timestamps [usecs]");
 MODULE_PARM_DESC(timestamp_monotonic, "Use monotonic timestamps");
+MODULE_PARM_DESC(async_gpu, "Async GPU wait");
 
 module_param_named(debug, drm_debug, int, 0600);
 module_param_named(vblankoffdelay, drm_vblank_offdelay, int, 0600);
 module_param_named(timestamp_precision_usec, drm_timestamp_precision, int, 0600);
 module_param_named(timestamp_monotonic, drm_timestamp_monotonic, int, 0600);
+module_param_named(async_gpu, drm_async_gpu, int, 0600);
 
 struct idr drm_minors_idr;
 

@@ -16,6 +16,55 @@
 
 /* object tracking */
 
+TRACE_EVENT(i915_atomic_flip,
+	    TP_PROTO(bool sprite, int pipe, int action, u32 commit_surf, u32 commit_surflive, u32 surf, u32 surflive, u32 iir, u32 commit_dsl, u32 dsl, u32 flip_vbl_count, u32 vbl_count),
+	    TP_ARGS(sprite, pipe, action, commit_surf, commit_surflive, surf, surflive, iir, commit_dsl, dsl, flip_vbl_count, vbl_count),
+
+	    TP_STRUCT__entry(
+			     __field(bool, sprite)
+			     __field(int, pipe)
+			     __field(int, action)
+			     __field(u32, commit_surf)
+			     __field(u32, commit_surflive)
+			     __field(u32, surf)
+			     __field(u32, surflive)
+			     __field(u32, iir)
+			     __field(u32, commit_dsl)
+			     __field(u32, dsl)
+			     __field(u32, flip_vbl_count)
+			     __field(u32, vbl_count)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->sprite = sprite;
+			   __entry->pipe = pipe;
+			   __entry->action = action;
+			   __entry->commit_surf = commit_surf;
+			   __entry->commit_surflive = commit_surflive;
+			   __entry->surf = surf;
+			   __entry->surflive = surflive;
+			   __entry->iir = iir;
+			   __entry->commit_dsl = commit_dsl;
+			   __entry->dsl = dsl;
+			   __entry->flip_vbl_count = flip_vbl_count;
+			   __entry->vbl_count = vbl_count;
+			   ),
+
+	    TP_printk(
+		      "%s/%d %s commit_surf=%x commit_surflive=%x surf=%x surflive=%x iir=%x commit_dsl=%u dsl=%u flip_vbl_count=%u vbl_count=%u",
+		      __entry->sprite ? "SPR" : "DSP", __entry->pipe,
+		      __entry->action == 0 ? "new" :
+		      __entry->action == 1 ? "flipped" :
+		      __entry->action == 2 ? "not flipped" :
+		      __entry->action == 3 ? "missed flipped" : "?",
+		      __entry->commit_surf, __entry->commit_surflive,
+		      __entry->surf, __entry->surflive,
+		      __entry->iir,
+		      __entry->commit_dsl, __entry->dsl,
+		      __entry->flip_vbl_count, __entry->vbl_count
+		      )
+);
+
 TRACE_EVENT(i915_flip_queue_len,
 	    TP_PROTO(unsigned int queue_len),
 	    TP_ARGS(queue_len),

@@ -47,6 +47,8 @@
 
 #define USE_WRITE_SEQNO
 
+//#define SURFLIVE_DEBUG
+
 struct intel_flip {
 	struct drm_flip base;
 	u32 vbl_count;
@@ -64,6 +66,11 @@ struct intel_flip {
 	struct intel_ring_buffer *ring;
 	u32 seqno;
 	unsigned int flip_seq;
+#ifdef SURFLIVE_DEBUG
+	u32 commit_dsl;
+	u32 commit_surf;
+	u32 commit_surflive;
+#endif
 };
 
 struct intel_plane_state {
@@ -835,11 +842,13 @@ static void unpin_fbs(struct drm_device *dev,
 	}
 }
 
+extern unsigned int drm_async_gpu;
+
 static int pin_fbs(struct drm_device *dev,
 		   struct intel_atomic_state *s)
 {
 	int i, ret;
-	bool nonblock = s->flags & DRM_MODE_ATOMIC_NONBLOCK;
+	bool nonblock = drm_async_gpu && (s->flags & DRM_MODE_ATOMIC_NONBLOCK);
 
 	for (i = 0; i < dev->mode_config.num_crtc; i++) {
 		struct intel_crtc_state *st = &s->crtc[i];
@@ -1971,6 +1980,48 @@ static void intel_flip_prepare(struct drm_flip *flip)
 	}
 }
 
+#ifdef SURFLIVE_DEBUG
+enum flip_action {
+	_NEW,
+	_FLIPPED,
+	_NOT_FLIPPED,
+	_MISSED_FLIPPED,
+};
+
+static void trace_flip(struct intel_flip *intel_flip, enum flip_action action)
+{
+	struct drm_crtc *crtc = intel_flip->crtc;
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int pipe = to_intel_crtc(crtc)->pipe;
+	u32 surf;
+	u32 surflive;
+	u32 dsl;
+	u32 iir;
+	u32 vbl_count;
+
+	if (intel_flip->plane) {
+		surf = I915_READ(SPRSURF(pipe));
+		surflive = I915_READ(SPRSURFLIVE(pipe));
+	} else {
+		surf = I915_READ(DSPSURF(pipe));
+		surflive = I915_READ(DSPSURFLIVE(pipe));
+	}
+	dsl = I915_READ(PIPEDSL(pipe));
+	iir = I915_READ(DEIIR);
+	vbl_count = get_vbl_count(crtc);
+
+	trace_i915_atomic_flip(intel_flip->plane != NULL, pipe, action,
+			       intel_flip->commit_surf, intel_flip->commit_surflive,
+			       surf, surflive, iir, intel_flip->commit_dsl, dsl,
+			       intel_flip->vbl_count, vbl_count);
+}
+#endif
+
+#ifdef SURFLIVE_DEBUG
+static unsigned int missed_flips;
+#endif
+
 static bool intel_flip_flip(struct drm_flip *flip,
 			    struct drm_flip *pending_flip)
 {
@@ -1980,6 +2031,9 @@ static bool intel_flip_flip(struct drm_flip *flip,
 	struct drm_device *dev = crtc->dev;
 	int pipe = intel_crtc->pipe;
 	u32 vbl_count;
+#ifdef SURFLIVE_DEBUG
+	struct drm_i915_private *dev_priv = dev->dev_private;
+#endif
 
 	intel_flip->vblank_ref = drm_vblank_get(dev, pipe) == 0;
 
@@ -1991,10 +2045,26 @@ static bool intel_flip_flip(struct drm_flip *flip,
 		struct intel_plane *intel_plane = to_intel_plane(plane);
 
 		intel_plane->commit(plane, &intel_flip->regs);
+
+#ifdef SURFLIVE_DEBUG
+		intel_flip->commit_dsl = I915_READ(PIPEDSL(pipe));
+		intel_flip->commit_surf = I915_READ(SPRSURF(pipe));
+		intel_flip->commit_surflive = I915_READ(SPRSURFLIVE(pipe));
+		if (intel_flip->commit_surf != intel_flip->regs.surf)
+			pr_err("SPRITE SURF MISMATCH\n");
+#endif
 	} else {
 		struct drm_i915_private *dev_priv = dev->dev_private;
 
 		dev_priv->display.commit_plane(crtc, &intel_flip->regs);
+
+#ifdef SURFLIVE_DEBUG
+		intel_flip->commit_dsl = I915_READ(PIPEDSL(pipe));
+		intel_flip->commit_surf = I915_READ(DSPSURF(pipe));
+		intel_flip->commit_surflive = I915_READ(DSPSURFLIVE(pipe));
+		if (intel_flip->commit_surf != intel_flip->regs.surf)
+			pr_err("PRIMARY PLANE SURF MISMATCH\n");
+#endif
 	}
 
 	if (intel_flip->has_cursor)
@@ -2011,16 +2081,38 @@ static bool intel_flip_flip(struct drm_flip *flip,
 	else
 		intel_flip->vbl_count = (vbl_count + 1) & 0xffffff;
 
+#ifdef SURFLIVE_DEBUG
+	trace_flip(intel_flip, _NEW);
+#endif
+
 	if (pending_flip) {
 		struct intel_flip *old_intel_flip =
 			container_of(pending_flip, struct intel_flip, base);
 		bool flipped = intel_vbl_check(pending_flip, vbl_count);
 
 		if (!flipped) {
+#ifdef SURFLIVE_DEBUG
+			u32 surflive = I915_READ(old_intel_flip->plane ? SPRSURFLIVE(pipe) : DSPSURFLIVE(pipe));
+			if (old_intel_flip->commit_surflive != surflive)
+				trace_flip(old_intel_flip, _NOT_FLIPPED);
+#endif
 			swap(intel_flip->old_fb_id, old_intel_flip->old_fb_id);
 			swap(intel_flip->old_bo, old_intel_flip->old_bo);
 			swap(intel_flip->old_cursor_bo, old_intel_flip->old_cursor_bo);
 		}
+#ifdef SURFLIVE_DEBUG
+		else {
+			u32 surflive = I915_READ(old_intel_flip->plane ? SPRSURFLIVE(pipe) : DSPSURFLIVE(pipe));
+			if (old_intel_flip->commit_surf != surflive) {
+				trace_flip(old_intel_flip, _FLIPPED);
+				missed_flips++;
+				return false;
+			}
+			if (missed_flips)
+				trace_flip(old_intel_flip, _MISSED_FLIPPED);
+			missed_flips = 0;
+		}
+#endif
 
 		return flipped;
 	}
@@ -2034,7 +2126,26 @@ static bool intel_flip_vblank(struct drm_flip *pending_flip)
 		container_of(pending_flip, struct intel_flip, base);
 	u32 vbl_count = get_vbl_count(old_intel_flip->crtc);
 
+#ifdef SURFLIVE_DEBUG
+	struct drm_i915_private *dev_priv = old_intel_flip->crtc->dev->dev_private;
+	int pipe = to_intel_crtc(old_intel_flip->crtc)->pipe;
+	bool flipped;
+	flipped = intel_vbl_check(pending_flip, vbl_count);
+	if (flipped) {
+		u32 surflive = I915_READ(old_intel_flip->plane ? SPRSURFLIVE(pipe) : DSPSURFLIVE(pipe));
+		if (old_intel_flip->commit_surf != surflive) {
+			trace_flip(old_intel_flip, _FLIPPED);
+			missed_flips++;
+			return false;
+		}
+		if (missed_flips)
+			trace_flip(old_intel_flip, _MISSED_FLIPPED);
+		missed_flips = 0;
+	}
+	return flipped;
+#else
 	return intel_vbl_check(pending_flip, vbl_count);
+#endif
 }
 
 static const struct drm_flip_helper_funcs intel_flip_funcs = {
@@ -2395,6 +2506,12 @@ static void atomic_pipe_commit(struct drm_device *dev,
 
 	if (list_empty(&flips))
 		return;
+
+	if (!drm_async_gpu) {
+		struct intel_crtc *intel_crtc = to_intel_crtc(intel_get_crtc_for_pipe(dev, pipe));
+		intel_atomic_schedule_flips(dev_priv, intel_crtc, &flips);
+		return;
+	}
 
 	mutex_lock(&dev->struct_mutex);
 
