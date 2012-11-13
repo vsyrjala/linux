@@ -16,6 +16,25 @@
 
 /* object tracking */
 
+TRACE_EVENT(i915_gem_object_pin_count,
+	    TP_PROTO(struct drm_i915_gem_object *obj, u32 pin_count_pre, u32 pin_count_post),
+	    TP_ARGS(obj, pin_count_pre, pin_count_post),
+
+	    TP_STRUCT__entry(
+			     __field(struct drm_i915_gem_object *, obj)
+			     __field(u32, pin_count_pre)
+			     __field(u32, pin_count_post)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->obj = obj;
+			   __entry->pin_count_pre = pin_count_pre;
+			   __entry->pin_count_post = pin_count_post;
+			   ),
+
+	    TP_printk("obj=%p, pin_count=%u->%u", __entry->obj, __entry->pin_count_pre, __entry->pin_count_post)
+);
+
 TRACE_EVENT(i915_gem_object_create,
 	    TP_PROTO(struct drm_i915_gem_object *obj),
 	    TP_ARGS(obj),

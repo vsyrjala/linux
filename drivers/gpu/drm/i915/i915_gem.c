@@ -3482,6 +3482,8 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj,
 	if (!obj->has_global_gtt_mapping && map_and_fenceable)
 		i915_gem_gtt_bind_object(obj, obj->cache_level);
 
+	trace_i915_gem_object_pin_count(obj, obj->pin_count, obj->pin_count + 1);
+
 	obj->pin_count++;
 	obj->pin_mappable |= map_and_fenceable;
 
@@ -3491,6 +3493,8 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj,
 void
 i915_gem_object_unpin(struct drm_i915_gem_object *obj)
 {
+	trace_i915_gem_object_pin_count(obj, obj->pin_count, obj->pin_count - 1);
+
 	BUG_ON(obj->pin_count == 0);
 	BUG_ON(obj->gtt_space == NULL);
 
@@ -3768,6 +3772,8 @@ void i915_gem_free_object(struct drm_gem_object *gem_obj)
 
 	if (obj->phys_obj)
 		i915_gem_detach_phys_object(dev, obj);
+
+	trace_i915_gem_object_pin_count(obj, obj->pin_count, 0);
 
 	obj->pin_count = 0;
 	if (WARN_ON(i915_gem_object_unbind(obj) == -ERESTARTSYS)) {
