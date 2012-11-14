@@ -16,6 +16,24 @@
 
 /* object tracking */
 
+TRACE_EVENT(i915_atomic_evade,
+	    TP_PROTO(u32 dsl_min, u32 dsl_max, u32 dsl),
+	    TP_ARGS(dsl_min, dsl_max, dsl),
+
+	    TP_STRUCT__entry(
+			     __field(u32, dsl_min)
+			     __field(u32, dsl_max)
+			     __field(u32, dsl)
+			     ),
+	    TP_fast_assign(
+			   __entry->dsl_min = dsl_min;
+			   __entry->dsl_max = dsl_max;
+			   __entry->dsl = dsl;
+			   ),
+
+	    TP_printk("dsl_min=%u dsl_max=%u dsl=%u", __entry->dsl_min, __entry->dsl_max, __entry->dsl)
+);
+
 TRACE_EVENT(i915_atomic_flush,
 	    TP_PROTO(u32 dsl0, u32 dsl1, u32 dsl2),
 	    TP_ARGS(dsl0, dsl1, dsl2),

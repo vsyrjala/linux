@@ -1950,6 +1950,8 @@ static void intel_pipe_vblank_evade(struct drm_crtc *crtc)
 		intel_crtc->vbl_received = false;
 
 		val = I915_READ(PIPEDSL(pipe));
+
+		trace_i915_atomic_evade(min, max, val);
 	}
 
 	if (vblank_ref)
