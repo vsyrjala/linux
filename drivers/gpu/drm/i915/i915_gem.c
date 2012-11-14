@@ -969,7 +969,7 @@ i915_gem_check_wedge(struct drm_i915_private *dev_priv,
  * Compare seqno against outstanding lazy request. Emit a request if they are
  * equal.
  */
-static int
+int
 i915_gem_check_olr(struct intel_ring_buffer *ring, u32 seqno)
 {
 	int ret;

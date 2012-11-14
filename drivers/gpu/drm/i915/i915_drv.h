@@ -1513,6 +1513,7 @@ void i915_gem_retire_requests(struct drm_device *dev);
 void i915_gem_retire_requests_ring(struct intel_ring_buffer *ring);
 int __must_check i915_gem_check_wedge(struct drm_i915_private *dev_priv,
 				      bool interruptible);
+int i915_gem_check_olr(struct intel_ring_buffer *ring, u32 seqno);
 
 void i915_gem_reset(struct drm_device *dev);
 void i915_gem_clflush_object(struct drm_i915_gem_object *obj);
