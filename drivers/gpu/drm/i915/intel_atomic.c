@@ -1855,6 +1855,10 @@ static void intel_flip_driver_flush(struct drm_flip_driver *driver)
 	/* Flush posted writes */
 	I915_READ(PIPEDSL(PIPE_A));
 
+#ifdef SURFLIVE_DEBUG
+	trace_i915_atomic_flush(I915_READ(PIPEDSL(0)), I915_READ(PIPEDSL(1)), I915_READ(PIPEDSL(2)));
+#endif
+
 #ifdef FLIP_TIME_DEBUG
 	tend = ktime_get();
 	tdiff = ktime_sub(tend, tstart);

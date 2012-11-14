@@ -16,6 +16,25 @@
 
 /* object tracking */
 
+TRACE_EVENT(i915_atomic_flush,
+	    TP_PROTO(u32 dsl0, u32 dsl1, u32 dsl2),
+	    TP_ARGS(dsl0, dsl1, dsl2),
+
+	    TP_STRUCT__entry(
+			     __field(u32, dsl0)
+			     __field(u32, dsl1)
+			     __field(u32, dsl2)
+			     ),
+	    TP_fast_assign(
+			   __entry->dsl0 = dsl0;
+			   __entry->dsl1 = dsl1;
+			   __entry->dsl2 = dsl2;
+			   ),
+
+	    TP_printk("dsl(0)=%u dsl(1)=%u dsl(2)=%u", __entry->dsl0, __entry->dsl1, __entry->dsl2)
+);
+
+
 TRACE_EVENT(i915_atomic_flip,
 	    TP_PROTO(bool sprite, int pipe, int action, u32 commit_surf, u32 commit_surflive, u32 surf, u32 surflive, u32 iir, u32 commit_dsl, u32 dsl, u32 flip_vbl_count, u32 vbl_count),
 	    TP_ARGS(sprite, pipe, action, commit_surf, commit_surflive, surf, surflive, iir, commit_dsl, dsl, flip_vbl_count, vbl_count),
