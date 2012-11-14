@@ -48,6 +48,7 @@
 #define USE_WRITE_SEQNO
 
 //#define SURFLIVE_DEBUG
+//#define FLIP_TIME_DEBUG
 
 struct intel_flip {
 	struct drm_flip base;
@@ -1842,6 +1843,10 @@ static void intel_flip_cleanup(struct drm_flip *flip)
 	kfree(intel_flip);
 }
 
+#ifdef FLIP_TIME_DEBUG
+static ktime_t tstart, tend, tdiff;
+#endif
+
 static void intel_flip_driver_flush(struct drm_flip_driver *driver)
 {
 	struct drm_i915_private *dev_priv =
@@ -1849,6 +1854,13 @@ static void intel_flip_driver_flush(struct drm_flip_driver *driver)
 
 	/* Flush posted writes */
 	I915_READ(PIPEDSL(PIPE_A));
+
+#ifdef FLIP_TIME_DEBUG
+	tend = ktime_get();
+	tdiff = ktime_sub(tend, tstart);
+	if (ktime_to_ns(tdiff) >= 10000ULL)
+		DRM_DEBUG_KMS("**** flip took %llu nsec ****\n", ktime_to_ns(tdiff));
+#endif
 }
 
 static bool intel_have_new_frmcount(struct drm_device *dev)
@@ -2242,6 +2254,9 @@ static void intel_atomic_schedule_flips(struct drm_i915_private *dev_priv,
 
 	intel_pipe_vblank_evade(&intel_crtc->base);
 
+#ifdef FLIP_TIME_DEBUG
+	tstart = ktime_get();
+#endif
 	drm_flip_driver_schedule_flips(&dev_priv->flip_driver, flips);
 
 	local_irq_enable();
