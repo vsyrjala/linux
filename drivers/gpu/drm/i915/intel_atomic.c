@@ -2455,14 +2455,50 @@ void intel_atomic_handle_vblank(struct drm_device *dev, int pipe)
 void intel_atomic_clear_flips(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_plane *intel_plane;
+	struct intel_flip *intel_flip, *next;
 	int pipe = intel_crtc->pipe;
+	unsigned long flags;
+	LIST_HEAD(flips);
+
+	/*
+	 * If there are flips still waiting for the GPU, remove them
+	 * from the list, so that they won't be able to move over to
+	 * drm_flip_helpers' possession after we've called
+	 * drm_flip_helper_clear().
+	 */
+	spin_lock_irqsave(&dev_priv->flip.lock, flags);
+	list_cut_position(&flips, &dev_priv->flip.list, dev_priv->flip.list.prev);
+	spin_unlock_irqrestore(&dev_priv->flip.lock, flags);
 
 	drm_flip_helper_clear(&intel_crtc->flip_helper);
 
 	list_for_each_entry(intel_plane, &dev->mode_config.plane_list, base.head) {
 		if (intel_plane->pipe == pipe)
 			drm_flip_helper_clear(&intel_plane->flip_helper);
+	}
+
+	/*
+	 * Drop all non-ready flips. Doing this after calling
+	 * drm_flip_helper_clear() maintaines the correct order
+	 * of completion events.
+	 */
+	list_for_each_entry_safe(intel_flip, next, &flips, base.list) {
+		struct intel_ring_buffer *ring = intel_flip->ring;
+
+		if (ring) {
+			intel_flip->ring = NULL;
+			ring->irq_put(ring);
+		}
+
+		intel_flip_complete(&intel_flip->base);
+		/*
+		 * FIXME drm_flip_helper calls the following functions
+		 * from a workqueue. Perhaps we should do the same here?
+		 */
+		intel_flip_finish(&intel_flip->base);
+		intel_flip_cleanup(&intel_flip->base);
 	}
 }
