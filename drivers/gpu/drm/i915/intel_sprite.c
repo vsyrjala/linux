@@ -300,13 +300,13 @@ ivb_calc_plane(struct drm_plane *plane,
 }
 
 static void
-ivb_commit_plane(struct drm_plane *plane)
+ivb_commit_plane(struct drm_plane *plane,
+		 const struct intel_plane_regs *regs)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	int pipe = intel_plane->pipe;
-	const struct intel_plane_regs *regs = &intel_plane->regs;
 
 	I915_WRITE(SPRKEYVAL(pipe), regs->keyval);
 	I915_WRITE(SPRKEYMAX(pipe), regs->keymaxval);
@@ -370,7 +370,7 @@ ivb_update_plane(struct drm_plane *plane,
 
 	ivb_calc_plane(plane, fb, coords);
 	ivb_prepare_plane(plane);
-	ivb_commit_plane(plane);
+	ivb_commit_plane(plane, &intel_plane->regs);
 	POSTING_READ(SPRSURF(pipe));
 }
 
@@ -386,7 +386,7 @@ ivb_disable_plane(struct drm_plane *plane)
 	regs->cntr &= ~SPRITE_ENABLE;
 	/* Can't leave the scaler enabled... */
 	regs->scale = 0;
-	ivb_commit_plane(plane);
+	ivb_commit_plane(plane, regs);
 	POSTING_READ(SPRSURF(pipe));
 
 	dev_priv->sprite_scaling_enabled = false;
@@ -412,7 +412,7 @@ ivb_update_colorkey(struct drm_plane *plane,
 	else if (key->flags & I915_SET_COLORKEY_SOURCE)
 		regs->cntr |= SPRITE_SOURCE_KEY;
 
-	ivb_commit_plane(plane);
+	ivb_commit_plane(plane, regs);
 	POSTING_READ(SPRKEYMSK(intel_plane->pipe));
 
 	return 0;
@@ -545,13 +545,13 @@ ilk_prepare_plane(struct drm_plane *plane)
 }
 
 static void
-ilk_commit_plane(struct drm_plane *plane)
+ilk_commit_plane(struct drm_plane *plane,
+		 const struct intel_plane_regs *regs)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	int pipe = intel_plane->pipe;
-	const struct intel_plane_regs *regs = &intel_plane->regs;
 
 	I915_WRITE(DVSKEYVAL(pipe), regs->keyval);
 	I915_WRITE(DVSKEYMAX(pipe), regs->keymaxval);
@@ -578,7 +578,7 @@ ilk_update_plane(struct drm_plane *plane,
 
 	ilk_calc_plane(plane, fb, coords);
 	ilk_prepare_plane(plane);
-	ilk_commit_plane(plane);
+	ilk_commit_plane(plane, &intel_plane->regs);
 	POSTING_READ(DVSSURF(pipe));
 }
 
@@ -594,7 +594,7 @@ ilk_disable_plane(struct drm_plane *plane)
 	regs->cntr &= ~DVS_ENABLE;
 	/* Disable the scaler */
 	regs->scale = 0;
-	ilk_commit_plane(plane);
+	ilk_commit_plane(plane, regs);
 	POSTING_READ(DVSSURF(pipe));
 }
 
@@ -626,7 +626,7 @@ intel_enable_primary(struct drm_crtc *crtc)
 	intel_update_fbc(dev);
 
 	regs->cntr = I915_READ(reg) | DISPLAY_PLANE_ENABLE;
-	dev_priv->display.commit_plane(crtc);
+	dev_priv->display.commit_plane(crtc, regs);
 }
 
 void
@@ -642,7 +642,7 @@ intel_disable_primary(struct drm_crtc *crtc)
 		return;
 
 	regs->cntr = I915_READ(reg) & ~DISPLAY_PLANE_ENABLE;
-	dev_priv->display.commit_plane(crtc);
+	dev_priv->display.commit_plane(crtc, regs);
 
 	intel_crtc->primary_disabled = true;
 	intel_update_fbc(dev);
@@ -667,7 +667,7 @@ ilk_update_colorkey(struct drm_plane *plane,
 	else if (key->flags & I915_SET_COLORKEY_SOURCE)
 		regs->cntr |= DVS_SOURCE_KEY;
 
-	ilk_commit_plane(plane);
+	ilk_commit_plane(plane, regs);
 	POSTING_READ(DVSKEYMSK(intel_plane->pipe));
 
 	return 0;

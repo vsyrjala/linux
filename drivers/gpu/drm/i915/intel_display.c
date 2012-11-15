@@ -1979,13 +1979,13 @@ unsigned long intel_gen4_compute_offset_xtiled(int *x, int *y,
 	return tile_rows * pitch * 8 + tiles * 4096;
 }
 
-static void intel_commit_plane(struct drm_crtc *crtc)
+static void intel_commit_plane(struct drm_crtc *crtc,
+			       const struct intel_plane_regs *regs)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int plane = intel_crtc->plane;
-	const struct intel_plane_regs *regs = &intel_crtc->primary_regs;
 
 	I915_WRITE(DSPCNTR(plane), regs->cntr);
 	I915_WRITE(DSPSTRIDE(plane), regs->stride);
@@ -2097,15 +2097,16 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 			     int x, int y)
 {
 	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int ret;
 
 	ret = i9xx_calc_plane(crtc, fb, x, y);
 	if (ret)
 		return ret;
 
-	intel_commit_plane(crtc);
+	intel_commit_plane(crtc, &intel_crtc->primary_regs);
 
-	POSTING_READ(DSPCNTR(to_intel_crtc(crtc)->plane));
+	POSTING_READ(DSPCNTR(intel_crtc->plane));
 
 	return 0;
 }
@@ -2196,15 +2197,16 @@ static int ironlake_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *
 				 int x, int y)
 {
 	struct drm_i915_private *dev_priv = crtc->dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int ret;
 
 	ret = ironlake_calc_plane(crtc, fb, x, y);
 	if (ret)
 		return ret;
 
-	intel_commit_plane(crtc);
+	intel_commit_plane(crtc, &intel_crtc->primary_regs);
 
-	POSTING_READ(DSPCNTR(to_intel_crtc(crtc)->plane));
+	POSTING_READ(DSPCNTR(intel_crtc->plane));
 
 	return 0;
 }

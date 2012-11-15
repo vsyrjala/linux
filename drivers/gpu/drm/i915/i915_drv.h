@@ -268,6 +268,8 @@ struct drm_i915_error_state {
 	struct intel_display_error_state *display;
 };
 
+struct intel_plane_regs;
+
 struct drm_i915_display_funcs {
 	bool (*fbc_enabled)(struct drm_device *dev);
 	void (*enable_fbc)(struct drm_crtc *crtc, unsigned long interval);
@@ -299,7 +301,7 @@ struct drm_i915_display_funcs {
 			    int x, int y);
 	int (*calc_plane)(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 			  int x, int y);
-	void (*commit_plane)(struct drm_crtc *crtc);
+	void (*commit_plane)(struct drm_crtc *crtc, const struct intel_plane_regs *regs);
 	/* clock updates for mode set */
 	/* cursor updates */
 	/* render clock increase/decrease */

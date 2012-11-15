@@ -273,7 +273,7 @@ struct intel_plane {
 	void (*calc)(struct drm_plane *plane, struct drm_framebuffer *fb,
 		     const struct intel_plane_coords *clip);
 	void (*prepare)(struct drm_plane *plane);
-	void (*commit)(struct drm_plane *plane);
+	void (*commit)(struct drm_plane *plane, const struct intel_plane_regs *regs);
 	struct intel_plane_regs regs;
 };
 
