@@ -969,6 +969,7 @@ typedef struct drm_i915_private {
 		struct work_struct work;
 		struct workqueue_struct *wq;
 		unsigned int next_flip_seq;
+		unsigned int queue_len;
 	} flip;
 } drm_i915_private_t;
 

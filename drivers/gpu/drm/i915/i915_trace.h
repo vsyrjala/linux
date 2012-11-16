@@ -16,6 +16,21 @@
 
 /* object tracking */
 
+TRACE_EVENT(i915_flip_queue_len,
+	    TP_PROTO(unsigned int queue_len),
+	    TP_ARGS(queue_len),
+
+	    TP_STRUCT__entry(
+			     __field(u32, queue_len)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->queue_len = queue_len;
+			   ),
+
+	    TP_printk("queue_len=%u", __entry->queue_len)
+);
+
 TRACE_EVENT(i915_gem_object_pin_count,
 	    TP_PROTO(struct drm_i915_gem_object *obj, u32 pin_count_pre, u32 pin_count_post),
 	    TP_ARGS(obj, pin_count_pre, pin_count_post),

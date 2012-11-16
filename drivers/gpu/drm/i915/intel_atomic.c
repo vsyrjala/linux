@@ -2179,8 +2179,11 @@ static void intel_atomic_process_flips_work(struct work_struct *work)
 				if (intel_flip->flip_seq != flip_seq)
 					break;
 				list_move_tail(&intel_flip->base.list, &flips);
+				dev_priv->flip.queue_len--;
 			}
 		}
+
+		trace_i915_flip_queue_len(dev_priv->flip.queue_len);
 
 		spin_unlock_irqrestore(&dev_priv->flip.lock, flags);
 
@@ -2407,8 +2410,12 @@ static void atomic_pipe_commit(struct drm_device *dev,
 
 	spin_lock_irqsave(&dev_priv->flip.lock, flags);
 
-	list_for_each_entry_safe(intel_flip, next, &flips, base.list)
+	list_for_each_entry_safe(intel_flip, next, &flips, base.list) {
 		list_move_tail(&intel_flip->base.list, &dev_priv->flip.list);
+		dev_priv->flip.queue_len++;
+	}
+
+	trace_i915_flip_queue_len(dev_priv->flip.queue_len);
 
 	/* if no rings are involved, we can avoid checking seqnos */
 	if (rings_mask == 0)
