@@ -743,5 +743,6 @@ extern void intel_atomic_free_events(struct drm_device *dev, struct drm_file *fi
 extern void intel_atomic_handle_vblank(struct drm_device *dev, int pipe);
 extern void intel_atomic_clear_flips(struct drm_crtc *crtc);
 extern void intel_atomic_notify_ring(struct drm_device *dev, struct intel_ring_buffer *ring);
+extern void intel_atomic_wedged(struct drm_device *dev);
 
 #endif /* __INTEL_DRV_H__ */

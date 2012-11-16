@@ -2236,6 +2236,30 @@ void intel_atomic_notify_ring(struct drm_device *dev,
 	spin_unlock_irqrestore(&dev_priv->flip.lock, flags);
 }
 
+void intel_atomic_wedged(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_flip *intel_flip;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev_priv->flip.lock, flags);
+
+	list_for_each_entry(intel_flip, &dev_priv->flip.list, base.list) {
+		struct intel_ring_buffer *ring = intel_flip->ring;
+
+		if (ring) {
+			intel_flip->ring = NULL;
+			ring->irq_put(ring);
+		}
+	}
+
+	/* all flips are "ready" so no need to check with intel_atomic_flips_ready() */
+	if (!list_empty(&dev_priv->flip.list))
+		queue_work(dev_priv->flip.wq, &dev_priv->flip.work);
+
+	spin_unlock_irqrestore(&dev_priv->flip.lock, flags);
+}
+
 static void intel_atomic_flip_init(struct intel_flip *intel_flip,
 				   struct drm_device *dev,
 				   u32 flip_seq,
@@ -2396,6 +2420,11 @@ static void atomic_pipe_commit(struct drm_device *dev,
 
 	if (rings_mask == 0)
 		return;
+
+	if (atomic_read(&dev_priv->mm.wedged)) {
+		intel_atomic_wedged(dev);
+		return;
+	}
 
 	/*
 	 * Double check to catch cases where the irq

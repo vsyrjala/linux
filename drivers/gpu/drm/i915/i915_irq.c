@@ -1486,6 +1486,7 @@ void i915_handle_error(struct drm_device *dev, bool wedged)
 		 */
 		for_each_ring(ring, dev_priv, i)
 			wake_up_all(&ring->irq_queue);
+		intel_atomic_wedged(dev);
 	}
 
 	queue_work(dev_priv->wq, &dev_priv->error_work);
