@@ -403,6 +403,11 @@ enum intel_pch {
 	PCH_LPT,	/* Lynxpoint PCH */
 };
 
+enum intel_sbi_destination {
+	SBI_ICLK,
+	SBI_MPHY,
+};
+
 #define QUIRK_PIPEA_FORCE (1<<0)
 #define QUIRK_LVDS_SSC_DISABLE (1<<1)
 #define QUIRK_INVERT_BRIGHTNESS (1<<2)
@@ -941,6 +946,8 @@ typedef struct drm_i915_private {
 
 	bool hw_contexts_disabled;
 	uint32_t hw_context_size;
+
+	bool fdi_rx_polarity_reversed;
 
 	struct i915_suspend_saved_registers regfile;
 
@@ -1711,7 +1718,7 @@ extern void intel_modeset_setup_hw_state(struct drm_device *dev,
 extern bool intel_fbc_enabled(struct drm_device *dev);
 extern void intel_disable_fbc(struct drm_device *dev);
 extern bool ironlake_set_drps(struct drm_device *dev, u8 val);
-extern void ironlake_init_pch_refclk(struct drm_device *dev);
+extern void intel_init_pch_refclk(struct drm_device *dev);
 extern void gen6_set_rps(struct drm_device *dev, u8 val);
 extern void intel_detect_pch(struct drm_device *dev);
 extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
