@@ -7369,7 +7369,7 @@ bool intel_encoder_crtc_ok(struct drm_encoder *encoder,
  * Updates the staged output configuration state, e.g. after we've read out the
  * current hw state.
  */
-static void intel_modeset_update_staged_output_state(struct drm_device *dev)
+void intel_modeset_update_staged_output_state(struct drm_device *dev)
 {
 	struct intel_encoder *encoder;
 	struct intel_connector *connector;

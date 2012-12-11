@@ -706,4 +706,6 @@ extern bool intel_encoder_crtc_ok(struct drm_encoder *encoder,
 extern void intel_enable_primary(struct drm_crtc *crtc);
 extern void intel_disable_primary(struct drm_crtc *crtc);
 
+extern void intel_modeset_update_staged_output_state(struct drm_device *dev);
+
 #endif /* __INTEL_DRV_H__ */
