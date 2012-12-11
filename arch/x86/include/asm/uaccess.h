@@ -127,7 +127,7 @@ extern int __get_user_bad(void);
 
 #define __get_user_x(size, ret, x, ptr)		      \
 	asm volatile("call __get_user_" #size	      \
-		     : "=a" (ret), "=d" (x)	      \
+		     : "=c" (ret), "=a" (x)	      \
 		     : "0" (ptr))		      \
 
 /* Careful: we have to cast the result to the type of the pointer
@@ -151,8 +151,11 @@ extern int __get_user_bad(void);
  * On error, the variable @x is set to zero.
  */
 #ifdef CONFIG_X86_32
-#define __get_user_8(__ret_gu, __val_gu, ptr)				\
-		__get_user_x(X, __ret_gu, __val_gu, ptr)
+#define __get_user_8(ret, x, ptr)		      \
+	asm volatile("call __get_user_8"	      \
+		     : "=c" (ret), "=A" (x)	      \
+		     : "0" (ptr))		      \
+
 #else
 #define __get_user_8(__ret_gu, __val_gu, ptr)				\
 		__get_user_x(8, __ret_gu, __val_gu, ptr)
@@ -162,6 +165,7 @@ extern int __get_user_bad(void);
 ({									\
 	int __ret_gu;							\
 	unsigned long __val_gu;						\
+	unsigned long long __val_gu8;					\
 	__chk_user_ptr(ptr);						\
 	might_fault();							\
 	switch (sizeof(*(ptr))) {					\
@@ -175,13 +179,16 @@ extern int __get_user_bad(void);
 		__get_user_x(4, __ret_gu, __val_gu, ptr);		\
 		break;							\
 	case 8:								\
-		__get_user_8(__ret_gu, __val_gu, ptr);			\
+		__get_user_8(__ret_gu, __val_gu8, ptr);			\
 		break;							\
 	default:							\
 		__get_user_x(X, __ret_gu, __val_gu, ptr);		\
 		break;							\
 	}								\
-	(x) = (__typeof__(*(ptr)))__val_gu;				\
+	if (sizeof(*(ptr)) == 8)					\
+		(x) = (__typeof__(*(ptr)))__val_gu8;			\
+	else								\
+		(x) = (__typeof__(*(ptr)))__val_gu;			\
 	__ret_gu;							\
 })
 
