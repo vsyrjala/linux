@@ -7392,7 +7392,7 @@ void intel_modeset_update_staged_output_state(struct drm_device *dev)
  *
  * This function copies the stage display pipe configuration to the real one.
  */
-static void intel_modeset_commit_output_state(struct drm_device *dev)
+void intel_modeset_commit_output_state(struct drm_device *dev)
 {
 	struct intel_encoder *encoder;
 	struct intel_connector *connector;
