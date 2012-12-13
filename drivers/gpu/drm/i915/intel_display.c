@@ -7341,8 +7341,8 @@ bool intel_encoder_check_is_cloned(struct intel_encoder *encoder)
 	return false;
 }
 
-static bool intel_encoder_crtc_ok(struct drm_encoder *encoder,
-				  struct drm_crtc *crtc)
+bool intel_encoder_crtc_ok(struct drm_encoder *encoder,
+			   struct drm_crtc *crtc)
 {
 	struct drm_device *dev;
 	struct drm_crtc *tmp;

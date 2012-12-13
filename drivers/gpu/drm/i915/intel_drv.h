@@ -700,4 +700,7 @@ extern bool intel_crtc_mode_fixup(struct drm_crtc *crtc,
 				  const struct drm_display_mode *mode,
 				  struct drm_display_mode *adjusted_mode);
 
+extern bool intel_encoder_crtc_ok(struct drm_encoder *encoder,
+				  struct drm_crtc *crtc);
+
 #endif /* __INTEL_DRV_H__ */
