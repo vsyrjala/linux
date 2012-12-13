@@ -9352,3 +9352,32 @@ intel_display_print_error_state(struct seq_file *m,
 	}
 }
 #endif
+
+void intel_crtc_update_properties(struct drm_crtc *crtc)
+{
+	struct drm_mode_object *obj = &crtc->base;
+	struct drm_mode_config *config = &crtc->dev->mode_config;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+
+	drm_crtc_update_properties(crtc);
+
+	drm_object_property_set_value(obj, config->cursor_id_prop, intel_crtc->cursor_handle);
+	drm_object_property_set_value(obj, config->cursor_x_prop, intel_crtc->cursor_x);
+	drm_object_property_set_value(obj, config->cursor_y_prop, intel_crtc->cursor_y);
+	drm_object_property_set_value(obj, config->cursor_w_prop, intel_crtc->cursor_width);
+	drm_object_property_set_value(obj, config->cursor_h_prop, intel_crtc->cursor_height);
+}
+
+void intel_crtc_attach_properties(struct drm_crtc *crtc)
+{
+	struct drm_mode_object *obj = &crtc->base;
+	struct drm_mode_config *config = &crtc->dev->mode_config;
+
+	drm_crtc_attach_properties(crtc);
+
+	drm_object_attach_property(obj, config->cursor_id_prop, 0);
+	drm_object_attach_property(obj, config->cursor_x_prop, 0);
+	drm_object_attach_property(obj, config->cursor_y_prop, 0);
+	drm_object_attach_property(obj, config->cursor_w_prop, 0);
+	drm_object_attach_property(obj, config->cursor_h_prop, 0);
+}

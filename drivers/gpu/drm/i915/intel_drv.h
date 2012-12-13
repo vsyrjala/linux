@@ -729,4 +729,7 @@ extern void intel_disable_primary(struct drm_crtc *crtc);
 extern void intel_modeset_update_staged_output_state(struct drm_device *dev);
 extern void intel_modeset_commit_output_state(struct drm_device *dev);
 
+extern void intel_crtc_attach_properties(struct drm_crtc *crtc);
+extern void intel_crtc_update_properties(struct drm_crtc *crtc);
+
 #endif /* __INTEL_DRV_H__ */
