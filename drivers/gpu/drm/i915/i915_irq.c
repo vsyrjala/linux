@@ -3804,6 +3804,42 @@ static int gen8_irq_postinstall(struct drm_device *dev)
 	return 0;
 }
 
+#define SIM_IRQ_TIMER_INTERVAL 30
+
+static void sim_irq_timer_fn(unsigned long data)
+{
+	struct drm_device *dev = (void *)data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int pipe;
+
+	notify_ring(dev, &dev_priv->ring[RCS]);
+	notify_ring(dev, &dev_priv->ring[BCS]);
+
+	for_each_pipe(pipe) {
+		drm_handle_vblank(dev, pipe);
+
+		intel_prepare_page_flip(dev, pipe);
+		intel_finish_page_flip(dev, pipe);
+	}
+
+	mod_timer(&dev_priv->sim_irq_timer, jiffies + msecs_to_jiffies(SIM_IRQ_TIMER_INTERVAL));
+}
+
+static void sim_irq_timer_start(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	setup_timer(&dev_priv->sim_irq_timer, sim_irq_timer_fn, (unsigned long)dev);
+	mod_timer(&dev_priv->sim_irq_timer, jiffies + msecs_to_jiffies(SIM_IRQ_TIMER_INTERVAL));
+}
+
+static void sim_irq_timer_stop(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	del_timer_sync(&dev_priv->sim_irq_timer);
+}
+
 static int cherryview_irq_postinstall(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
@@ -3817,6 +3853,9 @@ static int cherryview_irq_postinstall(struct drm_device *dev)
 
 	I915_WRITE(GEN8_MASTER_IRQ, GEN8_MASTER_IRQ_CONTROL);
 	POSTING_READ(GEN8_MASTER_IRQ);
+
+	if (dev_priv->is_simulator)
+		sim_irq_timer_start(dev);
 
 	return 0;
 }
@@ -3857,6 +3896,9 @@ static void cherryview_irq_uninstall(struct drm_device *dev)
 
 	if (!dev_priv)
 		return;
+
+	if (dev_priv->is_simulator)
+		sim_irq_timer_stop(dev);
 
 	I915_WRITE(GEN8_MASTER_IRQ, 0);
 	POSTING_READ(GEN8_MASTER_IRQ);
