@@ -2222,6 +2222,24 @@ static void ilk_compute_wm_config(struct drm_device *dev,
 	}
 }
 
+static bool ilk_validate_pipe_wm(struct drm_device *dev,
+				 struct intel_pipe_wm *pipe_wm)
+{
+	/* LP0 watermark maximums depend on this pipe alone */
+	const struct intel_wm_config config = {
+		.num_pipes_active = 1,
+		.sprites_enabled = pipe_wm->sprites_enabled,
+		.sprites_scaled = pipe_wm->sprites_scaled,
+	};
+	struct ilk_wm_maximums max;
+
+	/* LP0 watermarks always use 1/2 DDB partitioning */
+	ilk_compute_wm_maximums(dev, 0, &config, INTEL_DDB_PART_1_2, &max);
+
+	/* At least LP0 must be valid */
+	return ilk_validate_wm_level(0, &max, &pipe_wm->wm[0]);
+}
+
 /* Compute new watermarks for the pipe */
 static bool intel_compute_pipe_wm(struct drm_crtc *crtc,
 				  const struct ilk_pipe_wm_parameters *params,
@@ -2230,12 +2248,6 @@ static bool intel_compute_pipe_wm(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	const struct drm_i915_private *dev_priv = dev->dev_private;
 	int level, max_level = ilk_wm_max_level(dev);
-	/* LP0 watermark maximums depend on this pipe alone */
-	struct intel_wm_config config = {
-		.num_pipes_active = 1,
-		.sprites_enabled = params->spr.enabled,
-		.sprites_scaled = params->spr.scaled,
-	};
 	struct ilk_wm_maximums max;
 
 	pipe_wm->pipe_enabled = params->active;
@@ -2255,11 +2267,7 @@ static bool intel_compute_pipe_wm(struct drm_crtc *crtc,
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
 		pipe_wm->linetime = hsw_compute_linetime_wm(dev, crtc);
 
-	/* LP0 watermarks always use 1/2 DDB partitioning */
-	ilk_compute_wm_maximums(dev, 0, &config, INTEL_DDB_PART_1_2, &max);
-
-	/* At least LP0 must be valid */
-	if (!ilk_validate_wm_level(0, &max, &pipe_wm->wm[0]))
+	if (!ilk_validate_pipe_wm(dev, pipe_wm))
 		return false;
 
 	ilk_compute_wm_reg_maximums(dev, 1, &max);
