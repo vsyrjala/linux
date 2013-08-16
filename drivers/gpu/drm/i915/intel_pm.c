@@ -2642,6 +2642,30 @@ static void _ilk_pipe_wm_get_hw_state(struct drm_device *dev,
 		hw->wm_linetime[pipe] = I915_READ(PIPE_WM_LINETIME(pipe));
 }
 
+static void ilk_wm_trace(struct drm_device *dev, bool trace)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	const struct ilk_wm_values *hw = &dev_priv->wm.hw;
+
+	trace_i915_wm_misc(hw, trace);
+
+	trace_i915_wm_pipe(dev, PIPE_A, hw, trace);
+	trace_i915_wm_pipe(dev, PIPE_B, hw, trace);
+	trace_i915_wm_pipe(dev, PIPE_C, hw, trace);
+
+	trace_i915_wm_linetime(dev, PIPE_A, hw, trace);
+	trace_i915_wm_linetime(dev, PIPE_B, hw, trace);
+	trace_i915_wm_linetime(dev, PIPE_C, hw, trace);
+
+	trace_i915_wm_lp1_ilk(dev, hw, trace);
+	trace_i915_wm_lp_ilk(dev, 2, hw, trace);
+	trace_i915_wm_lp_ilk(dev, 3, hw, trace);
+
+	trace_i915_wm_lp_ivb(dev, 1, hw, trace);
+	trace_i915_wm_lp_ivb(dev, 2, hw, trace);
+	trace_i915_wm_lp_ivb(dev, 3, hw, trace);
+}
+
 static void _ilk_wm_get_hw_state(struct drm_device *dev,
 				 struct ilk_wm_values *hw)
 {
@@ -2670,6 +2694,8 @@ static void _ilk_wm_get_hw_state(struct drm_device *dev,
 
 	hw->enable_fbc_wm =
 		!(I915_READ(DISP_ARB_CTL) & DISP_FBC_WM_DIS);
+
+	ilk_wm_trace(dev, true);
 }
 
 static void ilk_dump_wm_values(const struct ilk_wm_values *hw,
@@ -2696,8 +2722,9 @@ static void ilk_dump_wm_values(const struct ilk_wm_values *hw,
 /*
  * The spec says we shouldn't write when we don't need, because every write
  * causes WMs to be re-evaluated, expending some power.
+ * Returns true if some watermarks were changed.
  */
-static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
+static bool ilk_write_wm_values(struct drm_i915_private *dev_priv,
 				const struct ilk_wm_values *results)
 {
 	struct drm_device *dev = dev_priv->dev;
@@ -2708,7 +2735,7 @@ static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
 
 	dirty = ilk_compute_wm_dirty(dev, previous, results);
 	if (!dirty)
-		return;
+		return false;
 
 	_ilk_disable_lp_wm(dev_priv, dirty);
 
@@ -2780,6 +2807,8 @@ static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
 		ilk_dump_wm_values(&hw, "[hw state]");
 		ilk_dump_wm_values(results, "[sw state]");
 	}
+
+	return true;
 }
 
 bool ilk_disable_lp_wm(struct intel_crtc *crtc)
@@ -2862,7 +2891,7 @@ static bool ilk_refresh_pending_watermarks(struct drm_device *dev)
 	return changed;
 }
 
-static void ilk_program_watermarks(struct drm_device *dev)
+static bool ilk_program_watermarks(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_pipe_wm lp_wm_1_2 = {}, lp_wm_5_6 = {}, *best_lp_wm;
@@ -2893,7 +2922,7 @@ static void ilk_program_watermarks(struct drm_device *dev)
 
 	ilk_compute_wm_results(dev, best_lp_wm, partitioning, &results);
 
-	ilk_write_wm_values(dev_priv, &results);
+	return ilk_write_wm_values(dev_priv, &results);
 }
 
 static void ilk_update_watermarks(struct drm_device *dev, bool force)
@@ -2903,7 +2932,9 @@ static void ilk_update_watermarks(struct drm_device *dev, bool force)
 	changed = ilk_refresh_pending_watermarks(dev);
 
 	if (changed || force)
-		ilk_program_watermarks(dev);
+		changed = ilk_program_watermarks(dev);
+
+	ilk_wm_trace(dev, changed);
 }
 
 /* Prepare the pipe to update the its watermarks on the next vblank */
@@ -7056,8 +7087,11 @@ static void ilk_program_wm_pre(struct intel_crtc *crtc,
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	bool changed = false;
 
 	mutex_lock(&dev_priv->wm.mutex);
+
+	trace_i915_wm_update_start(crtc->pipe);
 
 	spin_lock_irq(&crtc->wm.lock);
 	ilk_wm_cancel(crtc);
@@ -7075,9 +7109,12 @@ static void ilk_program_wm_pre(struct intel_crtc *crtc,
 	ilk_refresh_pending_watermarks(dev);
 
 	/* switch over to the intermediate watermarks */
-	ilk_program_watermarks(dev);
+	changed = ilk_program_watermarks(dev);
 
  unlock:
+	trace_i915_wm_update_end(crtc->pipe, changed);
+	ilk_wm_trace(dev, changed);
+
 	mutex_unlock(&dev_priv->wm.mutex);
 }
 

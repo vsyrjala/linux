@@ -15,6 +15,187 @@
 #define TRACE_SYSTEM_STRING __stringify(TRACE_SYSTEM)
 #define TRACE_INCLUDE_FILE i915_trace
 
+/* watermark */
+
+TRACE_EVENT(i915_wm_update_start,
+	    TP_PROTO(enum pipe pipe),
+	    TP_ARGS(pipe),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = pipe;
+			   ),
+
+	    TP_printk("pipe %c", pipe_name(__entry->pipe))
+);
+
+TRACE_EVENT(i915_wm_update_end,
+	    TP_PROTO(enum pipe pipe, bool changed),
+	    TP_ARGS(pipe, changed),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(bool, changed)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = pipe;
+			   __entry->changed = changed;
+			   ),
+
+	    TP_printk("pipe %c, changed=%s",
+		      pipe_name(__entry->pipe), __entry->changed ? "yes" : "no")
+);
+
+TRACE_EVENT_CONDITION(i915_wm_misc,
+	TP_PROTO(const struct ilk_wm_values *hw, bool trace),
+	TP_ARGS(hw, trace),
+
+	TP_CONDITION(trace),
+
+	TP_STRUCT__entry(
+		__field(bool, enable_fbc_wm)
+		__field(enum intel_ddb_partitioning, partitioning)
+		),
+
+	TP_fast_assign(
+		__entry->enable_fbc_wm = hw->enable_fbc_wm;
+		__entry->partitioning = hw->partitioning;
+		),
+
+	TP_printk("fbc=%s, ddb partitioning=%s",
+		__entry->enable_fbc_wm ? "yes" : "no",
+		__entry->partitioning == INTEL_DDB_PART_5_6 ? "5/6" : "1/2")
+);
+
+TRACE_EVENT_CONDITION(i915_wm_pipe,
+	TP_PROTO(struct drm_device *dev, enum pipe pipe, const struct ilk_wm_values *hw, bool trace),
+	TP_ARGS(dev, pipe, hw, trace),
+
+	TP_CONDITION(pipe < INTEL_INFO(dev)->num_pipes && trace),
+
+	TP_STRUCT__entry(
+		__field(enum pipe, pipe)
+		__field(uint32_t, wm_pipe)
+		),
+
+	TP_fast_assign(
+		__entry->pipe = pipe;
+		__entry->wm_pipe = hw->wm_pipe[pipe];
+		),
+
+	TP_printk("pipe %c: pri=%u, spr=%u, cur=%u",
+		pipe_name(__entry->pipe),
+		(__entry->wm_pipe & WM0_PIPE_PLANE_MASK) >> WM0_PIPE_PLANE_SHIFT,
+		(__entry->wm_pipe & WM0_PIPE_SPRITE_MASK) >> WM0_PIPE_SPRITE_SHIFT,
+		__entry->wm_pipe & WM0_PIPE_CURSOR_MASK)
+);
+
+TRACE_EVENT_CONDITION(i915_wm_linetime,
+	TP_PROTO(struct drm_device *dev, enum pipe pipe, const struct ilk_wm_values *hw, bool trace),
+	TP_ARGS(dev, pipe, hw, trace),
+
+	TP_CONDITION(IS_HASWELL(dev) && pipe < INTEL_INFO(dev)->num_pipes && trace),
+
+	TP_STRUCT__entry(
+		__field(enum pipe, pipe)
+		__field(uint32_t, wm_linetime)
+		),
+
+	TP_fast_assign(
+		__entry->pipe = pipe;
+		__entry->wm_linetime = hw->wm_linetime[pipe];
+		),
+
+	TP_printk("pipe %c: linetime=%u, ips linetime=%u",
+		pipe_name(__entry->pipe),
+		__entry->wm_linetime & PIPE_WM_LINETIME_MASK,
+		(__entry->wm_linetime & PIPE_WM_LINETIME_IPS_LINETIME_MASK) >> 16)
+);
+
+
+TRACE_EVENT_CONDITION(i915_wm_lp1_ilk,
+	TP_PROTO(struct drm_device *dev, const struct ilk_wm_values *hw, bool trace),
+	TP_ARGS(dev, hw, trace),
+
+	TP_CONDITION(INTEL_INFO(dev)->gen <= 6 && trace),
+
+	TP_STRUCT__entry(
+		__field(uint32_t, wm_lp)
+		__field(uint32_t, wm_lp_spr)
+		),
+
+	TP_fast_assign(
+		__entry->wm_lp = hw->wm_lp[0];
+		__entry->wm_lp_spr = hw->wm_lp_spr[0];
+		),
+
+	TP_printk("LP1: en=%s, lat=%u, fbc=%u, pri=%u, cur=%u, spr=%u, spr en=%s",
+		__entry->wm_lp & WM1_LP_SR_EN ? "yes" : "no",
+		(__entry->wm_lp & WM1_LP_LATENCY_MASK) >> WM1_LP_LATENCY_SHIFT,
+		(__entry->wm_lp & WM1_LP_FBC_MASK) >> WM1_LP_FBC_SHIFT,
+		(__entry->wm_lp & WM1_LP_SR_MASK) >> WM1_LP_SR_SHIFT,
+		__entry->wm_lp & WM1_LP_CURSOR_MASK,
+		__entry->wm_lp_spr & ~WM1S_LP_EN,
+		__entry->wm_lp_spr & WM1S_LP_EN ? "yes" : "no")
+);
+
+TRACE_EVENT_CONDITION(i915_wm_lp_ilk,
+	TP_PROTO(struct drm_device *dev, int lp, const struct ilk_wm_values *hw, bool trace),
+	TP_ARGS(dev, lp, hw, trace),
+
+	TP_CONDITION(INTEL_INFO(dev)->gen <= 6 && trace),
+
+	TP_STRUCT__entry(
+		__field(int, lp)
+		__field(uint32_t, wm_lp)
+		),
+
+	TP_fast_assign(
+		__entry->lp = lp;
+		__entry->wm_lp = hw->wm_lp[lp - 1];
+		),
+
+	TP_printk("LP%d: en=%s, lat=%u, fbc=%u, pri=%u, cur=%u",
+		__entry->lp,
+		__entry->wm_lp & WM1_LP_SR_EN ? "yes" : "no",
+		(__entry->wm_lp & WM1_LP_LATENCY_MASK) >> WM1_LP_LATENCY_SHIFT,
+		(__entry->wm_lp & WM1_LP_FBC_MASK) >> WM1_LP_FBC_SHIFT,
+		(__entry->wm_lp & WM1_LP_SR_MASK) >> WM1_LP_SR_SHIFT,
+		__entry->wm_lp & WM1_LP_CURSOR_MASK)
+);
+
+TRACE_EVENT_CONDITION(i915_wm_lp_ivb,
+	TP_PROTO(struct drm_device *dev, int lp, const struct ilk_wm_values *hw, bool trace),
+	TP_ARGS(dev, lp, hw, trace),
+
+	TP_CONDITION(INTEL_INFO(dev)->gen >= 7 && trace),
+
+	TP_STRUCT__entry(
+		__field(int, lp)
+		__field(uint32_t, wm_lp)
+		__field(uint32_t, wm_lp_spr)
+		),
+
+	TP_fast_assign(
+		__entry->lp = lp;
+		__entry->wm_lp = hw->wm_lp[lp - 1];
+		__entry->wm_lp_spr = hw->wm_lp_spr[lp - 1];
+		),
+
+	TP_printk("LP%d: en=%s, lat=%u, fbc=%u, pri=%u, cur=%u, spr=%u",
+		__entry->lp,
+		__entry->wm_lp & WM1_LP_SR_EN ? "yes" : "no",
+		(__entry->wm_lp & WM1_LP_LATENCY_MASK) >> WM1_LP_LATENCY_SHIFT,
+		(__entry->wm_lp & WM1_LP_FBC_MASK) >> WM1_LP_FBC_SHIFT,
+		(__entry->wm_lp & WM1_LP_SR_MASK) >> WM1_LP_SR_SHIFT,
+		__entry->wm_lp & WM1_LP_CURSOR_MASK,
+		__entry->wm_lp_spr)
+);
+
 /* pipe updates */
 
 TRACE_EVENT(i915_pipe_update_start,
