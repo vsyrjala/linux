@@ -520,6 +520,9 @@ bool intel_set_cpu_fifo_underrun_reporting(struct drm_device *dev,
 	ret = __intel_set_cpu_fifo_underrun_reporting(dev, pipe, enable);
 	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);
 
+	if (!enable && ret)
+		mod_timer(&dev_priv->underrun_reenable_timer, jiffies + 2 * HZ);
+
 	return ret;
 }
 
@@ -577,9 +580,23 @@ bool intel_set_pch_fifo_underrun_reporting(struct drm_device *dev,
 		cpt_set_fifo_underrun_reporting(dev, pch_transcoder, enable, old);
 
 	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);
+
+	if (!enable && old)
+		mod_timer(&dev_priv->underrun_reenable_timer, jiffies + 2 * HZ);
+
 	return old;
 }
 
+static void i915_underrun_reenable(unsigned long data)
+{
+	struct drm_device *dev = (void *)data;
+	enum pipe pipe;
+
+	for_each_pipe(pipe) {
+		intel_set_pch_fifo_underrun_reporting(dev, (enum transcoder)pipe, true);
+		intel_set_cpu_fifo_underrun_reporting(dev, pipe, true);
+	}
+}
 
 static void
 __i915_enable_pipestat(struct drm_i915_private *dev_priv, enum pipe pipe,
@@ -3564,6 +3581,8 @@ static void gen8_irq_uninstall(struct drm_device *dev)
 	if (!dev_priv)
 		return;
 
+	del_timer_sync(&dev_priv->underrun_reenable_timer);
+
 	intel_hpd_irq_uninstall(dev_priv);
 
 	gen8_irq_reset(dev);
@@ -3577,6 +3596,8 @@ static void valleyview_irq_uninstall(struct drm_device *dev)
 
 	if (!dev_priv)
 		return;
+
+	del_timer_sync(&dev_priv->underrun_reenable_timer);
 
 	I915_WRITE(VLV_MASTER_IER, 0);
 
@@ -3609,6 +3630,8 @@ static void cherryview_irq_uninstall(struct drm_device *dev)
 
 	if (!dev_priv)
 		return;
+
+	del_timer_sync(&dev_priv->underrun_reenable_timer);
 
 	I915_WRITE(GEN8_MASTER_IRQ, 0);
 	POSTING_READ(GEN8_MASTER_IRQ);
@@ -3659,6 +3682,8 @@ static void ironlake_irq_uninstall(struct drm_device *dev)
 
 	if (!dev_priv)
 		return;
+
+	del_timer_sync(&dev_priv->underrun_reenable_timer);
 
 	intel_hpd_irq_uninstall(dev_priv);
 
@@ -3817,6 +3842,8 @@ static void i8xx_irq_uninstall(struct drm_device * dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int pipe;
+
+	del_timer_sync(&dev_priv->underrun_reenable_timer);
 
 	for_each_pipe(pipe) {
 		/* Clear enable bits; then clear status bits */
@@ -4031,6 +4058,8 @@ static void i915_irq_uninstall(struct drm_device * dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int pipe;
+
+	del_timer_sync(&dev_priv->underrun_reenable_timer);
 
 	intel_hpd_irq_uninstall(dev_priv);
 
@@ -4270,6 +4299,8 @@ static void i965_irq_uninstall(struct drm_device * dev)
 	if (!dev_priv)
 		return;
 
+	del_timer_sync(&dev_priv->underrun_reenable_timer);
+
 	intel_hpd_irq_uninstall(dev_priv);
 
 	I915_WRITE(PORT_HOTPLUG_EN, 0);
@@ -4334,6 +4365,9 @@ void intel_irq_init(struct drm_device *dev)
 	/* Let's track the enabled rps events */
 	dev_priv->pm_rps_events = GEN6_PM_RPS_EVENTS;
 
+	setup_timer(&dev_priv->underrun_reenable_timer,
+		    i915_underrun_reenable,
+		    (unsigned long) dev);
 	setup_timer(&dev_priv->gpu_error.hangcheck_timer,
 		    i915_hangcheck_elapsed,
 		    (unsigned long) dev);
