@@ -50,6 +50,23 @@ TRACE_EVENT(i915_wm_update_end,
 		      pipe_name(__entry->pipe), __entry->changed ? "yes" : "no")
 );
 
+TRACE_EVENT_CONDITION(i915_wm_disable_lp,
+	    TP_PROTO(bool changed),
+	    TP_ARGS(changed),
+
+	    TP_CONDITION(changed),
+
+	    TP_STRUCT__entry(
+			     __field(bool, changed)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->changed = changed;
+			   ),
+
+	    TP_printk("changed=%s", __entry->changed ? "yes" : "no")
+);
+
 TRACE_EVENT_CONDITION(i915_wm_misc,
 	TP_PROTO(const struct ilk_wm_values *hw, bool trace),
 	TP_ARGS(hw, trace),

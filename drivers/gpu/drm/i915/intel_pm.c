@@ -2823,6 +2823,9 @@ bool ilk_disable_lp_wm(struct intel_crtc *crtc)
 
 	changed = _ilk_disable_lp_wm(dev_priv, WM_DIRTY_LP_ALL);
 
+	trace_i915_wm_disable_lp(changed);
+	ilk_wm_trace(dev, changed);
+
 	mutex_unlock(&dev_priv->wm.mutex);
 
 	return changed;
