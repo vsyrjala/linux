@@ -331,8 +331,10 @@ static void i915_restore_display(struct drm_device *dev)
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		i915_restore_vga(dev);
-	else
+	else {
 		i915_redisable_vga(dev);
+		intel_modeset_vga_set_state(dev, false);
+	}
 }
 
 int i915_save_state(struct drm_device *dev)

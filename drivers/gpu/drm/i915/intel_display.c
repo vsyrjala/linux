@@ -40,6 +40,7 @@
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <linux/dma_remapping.h>
+#include <linux/stop_machine.h>
 
 bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
 static void intel_increase_pllclock(struct drm_crtc *crtc);
@@ -10215,49 +10216,193 @@ static void intel_init_quirks(struct drm_device *dev)
 	}
 }
 
+enum vga_op {
+	VGA_OP_MEM_DISABLE,
+	VGA_OP_MEM_ENABLE,
+	VGA_OP_SCREEN_OFF,
+};
+
+struct i915_vga_op {
+	enum vga_op op;
+	struct drm_device *dev;
+};
+
+/* FIXME how many devices/bridges can be on the same bus? */
+/* We don't need locking for these due to stop_machine() */
+static u16 vga_cmd[64];
+static u16 vga_ctl[64];
+
+/*
+ * Disable IO decode and VGA bridge forwarding
+ * for everyone else on the same bus.
+ */
+static void i915_vga_bus_disable(struct drm_device *dev)
+{
+	struct pci_dev *pdev, *self = dev->pdev;
+	struct pci_bus *bus;
+	int i;
+
+	i = 0;
+	list_for_each_entry(bus, &self->bus->children, node) {
+		pci_read_config_word(bus->self, PCI_BRIDGE_CONTROL, &vga_ctl[i]);
+		pci_write_config_word(bus->self, PCI_BRIDGE_CONTROL, vga_ctl[i] & ~PCI_BRIDGE_CTL_VGA);
+
+		if (WARN_ON(++i >= ARRAY_SIZE(vga_ctl)))
+			break;
+	}
+
+	i = 0;
+	list_for_each_entry(pdev, &self->bus->devices, bus_list) {
+		if (pdev == self)
+			continue;
+
+		pci_read_config_word(pdev, PCI_COMMAND, &vga_cmd[i]);
+		pci_write_config_word(pdev, PCI_COMMAND, vga_cmd[i] & ~PCI_COMMAND_IO);
+
+		if (WARN_ON(++i >= ARRAY_SIZE(vga_cmd)))
+			break;
+	}
+}
+
+/*
+ * Restore IO decode and VGA bridge forwarding
+ * for everyone else on the same bus.
+ */
+static void i915_vga_bus_restore(struct drm_device *dev)
+{
+	struct pci_dev *pdev, *self = dev->pdev;
+	struct pci_bus *bus;
+	int i;
+
+	i = 0;
+	list_for_each_entry(pdev, &self->bus->devices, bus_list) {
+		if (pdev == self)
+			continue;
+
+		pci_write_config_word(pdev, PCI_COMMAND, vga_cmd[i]);
+
+		if (WARN_ON(++i >= ARRAY_SIZE(vga_cmd)))
+			break;
+	}
+
+	i = 0;
+	list_for_each_entry(bus, &self->bus->children, node) {
+		pci_write_config_word(bus->self, PCI_BRIDGE_CONTROL, vga_ctl[i]);
+
+		if (WARN_ON(++i >= ARRAY_SIZE(vga_ctl)))
+			break;
+	}
+}
+
+/*
+ * Hide our VGA IO access from the rest of the system
+ * using stop_machine().
+ *
+ * Note that we assume that the IGD is on the root bus.
+ */
+static int i915_vga_stop_machine_cb(void *data)
+{
+	struct i915_vga_op *op = data;
+	struct drm_device *dev = op->dev;
+	u16 cmd;
+	u8 tmp;
+
+	i915_vga_bus_disable(dev);
+
+	pci_read_config_word(dev->pdev, PCI_COMMAND, &cmd);
+	pci_write_config_word(dev->pdev, PCI_COMMAND, cmd | PCI_COMMAND_IO);
+
+	switch (op->op) {
+	case VGA_OP_MEM_DISABLE:
+		tmp = inb(VGA_MSR_READ);
+		tmp &= ~VGA_MSR_MEM_EN;
+		outb(tmp, VGA_MSR_WRITE);
+		break;
+	case VGA_OP_MEM_ENABLE:
+		tmp = inb(VGA_MSR_READ);
+		tmp |= VGA_MSR_MEM_EN;
+		outb(tmp, VGA_MSR_WRITE);
+		break;
+	case VGA_OP_SCREEN_OFF:
+		outb(SR01, VGA_SR_INDEX);
+		tmp = inb(VGA_SR_DATA);
+		tmp |= 1 << 5;
+		outb(tmp, VGA_SR_DATA);
+		break;
+	}
+
+	pci_write_config_word(dev->pdev, PCI_COMMAND, cmd);
+
+	i915_vga_bus_restore(dev);
+
+	return 0;
+}
+
+/* MMIO based VGA register access, pre-Gen5 only */
+static void i915_vga_execute_mmio(struct drm_device *dev, enum vga_op op)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u8 tmp;
+
+	switch (op) {
+	case VGA_OP_MEM_DISABLE:
+		tmp = I915_READ8(VGA_MSR_READ);
+		tmp &= ~VGA_MSR_MEM_EN;
+		I915_WRITE8(VGA_MSR_WRITE, tmp);
+		break;
+	case VGA_OP_MEM_ENABLE:
+		tmp = I915_READ8(VGA_MSR_READ);
+		tmp |= VGA_MSR_MEM_EN;
+		I915_WRITE8(VGA_MSR_WRITE, tmp);
+		break;
+	case VGA_OP_SCREEN_OFF:
+		I915_WRITE8(VGA_SR_INDEX, SR01);
+		tmp = I915_READ8(VGA_SR_DATA);
+		tmp |= 1 << 5;
+		I915_WRITE8(VGA_SR_DATA, tmp);
+		break;
+	}
+}
+
+static void i915_vga_execute(struct drm_device *dev, enum vga_op op)
+{
+	/*
+	 * FIXME which way w/ CTG/ELK?
+	 * Workaround database is conflicted on the subject.
+	 */
+	if (INTEL_INFO(dev)->gen >= 5) {
+		struct i915_vga_op vga_op = {
+			.op = op,
+			.dev = dev,
+		};
+
+		stop_machine(i915_vga_stop_machine_cb, &vga_op, NULL);
+	} else {
+		i915_vga_execute_mmio(dev, op);
+	}
+}
+
 /* Disable the VGA plane that we never use */
 static void i915_disable_vga(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u8 sr1;
 	u32 vga_reg = i915_vgacntrl_reg(dev);
+	u16 gmch_ctrl;
 
-	vga_get_uninterruptible(dev->pdev, VGA_RSRC_LEGACY_IO);
-	outb(SR01, VGA_SR_INDEX);
-	sr1 = inb(VGA_SR_DATA);
-	outb(sr1 | 1<<5, VGA_SR_DATA);
-	vga_put(dev->pdev, VGA_RSRC_LEGACY_IO);
+	/* already disabled? */
+	if (I915_READ(vga_reg) & VGA_DISP_DISABLE)
+		return;
+
+	pci_read_config_word(dev_priv->bridge_dev, INTEL_GMCH_CTRL, &gmch_ctrl);
+	if (gmch_ctrl & INTEL_GMCH_VGA_DISABLE)
+		DRM_ERROR("VGA plane enabled while VGA disabled via GMCH control\n");
+
+	i915_vga_execute(dev, VGA_OP_SCREEN_OFF);
+
 	udelay(300);
 
 	I915_WRITE(vga_reg, VGA_DISP_DISABLE);
 	POSTING_READ(vga_reg);
-}
-
-static void i915_enable_vga_mem(struct drm_device *dev)
-{
-	/* Enable VGA memory on Intel HD */
-	if (HAS_PCH_SPLIT(dev)) {
-		vga_get_uninterruptible(dev->pdev, VGA_RSRC_LEGACY_IO);
-		outb(inb(VGA_MSR_READ) | VGA_MSR_MEM_EN, VGA_MSR_WRITE);
-		vga_set_legacy_decoding(dev->pdev, VGA_RSRC_LEGACY_IO |
-						   VGA_RSRC_LEGACY_MEM |
-						   VGA_RSRC_NORMAL_IO |
-						   VGA_RSRC_NORMAL_MEM);
-		vga_put(dev->pdev, VGA_RSRC_LEGACY_IO);
-	}
-}
-
-void i915_disable_vga_mem(struct drm_device *dev)
-{
-	/* Disable VGA memory on Intel HD */
-	if (HAS_PCH_SPLIT(dev)) {
-		vga_get_uninterruptible(dev->pdev, VGA_RSRC_LEGACY_IO);
-		outb(inb(VGA_MSR_READ) & ~VGA_MSR_MEM_EN, VGA_MSR_WRITE);
-		vga_set_legacy_decoding(dev->pdev, VGA_RSRC_LEGACY_IO |
-						   VGA_RSRC_NORMAL_IO |
-						   VGA_RSRC_NORMAL_MEM);
-		vga_put(dev->pdev, VGA_RSRC_LEGACY_IO);
-	}
 }
 
 void intel_modeset_init_hw(struct drm_device *dev)
@@ -10538,7 +10683,6 @@ void i915_redisable_vga(struct drm_device *dev)
 	if (I915_READ(vga_reg) != VGA_DISP_DISABLE) {
 		DRM_DEBUG_KMS("Something enabled VGA plane, disabling it\n");
 		i915_disable_vga(dev);
-		i915_disable_vga_mem(dev);
 	}
 }
 
@@ -10743,7 +10887,7 @@ void intel_modeset_cleanup(struct drm_device *dev)
 
 	intel_disable_fbc(dev);
 
-	i915_enable_vga_mem(dev);
+	intel_modeset_vga_set_state(dev, true);
 
 	intel_disable_gt_powersave(dev);
 
@@ -10786,12 +10930,35 @@ int intel_modeset_vga_set_state(struct drm_device *dev, bool state)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u16 gmch_ctrl;
 
+	/* Is VGA totally disabled for the IGD? */
 	pci_read_config_word(dev_priv->bridge_dev, INTEL_GMCH_CTRL, &gmch_ctrl);
-	if (state)
-		gmch_ctrl &= ~INTEL_GMCH_VGA_DISABLE;
-	else
-		gmch_ctrl |= INTEL_GMCH_VGA_DISABLE;
-	pci_write_config_word(dev_priv->bridge_dev, INTEL_GMCH_CTRL, gmch_ctrl);
+	if (gmch_ctrl & INTEL_GMCH_VGA_DISABLE)
+		return 0;
+
+	if (state) {
+		i915_vga_execute(dev, VGA_OP_MEM_ENABLE);
+
+		/*
+		 * Leave PCI_COMMAND_IO alone for now. vgaarb
+		 * should re-enable it if and when needed.
+		 */
+
+		vga_set_legacy_decoding(dev->pdev, VGA_RSRC_LEGACY_IO |
+						   VGA_RSRC_LEGACY_MEM |
+						   VGA_RSRC_NORMAL_IO |
+						   VGA_RSRC_NORMAL_MEM);
+	} else {
+		u16 cmd;
+
+		i915_vga_execute(dev, VGA_OP_MEM_DISABLE);
+
+		pci_read_config_word(dev->pdev, PCI_COMMAND, &cmd);
+		cmd &= ~PCI_COMMAND_IO;
+		pci_write_config_word(dev->pdev, PCI_COMMAND, cmd);
+
+		vga_set_legacy_decoding(dev->pdev, VGA_RSRC_NORMAL_MEM);
+	}
+
 	return 0;
 }
 

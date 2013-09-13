@@ -1225,19 +1225,6 @@ intel_teardown_mchbar(struct drm_device *dev)
 		release_resource(&dev_priv->mch_res);
 }
 
-/* true = enable decode, false = disable decoder */
-static unsigned int i915_vga_set_decode(void *cookie, bool state)
-{
-	struct drm_device *dev = cookie;
-
-	intel_modeset_vga_set_state(dev, state);
-	if (state)
-		return VGA_RSRC_LEGACY_IO | VGA_RSRC_LEGACY_MEM |
-		       VGA_RSRC_NORMAL_IO | VGA_RSRC_NORMAL_MEM;
-	else
-		return VGA_RSRC_NORMAL_IO | VGA_RSRC_NORMAL_MEM;
-}
-
 static void i915_switcheroo_set_state(struct pci_dev *pdev, enum vga_switcheroo_state state)
 {
 	struct drm_device *dev = pci_get_drvdata(pdev);
@@ -1283,25 +1270,11 @@ static int i915_load_modeset_init(struct drm_device *dev)
 	if (ret)
 		DRM_INFO("failed to find VBIOS tables\n");
 
-	/* If we have > 1 VGA cards, then we need to arbitrate access
-	 * to the common VGA resources.
-	 *
-	 * If we are a secondary display controller (!PCI_DISPLAY_CLASS_VGA),
-	 * then we do not take part in VGA arbitration and the
-	 * vga_client_register() fails with -ENODEV.
-	 */
-	if (!HAS_PCH_SPLIT(dev)) {
-		ret = vga_client_register(dev->pdev, dev, NULL,
-					  i915_vga_set_decode);
-		if (ret && ret != -ENODEV)
-			goto out;
-	}
-
 	intel_register_dsm_handler();
 
 	ret = vga_switcheroo_register_client(dev->pdev, &i915_switcheroo_ops, false);
 	if (ret)
-		goto cleanup_vga_client;
+		goto out;
 
 	/* Initialise stolen first so that we may reserve preallocated
 	 * objects for the BIOS to KMS transition.
@@ -1352,10 +1325,13 @@ static int i915_load_modeset_init(struct drm_device *dev)
 	intel_fbdev_initial_config(dev);
 
 	/*
+	 * Disable VGA IO and memory, and
+	 * tell the arbiter to ignore us.
+	 *
 	 * Must do this after fbcon init so that
 	 * vgacon_save_screen() works during the handover.
 	 */
-	i915_disable_vga_mem(dev);
+	intel_modeset_vga_set_state(dev, false);
 
 	/* Only enable hotplug handling once the fbdev is fully set up. */
 	dev_priv->enable_hotplug_processing = true;
@@ -1377,8 +1353,6 @@ cleanup_gem_stolen:
 	i915_gem_cleanup_stolen(dev);
 cleanup_vga_switcheroo:
 	vga_switcheroo_unregister_client(dev->pdev);
-cleanup_vga_client:
-	vga_client_register(dev->pdev, NULL, NULL, NULL);
 out:
 	return ret;
 }
@@ -1749,7 +1723,6 @@ int i915_driver_unload(struct drm_device *dev)
 		}
 
 		vga_switcheroo_unregister_client(dev->pdev);
-		vga_client_register(dev->pdev, NULL, NULL, NULL);
 	}
 
 	/* Free error state after interrupts are fully disabled. */
