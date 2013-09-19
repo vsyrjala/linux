@@ -10393,7 +10393,8 @@ static void i915_disable_vga(struct drm_device *dev)
 	if (I915_READ(vga_reg) & VGA_DISP_DISABLE)
 		return;
 
-	pci_read_config_word(dev_priv->bridge_dev, INTEL_GMCH_CTRL, &gmch_ctrl);
+	pci_read_config_word(dev_priv->bridge_dev, INTEL_INFO(dev)->gen >= 6 ?
+			     SNB_GMCH_CTRL : INTEL_GMCH_CTRL, &gmch_ctrl);
 	if (gmch_ctrl & INTEL_GMCH_VGA_DISABLE)
 		DRM_ERROR("VGA plane enabled while VGA disabled via GMCH control\n");
 
@@ -10931,7 +10932,8 @@ int intel_modeset_vga_set_state(struct drm_device *dev, bool state)
 	u16 gmch_ctrl;
 
 	/* Is VGA totally disabled for the IGD? */
-	pci_read_config_word(dev_priv->bridge_dev, INTEL_GMCH_CTRL, &gmch_ctrl);
+	pci_read_config_word(dev_priv->bridge_dev, INTEL_INFO(dev)->gen >= 6 ?
+			     SNB_GMCH_CTRL : INTEL_GMCH_CTRL, &gmch_ctrl);
 	if (gmch_ctrl & INTEL_GMCH_VGA_DISABLE)
 		return 0;
 
