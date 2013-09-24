@@ -10370,7 +10370,7 @@ static void i915_vga_execute(struct drm_device *dev, enum vga_op op)
 	 * FIXME which way w/ CTG/ELK?
 	 * Workaround database is conflicted on the subject.
 	 */
-	if (INTEL_INFO(dev)->gen >= 5) {
+	if (IS_G4X(dev) || INTEL_INFO(dev)->gen >= 5) {
 		struct i915_vga_op vga_op = {
 			.op = op,
 			.dev = dev,
