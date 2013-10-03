@@ -2102,6 +2102,9 @@ enum punit_power_well {
 #define CLKCFG_MEM_800					(3 << 4)
 #define CLKCFG_MEM_MASK					(7 << 4)
 
+#define HPLLVCO				(MCHBAR_MIRROR_BASE + 0xc38)
+#define HPLLVCO_MOBILE			(MCHBAR_MIRROR_BASE + 0xc0f)
+
 #define TSC1			0x11001
 #define   TSE			(1<<0)
 #define TR1			0x11006
