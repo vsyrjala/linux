@@ -17,6 +17,31 @@
 
 /* watermark */
 
+TRACE_EVENT(i915_wm_plane_params,
+	    TP_PROTO(const char *name, const struct intel_plane_wm_parameters *old, const struct intel_plane_wm_parameters *new),
+	    TP_ARGS(name, old, new),
+	    TP_STRUCT__entry(
+			     __field(const char *, name)
+			     __field(bool, old_enabled)
+			     __field(bool, new_enabled)
+			     __field(bool, old_scaled)
+			     __field(bool, new_scaled)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->name = name;
+			   __entry->old_enabled = old->enabled;
+			   __entry->new_enabled = new->enabled;
+			   __entry->old_scaled = old->scaled;
+			   __entry->new_scaled = new->scaled;
+			   ),
+
+	    TP_printk("plane=%s, enabled=%d->%d, scaled=%d->%d\n",
+		      __entry->name,
+		      __entry->old_enabled, __entry->new_enabled,
+		      __entry->old_scaled, __entry->new_scaled)
+);
+
 TRACE_EVENT_CONDITION(i915_wm_pipe_wm,
 	    TP_PROTO(enum pipe pipe, const struct intel_pipe_wm *pipe_wm, bool trace),
 	    TP_ARGS(pipe, pipe_wm, trace),

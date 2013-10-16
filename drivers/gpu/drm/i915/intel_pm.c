@@ -3196,6 +3196,8 @@ static int ilk_update_primary_wm(struct intel_crtc *crtc,
 
 	ilk_compute_wm_parameters(&crtc->base, &params);
 
+	trace_i915_wm_plane_params("primary", &params.pri, &config->pri);
+
 	params.pri = config->pri;
 
 	intel_compute_pipe_wm(&crtc->base, &params, &config->target);
@@ -3211,6 +3213,8 @@ static int ilk_update_cursor_wm(struct intel_crtc *crtc,
 	struct ilk_pipe_wm_parameters params = {};
 
 	ilk_compute_wm_parameters(&crtc->base, &params);
+
+	trace_i915_wm_plane_params("cursor", &params.cur, &config->cur);
 
 	params.cur = config->cur;
 
@@ -3229,6 +3233,9 @@ static int ilk_update_sprite_wm(struct intel_plane *plane,
 	struct ilk_pipe_wm_parameters params = {};
 
 	ilk_compute_wm_parameters(&crtc->base, &params);
+
+	trace_i915_wm_plane_params("primary", &params.pri, &config->pri);
+	trace_i915_wm_plane_params("sprite", &params.spr, &config->spr);
 
 	/*
 	 * IVB workaround: must disable low power watermarks for at least
