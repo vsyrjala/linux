@@ -3175,8 +3175,17 @@ static int ilk_update_sprite_wm(struct intel_plane *plane,
 	 * when scaling is disabled.
 	 *
 	 * WaCxSRDisabledForSpriteScaling:ivb
+	 *
+	 * We also seem to need something similar when switching between
+	 * primary only and sprite only configurations. Otherwise the screen
+	 * flashes black. No underrun reported though.
 	 */
 	if (IS_IVYBRIDGE(dev) && config->spr.scaled && ilk_disable_lp_wm(crtc))
+		intel_wait_for_vblank(dev, plane->pipe);
+	else if (config->pri.enabled != config->spr.enabled &&
+		 config->pri.enabled != params.pri.enabled &&
+		 config->spr.enabled != params.spr.enabled &&
+		 ilk_disable_lp_wm(crtc))
 		intel_wait_for_vblank(dev, plane->pipe);
 
 	params.pri = config->pri;
