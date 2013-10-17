@@ -4004,6 +4004,26 @@ static void intel_crtc_disable_planes(struct drm_crtc *crtc)
 	drm_vblank_off(dev, pipe);
 }
 
+static struct intel_crtc *get_other_active_crtc(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct intel_crtc *crtc_it, *other_active_crtc = NULL;
+
+	/* We want to get the other_active_crtc only if there's only 1 other
+	 * active crtc. */
+	for_each_intel_crtc(dev, crtc_it) {
+		if (!crtc_it->active || crtc_it == crtc)
+			continue;
+
+		if (other_active_crtc)
+			return NULL;
+
+		other_active_crtc = crtc_it;
+	}
+
+	return other_active_crtc;
+}
+
 static void ironlake_crtc_enable(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
@@ -4096,19 +4116,8 @@ static bool hsw_crtc_supports_ips(struct intel_crtc *crtc)
 static void haswell_mode_set_planes_workaround(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
-	struct intel_crtc *crtc_it, *other_active_crtc = NULL;
+	struct intel_crtc *other_active_crtc = get_other_active_crtc(crtc);
 
-	/* We want to get the other_active_crtc only if there's only 1 other
-	 * active crtc. */
-	for_each_intel_crtc(dev, crtc_it) {
-		if (!crtc_it->active || crtc_it == crtc)
-			continue;
-
-		if (other_active_crtc)
-			return;
-
-		other_active_crtc = crtc_it;
-	}
 	if (!other_active_crtc)
 		return;
 
