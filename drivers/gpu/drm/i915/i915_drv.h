@@ -1555,6 +1555,7 @@ struct drm_i915_private {
 		struct mutex mutex;
 
 		struct work_struct work;
+		wait_queue_head_t wait;
 	} wm;
 
 	struct i915_runtime_pm pm;

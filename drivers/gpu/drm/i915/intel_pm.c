@@ -2812,6 +2812,7 @@ static bool ilk_pending_watermarks_ready(struct intel_crtc *crtc)
 
 static bool ilk_refresh_pending_watermarks(struct drm_device *dev)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *crtc;
 	bool changed = false;
 
@@ -2832,6 +2833,9 @@ static bool ilk_refresh_pending_watermarks(struct drm_device *dev)
 		crtc->wm.active = crtc->wm.pending;
 		changed = true;
 	}
+
+	if (changed)
+		wake_up_all(&dev_priv->wm.wait);
 
 	return changed;
 }
@@ -3027,6 +3031,33 @@ static void ilk_wm_cancel(struct intel_crtc *crtc)
 		drm_vblank_put(dev, crtc->pipe);
 		crtc->wm.vblank = false;
 	}
+}
+
+void ilk_wm_synchronize(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	enum pipe pipe = crtc->pipe;
+	unsigned long timeout = msecs_to_jiffies(100);
+
+	wait_event_timeout(dev_priv->wm.wait, !crtc->wm.dirty, timeout);
+
+	mutex_lock(&dev_priv->wm.mutex);
+
+	spin_lock_irq(&crtc->wm.lock);
+
+	WARN(crtc->wm.dirty, "pipe %c watermark updates failed to complete\n",
+	     pipe_name(pipe));
+
+	/* clean up if something is left behind */
+	ilk_wm_cancel(crtc);
+
+	spin_unlock_irq(&crtc->wm.lock);
+
+	/* pending update (if any) got cancelled */
+	crtc->wm.pending = crtc->wm.active;
+
+	mutex_unlock(&dev_priv->wm.mutex);
 }
 
 static int ilk_update_primary_wm(struct intel_crtc *crtc,
@@ -7002,6 +7033,7 @@ void intel_init_pm(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	mutex_init(&dev_priv->wm.mutex);
+	init_waitqueue_head(&dev_priv->wm.wait);
 	INIT_WORK(&dev_priv->wm.work, ilk_watermark_work);
 
 	if (HAS_FBC(dev)) {

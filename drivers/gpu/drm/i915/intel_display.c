@@ -3999,6 +3999,8 @@ static void intel_crtc_disable_planes(struct drm_crtc *crtc)
 	intel_disable_planes(crtc);
 	intel_disable_primary_hw_plane(dev_priv, plane, pipe);
 
+	ilk_wm_synchronize(intel_crtc);
+
 	drm_vblank_off(dev, pipe);
 }
 

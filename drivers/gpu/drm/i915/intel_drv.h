@@ -1024,6 +1024,7 @@ void intel_program_watermarks_pre(struct intel_crtc *crtc,
 				  const struct intel_crtc_wm_config *config);
 void intel_program_watermarks_post(struct intel_crtc *crtc,
 				   const struct intel_crtc_wm_config *config);
+void ilk_wm_synchronize(struct intel_crtc *crtc);
 
 
 /* intel_sdvo.c */
