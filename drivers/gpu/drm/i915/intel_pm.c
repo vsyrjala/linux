@@ -2575,15 +2575,84 @@ static bool _ilk_disable_lp_wm(struct drm_i915_private *dev_priv,
 	return changed;
 }
 
+static void _ilk_pipe_wm_get_hw_state(struct drm_device *dev,
+				      enum pipe pipe,
+				      struct ilk_wm_values *hw)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	static const unsigned int wm0_pipe_reg[] = {
+		[PIPE_A] = WM0_PIPEA_ILK,
+		[PIPE_B] = WM0_PIPEB_ILK,
+		[PIPE_C] = WM0_PIPEC_IVB,
+	};
+
+	hw->wm_pipe[pipe] = I915_READ(wm0_pipe_reg[pipe]);
+
+	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
+		hw->wm_linetime[pipe] = I915_READ(PIPE_WM_LINETIME(pipe));
+}
+
+static void _ilk_wm_get_hw_state(struct drm_device *dev,
+				 struct ilk_wm_values *hw)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	enum pipe pipe;
+
+	for_each_pipe(pipe)
+		_ilk_pipe_wm_get_hw_state(dev, pipe, hw);
+
+	hw->wm_lp[0] = I915_READ(WM1_LP_ILK);
+	hw->wm_lp[1] = I915_READ(WM2_LP_ILK);
+	hw->wm_lp[2] = I915_READ(WM3_LP_ILK);
+
+	hw->wm_lp_spr[0] = I915_READ(WM1S_LP_ILK);
+	if (INTEL_INFO(dev)->gen >= 7) {
+		hw->wm_lp_spr[1] = I915_READ(WM2S_LP_IVB);
+		hw->wm_lp_spr[2] = I915_READ(WM3S_LP_IVB);
+	}
+
+	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
+		hw->partitioning = (I915_READ(WM_MISC) & WM_MISC_DATA_PARTITION_5_6) ?
+			INTEL_DDB_PART_5_6 : INTEL_DDB_PART_1_2;
+	else if (IS_IVYBRIDGE(dev))
+		hw->partitioning = (I915_READ(DISP_ARB_CTL2) & DISP_DATA_PARTITION_5_6) ?
+			INTEL_DDB_PART_5_6 : INTEL_DDB_PART_1_2;
+
+	hw->enable_fbc_wm =
+		!(I915_READ(DISP_ARB_CTL) & DISP_FBC_WM_DIS);
+}
+
+static void ilk_dump_wm_values(const struct ilk_wm_values *hw,
+			       const char *context)
+{
+	DRM_DEBUG_KMS("%s watermark values\n", context);
+	DRM_DEBUG_KMS("WM_PIPE_A = 0x%08x\n",  hw->wm_pipe[PIPE_A]);
+	DRM_DEBUG_KMS("WM_PIPE_B = 0x%08x\n",  hw->wm_pipe[PIPE_B]);
+	DRM_DEBUG_KMS("WM_PIPE_C = 0x%08x\n",  hw->wm_pipe[PIPE_C]);
+	DRM_DEBUG_KMS("WM_LP_1 = 0x%08x\n", hw->wm_lp[0]);
+	DRM_DEBUG_KMS("WM_LP_2 = 0x%08x\n", hw->wm_lp[1]);
+	DRM_DEBUG_KMS("WM_LP_3 = 0x%08x\n", hw->wm_lp[2]);
+	DRM_DEBUG_KMS("WM_LP_SPR_1 = 0x%08x\n", hw->wm_lp_spr[0]);
+	DRM_DEBUG_KMS("WM_LP_SPR_2 = 0x%08x\n", hw->wm_lp_spr[1]);
+	DRM_DEBUG_KMS("WM_LP_SPR_3 = 0x%08x\n", hw->wm_lp_spr[2]);
+	DRM_DEBUG_KMS("WM_LINETIME_A = 0x%08x\n", hw->wm_linetime[PIPE_A]);
+	DRM_DEBUG_KMS("WM_LINETIME_B = 0x%08x\n", hw->wm_linetime[PIPE_B]);
+	DRM_DEBUG_KMS("WM_LINETIME_C = 0x%08x\n", hw->wm_linetime[PIPE_C]);
+	DRM_DEBUG_KMS("enable FBC watermark = %d\n", hw->enable_fbc_wm);
+	DRM_DEBUG_KMS("DDB partitioning = %s\n",
+		      hw->partitioning == INTEL_DDB_PART_1_2 ? "1/2" : "5/6");
+}
+
 /*
  * The spec says we shouldn't write when we don't need, because every write
  * causes WMs to be re-evaluated, expending some power.
  */
 static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
-				struct ilk_wm_values *results)
+				const struct ilk_wm_values *results)
 {
 	struct drm_device *dev = dev_priv->dev;
 	struct ilk_wm_values *previous = &dev_priv->wm.hw;
+	struct ilk_wm_values hw = {};
 	unsigned int dirty;
 	uint32_t val;
 
@@ -2653,6 +2722,14 @@ static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
 		I915_WRITE(WM3_LP_ILK, results->wm_lp[2]);
 
 	dev_priv->wm.hw = *results;
+
+	_ilk_wm_get_hw_state(dev, &hw);
+
+	if (memcmp(results, &hw, sizeof(hw))) {
+		WARN(1, "watermark state doesn't match!\n");
+		ilk_dump_wm_values(&hw, "[hw state]");
+		ilk_dump_wm_values(results, "[sw state]");
+	}
 }
 
 static bool ilk_disable_lp_wm(struct drm_device *dev)
@@ -2734,23 +2811,14 @@ static void ilk_update_sprite_wm(struct drm_plane *plane,
 	ilk_update_wm(crtc);
 }
 
-static void ilk_pipe_wm_get_hw_state(struct drm_crtc *crtc)
+static void _ilk_pipe_wm_hw_to_sw(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct ilk_wm_values *hw = &dev_priv->wm.hw;
+	const struct ilk_wm_values *hw = &dev_priv->wm.hw;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_pipe_wm *active = &intel_crtc->wm.active;
 	enum pipe pipe = intel_crtc->pipe;
-	static const unsigned int wm0_pipe_reg[] = {
-		[PIPE_A] = WM0_PIPEA_ILK,
-		[PIPE_B] = WM0_PIPEB_ILK,
-		[PIPE_C] = WM0_PIPEC_IVB,
-	};
-
-	hw->wm_pipe[pipe] = I915_READ(wm0_pipe_reg[pipe]);
-	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
-		hw->wm_linetime[pipe] = I915_READ(PIPE_WM_LINETIME(pipe));
 
 	active->pipe_enabled = intel_crtc_active(crtc);
 
@@ -2784,31 +2852,12 @@ static void ilk_pipe_wm_get_hw_state(struct drm_crtc *crtc)
 void ilk_wm_get_hw_state(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct ilk_wm_values *hw = &dev_priv->wm.hw;
 	struct drm_crtc *crtc;
 
+	_ilk_wm_get_hw_state(dev, &dev_priv->wm.hw);
+
 	for_each_crtc(dev, crtc)
-		ilk_pipe_wm_get_hw_state(crtc);
-
-	hw->wm_lp[0] = I915_READ(WM1_LP_ILK);
-	hw->wm_lp[1] = I915_READ(WM2_LP_ILK);
-	hw->wm_lp[2] = I915_READ(WM3_LP_ILK);
-
-	hw->wm_lp_spr[0] = I915_READ(WM1S_LP_ILK);
-	if (INTEL_INFO(dev)->gen >= 7) {
-		hw->wm_lp_spr[1] = I915_READ(WM2S_LP_IVB);
-		hw->wm_lp_spr[2] = I915_READ(WM3S_LP_IVB);
-	}
-
-	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
-		hw->partitioning = (I915_READ(WM_MISC) & WM_MISC_DATA_PARTITION_5_6) ?
-			INTEL_DDB_PART_5_6 : INTEL_DDB_PART_1_2;
-	else if (IS_IVYBRIDGE(dev))
-		hw->partitioning = (I915_READ(DISP_ARB_CTL2) & DISP_DATA_PARTITION_5_6) ?
-			INTEL_DDB_PART_5_6 : INTEL_DDB_PART_1_2;
-
-	hw->enable_fbc_wm =
-		!(I915_READ(DISP_ARB_CTL) & DISP_FBC_WM_DIS);
+		_ilk_pipe_wm_hw_to_sw(crtc);
 }
 
 /**
