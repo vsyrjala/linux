@@ -4041,7 +4041,7 @@ static void ilk_prepare_for_num_pipes_change(struct intel_crtc *crtc)
 
 	ilk_wm_synchronize(other_active_crtc);
 
-	if (ilk_disable_lp_wm(dev))
+	if (ilk_disable_lp_wm(crtc))
 		intel_wait_for_vblank(dev, other_active_crtc->pipe);
 }
 

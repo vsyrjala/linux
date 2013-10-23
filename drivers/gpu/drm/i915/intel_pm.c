@@ -2428,6 +2428,7 @@ static void ilk_compute_wm_results(struct drm_device *dev,
 				   enum intel_ddb_partitioning partitioning,
 				   struct ilk_wm_values *results)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc;
 	int level, wm_lp;
 
@@ -2451,7 +2452,7 @@ static void ilk_compute_wm_results(struct drm_device *dev,
 			(r->pri_val << WM1_LP_SR_SHIFT) |
 			r->cur_val;
 
-		if (r->enable)
+		if (r->enable && !dev_priv->wm.lp_disabled)
 			results->wm_lp[wm_lp - 1] |= WM1_LP_SR_EN;
 
 		if (INTEL_INFO(dev)->gen >= 8)
@@ -2765,13 +2766,18 @@ static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
 	}
 }
 
-bool ilk_disable_lp_wm(struct drm_device *dev)
+bool ilk_disable_lp_wm(struct intel_crtc *crtc)
 {
+	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	bool changed;
 
 	mutex_lock(&dev_priv->wm.mutex);
+
+	dev_priv->wm.lp_disabled |= 1 << crtc->pipe;
+
 	changed = _ilk_disable_lp_wm(dev_priv, WM_DIRTY_LP_ALL);
+
 	mutex_unlock(&dev_priv->wm.mutex);
 
 	return changed;
@@ -2889,14 +2895,19 @@ static void ilk_setup_pending_watermarks(struct intel_crtc *crtc,
 					 u32 vbl_count)
 {
 	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	enum pipe pipe = crtc->pipe;
 
 	WARN(!crtc->active, "pipe %c should be enabled\n",
 	     pipe_name(pipe));
 
 	/* do the watermarks actually need changing? */
-	if (!memcmp(&crtc->wm.pending, pipe_wm, sizeof(*pipe_wm)))
+	if (!(dev_priv->wm.lp_disabled & (1 << pipe)) &&
+	    !memcmp(&crtc->wm.pending, pipe_wm, sizeof(*pipe_wm)))
 		return;
+
+	/* allow LP1+ watermarks again */
+	dev_priv->wm.lp_disabled &= ~(1 << pipe);
 
 	crtc->wm.pending = *pipe_wm;
 
@@ -3092,6 +3103,9 @@ void ilk_wm_pipe_post_disable(struct intel_crtc *crtc)
 	/* pending update (if any) got cancelled */
 	crtc->wm.pending = crtc->wm.active;
 
+	/* allow LP1+ watermarks again */
+	dev_priv->wm.lp_disabled &= ~(1 << crtc->pipe);
+
 	ilk_update_watermarks(dev, true);
 
 	mutex_unlock(&dev_priv->wm.mutex);
@@ -3145,7 +3159,7 @@ static int ilk_update_sprite_wm(struct intel_plane *plane,
 	 *
 	 * WaCxSRDisabledForSpriteScaling:ivb
 	 */
-	if (IS_IVYBRIDGE(dev) && config->spr.scaled && ilk_disable_lp_wm(dev))
+	if (IS_IVYBRIDGE(dev) && config->spr.scaled && ilk_disable_lp_wm(crtc))
 		intel_wait_for_vblank(dev, plane->pipe);
 
 	params.pri = config->pri;

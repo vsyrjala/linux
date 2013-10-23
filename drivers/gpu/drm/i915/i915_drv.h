@@ -1549,6 +1549,12 @@ struct drm_i915_private {
 		struct ilk_wm_values hw;
 
 		/*
+		 * bitmask of pipes that have requested
+		 * LP1+ watermarks to be disabled.
+		 */
+		unsigned int lp_disabled;
+
+		/*
 		 * protects some dev_priv->wm and intel_crtc->wm
 		 * state as well as the actual hardware registers
 		 */

@@ -1026,7 +1026,7 @@ void intel_program_watermarks_post(struct intel_crtc *crtc,
 				   const struct intel_crtc_wm_config *config);
 void ilk_wm_synchronize(struct intel_crtc *crtc);
 void ilk_wm_pipe_post_disable(struct intel_crtc *crtc);
-bool ilk_disable_lp_wm(struct drm_device *dev);
+bool ilk_disable_lp_wm(struct intel_crtc *crtc);
 
 
 /* intel_sdvo.c */
