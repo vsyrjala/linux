@@ -2666,6 +2666,24 @@ static void ilk_wm_trace(struct drm_device *dev, bool trace)
 	trace_i915_wm_lp_ivb(dev, 3, hw, trace);
 }
 
+static void ilk_wm_trace_prog_start(struct drm_device *dev)
+{
+	struct intel_crtc *crtc;
+
+	for_each_intel_crtc(dev, crtc)
+		if (crtc->active)
+			trace_i915_wm_prog_start(crtc);
+}
+
+static void ilk_wm_trace_prog_end(struct drm_device *dev)
+{
+	struct intel_crtc *crtc;
+
+	for_each_intel_crtc(dev, crtc)
+		if (crtc->active)
+			trace_i915_wm_prog_end(crtc);
+}
+
 static void _ilk_wm_get_hw_state(struct drm_device *dev,
 				 struct ilk_wm_values *hw)
 {
@@ -2737,6 +2755,8 @@ static bool ilk_write_wm_values(struct drm_i915_private *dev_priv,
 	if (!dirty)
 		return false;
 
+	ilk_wm_trace_prog_start(dev);
+
 	_ilk_disable_lp_wm(dev_priv, dirty);
 
 	if (dirty & WM_DIRTY_PIPE(PIPE_A))
@@ -2798,6 +2818,8 @@ static bool ilk_write_wm_values(struct drm_i915_private *dev_priv,
 	if (dirty & WM_DIRTY_LP(3) && previous->wm_lp[2] != results->wm_lp[2])
 		I915_WRITE(WM3_LP_ILK, results->wm_lp[2]);
 
+	ilk_wm_trace_prog_end(dev);
+
 	dev_priv->wm.hw = *results;
 
 	_ilk_wm_get_hw_state(dev, &hw);
@@ -2850,7 +2872,9 @@ bool ilk_disable_lp_wm(struct intel_crtc *crtc)
 
 	dev_priv->wm.lp_disabled |= 1 << crtc->pipe;
 
+	ilk_wm_trace_prog_start(dev);
 	changed = _ilk_disable_lp_wm(dev_priv, WM_DIRTY_LP_ALL);
+	ilk_wm_trace_prog_end(dev);
 
 	trace_i915_wm_disable_lp(changed);
 	ilk_wm_trace(dev, changed);

@@ -17,6 +17,46 @@
 
 /* watermark */
 
+TRACE_EVENT(i915_wm_prog_start,
+	    TP_PROTO(struct intel_crtc *crtc),
+	    TP_ARGS(crtc),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(u32, frame)
+			     __field(u32, scanline)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = crtc->pipe;
+			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev, crtc->pipe);
+			   __entry->scanline = intel_get_crtc_scanline(crtc);
+			   ),
+
+	    TP_printk("pipe %c, frame=%u, scanline=%u",
+		      pipe_name(__entry->pipe), __entry->frame, __entry->scanline)
+);
+
+TRACE_EVENT(i915_wm_prog_end,
+	    TP_PROTO(struct intel_crtc *crtc),
+	    TP_ARGS(crtc),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(u32, frame)
+			     __field(u32, scanline)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = crtc->pipe;
+			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev, crtc->pipe);
+			   __entry->scanline = intel_get_crtc_scanline(crtc);
+			   ),
+
+	    TP_printk("pipe %c, frame=%u, scanline=%u",
+		      pipe_name(__entry->pipe), __entry->frame, __entry->scanline)
+);
+
 TRACE_EVENT(i915_wm_plane_params,
 	    TP_PROTO(const char *name, const struct intel_plane_wm_parameters *old, const struct intel_plane_wm_parameters *new),
 	    TP_ARGS(name, old, new),
