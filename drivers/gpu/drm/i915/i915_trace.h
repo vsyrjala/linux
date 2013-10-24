@@ -17,6 +17,185 @@
 
 /* watermark */
 
+TRACE_EVENT_CONDITION(i915_wm_pipe_wm,
+	    TP_PROTO(enum pipe pipe, const struct intel_pipe_wm *pipe_wm, bool trace),
+	    TP_ARGS(pipe, pipe_wm, trace),
+
+	    TP_CONDITION(trace),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(uint32_t, linetime)
+			     __field(bool, fbc_wm_enabled)
+			     __field(bool, pipe_enabled)
+			     __field(bool, primary_enabled)
+			     __field(bool, sprites_enabled)
+			     __field(bool, sprites_scaled)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = pipe;
+			   __entry->linetime = pipe_wm->linetime;
+			   __entry->fbc_wm_enabled = pipe_wm->fbc_wm_enabled;
+			   __entry->pipe_enabled = pipe_wm->pipe_enabled;
+			   __entry->primary_enabled = pipe_wm->primary_enabled;
+			   __entry->sprites_enabled = pipe_wm->sprites_enabled;
+			   __entry->sprites_scaled = pipe_wm->sprites_scaled;
+			   ),
+
+	    TP_printk("pipe=%c linetime=%u, fbc=%s, pipe en=%s, pri en=%s, spr en=%s, spr scaled=%s",
+		      pipe_name(__entry->pipe), __entry->linetime,
+		      __entry->fbc_wm_enabled ? "yes" : "no",
+		      __entry->pipe_enabled ? "yes" : "no",
+		      __entry->primary_enabled ? "yes" : "no",
+		      __entry->sprites_enabled ? "yes" : "no",
+		      __entry->sprites_scaled ? "yes" : "no")
+);
+
+
+TRACE_EVENT_CONDITION(i915_wm_level,
+	    TP_PROTO(enum pipe pipe, int level, const struct intel_pipe_wm *pipe_wm, bool trace),
+	    TP_ARGS(pipe, level, pipe_wm, trace),
+
+	    TP_CONDITION(trace),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(int, level)
+			     __field(bool, enable)
+			     __field(uint32_t, pri_val)
+			     __field(uint32_t, spr_val)
+			     __field(uint32_t, cur_val)
+			     __field(uint32_t, fbc_val)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = pipe;
+			   __entry->level = level;
+			   __entry->enable = pipe_wm->wm[level].enable;
+			   __entry->pri_val = pipe_wm->wm[level].pri_val;
+			   __entry->spr_val = pipe_wm->wm[level].spr_val;
+			   __entry->cur_val = pipe_wm->wm[level].cur_val;
+			   __entry->fbc_val = pipe_wm->wm[level].fbc_val;
+			   ),
+
+	    TP_printk("pipe=%c level=%u, en=%s, fbc=%u, pri=%u, cur=%u, spr=%u",
+		      pipe_name(__entry->pipe), __entry->level,
+		      __entry->enable ? "yes" : "no", __entry->fbc_val,
+		      __entry->pri_val, __entry->cur_val,
+		      __entry->spr_val)
+);
+
+TRACE_EVENT(i915_wm_setup_pipe,
+	    TP_PROTO(enum pipe pipe, u32 vbl_count, u32 pending_vbl_count),
+	    TP_ARGS(pipe, vbl_count, pending_vbl_count),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(u32, vbl_count)
+			     __field(u32, pending_vbl_count)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = pipe;
+			   __entry->vbl_count = vbl_count;
+			   __entry->pending_vbl_count = pending_vbl_count;
+			   ),
+
+	    TP_printk("pipe=%c vbl_count=%u pending_vbl_count=%u", pipe_name(__entry->pipe),
+		      __entry->vbl_count, __entry->pending_vbl_count)
+);
+
+TRACE_EVENT(i915_wm_refresh_watermarks,
+	    TP_PROTO(enum pipe pipe, u32 vbl_count, u32 pending_vbl_count),
+	    TP_ARGS(pipe, vbl_count, pending_vbl_count),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(u32, vbl_count)
+			     __field(u32, pending_vbl_count)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = pipe;
+			   __entry->vbl_count = vbl_count;
+			   __entry->pending_vbl_count = pending_vbl_count;
+			   ),
+
+	    TP_printk("pipe=%c vbl_count=%u pending_vbl_count=%u", pipe_name(__entry->pipe),
+		      __entry->vbl_count, __entry->pending_vbl_count)
+);
+
+TRACE_EVENT(i915_wm_work_schedule,
+	    TP_PROTO(enum pipe pipe, u32 vbl_count, u32 pending_vbl_count),
+	    TP_ARGS(pipe, vbl_count, pending_vbl_count),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(u32, vbl_count)
+			     __field(u32, pending_vbl_count)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = pipe;
+			   __entry->vbl_count = vbl_count;
+			   __entry->pending_vbl_count = pending_vbl_count;
+			   ),
+
+	    TP_printk("pipe=%c vbl_count=%u pending_vbl_count=%u", pipe_name(__entry->pipe),
+		      __entry->vbl_count, __entry->pending_vbl_count)
+);
+
+TRACE_EVENT(i915_wm_vblank,
+	    TP_PROTO(enum pipe pipe, u32 vbl_count, u32 pending_vbl_count),
+	    TP_ARGS(pipe, vbl_count, pending_vbl_count),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(u32, vbl_count)
+			     __field(u32, pending_vbl_count)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = pipe;
+			   __entry->vbl_count = vbl_count;
+			   __entry->pending_vbl_count = pending_vbl_count;
+			   ),
+
+	    TP_printk("pipe=%c vbl_count=%u pending_vbl_count=%u", pipe_name(__entry->pipe),
+		      __entry->vbl_count, __entry->pending_vbl_count)
+);
+
+TRACE_EVENT(i915_wm_work_start,
+	    TP_PROTO(int dummy),
+	    TP_ARGS(dummy),
+
+	    TP_STRUCT__entry(
+			     __field(int, dummy)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->dummy = dummy;
+			   ),
+
+	    TP_printk("%d", __entry->dummy)
+);
+
+TRACE_EVENT(i915_wm_work_end,
+	    TP_PROTO(bool changed),
+	    TP_ARGS(changed),
+
+	    TP_STRUCT__entry(
+			     __field(bool, changed)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->changed = changed;
+			   ),
+
+	    TP_printk("changed=%s", __entry->changed ? "yes" : "no")
+);
+
 TRACE_EVENT(i915_wm_update_start,
 	    TP_PROTO(enum pipe pipe),
 	    TP_ARGS(pipe),

@@ -2811,6 +2811,23 @@ static bool ilk_write_wm_values(struct drm_i915_private *dev_priv,
 	return true;
 }
 
+static void ilk_wm_pipe_trace(struct intel_crtc *crtc,
+			      const struct intel_pipe_wm *pipe_wm,
+			      bool trace)
+{
+	struct drm_device *dev = crtc->base.dev;
+	enum pipe pipe = crtc->pipe;
+	int max_level = ilk_wm_max_level(dev);
+
+	trace_i915_wm_pipe_wm(pipe, pipe_wm, trace);
+
+	trace_i915_wm_level(pipe, 0, pipe_wm, 0 <= max_level && trace);
+	trace_i915_wm_level(pipe, 1, pipe_wm, 1 <= max_level && trace);
+	trace_i915_wm_level(pipe, 2, pipe_wm, 2 <= max_level && trace);
+	trace_i915_wm_level(pipe, 3, pipe_wm, 3 <= max_level && trace);
+	trace_i915_wm_level(pipe, 4, pipe_wm, 4 <= max_level && trace);
+}
+
 bool ilk_disable_lp_wm(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
@@ -2884,8 +2901,12 @@ static bool ilk_refresh_pending_watermarks(struct drm_device *dev)
 		if (!ready)
 			continue;
 
+		trace_i915_wm_refresh_watermarks(crtc->pipe, 0,
+						 crtc->wm.pending_vbl_count);
+
 		crtc->wm.active = crtc->wm.pending;
 		changed = true;
+		ilk_wm_pipe_trace(crtc, &crtc->wm.active, true);
 	}
 
 	if (changed)
@@ -2932,10 +2953,14 @@ static void ilk_update_watermarks(struct drm_device *dev, bool force)
 {
 	bool changed;
 
+	trace_i915_wm_work_start(0);
+
 	changed = ilk_refresh_pending_watermarks(dev);
 
 	if (changed || force)
 		changed = ilk_program_watermarks(dev);
+
+	trace_i915_wm_work_end(changed);
 
 	ilk_wm_trace(dev, changed);
 }
@@ -2988,6 +3013,8 @@ static void ilk_setup_pending_watermarks(struct intel_crtc *crtc,
 
  unlock:
 	spin_unlock_irq(&crtc->wm.lock);
+
+	trace_i915_wm_setup_pipe(pipe, vbl_count, crtc->wm.pending_vbl_count);
 }
 
 static int ilk_pipe_compute_watermarks(struct intel_crtc *crtc,
@@ -7091,6 +7118,8 @@ static void ilk_program_wm_pre(struct intel_crtc *crtc,
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	bool changed = false;
+
+	ilk_wm_pipe_trace(crtc, &config->intm, true);
 
 	mutex_lock(&dev_priv->wm.mutex);
 

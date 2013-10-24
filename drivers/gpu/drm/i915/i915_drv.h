@@ -409,6 +409,7 @@ struct intel_plane;
 struct intel_limit;
 struct dpll;
 struct intel_crtc_wm_config;
+struct intel_pipe_wm;
 struct intel_plane_wm_parameters;
 struct intel_crtc_wm_config;
 
