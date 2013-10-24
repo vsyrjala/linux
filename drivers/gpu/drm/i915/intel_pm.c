@@ -2828,6 +2828,18 @@ static void ilk_wm_pipe_trace(struct intel_crtc *crtc,
 	trace_i915_wm_level(pipe, 4, pipe_wm, 4 <= max_level && trace);
 }
 
+static void ilk_wm_lp_trace(struct drm_device *dev,
+			    const struct intel_pipe_wm *pipe_wm,
+			    bool trace)
+{
+	int max_level = ilk_wm_max_level(dev);
+
+	trace_i915_wm_level('L'-'A', 1, pipe_wm, 1 <= max_level && trace);
+	trace_i915_wm_level('L'-'A', 2, pipe_wm, 2 <= max_level && trace);
+	trace_i915_wm_level('L'-'A', 3, pipe_wm, 3 <= max_level && trace);
+	trace_i915_wm_level('L'-'A', 4, pipe_wm, 4 <= max_level && trace);
+}
+
 bool ilk_disable_lp_wm(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
@@ -2943,6 +2955,8 @@ static bool ilk_program_watermarks(struct drm_device *dev)
 
 	partitioning = (best_lp_wm == &lp_wm_1_2) ?
 		       INTEL_DDB_PART_1_2 : INTEL_DDB_PART_5_6;
+
+	ilk_wm_lp_trace(dev, best_lp_wm, true);
 
 	ilk_compute_wm_results(dev, best_lp_wm, partitioning, &results);
 
@@ -3078,6 +3092,10 @@ static int ilk_pipe_compute_watermarks(struct intel_crtc *crtc,
 		if (!ilk_validate_pipe_wm(dev, intm))
 			return -EINVAL;
 	}
+
+	ilk_wm_pipe_trace(crtc, &intm_pending, true);
+	ilk_wm_pipe_trace(crtc, intm, true);
+	ilk_wm_pipe_trace(crtc, target, true);
 
 	return 0;
 }
