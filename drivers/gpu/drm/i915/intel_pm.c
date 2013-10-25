@@ -2747,27 +2747,14 @@ static bool ilk_disable_lp_wm(struct drm_device *dev)
 	return _ilk_disable_lp_wm(dev_priv, WM_DIRTY_LP_ALL);
 }
 
-static void ilk_update_wm(struct drm_crtc *crtc)
+static void ilk_program_watermarks(struct drm_device *dev)
 {
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_pipe_wm lp_wm_1_2 = {}, lp_wm_5_6 = {}, *best_lp_wm;
 	struct ilk_wm_maximums max;
-	struct ilk_pipe_wm_parameters params = {};
+	struct intel_wm_config config = {};
 	struct ilk_wm_values results = {};
 	enum intel_ddb_partitioning partitioning;
-	struct intel_pipe_wm pipe_wm = {};
-	struct intel_pipe_wm lp_wm_1_2 = {}, lp_wm_5_6 = {}, *best_lp_wm;
-	struct intel_wm_config config = {};
-
-	ilk_compute_wm_parameters(crtc, &params);
-
-	intel_compute_pipe_wm(crtc, &params, &pipe_wm);
-
-	if (!memcmp(&intel_crtc->wm.active, &pipe_wm, sizeof(pipe_wm)))
-		return;
-
-	intel_crtc->wm.active = pipe_wm;
 
 	ilk_compute_wm_config(dev, &config);
 
@@ -2791,6 +2778,25 @@ static void ilk_update_wm(struct drm_crtc *crtc)
 	ilk_compute_wm_results(dev, best_lp_wm, partitioning, &results);
 
 	ilk_write_wm_values(dev_priv, &results);
+}
+
+static void ilk_update_wm(struct drm_crtc *crtc)
+{
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct drm_device *dev = crtc->dev;
+	struct ilk_pipe_wm_parameters params = {};
+	struct intel_pipe_wm pipe_wm = {};
+
+	ilk_compute_wm_parameters(crtc, &params);
+
+	intel_compute_pipe_wm(crtc, &params, &pipe_wm);
+
+	if (!memcmp(&intel_crtc->wm.active, &pipe_wm, sizeof(pipe_wm)))
+		return;
+
+	intel_crtc->wm.active = pipe_wm;
+
+	ilk_program_watermarks(dev);
 }
 
 static void ilk_update_sprite_wm(struct drm_plane *plane,
