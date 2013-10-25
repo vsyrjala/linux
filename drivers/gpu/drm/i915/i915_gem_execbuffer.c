@@ -955,6 +955,33 @@ i915_gem_validate_context(struct drm_device *dev, struct drm_file *file,
 }
 
 static void
+i915_gem_execbuffer_mark_fbc_dirty(struct intel_engine_cs *ring,
+				   struct list_head *vmas)
+{
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
+	struct i915_vma *vma;
+	u32 fbc_address = -1;
+
+	list_for_each_entry(vma, vmas, exec_list) {
+		struct drm_i915_gem_object *obj = vma->obj;
+
+		if (obj->base.pending_write_domain &&
+		    obj == dev_priv->fbc.obj) {
+			WARN_ON(fbc_address != -1 &&
+				fbc_address != i915_gem_obj_ggtt_offset(obj));
+			fbc_address = i915_gem_obj_ggtt_offset(obj);
+		}
+	}
+
+	/* need to nuke/cache_clean on IVB+? */
+	ring->fbc_dirty |= fbc_address != -1;
+
+	/* need to update FBC tracking? */
+	ring->fbc_address_dirty |= fbc_address != ring->fbc_address;
+	ring->fbc_address = fbc_address;
+}
+
+static void
 i915_gem_execbuffer_move_to_active(struct list_head *vmas,
 				   struct intel_engine_cs *ring)
 {
@@ -1321,6 +1348,8 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		exec_start += i915_gem_obj_ggtt_offset(batch_obj);
 	else
 		exec_start += i915_gem_obj_offset(batch_obj, vm);
+
+	i915_gem_execbuffer_mark_fbc_dirty(ring, &eb->vmas);
 
 	ret = i915_gem_execbuffer_move_to_gpu(ring, &eb->vmas);
 	if (ret)

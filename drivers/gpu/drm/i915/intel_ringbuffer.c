@@ -69,6 +69,57 @@ void __intel_ring_advance(struct intel_engine_cs *ring)
 	ring->write_tail(ring, ringbuf->tail);
 }
 
+static int gen5_render_fbc_tracking(struct intel_engine_cs *ring)
+{
+	int ret;
+
+	if (!ring->fbc_address_dirty)
+		return 0;
+
+	ret = intel_ring_begin(ring, 4);
+	if (ret)
+		return ret;
+
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
+	intel_ring_emit(ring, ILK_FBC_RT_BASE);
+	if (ring->fbc_address != -1)
+		intel_ring_emit(ring, ring->fbc_address |
+				SNB_FBC_FRONT_BUFFER | ILK_FBC_RT_VALID);
+	else
+		intel_ring_emit(ring, 0);
+	intel_ring_advance(ring);
+
+	ring->fbc_address_dirty = false;
+
+	return 0;
+}
+
+static int gen6_blt_fbc_tracking(struct intel_engine_cs *ring)
+{
+	int ret;
+
+	if (!ring->fbc_address_dirty)
+		return 0;
+
+	ret = intel_ring_begin(ring, 4);
+	if (ret)
+		return ret;
+
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
+	intel_ring_emit(ring, GEN6_BLITTER_ECOSKPD);
+	if (ring->fbc_address != -1)
+		intel_ring_emit(ring, _MASKED_BIT_ENABLE(GEN6_BLITTER_FBC_NOTIFY));
+	else
+		intel_ring_emit(ring, _MASKED_BIT_DISABLE(GEN6_BLITTER_FBC_NOTIFY));
+	intel_ring_advance(ring);
+
+	ring->fbc_address_dirty = false;
+
+	return 0;
+}
+
 static int
 gen2_render_ring_flush(struct intel_engine_cs *ring,
 		       u32	invalidate_domains,
@@ -274,6 +325,9 @@ gen6_render_ring_flush(struct intel_engine_cs *ring,
 	intel_ring_emit(ring, 0);
 	intel_ring_advance(ring);
 
+	if (invalidate_domains)
+		return gen5_render_fbc_tracking(ring);
+
 	return 0;
 }
 
@@ -316,6 +370,7 @@ static int gen7_ring_fbc_flush(struct intel_engine_cs *ring, u32 value)
 	intel_ring_advance(ring);
 
 	ring->fbc_dirty = false;
+
 	return 0;
 }
 
@@ -1938,7 +1993,9 @@ static int gen6_ring_flush(struct intel_engine_cs *ring,
 	}
 	intel_ring_advance(ring);
 
-	if (IS_GEN7(dev) && !invalidate && flush)
+	if (invalidate)
+		return gen6_blt_fbc_tracking(ring);
+	else if (flush && IS_GEN7(dev))
 		return gen7_ring_fbc_flush(ring, FBC_REND_CACHE_CLEAN);
 
 	return 0;

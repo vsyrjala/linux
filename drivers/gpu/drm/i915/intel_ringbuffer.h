@@ -176,8 +176,10 @@ struct  intel_engine_cs {
 	 */
 	struct drm_i915_gem_request *preallocated_lazy_request;
 	u32 outstanding_lazy_seqno;
-	bool gpu_caches_dirty;
-	bool fbc_dirty;
+	u32 fbc_address;
+	bool gpu_caches_dirty:1;
+	bool fbc_dirty:1;
+	bool fbc_address_dirty:1;
 
 	wait_queue_head_t irq_queue;
 

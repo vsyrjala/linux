@@ -8923,8 +8923,6 @@ void intel_mark_fb_busy(struct drm_i915_gem_object *obj,
 			continue;
 
 		intel_increase_pllclock(crtc);
-		if (ring && intel_fbc_enabled(dev))
-			ring->fbc_dirty = true;
 	}
 }
 

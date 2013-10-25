@@ -185,31 +185,6 @@ static bool g4x_fbc_enabled(struct drm_device *dev)
 	return I915_READ(DPFC_CONTROL) & DPFC_CTL_EN;
 }
 
-static void sandybridge_blit_fbc_update(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 blt_ecoskpd;
-
-	/* Make sure blitter notifies FBC of writes */
-
-	/* Blitter is part of Media powerwell on VLV. No impact of
-	 * his param in other platforms for now */
-	gen6_gt_force_wake_get(dev_priv, FORCEWAKE_MEDIA);
-
-	blt_ecoskpd = I915_READ(GEN6_BLITTER_ECOSKPD);
-	blt_ecoskpd |= GEN6_BLITTER_FBC_NOTIFY <<
-		GEN6_BLITTER_LOCK_SHIFT;
-	I915_WRITE(GEN6_BLITTER_ECOSKPD, blt_ecoskpd);
-	blt_ecoskpd |= GEN6_BLITTER_FBC_NOTIFY;
-	I915_WRITE(GEN6_BLITTER_ECOSKPD, blt_ecoskpd);
-	blt_ecoskpd &= ~(GEN6_BLITTER_FBC_NOTIFY <<
-			 GEN6_BLITTER_LOCK_SHIFT);
-	I915_WRITE(GEN6_BLITTER_ECOSKPD, blt_ecoskpd);
-	POSTING_READ(GEN6_BLITTER_ECOSKPD);
-
-	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_MEDIA);
-}
-
 static void ironlake_enable_fbc(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -229,8 +204,9 @@ static void ironlake_enable_fbc(struct drm_device *dev)
 		dpfc_ctl |= dev_priv->fbc.fence_reg;
 
 	I915_WRITE(ILK_DPFC_FENCE_YOFF, dev_priv->fbc.y);
-	I915_WRITE(ILK_FBC_RT_BASE, i915_gem_obj_ggtt_offset(dev_priv->fbc.obj) |
-		   ILK_FBC_RT_VALID);
+	if (IS_GEN5(dev))
+		I915_WRITE(ILK_FBC_RT_BASE, i915_gem_obj_ggtt_offset(dev_priv->fbc.obj) |
+			   ILK_FBC_RT_VALID);
 	/* enable it... */
 	I915_WRITE(ILK_DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
 
@@ -238,7 +214,6 @@ static void ironlake_enable_fbc(struct drm_device *dev)
 		I915_WRITE(SNB_DPFC_CTL_SA,
 			   SNB_CPU_FENCE_ENABLE | dev_priv->fbc.fence_reg);
 		I915_WRITE(DPFC_CPU_FENCE_OFFSET, dev_priv->fbc.y);
-		sandybridge_blit_fbc_update(dev);
 	}
 }
 
@@ -297,8 +272,6 @@ static void gen7_enable_fbc(struct drm_device *dev)
 	I915_WRITE(SNB_DPFC_CTL_SA,
 		   SNB_CPU_FENCE_ENABLE | dev_priv->fbc.fence_reg);
 	I915_WRITE(DPFC_CPU_FENCE_OFFSET, dev_priv->fbc.y);
-
-	sandybridge_blit_fbc_update(dev);
 }
 
 bool intel_fbc_enabled(struct drm_device *dev)

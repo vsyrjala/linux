@@ -588,6 +588,13 @@ mi_set_context(struct intel_engine_cs *ring,
 
 	intel_ring_advance(ring);
 
+	/*
+	 * FBC RT address is stored in the context, so we may have just
+	 * restored it to an old value. Make sure we emit a new LRI
+	 * to update the address.
+	 */
+	ring->fbc_address_dirty = true;
+
 	return ret;
 }
 
