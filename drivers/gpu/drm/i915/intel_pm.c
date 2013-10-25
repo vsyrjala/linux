@@ -1736,6 +1736,7 @@ struct ilk_wm_maximums {
 /* used in computing the new watermarks state */
 struct intel_wm_config {
 	unsigned int num_pipes_active;
+	bool primary_enabled;
 	bool sprites_enabled;
 	bool sprites_scaled;
 };
@@ -2212,6 +2213,7 @@ static void ilk_compute_wm_config(struct drm_device *dev,
 		if (!wm->pipe_enabled)
 			continue;
 
+		config->primary_enabled |= wm->primary_enabled;
 		config->sprites_enabled |= wm->sprites_enabled;
 		config->sprites_scaled |= wm->sprites_scaled;
 		config->num_pipes_active++;
@@ -2224,6 +2226,7 @@ static bool ilk_validate_pipe_wm(struct drm_device *dev,
 	/* LP0 watermark maximums depend on this pipe alone */
 	const struct intel_wm_config config = {
 		.num_pipes_active = 1,
+		.primary_enabled = pipe_wm->primary_enabled,
 		.sprites_enabled = pipe_wm->sprites_enabled,
 		.sprites_scaled = pipe_wm->sprites_scaled,
 	};
@@ -2247,6 +2250,7 @@ static bool intel_compute_pipe_wm(struct drm_crtc *crtc,
 	struct ilk_wm_maximums max;
 
 	pipe_wm->pipe_enabled = params->active;
+	pipe_wm->primary_enabled = params->pri.enabled;
 	pipe_wm->sprites_enabled = params->spr.enabled;
 	pipe_wm->sprites_scaled = params->spr.scaled;
 
@@ -2299,6 +2303,7 @@ static void ilk_wm_merge_intermediate(struct drm_device *dev,
 	int level, max_level = ilk_wm_max_level(dev);
 
 	a->pipe_enabled |= b->pipe_enabled;
+	a->primary_enabled |= b->primary_enabled;
 	a->sprites_enabled |= b->sprites_enabled;
 	a->sprites_scaled |= b->sprites_scaled;
 
@@ -2491,11 +2496,21 @@ static void ilk_compute_wm_results(struct drm_device *dev,
 	}
 }
 
-/* Find the result with the highest level enabled. Check for enable_fbc_wm in
- * case both are at the same level. Prefer r1 in case they're the same. */
+/*
+ * Find the result with the highest level enabled.
+ * When the max level for each result is the same, pick r2
+ * when the primary plane is disabled, otherwise prefer the
+ * result which has FBC WM enabled. All else being equal, pick
+ * r1.
+ *
+ * FIXME should ideally calculate the FIFO drain time for each
+ * plane, and determine which split has the chance to keep
+ * the memory asleep for longest.
+ */
 static struct intel_pipe_wm *ilk_find_best_result(struct drm_device *dev,
 						  struct intel_pipe_wm *r1,
-						  struct intel_pipe_wm *r2)
+						  struct intel_pipe_wm *r2,
+						  bool primary_enabled)
 {
 	int level, max_level = ilk_wm_max_level(dev);
 	int level1 = 0, level2 = 0;
@@ -2508,7 +2523,8 @@ static struct intel_pipe_wm *ilk_find_best_result(struct drm_device *dev,
 	}
 
 	if (level1 == level2) {
-		if (r2->fbc_wm_enabled && !r1->fbc_wm_enabled)
+		if (!primary_enabled ||
+		    (r2->fbc_wm_enabled && !r1->fbc_wm_enabled))
 			return r2;
 		else
 			return r1;
@@ -2866,7 +2882,8 @@ static void ilk_program_watermarks(struct drm_device *dev)
 		ilk_compute_wm_maximums(dev, 1, &config, INTEL_DDB_PART_5_6, &max);
 		ilk_wm_merge(dev, &config, &max, &lp_wm_5_6);
 
-		best_lp_wm = ilk_find_best_result(dev, &lp_wm_1_2, &lp_wm_5_6);
+		best_lp_wm = ilk_find_best_result(dev, &lp_wm_1_2, &lp_wm_5_6,
+						  config.primary_enabled);
 	} else {
 		best_lp_wm = &lp_wm_1_2;
 	}

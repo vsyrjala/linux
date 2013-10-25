@@ -354,6 +354,7 @@ struct intel_pipe_wm {
 	uint32_t linetime;
 	bool fbc_wm_enabled;
 	bool pipe_enabled;
+	bool primary_enabled;
 	bool sprites_enabled;
 	bool sprites_scaled;
 };
