@@ -4024,6 +4024,27 @@ static struct intel_crtc *get_other_active_crtc(struct intel_crtc *crtc)
 	return other_active_crtc;
 }
 
+static void ilk_prepare_for_num_pipes_change(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct intel_crtc *other_active_crtc = get_other_active_crtc(crtc);
+
+	/*
+	 * If we change between one pipe and multiple pipes,
+	 * make sure the other active pipe is prepared
+	 * for having its FIFO resized. We do that by making
+	 * sure the pipe isn't using LP1+ watermarks when
+	 * the second pipe gets enabled or disabled.
+	 */
+	if (!other_active_crtc)
+		return;
+
+	ilk_wm_synchronize(other_active_crtc);
+
+	if (ilk_disable_lp_wm(dev))
+		intel_wait_for_vblank(dev, other_active_crtc->pipe);
+}
+
 static void ironlake_crtc_enable(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
@@ -4061,6 +4082,9 @@ static void ironlake_crtc_enable(struct drm_crtc *crtc)
 					       crtc->x, crtc->y);
 
 	intel_crtc->active = true;
+
+	/* Make sure other pipes are prepared for FIFO resizing */
+	ilk_prepare_for_num_pipes_change(intel_crtc);
 
 	intel_set_cpu_fifo_underrun_reporting(dev, pipe, true);
 	intel_set_pch_fifo_underrun_reporting(dev, pipe, true);
@@ -4162,6 +4186,9 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 
 	intel_crtc->active = true;
 
+	/* Make sure other pipes are prepared for FIFO resizing */
+	ilk_prepare_for_num_pipes_change(intel_crtc);
+
 	intel_set_cpu_fifo_underrun_reporting(dev, pipe, true);
 	if (intel_crtc->config.has_pch_encoder)
 		intel_set_pch_fifo_underrun_reporting(dev, TRANSCODER_A, true);
@@ -4231,6 +4258,9 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 
 	intel_crtc_disable_planes(crtc);
 
+	/* Make sure other pipes are prepared for FIFO resizing */
+	ilk_prepare_for_num_pipes_change(intel_crtc);
+
 	for_each_encoder_on_crtc(dev, crtc, encoder)
 		encoder->disable(encoder);
 
@@ -4274,6 +4304,12 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 
 	intel_crtc->active = false;
 
+	/*
+	 * Potentially let some other pipe use the
+	 * full FIFO, and re-enable LP1+ watermarks.
+	 */
+	ilk_wm_pipe_post_disable(intel_crtc);
+
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
@@ -4293,6 +4329,9 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 		return;
 
 	intel_crtc_disable_planes(crtc);
+
+	/* Make sure other pipes are prepared for FIFO resizing */
+	ilk_prepare_for_num_pipes_change(intel_crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
 		intel_opregion_notify_encoder(encoder, false);
@@ -4320,6 +4359,12 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 	}
 
 	intel_crtc->active = false;
+
+	/*
+	 * Potentially let some other pipe use the
+	 * full FIFO, and re-enable LP1+ watermarks.
+	 */
+	ilk_wm_pipe_post_disable(intel_crtc);
 
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);

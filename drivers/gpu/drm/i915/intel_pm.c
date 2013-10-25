@@ -2765,7 +2765,7 @@ static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
 	}
 }
 
-static bool ilk_disable_lp_wm(struct drm_device *dev)
+bool ilk_disable_lp_wm(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	bool changed;
@@ -2873,16 +2873,17 @@ static void ilk_program_watermarks(struct drm_device *dev)
 	ilk_write_wm_values(dev_priv, &results);
 }
 
-static void ilk_update_watermarks(struct drm_device *dev)
+static void ilk_update_watermarks(struct drm_device *dev, bool force)
 {
 	bool changed;
 
 	changed = ilk_refresh_pending_watermarks(dev);
 
-	if (changed)
+	if (changed || force)
 		ilk_program_watermarks(dev);
 }
 
+/* Prepare the pipe to update the its watermarks on the next vblank */
 static void ilk_setup_pending_watermarks(struct intel_crtc *crtc,
 					 const struct intel_pipe_wm *pipe_wm,
 					 u32 vbl_count)
@@ -2905,7 +2906,7 @@ static void ilk_setup_pending_watermarks(struct intel_crtc *crtc,
 	spin_unlock_irq(&crtc->wm.lock);
 
 	/* try to update immediately */
-	ilk_update_watermarks(dev);
+	ilk_update_watermarks(dev, false);
 
 	spin_lock_irq(&crtc->wm.lock);
 
@@ -2999,7 +3000,7 @@ static void ilk_watermark_work(struct work_struct *work)
 
 	mutex_lock(&dev_priv->wm.mutex);
 
-	ilk_update_watermarks(dev_priv->dev);
+	ilk_update_watermarks(dev_priv->dev, false);
 
 	mutex_unlock(&dev_priv->wm.mutex);
 }
@@ -3056,6 +3057,42 @@ void ilk_wm_synchronize(struct intel_crtc *crtc)
 
 	/* pending update (if any) got cancelled */
 	crtc->wm.pending = crtc->wm.active;
+
+	mutex_unlock(&dev_priv->wm.mutex);
+}
+
+void ilk_wm_pipe_post_disable(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct ilk_pipe_wm_parameters params = {};
+	struct intel_pipe_wm pipe_wm = {};
+
+	WARN(crtc->active, "pipe %c should be disabled\n",
+	     pipe_name(crtc->pipe));
+
+	ilk_compute_wm_parameters(&crtc->base, &params);
+
+	intel_compute_pipe_wm(&crtc->base, &params, &pipe_wm);
+
+	mutex_lock(&dev_priv->wm.mutex);
+
+	spin_lock_irq(&crtc->wm.lock);
+
+	WARN(crtc->wm.dirty, "pipe %c disabled with dirty watermarks\n",
+	     pipe_name(crtc->pipe));
+
+	/* clean up if something is left behind */
+	ilk_wm_cancel(crtc);
+
+	spin_unlock_irq(&crtc->wm.lock);
+
+	crtc->wm.active = pipe_wm;
+
+	/* pending update (if any) got cancelled */
+	crtc->wm.pending = crtc->wm.active;
+
+	ilk_update_watermarks(dev, true);
 
 	mutex_unlock(&dev_priv->wm.mutex);
 }
