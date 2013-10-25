@@ -2065,8 +2065,10 @@ static void ilk_display_irq_handler(struct drm_device *dev, u32 de_iir)
 		DRM_ERROR("Poison interrupt\n");
 
 	for_each_pipe(pipe) {
-		if (de_iir & DE_PIPE_VBLANK(pipe))
+		if (de_iir & DE_PIPE_VBLANK(pipe)) {
 			intel_pipe_handle_vblank(dev, pipe);
+			ilk_update_pipe_wm(dev, pipe);
+		}
 
 		if (de_iir & DE_PIPE_FIFO_UNDERRUN(pipe))
 			if (intel_set_cpu_fifo_underrun_reporting(dev, pipe, false))
@@ -2115,8 +2117,10 @@ static void ivb_display_irq_handler(struct drm_device *dev, u32 de_iir)
 		intel_opregion_asle_intr(dev);
 
 	for_each_pipe(pipe) {
-		if (de_iir & (DE_PIPE_VBLANK_IVB(pipe)))
+		if (de_iir & (DE_PIPE_VBLANK_IVB(pipe))) {
 			intel_pipe_handle_vblank(dev, pipe);
+			ilk_update_pipe_wm(dev, pipe);
+		}
 
 		/* plane/pipes map 1:1 on ilk+ */
 		if (de_iir & DE_PLANE_FLIP_DONE_IVB(pipe)) {
@@ -2258,8 +2262,10 @@ static irqreturn_t gen8_irq_handler(int irq, void *arg)
 			continue;
 
 		pipe_iir = I915_READ(GEN8_DE_PIPE_IIR(pipe));
-		if (pipe_iir & GEN8_PIPE_VBLANK)
+		if (pipe_iir & GEN8_PIPE_VBLANK) {
 			intel_pipe_handle_vblank(dev, pipe);
+			ilk_update_pipe_wm(dev, pipe);
+		}
 
 		if (pipe_iir & GEN8_PIPE_PRIMARY_FLIP_DONE) {
 			intel_prepare_page_flip(dev, pipe);

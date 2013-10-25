@@ -11263,6 +11263,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->cursor_base = ~0;
 	intel_crtc->cursor_cntl = ~0;
 
+	spin_lock_init(&intel_crtc->wm.lock);
 	init_waitqueue_head(&intel_crtc->vbl_wait);
 
 	BUG_ON(pipe >= ARRAY_SIZE(dev_priv->plane_to_crtc_mapping) ||

@@ -2752,6 +2752,65 @@ static bool ilk_disable_lp_wm(struct drm_device *dev)
 	return changed;
 }
 
+static bool vbl_count_after_eq(struct drm_device *dev, u32 a, u32 b)
+{
+	u32 mask = dev->max_vblank_count;
+
+	/* just the msb please */
+	mask &= ~(mask >> 1);
+
+	return !((a - b) & mask);
+}
+
+static bool ilk_pending_watermarks_ready(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	u32 vbl_count;
+
+	assert_spin_locked(&crtc->wm.lock);
+
+	if (!crtc->wm.dirty)
+		return false;
+
+	vbl_count = dev->driver->get_vblank_counter(dev, crtc->pipe);
+
+	if (!vbl_count_after_eq(dev, vbl_count, crtc->wm.pending_vbl_count))
+		return false;
+
+	if (crtc->wm.vblank) {
+		drm_vblank_put(dev, crtc->pipe);
+		crtc->wm.vblank = false;
+	}
+
+	return true;
+}
+
+static bool ilk_refresh_pending_watermarks(struct drm_device *dev)
+{
+	struct intel_crtc *crtc;
+	bool changed = false;
+
+	for_each_intel_crtc(dev, crtc) {
+		bool ready;
+
+		spin_lock_irq(&crtc->wm.lock);
+
+		ready = ilk_pending_watermarks_ready(crtc);
+		if (ready)
+			crtc->wm.dirty = false;
+
+		spin_unlock_irq(&crtc->wm.lock);
+
+		if (!ready)
+			continue;
+
+		crtc->wm.active = crtc->wm.pending;
+		changed = true;
+	}
+
+	return changed;
+}
+
 static void ilk_program_watermarks(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -2808,6 +2867,87 @@ static void ilk_update_wm(struct drm_crtc *crtc)
 
  unlock:
 	mutex_unlock(&dev_priv->wm.mutex);
+}
+
+static void ilk_update_watermarks(struct drm_device *dev)
+{
+	bool changed;
+
+	changed = ilk_refresh_pending_watermarks(dev);
+
+	if (changed)
+		ilk_program_watermarks(dev);
+}
+
+static void ilk_setup_pending_watermarks(struct intel_crtc *crtc,
+					 const struct intel_pipe_wm *pipe_wm,
+					 u32 vbl_count)
+{
+	struct drm_device *dev = crtc->base.dev;
+	enum pipe pipe = crtc->pipe;
+
+	WARN(!crtc->active, "pipe %c should be enabled\n",
+	     pipe_name(pipe));
+
+	/* do the watermarks actually need changing? */
+	if (!memcmp(&crtc->wm.pending, pipe_wm, sizeof(*pipe_wm)))
+		return;
+
+	crtc->wm.pending = *pipe_wm;
+
+	spin_lock_irq(&crtc->wm.lock);
+	crtc->wm.pending_vbl_count = (vbl_count + 1) & dev->max_vblank_count;
+	crtc->wm.dirty = true;
+	spin_unlock_irq(&crtc->wm.lock);
+
+	/* try to update immediately */
+	ilk_update_watermarks(dev);
+
+	spin_lock_irq(&crtc->wm.lock);
+
+	/* did the immediate update succeed? */
+	if (!crtc->wm.dirty)
+		goto unlock;
+
+	/*
+	 * We might already have a pending watermark update, in
+	 * which case we shouldn't grab another vblank reference.
+	 */
+	if (!crtc->wm.vblank && drm_vblank_get(dev, pipe) == 0)
+		crtc->wm.vblank = true;
+
+	WARN(!crtc->wm.vblank,
+	     "unable to set up watermarks for pipe %c\n", pipe_name(pipe));
+
+ unlock:
+	spin_unlock_irq(&crtc->wm.lock);
+}
+
+static void ilk_watermark_work(struct work_struct *work)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(work, struct drm_i915_private, wm.work);
+
+	mutex_lock(&dev_priv->wm.mutex);
+
+	ilk_update_watermarks(dev_priv->dev);
+
+	mutex_unlock(&dev_priv->wm.mutex);
+}
+
+/* Called from vblank irq */
+void ilk_update_pipe_wm(struct drm_device *dev, enum pipe pipe)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *crtc =
+		to_intel_crtc(dev_priv->pipe_to_crtc_mapping[pipe]);
+
+	spin_lock(&crtc->wm.lock);
+
+	if (ilk_pending_watermarks_ready(crtc))
+		schedule_work(&dev_priv->wm.work);
+
+	spin_unlock(&crtc->wm.lock);
 }
 
 static void ilk_update_sprite_wm(struct drm_plane *plane,
@@ -2872,6 +3012,9 @@ static void _ilk_pipe_wm_hw_to_sw(struct drm_crtc *crtc)
 		for (level = 0; level <= max_level; level++)
 			active->wm[level].enable = true;
 	}
+
+	/* no update pending */
+	intel_crtc->wm.pending = intel_crtc->wm.active;
 }
 
 void ilk_wm_get_hw_state(struct drm_device *dev)
@@ -6651,6 +6794,7 @@ void intel_init_pm(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	mutex_init(&dev_priv->wm.mutex);
+	INIT_WORK(&dev_priv->wm.work, ilk_watermark_work);
 
 	if (HAS_FBC(dev)) {
 		if (INTEL_INFO(dev)->gen >= 7) {

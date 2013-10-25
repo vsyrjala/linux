@@ -410,6 +410,32 @@ struct intel_crtc {
 		 * protected by dev_priv->wm.mutex
 		 */
 		struct intel_pipe_wm active;
+		/*
+		 * watermarks queued for next vblank
+		 * protected by dev_priv->wm.mutex
+		 */
+		struct intel_pipe_wm pending;
+
+		/*
+		 * the vblank count after which we can switch over to 'pending'
+		 * protected by intel_crtc->wm.lock
+		 */
+		u32 pending_vbl_count;
+		/*
+		 * indicates that 'pending' contains changed watermarks
+		 * protected by intel_crtc->wm.lock
+		 */
+		bool dirty;
+		/*
+		 * watermark update has a vblank reference?
+		 * protected by intel_crtc->wm.lock
+		 */
+		bool vblank;
+
+		/*
+		 * protects some intel_crtc->wm state
+		 */
+		spinlock_t lock;
 	} wm;
 
 	wait_queue_head_t vbl_wait;
@@ -977,6 +1003,8 @@ void intel_fini_runtime_pm(struct drm_i915_private *dev_priv);
 void ilk_wm_get_hw_state(struct drm_device *dev);
 void __vlv_set_power_well(struct drm_i915_private *dev_priv,
 			  enum punit_power_well power_well_id, bool enable);
+void ilk_update_pipe_wm(struct drm_device *dev, enum pipe pipe);
+
 
 /* intel_sdvo.c */
 bool intel_sdvo_init(struct drm_device *dev, uint32_t sdvo_reg, bool is_sdvob);

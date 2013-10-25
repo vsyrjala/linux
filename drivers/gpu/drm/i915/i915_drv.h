@@ -1542,6 +1542,8 @@ struct drm_i915_private {
 		 * state as well as the actual hardware registers
 		 */
 		struct mutex mutex;
+
+		struct work_struct work;
 	} wm;
 
 	struct i915_runtime_pm pm;
