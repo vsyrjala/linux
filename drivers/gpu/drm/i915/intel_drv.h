@@ -358,7 +358,15 @@ struct intel_pipe_wm {
 	bool sprites_scaled;
 };
 
+struct intel_plane_wm_parameters {
+	uint32_t horiz_pixels;
+	uint8_t bytes_per_pixel;
+	bool enabled;
+	bool scaled;
+};
+
 struct intel_crtc_wm_config {
+	struct intel_plane_wm_parameters pri, spr, cur;
 	/* target watermarks for the pipe */
 	struct intel_pipe_wm target;
 	/* intermediate watermarks for pending/active->target transition */
@@ -445,16 +453,12 @@ struct intel_crtc {
 		spinlock_t lock;
 	} wm;
 
+	struct intel_plane_wm_parameters pri_wm;
+	struct intel_plane_wm_parameters cur_wm;
+
 	wait_queue_head_t vbl_wait;
 
 	int scanline_offset;
-};
-
-struct intel_plane_wm_parameters {
-	uint32_t horiz_pixels;
-	uint8_t bytes_per_pixel;
-	bool enabled;
-	bool scaled;
 };
 
 struct intel_plane {
@@ -483,9 +487,11 @@ struct intel_plane {
 			     int crtc_x, int crtc_y,
 			     unsigned int crtc_w, unsigned int crtc_h,
 			     uint32_t x, uint32_t y,
-			     uint32_t src_w, uint32_t src_h);
+			     uint32_t src_w, uint32_t src_h,
+			     const struct intel_crtc_wm_config *config);
 	void (*disable_plane)(struct drm_plane *plane,
-			      struct drm_crtc *crtc);
+			      struct drm_crtc *crtc,
+			      const struct intel_crtc_wm_config *config);
 	int (*update_colorkey)(struct drm_plane *plane,
 			       struct drm_intel_sprite_colorkey *key);
 	void (*get_colorkey)(struct drm_plane *plane,
@@ -970,10 +976,13 @@ void intel_init_clock_gating(struct drm_device *dev);
 void intel_suspend_hw(struct drm_device *dev);
 int ilk_wm_max_level(const struct drm_device *dev);
 void intel_update_watermarks(struct drm_crtc *crtc);
-void intel_update_sprite_watermarks(struct drm_plane *plane,
-				    struct drm_crtc *crtc,
-				    uint32_t sprite_width, int pixel_size,
-				    bool enabled, bool scaled);
+int intel_update_cursor_watermarks(struct intel_crtc *crtc,
+				   struct intel_crtc_wm_config *config);
+int intel_update_primary_watermarks(struct intel_crtc *crtc,
+				   struct intel_crtc_wm_config *config);
+int intel_update_sprite_watermarks(struct intel_plane *plane,
+				   struct intel_crtc *crtc,
+				   struct intel_crtc_wm_config *config);
 void intel_init_pm(struct drm_device *dev);
 void intel_pm_setup(struct drm_device *dev);
 bool intel_fbc_enabled(struct drm_device *dev);

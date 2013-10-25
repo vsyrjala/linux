@@ -131,7 +131,7 @@ static void intel_update_primary_plane(struct intel_crtc *crtc)
 	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
 	int reg = DSPCNTR(crtc->plane);
 
-	if (crtc->primary_enabled)
+	if (crtc->pri_wm.enabled)
 		I915_WRITE(reg, I915_READ(reg) | DISPLAY_PLANE_ENABLE);
 	else
 		I915_WRITE(reg, I915_READ(reg) & ~DISPLAY_PLANE_ENABLE);
@@ -143,7 +143,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		 struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
 		 unsigned int crtc_w, unsigned int crtc_h,
 		 uint32_t x, uint32_t y,
-		 uint32_t src_w, uint32_t src_h)
+		 uint32_t src_w, uint32_t src_h,
+		 const struct intel_crtc_wm_config *config)
 {
 	struct drm_device *dev = dplane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -218,9 +219,6 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 	sprctl |= SP_ENABLE;
 
-	intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size, true,
-				       src_w != crtc_w || src_h != crtc_h);
-
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
@@ -233,6 +231,10 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 							pixel_size,
 							fb->pitches[0]);
 	linear_offset -= sprsurf_offset;
+
+	intel_crtc->pri_wm = config->pri;
+	intel_plane->wm = config->spr;
+	intel_program_watermarks_pre(intel_crtc, config);
 
 	atomic_update = intel_pipe_update_start(intel_crtc, &start_vbl_count);
 
@@ -255,10 +257,13 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 	if (atomic_update)
 		intel_pipe_update_end(intel_crtc, start_vbl_count);
+
+	intel_program_watermarks_post(intel_crtc, config);
 }
 
 static void
-vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
+vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
+		  const struct intel_crtc_wm_config *config)
 {
 	struct drm_device *dev = dplane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -268,6 +273,10 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	int plane = intel_plane->plane;
 	u32 start_vbl_count;
 	bool atomic_update;
+
+	intel_crtc->pri_wm = config->pri;
+	intel_plane->wm = config->spr;
+	intel_program_watermarks_pre(intel_crtc, config);
 
 	atomic_update = intel_pipe_update_start(intel_crtc, &start_vbl_count);
 
@@ -283,7 +292,7 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	if (atomic_update)
 		intel_pipe_update_end(intel_crtc, start_vbl_count);
 
-	intel_update_sprite_watermarks(dplane, crtc, 0, 0, false, false);
+	intel_program_watermarks_post(intel_crtc, config);
 }
 
 static int
@@ -343,7 +352,8 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		 struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
 		 unsigned int crtc_w, unsigned int crtc_h,
 		 uint32_t x, uint32_t y,
-		 uint32_t src_w, uint32_t src_h)
+		 uint32_t src_w, uint32_t src_h,
+		 const struct intel_crtc_wm_config *config)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -406,9 +416,6 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
 		sprctl |= SPRITE_PIPE_CSC_ENABLE;
 
-	intel_update_sprite_watermarks(plane, crtc, src_w, pixel_size, true,
-				       src_w != crtc_w || src_h != crtc_h);
-
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
@@ -423,6 +430,10 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		intel_gen4_compute_page_offset(&x, &y, obj->tiling_mode,
 					       pixel_size, fb->pitches[0]);
 	linear_offset -= sprsurf_offset;
+
+	intel_crtc->pri_wm = config->pri;
+	intel_plane->wm = config->spr;
+	intel_program_watermarks_pre(intel_crtc, config);
 
 	atomic_update = intel_pipe_update_start(intel_crtc, &start_vbl_count);
 
@@ -451,10 +462,13 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 	if (atomic_update)
 		intel_pipe_update_end(intel_crtc, start_vbl_count);
+
+	intel_program_watermarks_post(intel_crtc, config);
 }
 
 static void
-ivb_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
+ivb_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc,
+		  const struct intel_crtc_wm_config *config)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -463,6 +477,10 @@ ivb_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 	int pipe = intel_plane->pipe;
 	u32 start_vbl_count;
 	bool atomic_update;
+
+	intel_crtc->pri_wm = config->pri;
+	intel_plane->wm = config->spr;
+	intel_program_watermarks_pre(intel_crtc, config);
 
 	atomic_update = intel_pipe_update_start(intel_crtc, &start_vbl_count);
 
@@ -480,13 +498,7 @@ ivb_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 	if (atomic_update)
 		intel_pipe_update_end(intel_crtc, start_vbl_count);
 
-	/*
-	 * Avoid underruns when disabling the sprite.
-	 * FIXME remove once watermark updates are done properly.
-	 */
-	intel_wait_for_vblank(dev, pipe);
-
-	intel_update_sprite_watermarks(plane, crtc, 0, 0, false, false);
+	intel_program_watermarks_post(intel_crtc, config);
 }
 
 static int
@@ -549,7 +561,8 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		 struct drm_i915_gem_object *obj, int crtc_x, int crtc_y,
 		 unsigned int crtc_w, unsigned int crtc_h,
 		 uint32_t x, uint32_t y,
-		 uint32_t src_w, uint32_t src_h)
+		 uint32_t src_w, uint32_t src_h,
+		 const struct intel_crtc_wm_config *config)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -606,9 +619,6 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		dvscntr |= DVS_TRICKLE_FEED_DISABLE; /* must disable */
 	dvscntr |= DVS_ENABLE;
 
-	intel_update_sprite_watermarks(plane, crtc, src_w, pixel_size, true,
-				       src_w != crtc_w || src_h != crtc_h);
-
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
@@ -624,6 +634,10 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		intel_gen4_compute_page_offset(&x, &y, obj->tiling_mode,
 					       pixel_size, fb->pitches[0]);
 	linear_offset -= dvssurf_offset;
+
+	intel_crtc->pri_wm = config->pri;
+	intel_plane->wm = config->spr;
+	intel_program_watermarks_pre(intel_crtc, config);
 
 	atomic_update = intel_pipe_update_start(intel_crtc, &start_vbl_count);
 
@@ -647,10 +661,13 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 	if (atomic_update)
 		intel_pipe_update_end(intel_crtc, start_vbl_count);
+
+	intel_program_watermarks_post(intel_crtc, config);
 }
 
 static void
-ilk_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
+ilk_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc,
+		  const struct intel_crtc_wm_config *config)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -659,6 +676,10 @@ ilk_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 	int pipe = intel_plane->pipe;
 	u32 start_vbl_count;
 	bool atomic_update;
+
+	intel_crtc->pri_wm = config->pri;
+	intel_plane->wm = config->spr;
+	intel_program_watermarks_pre(intel_crtc, config);
 
 	atomic_update = intel_pipe_update_start(intel_crtc, &start_vbl_count);
 
@@ -675,13 +696,7 @@ ilk_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 	if (atomic_update)
 		intel_pipe_update_end(intel_crtc, start_vbl_count);
 
-	/*
-	 * Avoid underruns when disabling the sprite.
-	 * FIXME remove once watermark updates are done properly.
-	 */
-	intel_wait_for_vblank(dev, pipe);
-
-	intel_update_sprite_watermarks(plane, crtc, 0, 0, false, false);
+	intel_program_watermarks_post(intel_crtc, config);
 }
 
 static void
@@ -801,6 +816,19 @@ static bool colorkey_enabled(struct intel_plane *intel_plane)
 	return key.flags != I915_SET_COLORKEY_NONE;
 }
 
+static void update_pri_params(struct intel_crtc *crtc,
+			      struct intel_plane_wm_parameters *params,
+			      bool primary_enabled)
+{
+	if (!crtc->active || !primary_enabled)
+		return;
+
+	params->horiz_pixels = crtc->config.pipe_src_w;
+	params->bytes_per_pixel =
+		drm_format_plane_cpp(crtc->base.primary->fb->pixel_format, 0);
+	params->enabled = true;
+}
+
 static int
 intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		   struct drm_framebuffer *fb, int crtc_x, int crtc_y,
@@ -852,6 +880,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		.src_w = src_w,
 		.src_h = src_h,
 	};
+	struct intel_crtc_wm_config config = {};
 
 	/* Don't modify another pipe's plane */
 	if (intel_plane->pipe != intel_crtc->pipe) {
@@ -989,6 +1018,19 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	primary_enabled = !drm_rect_equals(&dst, &clip) || colorkey_enabled(intel_plane);
 	WARN_ON(!primary_enabled && !visible && intel_crtc->active);
 
+	if (visible) {
+		config.spr.horiz_pixels = src_w;
+		config.spr.bytes_per_pixel = pixel_size;
+		config.spr.enabled = true;
+		config.spr.scaled = src_w != crtc_w || src_h != crtc_h;
+	}
+
+	update_pri_params(intel_crtc, &config.pri, primary_enabled);
+
+	ret = intel_update_sprite_watermarks(intel_plane, intel_crtc, &config);
+	if (ret)
+		return ret;
+
 	mutex_lock(&dev->struct_mutex);
 
 	/* Note that this will apply the VT-d workaround for scanouts,
@@ -1027,9 +1069,10 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		if (visible)
 			intel_plane->update_plane(plane, crtc, fb, obj,
 						  crtc_x, crtc_y, crtc_w, crtc_h,
-						  src_x, src_y, src_w, src_h);
+						  src_x, src_y, src_w, src_h,
+						  &config);
 		else
-			intel_plane->disable_plane(plane, crtc);
+			intel_plane->disable_plane(plane, crtc, &config);
 
 		if (!primary_was_enabled && primary_enabled)
 			intel_post_enable_primary(crtc);
@@ -1060,6 +1103,8 @@ intel_disable_plane(struct drm_plane *plane)
 	struct drm_device *dev = plane->dev;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	struct intel_crtc *intel_crtc;
+	struct intel_crtc_wm_config config = {};
+	int ret;
 
 	if (!plane->fb)
 		return 0;
@@ -1069,12 +1114,18 @@ intel_disable_plane(struct drm_plane *plane)
 
 	intel_crtc = to_intel_crtc(plane->crtc);
 
+	update_pri_params(intel_crtc, &config.pri, true);
+
+	ret = intel_update_sprite_watermarks(intel_plane, intel_crtc, &config);
+	if (ret)
+		return ret;
+
 	if (intel_crtc->active) {
 		bool primary_was_enabled = intel_crtc->primary_enabled;
 
 		intel_crtc->primary_enabled = true;
 
-		intel_plane->disable_plane(plane, plane->crtc);
+		intel_plane->disable_plane(plane, plane->crtc, &config);
 
 		if (!primary_was_enabled && intel_crtc->primary_enabled)
 			intel_post_enable_primary(plane->crtc);

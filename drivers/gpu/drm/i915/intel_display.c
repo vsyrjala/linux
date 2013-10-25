@@ -2117,6 +2117,19 @@ void intel_flush_primary_plane(struct drm_i915_private *dev_priv,
 	POSTING_READ(reg);
 }
 
+static void update_pri_params(struct intel_crtc *crtc,
+			      struct intel_plane_wm_parameters *params,
+			      bool primary_enabled)
+{
+	if (!crtc->active || !primary_enabled)
+		return;
+
+	params->horiz_pixels = crtc->config.pipe_src_w;
+	params->bytes_per_pixel =
+		drm_format_plane_cpp(crtc->base.primary->fb->pixel_format, 0);
+	params->enabled = true;
+}
+
 /**
  * intel_enable_primary_hw_plane - enable the primary plane on a given pipe
  * @dev_priv: i915 private structure
@@ -2130,6 +2143,8 @@ static void intel_enable_primary_hw_plane(struct drm_i915_private *dev_priv,
 {
 	struct intel_crtc *intel_crtc =
 		to_intel_crtc(dev_priv->pipe_to_crtc_mapping[pipe]);
+	struct intel_crtc_wm_config config = {};
+	int ret;
 	int reg;
 	u32 val;
 
@@ -2139,14 +2154,24 @@ static void intel_enable_primary_hw_plane(struct drm_i915_private *dev_priv,
 	if (intel_crtc->primary_enabled)
 		return;
 
+	update_pri_params(intel_crtc, &config.pri, true);
+
+	ret = intel_update_primary_watermarks(intel_crtc, &config);
+	WARN(ret, "primary watermarks invalid\n");
+
 	intel_crtc->primary_enabled = true;
 
 	reg = DSPCNTR(plane);
 	val = I915_READ(reg);
 	WARN_ON(val & DISPLAY_PLANE_ENABLE);
 
+	intel_crtc->pri_wm = config.pri;
+	intel_program_watermarks_pre(intel_crtc, &config);
+
 	I915_WRITE(reg, val | DISPLAY_PLANE_ENABLE);
 	intel_flush_primary_plane(dev_priv, plane);
+
+	intel_program_watermarks_post(intel_crtc, &config);
 }
 
 /**
@@ -2162,11 +2187,18 @@ static void intel_disable_primary_hw_plane(struct drm_i915_private *dev_priv,
 {
 	struct intel_crtc *intel_crtc =
 		to_intel_crtc(dev_priv->pipe_to_crtc_mapping[pipe]);
+	struct intel_crtc_wm_config config = {};
+	int ret;
 	int reg;
 	u32 val;
 
 	if (!intel_crtc->primary_enabled)
 		return;
+
+	update_pri_params(intel_crtc, &config.pri, false);
+
+	ret = intel_update_primary_watermarks(intel_crtc, &config);
+	WARN(ret, "primary watermarks invalid\n");
 
 	intel_crtc->primary_enabled = false;
 
@@ -2174,8 +2206,13 @@ static void intel_disable_primary_hw_plane(struct drm_i915_private *dev_priv,
 	val = I915_READ(reg);
 	WARN_ON((val & DISPLAY_PLANE_ENABLE) == 0);
 
+	intel_crtc->pri_wm = config.pri;
+	intel_program_watermarks_pre(intel_crtc, &config);
+
 	I915_WRITE(reg, val & ~DISPLAY_PLANE_ENABLE);
 	intel_flush_primary_plane(dev_priv, plane);
+
+	intel_program_watermarks_post(intel_crtc, &config);
 }
 
 static bool need_vtd_wa(struct drm_device *dev)
@@ -4028,7 +4065,6 @@ static void ironlake_crtc_enable(struct drm_crtc *crtc)
 	 */
 	intel_crtc_load_lut(crtc);
 
-	intel_update_watermarks(crtc);
 	intel_enable_pipe(intel_crtc);
 
 	if (intel_crtc->config.has_pch_encoder)
@@ -4139,7 +4175,6 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 	intel_ddi_set_pipe_settings(crtc);
 	intel_ddi_enable_transcoder_func(crtc);
 
-	intel_update_watermarks(crtc);
 	intel_enable_pipe(intel_crtc);
 
 	if (intel_crtc->config.has_pch_encoder)
@@ -4227,7 +4262,6 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 	}
 
 	intel_crtc->active = false;
-	intel_update_watermarks(crtc);
 
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
@@ -4275,7 +4309,6 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 	}
 
 	intel_crtc->active = false;
-	intel_update_watermarks(crtc);
 
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
@@ -8043,10 +8076,13 @@ static void intel_crtc_update_cursor(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_crtc_wm_config config = {};
 	int pipe = intel_crtc->pipe;
 	int x = intel_crtc->cursor_x;
 	int y = intel_crtc->cursor_y;
 	u32 base = 0, pos = 0;
+	bool visible;
+	int ret;
 
 	if (on)
 		base = intel_crtc->cursor_addr;
@@ -8078,6 +8114,19 @@ static void intel_crtc_update_cursor(struct drm_crtc *crtc,
 	if (base == 0 && intel_crtc->cursor_base == 0)
 		return;
 
+	if (base != 0) {
+		/* FIXME should we use the clipped width? */
+		config.cur.horiz_pixels = intel_crtc->cursor_width;
+		config.cur.bytes_per_pixel = 4;
+		config.cur.enabled = true;
+	}
+
+	ret = intel_update_cursor_watermarks(intel_crtc, &config);
+	WARN(ret, "cursor watermarks invalid\n");
+
+	intel_crtc->cur_wm = config.cur;
+	intel_program_watermarks_pre(intel_crtc, &config);
+
 	I915_WRITE(CURPOS(pipe), pos);
 
 	if (IS_IVYBRIDGE(dev) || IS_HASWELL(dev) || IS_BROADWELL(dev))
@@ -8087,6 +8136,8 @@ static void intel_crtc_update_cursor(struct drm_crtc *crtc,
 	else
 		i9xx_update_cursor(crtc, base);
 	intel_crtc->cursor_base = base;
+
+	intel_program_watermarks_post(intel_crtc, &config);
 }
 
 static int intel_crtc_cursor_set(struct drm_crtc *crtc,

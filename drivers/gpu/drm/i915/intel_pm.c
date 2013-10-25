@@ -2186,13 +2186,9 @@ static void ilk_compute_wm_parameters(struct drm_crtc *crtc,
 	p->active = true;
 	p->pipe_htotal = intel_crtc->config.adjusted_mode.crtc_htotal;
 	p->pixel_rate = ilk_pipe_pixel_rate(dev, crtc);
-	p->pri.bytes_per_pixel = crtc->primary->fb->bits_per_pixel / 8;
-	p->cur.bytes_per_pixel = 4;
-	p->pri.horiz_pixels = intel_crtc->config.pipe_src_w;
-	p->cur.horiz_pixels = intel_crtc->cursor_width;
-	/* TODO: for now, assume primary and cursor planes are always enabled. */
-	p->pri.enabled = true;
-	p->cur.enabled = true;
+
+	p->pri = intel_crtc->pri_wm;
+	p->cur = intel_crtc->cur_wm;
 
 	drm_for_each_legacy_plane(plane, &dev->mode_config.plane_list) {
 		struct intel_plane *intel_plane = to_intel_plane(plane);
@@ -2289,6 +2285,35 @@ static bool intel_compute_pipe_wm(struct drm_crtc *crtc,
 	}
 
 	return true;
+}
+
+/*
+ * Merge two pipe watermark sets.
+ * Used for computing intermediate watermark levels
+ * for transitioning between two different configurations.
+ */
+static void ilk_wm_merge_intermediate(struct drm_device *dev,
+				      struct intel_pipe_wm *a,
+				      const struct intel_pipe_wm *b)
+{
+	int level, max_level = ilk_wm_max_level(dev);
+
+	a->pipe_enabled |= b->pipe_enabled;
+	a->sprites_enabled |= b->sprites_enabled;
+	a->sprites_scaled |= b->sprites_scaled;
+
+	/* Merge _all_ levels including 0 */
+	for (level = 0; level <= max_level; level++) {
+		struct intel_wm_level *a_wm = &a->wm[level];
+		const struct intel_wm_level *b_wm = &b->wm[level];
+
+		a_wm->enable &= b_wm->enable;
+
+		a_wm->pri_val = max(a_wm->pri_val, b_wm->pri_val);
+		a_wm->spr_val = max(a_wm->spr_val, b_wm->spr_val);
+		a_wm->cur_val = max(a_wm->cur_val, b_wm->cur_val);
+		a_wm->fbc_val = max(a_wm->fbc_val, b_wm->fbc_val);
+	}
 }
 
 /*
@@ -2844,31 +2869,6 @@ static void ilk_program_watermarks(struct drm_device *dev)
 	ilk_write_wm_values(dev_priv, &results);
 }
 
-static void ilk_update_wm(struct drm_crtc *crtc)
-{
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct ilk_pipe_wm_parameters params = {};
-	struct intel_pipe_wm pipe_wm = {};
-
-	ilk_compute_wm_parameters(crtc, &params);
-
-	intel_compute_pipe_wm(crtc, &params, &pipe_wm);
-
-	mutex_lock(&dev_priv->wm.mutex);
-
-	if (!memcmp(&intel_crtc->wm.active, &pipe_wm, sizeof(pipe_wm)))
-		goto unlock;
-
-	intel_crtc->wm.active = pipe_wm;
-
-	ilk_program_watermarks(dev);
-
- unlock:
-	mutex_unlock(&dev_priv->wm.mutex);
-}
-
 static void ilk_update_watermarks(struct drm_device *dev)
 {
 	bool changed;
@@ -2923,6 +2923,71 @@ static void ilk_setup_pending_watermarks(struct intel_crtc *crtc,
 	spin_unlock_irq(&crtc->wm.lock);
 }
 
+static int ilk_pipe_compute_watermarks(struct intel_crtc *crtc,
+				       struct intel_pipe_wm *target,
+				       struct intel_pipe_wm *intm)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_pipe_wm intm_pending;
+	bool dirty;
+
+	/* are the target watermarks valid at all? */
+	if (!ilk_validate_pipe_wm(dev, target))
+		return -EINVAL;
+
+	/*
+	 * We need to come up with intermediate watermark levels
+	 * that will support both the old and new plane configuration
+	 * since we can't flip over to the final watermarks until
+	 * the plane configuration has been latched at some future vblank.
+	 *
+	 * Additionally if there's already an update pending, we can't
+	 * yet be sure which plane configuration will be active at the
+	 * time we apply the intermediate watermarks, so we must account
+	 * for both possibilities.
+	 */
+	mutex_lock(&dev_priv->wm.mutex);
+
+	intm_pending = crtc->wm.pending;
+	*intm = crtc->wm.active;
+
+	spin_lock_irq(&crtc->wm.lock);
+	dirty = crtc->wm.dirty;
+	spin_unlock_irq(&crtc->wm.lock);
+
+	mutex_unlock(&dev_priv->wm.mutex);
+
+	/*
+	 * If the intermediate watermarks aren't valid, we must tell the user to
+	 * try something a bit different. There are two cases to be considered.
+	 * 1) there is no pending update:
+	 *    If the intermediate watermarks for transitioning from the currently
+	 *    active configuration to the new configuration aren't valid, the
+	 *    user must choose another configuration as there is no safe way to
+	 *    transition from the currently active config to the new config.
+	 * 2) there is a pending update:
+	 *    If the intermediate watermarks for transitioning from the ccurrently
+	 *    pending configuration to the new configuration are valid, we can
+	 *    simply tell the user to try again after a while.
+	 */
+	if (dirty) {
+		ilk_wm_merge_intermediate(dev, &intm_pending, target);
+		if (!ilk_validate_pipe_wm(dev, &intm_pending))
+			return -EINVAL;
+
+		ilk_wm_merge_intermediate(dev, intm, &intm_pending);
+		if (!ilk_validate_pipe_wm(dev, intm))
+			return -EAGAIN;
+	} else {
+		ilk_wm_merge_intermediate(dev, intm, target);
+		if (!ilk_validate_pipe_wm(dev, intm))
+			return -EINVAL;
+	}
+
+	return 0;
+}
+
 static void ilk_watermark_work(struct work_struct *work)
 {
 	struct drm_i915_private *dev_priv =
@@ -2964,18 +3029,46 @@ static void ilk_wm_cancel(struct intel_crtc *crtc)
 	}
 }
 
-static void ilk_update_sprite_wm(struct drm_plane *plane,
-				     struct drm_crtc *crtc,
-				     uint32_t sprite_width, int pixel_size,
-				     bool enabled, bool scaled)
+static int ilk_update_primary_wm(struct intel_crtc *crtc,
+				 struct intel_crtc_wm_config *config)
 {
-	struct drm_device *dev = plane->dev;
-	struct intel_plane *intel_plane = to_intel_plane(plane);
+	struct ilk_pipe_wm_parameters params = {};
 
-	intel_plane->wm.enabled = enabled;
-	intel_plane->wm.scaled = scaled;
-	intel_plane->wm.horiz_pixels = sprite_width;
-	intel_plane->wm.bytes_per_pixel = pixel_size;
+	ilk_compute_wm_parameters(&crtc->base, &params);
+
+	params.pri = config->pri;
+
+	intel_compute_pipe_wm(&crtc->base, &params, &config->target);
+
+	return ilk_pipe_compute_watermarks(crtc,
+					   &config->target,
+					   &config->intm);
+}
+
+static int ilk_update_cursor_wm(struct intel_crtc *crtc,
+				struct intel_crtc_wm_config *config)
+{
+	struct ilk_pipe_wm_parameters params = {};
+
+	ilk_compute_wm_parameters(&crtc->base, &params);
+
+	params.cur = config->cur;
+
+	intel_compute_pipe_wm(&crtc->base, &params, &config->target);
+
+	return ilk_pipe_compute_watermarks(crtc,
+					   &config->target,
+					   &config->intm);
+}
+
+static int ilk_update_sprite_wm(struct intel_plane *plane,
+				struct intel_crtc *crtc,
+				struct intel_crtc_wm_config *config)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct ilk_pipe_wm_parameters params = {};
+
+	ilk_compute_wm_parameters(&crtc->base, &params);
 
 	/*
 	 * IVB workaround: must disable low power watermarks for at least
@@ -2984,10 +3077,17 @@ static void ilk_update_sprite_wm(struct drm_plane *plane,
 	 *
 	 * WaCxSRDisabledForSpriteScaling:ivb
 	 */
-	if (IS_IVYBRIDGE(dev) && scaled && ilk_disable_lp_wm(dev))
-		intel_wait_for_vblank(dev, intel_plane->pipe);
+	if (IS_IVYBRIDGE(dev) && config->spr.scaled && ilk_disable_lp_wm(dev))
+		intel_wait_for_vblank(dev, plane->pipe);
 
-	ilk_update_wm(crtc);
+	params.pri = config->pri;
+	params.spr = config->spr;
+
+	intel_compute_pipe_wm(&crtc->base, &params, &config->target);
+
+	return ilk_pipe_compute_watermarks(crtc,
+					   &config->target,
+					   &config->intm);
 }
 
 static void _ilk_pipe_wm_hw_to_sw(struct drm_crtc *crtc)
@@ -3086,16 +3186,38 @@ void intel_update_watermarks(struct drm_crtc *crtc)
 		dev_priv->display.update_wm(crtc);
 }
 
-void intel_update_sprite_watermarks(struct drm_plane *plane,
-				    struct drm_crtc *crtc,
-				    uint32_t sprite_width, int pixel_size,
-				    bool enabled, bool scaled)
+int intel_update_primary_watermarks(struct intel_crtc *crtc,
+				    struct intel_crtc_wm_config *config)
 {
-	struct drm_i915_private *dev_priv = plane->dev->dev_private;
+	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
+
+	if (dev_priv->display.update_primary_wm)
+		return dev_priv->display.update_primary_wm(crtc, config);
+
+	return 0;
+}
+
+int intel_update_cursor_watermarks(struct intel_crtc *crtc,
+				   struct intel_crtc_wm_config *config)
+{
+	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
+
+	if (dev_priv->display.update_cursor_wm)
+		return dev_priv->display.update_cursor_wm(crtc, config);
+
+	return 0;
+}
+
+int intel_update_sprite_watermarks(struct intel_plane *plane,
+				   struct intel_crtc *crtc,
+				   struct intel_crtc_wm_config *config)
+{
+	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
 
 	if (dev_priv->display.update_sprite_wm)
-		dev_priv->display.update_sprite_wm(plane, crtc, sprite_width,
-						   pixel_size, enabled, scaled);
+		return dev_priv->display.update_sprite_wm(plane, crtc, config);
+
+	return 0;
 }
 
 void intel_program_watermarks_pre(struct intel_crtc *crtc,
@@ -6919,7 +7041,8 @@ void intel_init_pm(struct drm_device *dev)
 		     dev_priv->wm.spr_latency[1] && dev_priv->wm.cur_latency[1]) ||
 		    (!IS_GEN5(dev) && dev_priv->wm.pri_latency[0] &&
 		     dev_priv->wm.spr_latency[0] && dev_priv->wm.cur_latency[0])) {
-			dev_priv->display.update_wm = ilk_update_wm;
+			dev_priv->display.update_primary_wm = ilk_update_primary_wm;
+			dev_priv->display.update_cursor_wm = ilk_update_cursor_wm;
 			dev_priv->display.update_sprite_wm = ilk_update_sprite_wm;
 			dev_priv->display.program_wm_pre = ilk_program_wm_pre;
 			dev_priv->display.program_wm_post = ilk_program_wm_post;

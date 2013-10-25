@@ -405,8 +405,11 @@ struct intel_connector;
 struct intel_crtc_config;
 struct intel_plane_config;
 struct intel_crtc;
+struct intel_plane;
 struct intel_limit;
 struct dpll;
+struct intel_crtc_wm_config;
+struct intel_plane_wm_parameters;
 struct intel_crtc_wm_config;
 
 struct drm_i915_display_funcs {
@@ -434,10 +437,13 @@ struct drm_i915_display_funcs {
 			  struct dpll *match_clock,
 			  struct dpll *best_clock);
 	void (*update_wm)(struct drm_crtc *crtc);
-	void (*update_sprite_wm)(struct drm_plane *plane,
-				 struct drm_crtc *crtc,
-				 uint32_t sprite_width, int pixel_size,
-				 bool enable, bool scaled);
+	int (*update_primary_wm)(struct intel_crtc *crtc,
+				 struct intel_crtc_wm_config *config);
+	int (*update_cursor_wm)(struct intel_crtc *crtc,
+				struct intel_crtc_wm_config *config);
+	int (*update_sprite_wm)(struct intel_plane *plane,
+				struct intel_crtc *crtc,
+				struct intel_crtc_wm_config *config);
 	void (*program_wm_pre)(struct intel_crtc *crtc,
 			       const struct intel_crtc_wm_config *config);
 	void (*program_wm_post)(struct intel_crtc *crtc,
