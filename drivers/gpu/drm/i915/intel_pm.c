@@ -2950,6 +2950,20 @@ void ilk_update_pipe_wm(struct drm_device *dev, enum pipe pipe)
 	spin_unlock(&crtc->wm.lock);
 }
 
+static void ilk_wm_cancel(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+
+	assert_spin_locked(&crtc->wm.lock);
+
+	crtc->wm.dirty = false;
+
+	if (crtc->wm.vblank) {
+		drm_vblank_put(dev, crtc->pipe);
+		crtc->wm.vblank = false;
+	}
+}
+
 static void ilk_update_sprite_wm(struct drm_plane *plane,
 				     struct drm_crtc *crtc,
 				     uint32_t sprite_width, int pixel_size,
@@ -3082,6 +3096,24 @@ void intel_update_sprite_watermarks(struct drm_plane *plane,
 	if (dev_priv->display.update_sprite_wm)
 		dev_priv->display.update_sprite_wm(plane, crtc, sprite_width,
 						   pixel_size, enabled, scaled);
+}
+
+void intel_program_watermarks_pre(struct intel_crtc *crtc,
+				  const struct intel_crtc_wm_config *config)
+{
+	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
+
+	if (dev_priv->display.program_wm_pre)
+		dev_priv->display.program_wm_pre(crtc, config);
+}
+
+void intel_program_watermarks_post(struct intel_crtc *crtc,
+				   const struct intel_crtc_wm_config *config)
+{
+	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
+
+	if (dev_priv->display.program_wm_post)
+		dev_priv->display.program_wm_post(crtc, config);
 }
 
 static struct drm_i915_gem_object *
@@ -6788,6 +6820,60 @@ void intel_fini_runtime_pm(struct drm_i915_private *dev_priv)
 	pm_runtime_disable(device);
 }
 
+static void ilk_program_wm_pre(struct intel_crtc *crtc,
+			       const struct intel_crtc_wm_config *config)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	mutex_lock(&dev_priv->wm.mutex);
+
+	spin_lock_irq(&crtc->wm.lock);
+	ilk_wm_cancel(crtc);
+	spin_unlock_irq(&crtc->wm.lock);
+
+	/* pending update (if any) got cancelled */
+	crtc->wm.pending = crtc->wm.active;
+
+	if (!memcmp(&crtc->wm.active, &config->intm, sizeof(config->intm)))
+		goto unlock;
+
+	crtc->wm.active = config->intm;
+
+	/* use the most up to date watermarks for other pipes */
+	ilk_refresh_pending_watermarks(dev);
+
+	/* switch over to the intermediate watermarks */
+	ilk_program_watermarks(dev);
+
+ unlock:
+	mutex_unlock(&dev_priv->wm.mutex);
+}
+
+static void ilk_program_wm_post(struct intel_crtc *crtc,
+				const struct intel_crtc_wm_config *config)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 vbl_count;
+
+	/*
+	 * FIXME sample this inside the atomic section to avoid
+	 * needlessly long periods w/ sub-par watermarks
+	 */
+	vbl_count = dev->driver->get_vblank_counter(dev, crtc->pipe);
+
+	mutex_lock(&dev_priv->wm.mutex);
+
+	/*
+	 * We can switch over to the target
+	 * watermarks after the next vblank.
+	 */
+	ilk_setup_pending_watermarks(crtc, &config->target, vbl_count);
+
+	mutex_unlock(&dev_priv->wm.mutex);
+}
+
 /* Set up chip specific power management-related functions */
 void intel_init_pm(struct drm_device *dev)
 {
@@ -6835,6 +6921,8 @@ void intel_init_pm(struct drm_device *dev)
 		     dev_priv->wm.spr_latency[0] && dev_priv->wm.cur_latency[0])) {
 			dev_priv->display.update_wm = ilk_update_wm;
 			dev_priv->display.update_sprite_wm = ilk_update_sprite_wm;
+			dev_priv->display.program_wm_pre = ilk_program_wm_pre;
+			dev_priv->display.program_wm_post = ilk_program_wm_post;
 		} else {
 			DRM_DEBUG_KMS("Failed to read display plane latency. "
 				      "Disable CxSR\n");

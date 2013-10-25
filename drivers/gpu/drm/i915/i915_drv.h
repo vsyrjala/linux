@@ -407,6 +407,7 @@ struct intel_plane_config;
 struct intel_crtc;
 struct intel_limit;
 struct dpll;
+struct intel_crtc_wm_config;
 
 struct drm_i915_display_funcs {
 	bool (*fbc_enabled)(struct drm_device *dev);
@@ -437,6 +438,10 @@ struct drm_i915_display_funcs {
 				 struct drm_crtc *crtc,
 				 uint32_t sprite_width, int pixel_size,
 				 bool enable, bool scaled);
+	void (*program_wm_pre)(struct intel_crtc *crtc,
+			       const struct intel_crtc_wm_config *config);
+	void (*program_wm_post)(struct intel_crtc *crtc,
+				const struct intel_crtc_wm_config *config);
 	void (*modeset_global_resources)(struct drm_device *dev);
 	/* Returns the active state of the crtc, and if the crtc is active,
 	 * fills out the pipe-config with the hw state. */

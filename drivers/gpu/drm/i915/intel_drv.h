@@ -358,6 +358,13 @@ struct intel_pipe_wm {
 	bool sprites_scaled;
 };
 
+struct intel_crtc_wm_config {
+	/* target watermarks for the pipe */
+	struct intel_pipe_wm target;
+	/* intermediate watermarks for pending/active->target transition */
+	struct intel_pipe_wm intm;
+};
+
 struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
@@ -1004,6 +1011,10 @@ void ilk_wm_get_hw_state(struct drm_device *dev);
 void __vlv_set_power_well(struct drm_i915_private *dev_priv,
 			  enum punit_power_well power_well_id, bool enable);
 void ilk_update_pipe_wm(struct drm_device *dev, enum pipe pipe);
+void intel_program_watermarks_pre(struct intel_crtc *crtc,
+				  const struct intel_crtc_wm_config *config);
+void intel_program_watermarks_post(struct intel_crtc *crtc,
+				   const struct intel_crtc_wm_config *config);
 
 
 /* intel_sdvo.c */
