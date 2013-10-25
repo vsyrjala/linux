@@ -2743,8 +2743,13 @@ static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
 static bool ilk_disable_lp_wm(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	bool changed;
 
-	return _ilk_disable_lp_wm(dev_priv, WM_DIRTY_LP_ALL);
+	mutex_lock(&dev_priv->wm.mutex);
+	changed = _ilk_disable_lp_wm(dev_priv, WM_DIRTY_LP_ALL);
+	mutex_unlock(&dev_priv->wm.mutex);
+
+	return changed;
 }
 
 static void ilk_program_watermarks(struct drm_device *dev)
@@ -2784,6 +2789,7 @@ static void ilk_update_wm(struct drm_crtc *crtc)
 {
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct ilk_pipe_wm_parameters params = {};
 	struct intel_pipe_wm pipe_wm = {};
 
@@ -2791,12 +2797,17 @@ static void ilk_update_wm(struct drm_crtc *crtc)
 
 	intel_compute_pipe_wm(crtc, &params, &pipe_wm);
 
+	mutex_lock(&dev_priv->wm.mutex);
+
 	if (!memcmp(&intel_crtc->wm.active, &pipe_wm, sizeof(pipe_wm)))
-		return;
+		goto unlock;
 
 	intel_crtc->wm.active = pipe_wm;
 
 	ilk_program_watermarks(dev);
+
+ unlock:
+	mutex_unlock(&dev_priv->wm.mutex);
 }
 
 static void ilk_update_sprite_wm(struct drm_plane *plane,
@@ -2868,10 +2879,14 @@ void ilk_wm_get_hw_state(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
 
+	mutex_lock(&dev_priv->wm.mutex);
+
 	_ilk_wm_get_hw_state(dev, &dev_priv->wm.hw);
 
 	for_each_crtc(dev, crtc)
 		_ilk_pipe_wm_hw_to_sw(crtc);
+
+	mutex_unlock(&dev_priv->wm.mutex);
 }
 
 /**
@@ -6634,6 +6649,8 @@ void intel_fini_runtime_pm(struct drm_i915_private *dev_priv)
 void intel_init_pm(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	mutex_init(&dev_priv->wm.mutex);
 
 	if (HAS_FBC(dev)) {
 		if (INTEL_INFO(dev)->gen >= 7) {

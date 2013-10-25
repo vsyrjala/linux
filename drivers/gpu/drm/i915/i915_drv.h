@@ -1531,8 +1531,17 @@ struct drm_i915_private {
 		/* cursor */
 		uint16_t cur_latency[5];
 
-		/* current hardware state */
+		/*
+		 * current hardware state
+		 * protected by dev_priv->wm.mutex
+		 */
 		struct ilk_wm_values hw;
+
+		/*
+		 * protects some dev_priv->wm and intel_crtc->wm
+		 * state as well as the actual hardware registers
+		 */
+		struct mutex mutex;
 	} wm;
 
 	struct i915_runtime_pm pm;

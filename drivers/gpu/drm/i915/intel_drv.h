@@ -405,7 +405,10 @@ struct intel_crtc {
 
 	/* per-pipe watermark state */
 	struct {
-		/* watermarks currently being used  */
+		/*
+		 * watermarks currently being used
+		 * protected by dev_priv->wm.mutex
+		 */
 		struct intel_pipe_wm active;
 	} wm;
 
