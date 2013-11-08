@@ -85,7 +85,7 @@ static int gen5_render_fbc_tracking(struct intel_engine_cs *ring)
 	intel_ring_emit(ring, ILK_FBC_RT_BASE);
 	if (ring->fbc_address != -1)
 		intel_ring_emit(ring, ring->fbc_address |
-				SNB_FBC_FRONT_BUFFER | ILK_FBC_RT_VALID);
+				ILK_FBC_FRONT_BUFFER | ILK_FBC_RT_VALID);
 	else
 		intel_ring_emit(ring, 0);
 	intel_ring_advance(ring);
@@ -200,6 +200,9 @@ gen4_render_ring_flush(struct intel_engine_cs *ring,
 	intel_ring_emit(ring, cmd);
 	intel_ring_emit(ring, MI_NOOP);
 	intel_ring_advance(ring);
+
+	if (invalidate_domains && IS_GEN5(dev))
+		return gen5_render_fbc_tracking(ring);
 
 	return 0;
 }

@@ -1503,7 +1503,7 @@ enum punit_power_well {
 #define ILK_DPFC_CHICKEN	0x43224
 #define ILK_FBC_RT_BASE		0x2128
 #define   ILK_FBC_RT_VALID	(1<<0)
-#define   SNB_FBC_FRONT_BUFFER	(1<<1)
+#define   ILK_FBC_FRONT_BUFFER	(1<<1)
 
 #define ILK_DISPLAY_CHICKEN1	0x42000
 #define   ILK_FBCQ_DIS		(1<<22)
