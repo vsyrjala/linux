@@ -362,6 +362,37 @@ void intel_fbc_disable(struct intel_crtc *crtc)
 	__intel_fbc_disable(crtc);
 }
 
+void intel_fbc_nuke(struct drm_i915_gem_object *obj)
+{
+	struct drm_device *dev = obj->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *crtc = dev_priv->fbc.crtc;
+	unsigned int pending_score;
+	int ret;
+
+	lockdep_assert_held(&dev_priv->fbc.mutex);
+
+	if (dev_priv->fbc.obj != obj)
+		return;
+
+	if (!crtc)
+		return;
+
+	WARN_ON(crtc->fbc.pending_score == 0);
+
+	pending_score = crtc->fbc.pending_score;
+	intel_fbc_disable(crtc);
+	crtc->fbc.pending_score = pending_score;
+
+	/*
+	 * Must wait until the next vblank before re-enabling
+	 * otherwise the nuking won't actually happen.
+	 */
+	crtc->fbc.notify.vbl_count = intel_crtc_vbl_count_rel_to_abs(crtc, 1);
+	ret = intel_vblank_notify_add(crtc, &crtc->fbc.notify);
+	WARN_ON(ret != 0);
+}
+
 static bool set_no_fbc_reason(struct drm_i915_private *dev_priv,
 			      enum no_fbc_reason reason)
 {

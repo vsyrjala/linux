@@ -977,6 +977,7 @@ void intel_fbc_post_plane_enable(struct intel_crtc *crtc);
 void intel_fbc_disable(struct intel_crtc *crtc);
 void intel_fbc_schedule_update(struct drm_device *dev);
 struct intel_crtc *intel_fbc_best_crtc(struct drm_device *dev);
+void intel_fbc_nuke(struct drm_i915_gem_object *obj);
 void intel_gpu_ips_init(struct drm_i915_private *dev_priv);
 void intel_gpu_ips_teardown(void);
 int intel_power_domains_init(struct drm_i915_private *);

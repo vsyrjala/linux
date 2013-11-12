@@ -1434,6 +1434,7 @@ int
 i915_gem_sw_finish_ioctl(struct drm_device *dev, void *data,
 			 struct drm_file *file)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_gem_sw_finish *args = data;
 	struct drm_i915_gem_object *obj;
 	int ret = 0;
@@ -1457,6 +1458,13 @@ i915_gem_sw_finish_ioctl(struct drm_device *dev, void *data,
 	drm_gem_object_unreference(&obj->base);
 unlock:
 	mutex_unlock(&dev->struct_mutex);
+
+	if (ret == 0) {
+		mutex_lock(&dev_priv->fbc.mutex);
+		intel_fbc_nuke(obj);
+		mutex_unlock(&dev_priv->fbc.mutex);
+	}
+
 	return ret;
 }
 
