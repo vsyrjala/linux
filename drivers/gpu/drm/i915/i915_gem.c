@@ -3613,7 +3613,7 @@ i915_gem_object_set_to_gtt_domain(struct drm_i915_gem_object *obj, bool write)
 		return ret;
 
 	i915_gem_object_retire(obj);
-	i915_gem_object_flush_cpu_write_domain(obj, false);
+	i915_gem_object_flush_cpu_write_domain(obj, obj->pin_display);
 
 	/* Serialise direct access to this object with the barriers for
 	 * coherent writes from the GPU, by effectively invalidating the
