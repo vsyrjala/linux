@@ -1351,11 +1351,11 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 
 	i915_gem_execbuffer_mark_fbc_dirty(ring, &eb->vmas);
 
-	ret = i915_gem_execbuffer_move_to_gpu(ring, &eb->vmas);
+	ret = i915_switch_context(ring, ctx);
 	if (ret)
 		goto err;
 
-	ret = i915_switch_context(ring, ctx);
+	ret = i915_gem_execbuffer_move_to_gpu(ring, &eb->vmas);
 	if (ret)
 		goto err;
 
