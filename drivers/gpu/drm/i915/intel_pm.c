@@ -468,6 +468,179 @@ static uint32_t ilk_pipe_pixel_rate(struct drm_device *dev,
 	return pixel_rate;
 }
 
+static bool intel_fbc1_possible(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_framebuffer *fb = crtc->base.primary->fb;
+	struct drm_i915_gem_object *obj;
+
+	if (!IS_GEN4(dev) && crtc->plane != PLANE_A) {
+		DRM_DEBUG("FBC pipe %c, plane %c: no FBC on this plane\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
+
+	if (!intel_crtc_active(&crtc->base)) {
+		DRM_DEBUG("FBC pipe %c, plane %c: pipe disabled\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
+
+	if (crtc->config.pipe_src_w > 2048 ||
+	    crtc->config.pipe_src_h > 1536) {
+		DRM_DEBUG("FBC pipe %c, plane %c: mode (%dx%d) too large\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane),
+			  crtc->config.pipe_src_w, crtc->config.pipe_src_h);
+		return false;
+	}
+
+	if (crtc->config.adjusted_mode.flags & (DRM_MODE_FLAG_INTERLACE |
+						DRM_MODE_FLAG_DBLSCAN) ||
+	    crtc->config.double_wide) {
+		DRM_DEBUG("FBC pipe %c, plane %c: mode incompatible\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
+
+	if (!crtc->primary_enabled) {
+		DRM_DEBUG("FBC pipe %c, plane %c: primary plane disabled\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
+
+	obj = to_intel_framebuffer(fb)->obj;
+
+	if (obj->tiling_mode != I915_TILING_X ||
+	    obj->fence_reg == I915_FENCE_REG_NONE) {
+		DRM_DEBUG("FBC pipe %c, plane %c: framebuffer not tiled or fenced\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
+
+	return true;
+}
+
+static bool intel_fbc2_possible(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_framebuffer *fb = crtc->base.primary->fb;
+	struct drm_i915_gem_object *obj;
+	int max_width, max_height;
+
+	if ((IS_HASWELL(dev) || INTEL_INFO(dev)->gen >= 8) &&
+	    crtc->plane != PLANE_A) {
+		DRM_DEBUG("FBC pipe %c, plane %c: no FBC on this plane\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
+
+	if (!intel_crtc_active(&crtc->base)) {
+		DRM_DEBUG("FBC pipe %c, plane %c: pipe disabled\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
+
+	if (IS_HASWELL(dev) || INTEL_INFO(dev)->gen >= 8) {
+		max_width = 4096;
+		max_height = 4096;
+	} else {
+		max_width = 4096;
+		max_height = 2048;
+	}
+
+	if (crtc->config.pipe_src_w > max_width ||
+	    crtc->config.pipe_src_h > max_height) {
+		DRM_DEBUG("FBC pipe %c, plane %c: mode (%dx%d) too large\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane),
+			  crtc->config.pipe_src_w, crtc->config.pipe_src_h);
+		return false;
+	}
+
+	if (!crtc->primary_enabled) {
+		DRM_DEBUG("FBC pipe %c, plane %c: primary plane disabled\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
+
+	obj = to_intel_framebuffer(fb)->obj;
+
+	if (obj->tiling_mode != I915_TILING_X ||
+	    obj->fence_reg == I915_FENCE_REG_NONE) {
+		DRM_DEBUG("FBC pipe %c, plane %c: framebuffer not tiled or fenced\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
+
+	return true;
+}
+
+static struct intel_crtc *intel_fbc1_pick_crtc(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *tmp_crtc, *crtc = NULL;
+
+	list_for_each_entry(tmp_crtc, &dev->mode_config.crtc_list, base.head) {
+		if (!tmp_crtc->active)
+			continue;
+
+		if (crtc) {
+			if (set_no_fbc_reason(dev_priv, FBC_MULTIPLE_PIPES))
+				DRM_DEBUG_KMS("more than one pipe active, disabling FBC\n");
+			return NULL;
+		}
+
+		crtc = tmp_crtc;
+	}
+
+	if (!crtc || !intel_fbc1_possible(crtc)) {
+		if (set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED_CONFIG))
+			DRM_DEBUG_KMS("no suitable plane, disabling FBC\n");
+		return NULL;
+	}
+
+	return crtc;
+}
+
+static struct intel_crtc *intel_fbc2_pick_crtc(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *tmp_crtc, *crtc = NULL;
+	unsigned int pixel_rate = 0;
+
+	list_for_each_entry(tmp_crtc, &dev->mode_config.crtc_list, base.head) {
+		unsigned int tmp_pixel_rate;
+
+		if (!intel_fbc2_possible(tmp_crtc))
+			continue;
+
+		/*
+		 * If we have multiple possibilities, prefer
+		 * the pipe with the highest pixel rate.
+		 *
+		 * FIXME: is this a good heuristic?
+		 *
+		 * FIXME: We should have something like ilk_pipe_pixel_rate()
+		 * for GMCH platforms too, but here it doesn't matter since
+		 * we anyway disallow FBC with panel fitting on g4x.
+		 */
+		if (HAS_PCH_SPLIT(dev))
+			tmp_pixel_rate = ilk_pipe_pixel_rate(dev, &tmp_crtc->base);
+		else
+			tmp_pixel_rate = tmp_crtc->config.adjusted_mode.crtc_clock;
+
+		if (pixel_rate < tmp_pixel_rate) {
+			crtc = tmp_crtc;
+			pixel_rate = tmp_pixel_rate;
+		}
+	}
+
+	if (!crtc)
+		if (set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED_CONFIG))
+			DRM_DEBUG_KMS("no suitable plane, disabling FBC\n");
+
+	return crtc;
+}
+
 /**
  * intel_update_fbc - enable/disable FBC as needed
  * @dev: the drm_device
@@ -490,13 +663,9 @@ static uint32_t ilk_pipe_pixel_rate(struct drm_device *dev,
 void intel_update_fbc(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_crtc *crtc = NULL, *tmp_crtc;
-	struct intel_crtc *intel_crtc;
+	struct intel_crtc *crtc;
 	struct drm_framebuffer *fb;
-	struct intel_framebuffer *intel_fb;
 	struct drm_i915_gem_object *obj;
-	const struct drm_display_mode *adjusted_mode;
-	unsigned int max_width, max_height;
 
 	if (!HAS_FBC(dev)) {
 		set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED);
@@ -509,39 +678,6 @@ void intel_update_fbc(struct drm_device *dev)
 		return;
 	}
 
-	/*
-	 * If FBC is already on, we just have to verify that we can
-	 * keep it that way...
-	 * Need to disable if:
-	 *   - more than one pipe is active
-	 *   - changing FBC params (stride, fence, mode)
-	 *   - new fb is too large to fit in compressed buffer
-	 *   - going to an unsupported config (interlace, pixel multiply, etc.)
-	 */
-	for_each_crtc(dev, tmp_crtc) {
-		if (intel_crtc_active(tmp_crtc) &&
-		    to_intel_crtc(tmp_crtc)->primary_enabled) {
-			if (crtc) {
-				if (set_no_fbc_reason(dev_priv, FBC_MULTIPLE_PIPES))
-					DRM_DEBUG_KMS("more than one pipe active, disabling compression\n");
-				goto out_disable;
-			}
-			crtc = tmp_crtc;
-		}
-	}
-
-	if (!crtc || crtc->primary->fb == NULL) {
-		if (set_no_fbc_reason(dev_priv, FBC_NO_OUTPUT))
-			DRM_DEBUG_KMS("no output, disabling\n");
-		goto out_disable;
-	}
-
-	intel_crtc = to_intel_crtc(crtc);
-	fb = crtc->primary->fb;
-	intel_fb = to_intel_framebuffer(fb);
-	obj = intel_fb->obj;
-	adjusted_mode = &intel_crtc->config.adjusted_mode;
-
 	if (i915.enable_fbc < 0) {
 		if (set_no_fbc_reason(dev_priv, FBC_CHIP_DEFAULT))
 			DRM_DEBUG_KMS("disabled per chip default\n");
@@ -552,52 +688,23 @@ void intel_update_fbc(struct drm_device *dev)
 			DRM_DEBUG_KMS("fbc disabled per module param\n");
 		goto out_disable;
 	}
-	if ((adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE) ||
-	    (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)) {
-		if (set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED_MODE))
-			DRM_DEBUG_KMS("mode incompatible with compression, "
-				      "disabling\n");
-		goto out_disable;
-	}
 
-	if (INTEL_INFO(dev)->gen >= 8 || IS_HASWELL(dev)) {
-		max_width = 4096;
-		max_height = 4096;
-	} else if (IS_G4X(dev) || INTEL_INFO(dev)->gen >= 5) {
-		max_width = 4096;
-		max_height = 2048;
-	} else {
-		max_width = 2048;
-		max_height = 1536;
-	}
-	if (intel_crtc->config.pipe_src_w > max_width ||
-	    intel_crtc->config.pipe_src_h > max_height) {
-		if (set_no_fbc_reason(dev_priv, FBC_MODE_TOO_LARGE))
-			DRM_DEBUG_KMS("mode too large for compression, disabling\n");
-		goto out_disable;
-	}
-	if ((INTEL_INFO(dev)->gen < 4 || HAS_DDI(dev)) &&
-	    intel_crtc->plane != PLANE_A) {
-		if (set_no_fbc_reason(dev_priv, FBC_BAD_PLANE))
-			DRM_DEBUG_KMS("plane not A, disabling compression\n");
-		goto out_disable;
-	}
+	if (IS_G4X(dev) || INTEL_INFO(dev)->gen >= 5)
+		crtc = intel_fbc2_pick_crtc(dev);
+	else
+		crtc = intel_fbc1_pick_crtc(dev);
 
-	/* The use of a CPU fence is mandatory in order to detect writes
-	 * by the CPU to the scanout and trigger updates to the FBC.
-	 */
-	if (obj->tiling_mode != I915_TILING_X ||
-	    obj->fence_reg == I915_FENCE_REG_NONE) {
-		if (set_no_fbc_reason(dev_priv, FBC_NOT_TILED))
-			DRM_DEBUG_KMS("framebuffer not tiled or fenced, disabling compression\n");
+	if (!crtc)
 		goto out_disable;
-	}
+
+	fb = crtc->base.primary->fb;
+	obj = to_intel_framebuffer(fb)->obj;
 
 	/* If the kernel debugger is active, always disable compression */
 	if (in_dbg_master())
 		goto out_disable;
 
-	if (i915_gem_stolen_setup_compression(dev, intel_fb->obj->base.size)) {
+	if (i915_gem_stolen_setup_compression(dev, obj->base.size)) {
 		if (set_no_fbc_reason(dev_priv, FBC_STOLEN_TOO_SMALL))
 			DRM_DEBUG_KMS("framebuffer too large, disabling compression\n");
 		goto out_disable;
@@ -608,9 +715,9 @@ void intel_update_fbc(struct drm_device *dev)
 	 * cannot be unpinned (and have its GTT offset and fence revoked)
 	 * without first being decoupled from the scanout and FBC disabled.
 	 */
-	if (dev_priv->fbc.plane == intel_crtc->plane &&
+	if (dev_priv->fbc.plane == crtc->plane &&
 	    dev_priv->fbc.fb_id == fb->base.id &&
-	    dev_priv->fbc.y == crtc->y)
+	    dev_priv->fbc.y == crtc->base.y)
 		return;
 
 	if (intel_fbc_enabled(dev)) {
@@ -641,7 +748,7 @@ void intel_update_fbc(struct drm_device *dev)
 		intel_disable_fbc(dev);
 	}
 
-	intel_enable_fbc(crtc);
+	intel_enable_fbc(&crtc->base);
 	dev_priv->fbc.no_fbc_reason = FBC_OK;
 	return;
 

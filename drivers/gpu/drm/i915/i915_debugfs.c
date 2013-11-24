@@ -1468,23 +1468,11 @@ static int i915_fbc_status(struct seq_file *m, void *unused)
 		case FBC_UNSUPPORTED:
 			seq_puts(m, "unsupported by this chipset");
 			break;
-		case FBC_NO_OUTPUT:
-			seq_puts(m, "no outputs");
+		case FBC_UNSUPPORTED_CONFIG:
+			seq_puts(m, "unsupported pipe/plane config");
 			break;
 		case FBC_STOLEN_TOO_SMALL:
 			seq_puts(m, "not enough stolen memory");
-			break;
-		case FBC_UNSUPPORTED_MODE:
-			seq_puts(m, "mode not supported");
-			break;
-		case FBC_MODE_TOO_LARGE:
-			seq_puts(m, "mode too large");
-			break;
-		case FBC_BAD_PLANE:
-			seq_puts(m, "FBC unsupported on plane");
-			break;
-		case FBC_NOT_TILED:
-			seq_puts(m, "scanout buffer not tiled");
 			break;
 		case FBC_MULTIPLE_PIPES:
 			seq_puts(m, "multiple pipes are enabled");

@@ -617,12 +617,8 @@ struct i915_fbc {
 	enum no_fbc_reason {
 		FBC_OK, /* FBC is enabled */
 		FBC_UNSUPPORTED, /* FBC is not supported by this chipset */
-		FBC_NO_OUTPUT, /* no outputs enabled to compress */
+		FBC_UNSUPPORTED_CONFIG, /* pipe/plane config not suitable for FBC */
 		FBC_STOLEN_TOO_SMALL, /* not enough space for buffers */
-		FBC_UNSUPPORTED_MODE, /* interlace or doublescanned mode */
-		FBC_MODE_TOO_LARGE, /* mode too large for compression */
-		FBC_BAD_PLANE, /* fbc not supported on plane */
-		FBC_NOT_TILED, /* buffer not tiled */
 		FBC_MULTIPLE_PIPES, /* more than one pipe active */
 		FBC_MODULE_PARAM,
 		FBC_CHIP_DEFAULT, /* disabled by default on this chip */
