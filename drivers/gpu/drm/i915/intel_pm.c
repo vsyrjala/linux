@@ -1726,13 +1726,6 @@ struct ilk_pipe_wm_parameters {
 	struct intel_plane_wm_parameters cur;
 };
 
-struct ilk_wm_maximums {
-	uint16_t pri;
-	uint16_t spr;
-	uint16_t cur;
-	uint16_t fbc;
-};
-
 /* used in computing the new watermarks state */
 struct intel_wm_config {
 	unsigned int num_pipes_active;
@@ -2220,9 +2213,10 @@ static void ilk_compute_wm_config(struct drm_device *dev,
 	}
 }
 
-static bool ilk_validate_pipe_wm(struct drm_device *dev,
+static bool ilk_validate_pipe_wm(struct intel_crtc *crtc,
 				 struct intel_pipe_wm *pipe_wm)
 {
+	struct drm_device *dev = crtc->base.dev;
 	/* LP0 watermark maximums depend on this pipe alone */
 	const struct intel_wm_config config = {
 		.num_pipes_active = 1,
@@ -2234,6 +2228,8 @@ static bool ilk_validate_pipe_wm(struct drm_device *dev,
 
 	/* LP0 watermarks always use 1/2 DDB partitioning */
 	ilk_compute_wm_maximums(dev, 0, &config, INTEL_DDB_PART_1_2, &max);
+
+	trace_i915_wm_max(crtc->pipe, "LP0", &max);
 
 	/* At least LP0 must be valid */
 	return ilk_validate_wm_level(0, &max, &pipe_wm->wm[0]);
@@ -2267,10 +2263,12 @@ static bool intel_compute_pipe_wm(struct drm_crtc *crtc,
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
 		pipe_wm->linetime = hsw_compute_linetime_wm(dev, crtc);
 
-	if (!ilk_validate_pipe_wm(dev, pipe_wm))
+	if (!ilk_validate_pipe_wm(to_intel_crtc(crtc), pipe_wm))
 		return false;
 
 	ilk_compute_wm_reg_maximums(dev, 1, &max);
+
+	trace_i915_wm_max(to_intel_crtc(crtc)->pipe, "LP1+", &max);
 
 	for (level = 1; level <= max_level; level++) {
 		struct intel_wm_level wm = {};
@@ -2963,12 +2961,14 @@ static bool ilk_program_watermarks(struct drm_device *dev)
 	ilk_compute_wm_config(dev, &config);
 
 	ilk_compute_wm_maximums(dev, 1, &config, INTEL_DDB_PART_1_2, &max);
+	trace_i915_wm_max('L'-'A', "LP1+ 1/2", &max);
 	ilk_wm_merge(dev, &config, &max, &lp_wm_1_2);
 
 	/* 5/6 split only in single pipe config on IVB+ */
 	if (INTEL_INFO(dev)->gen >= 7 &&
 	    config.num_pipes_active == 1 && config.sprites_enabled) {
 		ilk_compute_wm_maximums(dev, 1, &config, INTEL_DDB_PART_5_6, &max);
+		trace_i915_wm_max('L'-'A', "LP1+ 5/6", &max);
 		ilk_wm_merge(dev, &config, &max, &lp_wm_5_6);
 
 		best_lp_wm = ilk_find_best_result(dev, &lp_wm_1_2, &lp_wm_5_6,
@@ -3065,7 +3065,7 @@ static int ilk_pipe_compute_watermarks(struct intel_crtc *crtc,
 	bool dirty;
 
 	/* are the target watermarks valid at all? */
-	if (!ilk_validate_pipe_wm(dev, target))
+	if (!ilk_validate_pipe_wm(crtc, target))
 		return -EINVAL;
 
 	/*
@@ -3105,15 +3105,15 @@ static int ilk_pipe_compute_watermarks(struct intel_crtc *crtc,
 	 */
 	if (dirty) {
 		ilk_wm_merge_intermediate(dev, &intm_pending, target);
-		if (!ilk_validate_pipe_wm(dev, &intm_pending))
+		if (!ilk_validate_pipe_wm(crtc, &intm_pending))
 			return -EINVAL;
 
 		ilk_wm_merge_intermediate(dev, intm, &intm_pending);
-		if (!ilk_validate_pipe_wm(dev, intm))
+		if (!ilk_validate_pipe_wm(crtc, intm))
 			return -EAGAIN;
 	} else {
 		ilk_wm_merge_intermediate(dev, intm, target);
-		if (!ilk_validate_pipe_wm(dev, intm))
+		if (!ilk_validate_pipe_wm(crtc, intm))
 			return -EINVAL;
 	}
 

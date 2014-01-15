@@ -349,6 +349,13 @@ struct intel_crtc_config {
 	bool double_wide;
 };
 
+struct ilk_wm_maximums {
+	uint16_t pri;
+	uint16_t spr;
+	uint16_t cur;
+	uint16_t fbc;
+};
+
 struct intel_pipe_wm {
 	struct intel_wm_level wm[5];
 	uint32_t linetime;

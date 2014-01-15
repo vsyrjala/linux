@@ -15,7 +15,36 @@
 #define TRACE_SYSTEM_STRING __stringify(TRACE_SYSTEM)
 #define TRACE_INCLUDE_FILE i915_trace
 
+struct ilk_wm_maximums;
+
 /* watermark */
+
+TRACE_EVENT(i915_wm_max,
+	    TP_PROTO(enum pipe pipe, const char *name, const struct ilk_wm_maximums *max),
+	    TP_ARGS(pipe, name, max),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(const char *, name)
+			     __field(u16, pri)
+			     __field(u16, cur)
+			     __field(u16, spr)
+			     __field(u16, fbc)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = pipe;
+			   __entry->name = name;
+			   __entry->pri = max->pri;
+			   __entry->cur = max->cur;
+			   __entry->spr = max->spr;
+			   __entry->fbc = max->fbc;
+			   ),
+
+	    TP_printk("pipe %c: %s: pri=%u cur=%u spr=%u fbc=%u\n",
+		      pipe_name(__entry->pipe), __entry->name,
+		      __entry->pri, __entry->cur, __entry->spr, __entry->fbc)
+);
 
 TRACE_EVENT(i915_wm_prog_start,
 	    TP_PROTO(struct intel_crtc *crtc),
