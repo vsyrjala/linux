@@ -437,6 +437,37 @@ static bool set_no_fbc_reason(struct drm_i915_private *dev_priv,
 	return true;
 }
 
+static uint32_t ilk_pipe_pixel_rate(struct drm_device *dev,
+				    struct drm_crtc *crtc)
+{
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	uint32_t pixel_rate;
+
+	pixel_rate = intel_crtc->config.adjusted_mode.crtc_clock;
+
+	/* We only use IF-ID interlacing. If we ever use PF-ID we'll need to
+	 * adjust the pixel_rate here. */
+
+	if (intel_crtc->config.pch_pfit.enabled) {
+		uint64_t pipe_w, pipe_h, pfit_w, pfit_h;
+		uint32_t pfit_size = intel_crtc->config.pch_pfit.size;
+
+		pipe_w = intel_crtc->config.pipe_src_w;
+		pipe_h = intel_crtc->config.pipe_src_h;
+		pfit_w = (pfit_size >> 16) & 0xFFFF;
+		pfit_h = pfit_size & 0xFFFF;
+		if (pipe_w < pfit_w)
+			pipe_w = pfit_w;
+		if (pipe_h < pfit_h)
+			pipe_h = pfit_h;
+
+		pixel_rate = div_u64((uint64_t) pixel_rate * pipe_w * pipe_h,
+				     pfit_w * pfit_h);
+	}
+
+	return pixel_rate;
+}
+
 /**
  * intel_update_fbc - enable/disable FBC as needed
  * @dev: the drm_device
@@ -1649,37 +1680,6 @@ static void i845_update_wm(struct drm_crtc *unused_crtc)
 	DRM_DEBUG_KMS("Setting FIFO watermarks - A: %d\n", planea_wm);
 
 	I915_WRITE(FW_BLC, fwater_lo);
-}
-
-static uint32_t ilk_pipe_pixel_rate(struct drm_device *dev,
-				    struct drm_crtc *crtc)
-{
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	uint32_t pixel_rate;
-
-	pixel_rate = intel_crtc->config.adjusted_mode.crtc_clock;
-
-	/* We only use IF-ID interlacing. If we ever use PF-ID we'll need to
-	 * adjust the pixel_rate here. */
-
-	if (intel_crtc->config.pch_pfit.enabled) {
-		uint64_t pipe_w, pipe_h, pfit_w, pfit_h;
-		uint32_t pfit_size = intel_crtc->config.pch_pfit.size;
-
-		pipe_w = intel_crtc->config.pipe_src_w;
-		pipe_h = intel_crtc->config.pipe_src_h;
-		pfit_w = (pfit_size >> 16) & 0xFFFF;
-		pfit_h = pfit_size & 0xFFFF;
-		if (pipe_w < pfit_w)
-			pipe_w = pfit_w;
-		if (pipe_h < pfit_h)
-			pipe_h = pfit_h;
-
-		pixel_rate = div_u64((uint64_t) pixel_rate * pipe_w * pipe_h,
-				     pfit_w * pfit_h);
-	}
-
-	return pixel_rate;
 }
 
 /* latency must be in 0.1us units. */
