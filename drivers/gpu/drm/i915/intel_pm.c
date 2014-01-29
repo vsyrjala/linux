@@ -494,8 +494,7 @@ static bool intel_fbc1_possible(struct intel_crtc *crtc)
 		return false;
 	}
 
-	if (crtc->config.adjusted_mode.flags & (DRM_MODE_FLAG_INTERLACE |
-						DRM_MODE_FLAG_DBLSCAN) ||
+	if (crtc->config.adjusted_mode.flags & DRM_MODE_FLAG_INTERLACE ||
 	    crtc->config.double_wide) {
 		DRM_DEBUG("FBC pipe %c, plane %c: mode incompatible\n",
 			  pipe_name(crtc->pipe), plane_name(crtc->plane));
