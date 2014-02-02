@@ -520,7 +520,6 @@ static int i915_drm_freeze(struct drm_device *dev)
 			return error;
 		}
 
-		drm_irq_uninstall(dev);
 		dev_priv->enable_hotplug_processing = false;
 
 		intel_disable_gt_powersave(dev);
@@ -534,6 +533,8 @@ static int i915_drm_freeze(struct drm_device *dev)
 			dev_priv->display.crtc_disable(crtc);
 		}
 		drm_modeset_unlock_all(dev);
+
+		drm_irq_uninstall(dev);
 
 		intel_modeset_suspend_hw(dev);
 	}
