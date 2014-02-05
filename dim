@@ -167,40 +167,6 @@ function dim_checkpatch # $1 is the git sha1 to check
 	git show $1 | grep '^\+.*drm_i915_private_t' > /dev/null && echo -e "\n\nWARNING: New drm_i915_private_t added\n" || true
 }
 
-function prep_testing # $1 kernel branch to test
-{
-	check_repo_clean ~/xorg/intel-gpu-tools/ i-g-t
-	check_repo_clean ~/xorg/piglit/ piglit
-	check_repo_clean $prefix/src Kernel
-	check_repo_clean ~/xorg/drm libdrm
-
-	cd ~/xorg/drm
-	git checkout master
-	git pull --rebase
-	./autogen.sh && make -j 4
-
-	cd ~/xorg/piglit
-	git checkout master
-	git pull --rebase
-	cmake -DPIGLIT_USE_WAFFLE=OFF . && make -j 4
-	cd bin
-	ln ../../intel-gpu-tools igt -s || true
-
-	cd ~/xorg/intel-gpu-tools/
-	git checkout master
-	git pull --rebase
-	./autogen.sh && make -j 4
-
-	cd $prefix/src
-	git remote update || true
-	git checkout $1
-	make olddefconfig
-	make -j 4
-
-	BASH_ENV=~/.bashrc su -c "/root/bin/lkinst ; reboot"
-
-}
-
 function prep_pull_mail_tags
 {
 	cat > ~/tmp/dim-pull-request <<-HERE
@@ -286,16 +252,6 @@ case "$1" in
 		cd -
 		make htmldocs
 		scp -r Documentation/DocBook/drm annarchy.freedesktop.org:~/public_html
-		;;
-	prep-branch|pb)
-		if [ "x$2" == "x" ] ; then
-			prep_testing HEAD
-		else
-			prep_testing $2
-		fi
-		;;
-	prep-nightly|pn)
-		prep_testing danvet/drm-intel-nightly
 		;;
 	nightly-forget)
 		cd $prefix/drm-intel-nightly
@@ -528,17 +484,6 @@ case "$1" in
 		setup prefix
 
 		Setup git maintainer branches in the given prefix.
-
-		prep-branch|pb [commit-ish|branch]
-
-		Prepare i-g-t/piglit and kernel for testing branch, defaulting
-		to HEAD of $prefix/src. Last command asks for root pw to install
-		the kernel and then reboot.
-
-		prep-nightly|pn
-
-		Prepare i-g-t/piglit and kernel for testing nightly. Last
-		command asks for root pw to install the kernel and then reboot.
 
 		nightly-forget
 

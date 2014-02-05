@@ -4,7 +4,7 @@ _dim ()
 {
 	local cur cmds
 
-	cmds="setup prep-branch pb prep-nightly pn nightly-forget update-branches"
+	cmds="setup nightly-forget update-branches"
 	cmds="$cmds rebuild-nightly push-queued pq push-fixes co cof"
 	cmds="$cmds apply-branch apply-queued aq apply-fixes af magic-patch mp"
 	cmds="$cmds apply-igt ai"
