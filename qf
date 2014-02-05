@@ -1,0 +1,634 @@
+#!/bin/bash
+
+# Copyright © 2013,2014 Intel Corporation
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice (including the next
+# paragraph) shall be included in all copies or substantial portions of the
+# Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+# IN THE SOFTWARE.
+#
+# Authors:
+#    Daniel Vetter <daniel.vetter@ffwll.ch>
+
+# quilt git flow script
+
+# TODO
+# - get better at preventing and cleaning up a mess when switching branches
+# while there's still applied quilt patches around ...
+# - list quilt branches
+# - bash completion (do this late once the workflow has stabilized a bit)
+# - combine quilt annotate and git blame into one tool
+# - use the index a bit more to e.g. stage all applied quilt patches, then use
+# the output of git diff to refresh a quilt patch
+# - use git commit-tree and git write-tree in the setup code instead of the
+# current high-level hacks
+# - track/restore the topmost patch maybe?
+# - qf pull ... maybe needs a git checkout --no-apply
+# - synchronize quilt notes in qf push and qf fetch
+
+# config
+QUILT_PREFIX=quilt/
+
+# fail on any goof-up
+set -e
+
+function cd_toplevel
+{
+	cd `git rev-parse --show-toplevel`
+
+	if [ -f series ] ; then
+		cd ..
+
+		if [[ $PWD != `git rev-parse --show-toplevel` ]] ; then
+			echo No git repo in parent directory of series file
+			exit 1
+		fi
+	fi
+
+	if [[ -f patches/series ]] ; then
+		if [[ $PWD/patches != `cd patches ; git rev-parse --show-toplevel` ]] ; then
+			echo No git repo found in quilt series directory
+			exit 2
+		fi
+	else
+		echo No quilt series file found
+		exit 3
+	fi
+}
+
+function quiet_pop_all
+{
+	echo Popping patches ...
+	quilt pop -a -q $@ > /dev/null || test $? = 2
+}
+
+function repo_check # allow-detached
+{
+	cd patches
+	quilt_branch=`git rev-parse --abbrev-ref HEAD`
+	branch=${quilt_branch#$QUILT_PREFIX}
+
+	if [[ ! $1 ]] ; then
+		if ! git branch | grep $quilt_branch &> /dev/null ; then
+			echo quilt branch not found
+			exit 5
+		fi
+
+		cd ..
+
+		if ! git branch | grep $branch &> /dev/null ; then
+			echo git branch not found
+			exit 6
+		fi
+	else
+		cd ..
+	fi
+
+	baseline=`source patches/config ; echo $BASELINE`
+
+	if [[ `git rev-parse HEAD` != $baseline ]] ; then
+		echo Baseline commit doesn\'t match with quilt config
+		exit 7
+	fi
+}
+
+function checkout_baseline
+{
+	echo Updating baseline repo to $baseline
+	if ! git checkout --detach $baseline &> /dev/null ; then
+		echo Baseline checkout failed, please clean up first
+		exit 10
+	fi
+	git reset --hard &> /dev/null
+}
+
+function repo_init
+{
+	# setup changes for baseline rep
+	# reflog only works if there's already a file there ...
+	touch .git/logs/refs/QUILT_EXPORT
+
+	# setup for quilt patch repo
+	git clone --local --no-checkout -- . patches
+	cd patches
+	git remote remove origin
+
+	# include remotes and branches and all that from parent repo
+	git config include.path ../../.git/config
+	cd ..
+}
+
+function branch_init
+{
+	git config --replace-all remote.$remote.fetch \
+		refs/baselines/$branch/*:refs/baselines/$branch/* \
+		^refs/baselines/$branch/
+
+	cd patches
+	git config remote.$remote.fetch +refs/quilts/*:refs/remote-quilts/$remote/*
+	git fetch $remote &> /dev/null
+
+	if git rev-parse refs/remote-quilts/$remote/$branch &> /dev/null ; then
+		echo Creating quilt branch $quilt_branch for existing remote
+		git checkout -b $quilt_branch refs/remote-quilts/$remote/$branch
+	else
+		echo Creating new quilt branch $quilt_branch
+		# big trickery to get an empty commit
+		git checkout -q --orphan $quilt_branch > /dev/null
+		git rm -rf * > /dev/null
+		git ls-files | xargs git rm -rf > /dev/null
+		touch series
+		echo BASELINE=$baseline > config
+		cat > .gitignore <<-HERE
+		*~
+		.*
+		HERE
+		git add series .gitignore config -f
+		git c -m "Initial quilt commit" -m "Baseline: $baseline"
+	fi
+
+	# set the quilts upstream
+	git config branch.$quilt_branch.remote $remote
+	git config branch.$quilt_branch.merge refs/quilts/$branch
+}
+
+function quilt_clean_check
+{
+	local current_top=`quilt top`
+
+	if [[ -n `quilt unapplied $current_top` ]] ; then
+		echo Unapplied quilt patches, aborting.
+		exit 9
+	fi
+
+	local quilt_changes=`cd patches ; git status --porcelain`
+
+	if [[ -n $quilt_changes ]] ; then
+		echo Uncommitted changes in the quilt patch repo, aborting.
+		exit 19
+	fi
+}
+
+case "$1" in
+	setup)
+		cd `git rev-parse --show-toplevel`
+
+		if [[ -d patches ]] ; then
+			if [[ ! -d patches/.git ]] ; then
+				echo patches/ directory exists, but not initialized.
+				echo Please fix manually.
+				exit 11
+			fi
+
+			echo Quilt repo already set up.
+		else
+			repo_init
+		fi
+
+
+		if [[ -n $2 ]] ; then
+			if ! git branch | grep $2 &> /dev/null ; then
+				echo $2 is not a branch in the main repo, aborting.
+				exit 13
+			fi
+
+			branch=$2
+			quilt_branch=$QUILT_PREFIX$branch
+			baseline=`git rev-parse $2`
+			remote=`git config branch.$branch.remote`
+
+			branch_init $3
+		fi
+		;;
+	checkout|co)
+		cd_toplevel
+
+		cd patches
+		# -q to avoid status checks - the strange remote situation
+		# confuses git and takes forever to analyze
+		if git rev-parse $2 &> /dev/null ; then
+			# raw mode
+			quilt_branch=$2
+		else
+			# quilt branch mode
+			quilt_branch=$QUILT_PREFIX$2
+		fi
+		git checkout $quilt_branch -q
+		cd ..
+		# error code 2 means no patches removed, which is ok
+		quiet_pop_all -f
+		baseline=`source patches/config ; echo $BASELINE`
+		checkout_baseline
+		quilt push -a -q > /dev/null
+		echo Now at `quilt top`
+		;;
+	rebase)
+		cd_toplevel
+		repo_check 0
+
+		if [[ -z $2 ]] ; then
+			echo No commit given
+			exit 4
+		fi
+
+		new_baseline=`git rev-parse $2`
+
+		current_top=`quilt top`
+		quiet_pop_all
+		echo Resetting baseline to $new_baseline
+		git reset --hard $new_baseline
+		sed -e "s/BASELINE=.*$/BASELINE=$new_baseline/" -i patches/config
+		git update-ref refs/baselines/$branch/$new_baseline $new_baseline
+
+		quilt push $current_top -q
+
+		;;
+	refresh)
+		cd_toplevel
+		repo_check 0
+
+		changed_files=`qf git status --porcelain | wc -l`
+
+		if [[ $changed_files -gt 0 ]] ; then
+			echo Quilt patch dir not clean, aborting
+			exit
+		fi
+
+		quiet_pop_all
+
+		while quilt push ; do
+			quilt refresh
+		done
+
+		# ignore "nothing to commit"
+		qf git commit -a -m "Refreshing all patches." || true
+		;;
+	clean-patches)
+		cd_toplevel
+		repo_check 0
+
+		for patch in patches/*.patch ; do
+			if grep "^${patch##patches/}$" patches/series &> /dev/null ; then
+				continue
+			fi
+			echo No reference to $patch, deleting it.
+			rm $patch
+		done
+		;;
+	export)
+		cd_toplevel
+		repo_check 0
+		quilt_clean_check
+
+		username=$GIT_COMMMITTER_NAME
+		username=${username+`git config user.name || true`}
+		username=${username+`getent passwd $USER | cut -d: -f 5 | cut -d, -f 1 || true`}
+		useremail=$GIT_COMMMITTER_EMAIL
+		useremail=${username+`git config user.email || true`}
+		useremail=${username+$EMAIL}
+
+		if [[ -z $useremail || -z $username ]] ; then
+			echo User name/email not found, please fix your config
+			exit 17
+		fi
+
+		echo Exporting quilt pile $branch
+
+		quiet_pop_all
+
+		git reset --hard
+		if [[ $quilt_branch = HEAD ]] ; then
+			git checkout --detach
+		else
+			git checkout -B $branch
+		fi
+
+		git quiltimport --author "$username <$useremail>"
+
+		quilt_ref=`cd patches ; git rev-parse --abbrev-ref HEAD`
+		quilt_sha_abbrev=`cd patches ; git rev-parse --short HEAD`
+		quilt_sha=`cd patches ; git rev-parse HEAD`
+
+		git update-ref -m "export $quilt_ref:$quilt_sha_abbrev to $branch" refs/QUILT_EXPORT `git rev-parse HEAD`
+		git notes --ref quilt add -m "Quilt-Commit: $quilt_sha" $branch
+
+		checkout_baseline
+
+		quilt push -a -q
+
+		;;
+	export-visualize|ev)
+		cd_toplevel
+		repo_check 1
+
+		gitk QUILT_EXPORT ^$baseline
+		;;
+	push)
+		cd_toplevel
+		repo_check 0
+		quilt_clean_check
+
+		remote=`git config branch.$branch.remote`
+
+		export_quilt_sha=`git notes --ref=quilt show $branch | grep Quilt-Commit | cut -d ' ' -f 2`
+		quilt_sha=`cd patches ; git rev-parse $quilt_branch`
+
+		if [[ $export_quilt_sha != $quilt_sha ]] ; then
+			echo Quilt export is out of date, aborting
+			echo $export_quilt_sha
+			echo $quilt_sha
+			exit 18
+		fi
+
+		cd patches
+		git push $remote
+		cd ..
+
+		# The exported branch is a rebasing one, so force the push.
+		# Everything else shouldn't ever need a force-push.
+		git push $remote $branch -f
+
+		git push $remote refs/baselines/$branch/*:refs/baselines/$branch/*
+		;;
+	fetch)
+		cd_toplevel
+		repo_check 0
+
+		remote=`git config branch.$branch.remote`
+
+		cd patches
+		git fetch $remote
+		cd ..
+
+		git fetch $remote
+
+		git fetch $remote
+		;;
+	stage)
+		cd_toplevel
+		repo_check 1
+
+		git reset --mixed &> /dev/null
+		quilt applied 2> /dev/null | xargs git apply --cached
+		echo All applied patches successfully staged
+		;;
+	wiggle-push|wp)
+		cd_toplevel
+		repo_check 1
+
+		conflict_files=`quilt push -f | grep "saving rejects" | sed -e "s/.*saving rejects to file \(.*\)/\1/"`
+
+		if [[ $conflict_files != "" ]] ; then
+			echo conflicts found!
+		fi
+
+		for file in $conflict_files ; do
+			echo wiggling in ${file%.rej}:
+			#cat $file
+			rm -f ${file%.rej}.porig
+			wiggle -r ${file%.rej} $file || true
+		done
+		;;
+	apply)
+		if [[ "$2" == "" ]] ; then
+			echo No patch name given, aborting.
+			exit
+		fi
+		patch_name=$2.patch
+		quilt import -P $patch_name /proc/self/fd/0
+		quilt push
+		qf git add $patch_name
+		qf patch-amend
+		;;
+	patch-amend|pa)
+		cd_toplevel
+		repo_check 1
+
+		gvim `quilt top`
+		;;
+	list-unused-patches)
+		cd_toplevel
+		repo_check 1
+
+		for patch in patches/*.patch ; do
+			if ! grep "^${patch#patches/}$" patches/series > /dev/null ; then
+				if [[ "$2" != --purge ]] ; then
+					echo $patch
+				else
+					echo deleting $patch
+					rm $patch
+				fi
+			fi
+		done
+		;;
+	baseline)
+		cd_toplevel
+		repo_check 1
+
+		echo $baseline
+		;;
+	git|g)
+		cd_toplevel
+		cd patches
+		shift
+		git "$@"
+		;;
+	gitk|k)
+		cd_toplevel
+		cd patches
+		shift
+		gitk "$@"
+		;;
+	help)
+		exec ${PAGER:-cat} <<-HERE
+		qf - quilt git flow script
+		==========================
+
+		Overview
+		--------
+
+		qf is a workflow script to manage a quilt patch pile on top of a
+		git baseline and track any changes in git itself. The quilt
+		patches and any other metadata is tracked in git refs outside of
+		the normal tag/branch namespace. The current baseline (as a git
+		commit sha1) of the quilt patch pile is also tracked. An
+		integral part is support to export the quilt patch to an git
+		branch in the baseline repository and push/fetch changes to the
+		remote linked to this branch.
+
+		Assuming there's already a branch "test" set up to track a
+		remote a quickstart overview (output omitted):
+
+		Gettting started
+		$ qf setup test
+		$ qf checkout test
+		This automatically either creates a new, empty patch pile or
+		checks out the state of an existing remote.
+
+		Committing changes and publishing the resulting git tree
+		$ qf git gui # commit any changes in the patch directory
+		$ qf export && qf push
+
+		Rebasing
+		$ qf baseline # print old baseline commit
+		$ qf rebase upstream
+		$ qf baseline # check new baseline commit
+
+		Following changes in upstream
+		$ qf fetch
+		$ qf git pull && qf checkout test
+		Doing only a git pull on the quilt branch leads to an
+		inconsitent state if the baseline changed.
+
+		Commands
+		--------
+
+		setup [branch-name]
+
+		Sets up a git repository for this quilt worflow script by
+		creating and initializing (if this isn't done yet) the git
+		repository in <git-root>/patches.
+
+		If a branch name is given it must exist in the baseline
+		repository. If so a quilt branch of the same name with
+		$QUILT_PREFIX is created and initialized (but without any
+		patches). The remote configuration is copied over from the
+		branch in the baseline repository.
+
+		If the quilt branch already exists in the remote the quilt then
+		it is initialized with the latest state (which is updated with
+		git fetch beforehand).
+
+		Before the newly created branch can be used it needs to be
+		checked out first.
+
+		checkout|co <commit-ish|quilt-branch>
+
+		Checks out the given branch/commit-ish (same rules as for git
+		checkout apply) in the patches directory. If you want to check
+		out an earlier revision you might need to run qf fetch first to
+		make sure that the base repo has all the baseline refs. When
+		checking out a branch it's not necessary to add the
+		$QUILT_PREFIX (quilt/ by default) to the branch name, the script
+		will complete the name automatically.
+
+		At the end all quilt patches will be pushed. Presuming the quilt
+		flow state hasn't been hand-edited or an incompletely pushed
+		quilt branch has been committed this will always succeed.
+
+		rebase <commit-ish>
+
+		Pops off all quilt patches, rebases the baseline to the given
+		commit and then reapplys all the quilt patches up to the same
+		patch as before. Then updates the BASELINE variable in
+		patches/config.
+
+		clean-patches
+
+		Removes all unused patch files from the patches/ directory.
+
+		refresh
+
+		Refreshes all the quilt patches up to the currently applied
+		patch. Then it commits a wash-up commit with all the refreshed
+		patches. The command aborts if there are uncommited changes in
+		the patches repository.
+
+		export
+
+		Flattens the current quilt branch and exports it into the
+		respective git branch in the base tree.
+
+		The reflog'ed QUILT_EXPORT is always updated with the result of
+		the export. This is useful to export when in the detached HEAD
+		state in the quilt repository hence there's no branch to export
+		to.
+
+		export-visualize|ev
+
+		Visualizes the latest export result using gitk, down to the
+		current baseline.
+
+		push
+
+		Exports the tree and then pushes both the quilt branch, the
+		exported branch and any new baselines to the respective remotes.
+
+		fetch
+
+		Fetches both the main and patches barnch remotes and pulls all
+		the baseline refs into the main repo.
+
+		stage
+
+		Resets the git index and then (re-)applies all currently applied
+		quilt patches to it. Useful to use git tools like git diff to
+		compare changes against the quilt patch state.
+
+		wiggle-push|wp
+
+		Force-push the next patch and then wiggle in any conflicts. Does
+		not refresh the patch automatically, so that the conflict
+		resolution can be cross-checked.
+
+		apply patch-name
+
+		Adds a patch to the quilt series and tries to push it.
+
+		patch-amend|pa
+
+		Open the top most patch in the editor directly to e.g. amend the
+		commit message.
+
+		list-unused-patches [--purge]
+
+		Lists unused patches and if --purge is specified deletes them.
+		Since the quilt patch pile is managed with git itself nothing
+		should get lost.
+
+		baseline
+
+		Prints out the current baseline sha1.
+
+		git|g [args]
+
+		Run git with the given arguments in the quilt patches directory.
+
+		IMPORTANT:
+
+		Any other subcommands are executed directly in the quilt patches
+		directory as git commans. When using quilt flow in scripts it is
+		import to use the explicit forwarding to avoid clashes with
+		furture extensions.
+
+		gitk|k [args]
+
+		Run gitk with the given argumenst in the quilt patches
+		directory.
+
+		help
+
+		This help text here
+		HERE
+
+		;;
+	*)
+		cd_toplevel
+		cd patches
+		git "$@"
+		;;
+esac
