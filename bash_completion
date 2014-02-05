@@ -71,7 +71,7 @@ _qf ()
 	local cur cmds
 
 	cmds="setup checkout co rebase refresh clean-patches export export-visualize ev"
-	cmds="$cmds push fetch stage wiggle-push wp apply patch-amend pa"
+	cmds="$cmds push fetch stage wiggle-push resolved wp apply patch-amend pa"
 	cmds="$cmds list-unused-patches baseline git g gitk k help"
 
 

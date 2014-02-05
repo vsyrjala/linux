@@ -403,6 +403,10 @@ case "$1" in
 			wiggle -r ${file%.rej} $file || true
 		done
 		;;
+	resolved)
+		quilt refresh
+		quilt header -e
+		;;
 	apply)
 		if [[ "$2" == "" ]] ; then
 			echo No patch name given, aborting.
@@ -584,6 +588,12 @@ case "$1" in
 		Force-push the next patch and then wiggle in any conflicts. Does
 		not refresh the patch automatically, so that the conflict
 		resolution can be cross-checked.
+
+		resolved
+
+		Little helper when a patch conflict was resolved. First
+		refreshes the topmost patch, then fires up vim to edit the
+		headers.
 
 		apply patch-name
 
