@@ -1,0 +1,88 @@
+#! /bin/bash
+
+_dim ()
+{
+	local cur cmds
+
+	cmds="setup prep-branch pb prep-nightly pn nightly-forget update-branches"
+	cmds="$cmds rebuild-nightly push-queued pq push-fixes co cof"
+	cmds="$cmds apply-branch apply-queued aq apply-fixes af magic-patch mp"
+	cmds="$cmds apply-igt ai"
+	cmds="$cmds magic-rebase-resolve mrr"
+	cmds="$cmds apply-resolved ar tc check-patch cp"
+	cmds="$cmds pull-request pull-request-fixes pull-request-topic update-next"
+	cmds="$cmds upload-docs checker maintainer-stats ms"
+
+	COMPREPLY=()   # Array variable storing the possible completions.
+	cur=${COMP_WORDS[COMP_CWORD]}
+
+	if [[ $COMP_CWORD == "1" ]] ; then
+		COMPREPLY=( $( compgen -W "$cmds" -- $cur ) )
+		return 0
+	fi
+
+	case "${COMP_WORDS[1]}" in
+		prep-branch|pb)
+			# needs a git sha1
+			;;
+		prep-nightly|pn)
+			;;
+		nightly-forget)
+			;;
+		update-branches|ub)
+			;;
+		push-queued|pq|push-fixes|pf)
+			COMPREPLY=( $( compgen -W "-f" -- $cur ) )
+			;;
+		co)
+			;;
+		cof)
+			;;
+		apply-queued|aq|apply-fixes|af)
+			COMPREPLY=( $( compgen -W "-s" -- $cur ) )
+			;;
+		apply-resolved|ar)
+			;;
+		magic-patch|mp)
+			;;
+		tc)
+			# needs a git sha1
+			;;
+		check-patch|cp)
+			# needs a git sha1
+			;;
+		pull-request|pull-request-fixes)
+			COMPREPLY=( $( compgen -W "origin/master airlied/drm-next airlied/drm-fixes" -- $cur ) )
+			;;
+		update-next)
+			;;
+		checker)
+			;;
+		maintainer-stats|ms)
+			;;
+	esac
+
+	return 0
+}
+complete -F _dim dim
+
+_qf ()
+{
+	local cur cmds
+
+	cmds="setup checkout co rebase refresh clean-patches export export-visualize ev"
+	cmds="$cmds push fetch stage wiggle-push wp apply patch-amend pa"
+	cmds="$cmds list-unused-patches baseline git g gitk k help"
+
+
+	COMPREPLY=()   # Array variable storing the possible completions.
+	cur=${COMP_WORDS[COMP_CWORD]}
+
+	if [[ $COMP_CWORD == "1" ]] ; then
+		COMPREPLY=( $( compgen -W "$cmds" -- $cur ) )
+		return 0
+	fi
+
+	return 0
+}
+complete -F _qf qf
