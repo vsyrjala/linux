@@ -554,8 +554,8 @@ case "$1" in
 		Rebuilds the nightly branch. Useful when ad-hoc trees are
 		included in -nightly.
 
-		push-queued|pq
-		push-fixes|pf
+		push-queued|pq [git push arguments]
+		push-fixes|pf [git push arguments]
 
 		Updates the drm-intel-fixes or the drm-intel-next-queued branch
 		respectively. Complains if that's not the current branch,
