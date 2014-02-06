@@ -36,17 +36,33 @@
 # fail on any goof-up
 set -e
 
+#
+# User configuration. Set in environment or configuration file.
+#
+
+# dim configuration file
+DIM_CONFIG=${DIM_CONFIG:-$HOME/.dimrc}
+if [ -r $DIM_CONFIG ]; then
+    . $DIM_CONFIG
+fi
+
+# prefix for repo directories
+DIM_PREFIX=${DIM_PREFIX:-$HOME/linux}
+
+#
+# Internal configuration.
+#
+
 today=`date +%Y-%m-%d`
 nightly_branches="origin/drm-intel-next-queued origin/drm-intel-fixes"
 nightly_branches="$nightly_branches drm-upstream/drm-next drm-upstream/drm-fixes"
 nightly_branches="$nightly_branches origin/topic/core-stuff"
 
-prefix=~/linux
 drm_intel_git=ssh://git.freedesktop.org/git/drm-intel
 
 function update_linux_next
 {
-	cd $prefix/src
+	cd $DIM_PREFIX/src
 
 	if git grep "EXTRAVERSION.*=" origin/master Makefile | grep rc > /dev/null ; then
 		echo linux-next: -rc phase
@@ -96,7 +112,7 @@ function update_nightly
 	local time=`date +%Yy-%mm-%dd-%Hh-%Mm-%Ss`
 	local first=1
 
-	cd $prefix/$integration_branch
+	cd $DIM_PREFIX/$integration_branch
 	# git fetch returns 128 if there's nothing to be fetched
 	git fetch origin >& /dev/null || true
 	# don't auto-fetch drm-upstream to avoid including -rc1 too early
@@ -130,11 +146,11 @@ function update_nightly
 
 	git push origin +HEAD >& /dev/null && echo "$integration_branch branch successfully updated"
 
-	cd $prefix/drm-intel-rerere/
+	cd $DIM_PREFIX/drm-intel-rerere/
 	if git branch | grep rerere-cache | grep '\*' >& /dev/null ; then
 		git pull >& /dev/null
 		git rm *.patch >& /dev/null || true
-		cp $prefix/$integration_branch/.git/rr-cache/* rr-cache -r
+		cp $DIM_PREFIX/$integration_branch/.git/rr-cache/* rr-cache -r
 		cp ../$integration_branch*fixup.patch . >& /dev/null || true
 		git add *.patch >& /dev/null || true
 		git rm dim qf &> /dev/null || true
@@ -205,7 +221,7 @@ function prep_pull_mail
 
 function setup_dim
 {
-	cd $prefix
+	cd $DIM_PREFIX
 
 	drm_upstream_git=git://people.freedesktop.org/~airlied/linux
 
@@ -241,7 +257,7 @@ function setup_dim
 	fi
 }
 
-cd $prefix/src
+cd $DIM_PREFIX/src
 
 case "$1" in
 	setup)
@@ -254,7 +270,7 @@ case "$1" in
 		scp -r Documentation/DocBook/drm annarchy.freedesktop.org:~/public_html
 		;;
 	nightly-forget)
-		cd $prefix/drm-intel-nightly
+		cd $DIM_PREFIX/drm-intel-nightly
 		git fetch origin >& /dev/null
 		git reset --hard origin/drm-intel-next-queued >& /dev/null
 		git merge origin/drm-intel-fixes
@@ -262,7 +278,7 @@ case "$1" in
 		;;
 	update-branches|ub)
 		git fetch danvet
-		check_repo_clean $prefix/src Kernel
+		check_repo_clean $DIM_PREFIX/src Kernel
 		dim co
 		git rebase -i danvet/drm-intel-next-queued
 		dim cof
@@ -271,11 +287,11 @@ case "$1" in
 		git reset --hard danvet/drm-intel-next
 		# TODO: Restore -nightly merge state from the rerere-cache
 		# branch
-		test -d $prefix/drm-intel-rerere/ || mkdir ~/linux/drm-intel-rerere/
-		cd $prefix/drm-intel-rerere/
-		cp rr-cache/* $prefix/drm-intel-nightly/.git/rr-cache/ -r
-		rm $prefix/*fixup.patch &> /dev/null || true
-		cp *.patch $prefix &> /dev/null || true
+		test -d $DIM_PREFIX/drm-intel-rerere/ || mkdir $DIM_PREFIX/drm-intel-rerere/
+		cd $DIM_PREFIX/drm-intel-rerere/
+		cp rr-cache/* $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ -r
+		rm $DIM_PREFIX/*fixup.patch &> /dev/null || true
+		cp *.patch $DIM_PREFIX &> /dev/null || true
 		;;
 	rebuild-nightly)
 		update_nightly
@@ -409,7 +425,7 @@ case "$1" in
 		mutt -s '[PULL] topic' 'airlied' -c intel-gfx -c dri-devel -i ~/tmp/dim-pull-request
 		;;
 	update-next)
-		cd $prefix/src
+		cd $DIM_PREFIX/src
 		git fetch danvet
 		if ! git branch --merged danvet/drm-intel-nightly | grep drm-intel-fixes &> /dev/null ; then
 			echo "drm-intel-fixes not merged into -nigthly, please update!"
