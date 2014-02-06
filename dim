@@ -52,6 +52,9 @@ DIM_PREFIX=${DIM_PREFIX:-$HOME/linux}
 # main maintainer repo under $DIM_PREFIX
 DIM_DRM_INTEL=${DIM_DRM_INTEL:-src}
 
+# name of the $drm_intel_git remote within $DIM_DRM_INTEL
+DIM_DRM_INTEL_REMOTE=${DIM_DRM_INTEL_REMOTE:-danvet}
+
 #
 # Internal configuration.
 #
@@ -71,18 +74,18 @@ function update_linux_next
 		echo linux-next: -rc phase
 		if [[ $1 == queued ]] ; then
 			echo Updating for-linux-next to -queued and updating for-linux-next-fixes
-			git push danvet +drm-intel-next-queued:for-linux-next >& /dev/null
-			git push danvet +drm-intel-fixes:for-linux-next-fixes >& /dev/null
+			git push $DIM_DRM_INTEL_REMOTE +drm-intel-next-queued:for-linux-next >& /dev/null
+			git push $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next-fixes >& /dev/null
 		fi
 		if [[ $1 == fixes ]] ; then
 			echo Updating for-linux-next-fixes
-			git push danvet +drm-intel-fixes:for-linux-next-fixes >& /dev/null
+			git push $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next-fixes >& /dev/null
 		fi
 	else
 		echo linux-next: merge window
 		if [[ $1 == fixes ]] ; then
 			echo Updating for-linux-next to -fixes
-			git push danvet +drm-intel-fixes:for-linux-next >& /dev/null
+			git push $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next >& /dev/null
 		fi
 	fi
 }
@@ -280,14 +283,14 @@ case "$1" in
 		git rerere forget
 		;;
 	update-branches|ub)
-		git fetch danvet
+		git fetch $DIM_DRM_INTEL_REMOTE
 		check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
 		dim co
-		git rebase -i danvet/drm-intel-next-queued
+		git rebase -i $DIM_DRM_INTEL_REMOTE/drm-intel-next-queued
 		dim cof
-		git rebase -i danvet/drm-intel-fixes
+		git rebase -i $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
 		git checkout drm-intel-next
-		git reset --hard danvet/drm-intel-next
+		git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
 		# TODO: Restore -nightly merge state from the rerere-cache
 		# branch
 		test -d $DIM_PREFIX/drm-intel-rerere/ || mkdir $DIM_PREFIX/drm-intel-rerere/
@@ -302,7 +305,7 @@ case "$1" in
 	push-queued|pq)
 		if git branch | grep drm-intel-next-queued | grep '\*' ; then
 			shift
-			git push danvet	drm-intel-next-queued $@
+			git push $DIM_DRM_INTEL_REMOTE	drm-intel-next-queued $@
 
 			update_nightly
 			update_linux_next queued
@@ -313,7 +316,7 @@ case "$1" in
 	push-fixes|pf)
 		if git branch | grep drm-intel-fixes | grep '\*' ; then
 			shift
-			git push danvet	drm-intel-fixes  $@
+			git push $DIM_DRM_INTEL_REMOTE	drm-intel-fixes  $@
 
 			update_nightly
 			update_linux_next fixes
@@ -397,7 +400,7 @@ case "$1" in
 		# generate tag list
 		drm_intel_next_tags=`git log drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
 		prep_pull_mail_tags $drm_intel_next_tags
-		git request-pull $upstream $drm_intel_git danvet/drm-intel-next >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-next >> ~/tmp/dim-pull-request
 		mutt -s '[PULL] drm-intel-next' 'airlied' -c intel-gfx -c dri-devel -i ~/tmp/dim-pull-request
 		;;
 	pull-request-fixes)
@@ -406,10 +409,10 @@ case "$1" in
 			upstream=$2
 		fi
 		echo Using $upstream as the upstream
-		git tag -f drm-intel-fixes-$today danvet/drm-intel-fixes
-		git push -f danvet drm-intel-fixes-$today
+		git tag -f drm-intel-fixes-$today $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
+		git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
 		prep_pull_mail
-		git request-pull $upstream $drm_intel_git danvet/drm-intel-fixes >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-fixes >> ~/tmp/dim-pull-request
 		mutt -s '[PULL] drm-intel-fixes' 'airlied' -c intel-gfx -c dri-devel -i ~/tmp/dim-pull-request
 		;;
 	pull-request-topic)
@@ -424,30 +427,30 @@ case "$1" in
 			no upstream given
 		fi
 		prep_pull_mail
-		git request-pull $upstream $drm_intel_git danvet/$branch >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/$branch >> ~/tmp/dim-pull-request
 		mutt -s '[PULL] topic' 'airlied' -c intel-gfx -c dri-devel -i ~/tmp/dim-pull-request
 		;;
 	update-next)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
-		git fetch danvet
-		if ! git branch --merged danvet/drm-intel-nightly | grep drm-intel-fixes &> /dev/null ; then
+		git fetch $DIM_DRM_INTEL_REMOTE
+		if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-fixes &> /dev/null ; then
 			echo "drm-intel-fixes not merged into -nigthly, please update!"
 			exit 2
 		fi
-		if ! git branch --merged danvet/drm-intel-nightly | grep drm-intel-next-queued &> /dev/null ; then
+		if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-next-queued &> /dev/null ; then
 			echo "drm-intel-next-queued not merged into -nigthly, please update!"
 			exit 2
 		fi
 
 		gitk drm-intel-next-queued ^airlied/drm-next &
 
-		git push danvet drm-intel-next-queued:drm-intel-next
+		git push $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
 		tag=drm-intel-next-$today
-		git tag -f -a $tag danvet/drm-intel-next
-		git push -f danvet $tag
+		git tag -f -a $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
+		git push -f $DIM_DRM_INTEL_REMOTE $tag
 
 		echo "Updating -testing to latest -nightly"
-		git push danvet +danvet/drm-intel-nightly:drm-intel-testing
+		git push $DIM_DRM_INTEL_REMOTE +$DIM_DRM_INTEL_REMOTE/drm-intel-nightly:drm-intel-testing
 
 		cat > ~/tmp/test-request <<-HERE
 		Hi all,
@@ -476,19 +479,19 @@ case "$1" in
 		;;
 	maintainer-stats|ms)
 		since='--since="1 month ago"'
-		git fetch danvet &> /dev/null
+		git fetch $DIM_DRM_INTEL_REMOTE &> /dev/null
 		git fetch airlied &> /dev/null
 		echo Maintainer statistics for roughly the past month:
-		patches=`git log danvet/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" "$since" --pretty=oneline | wc -l`
-		bugs=`git log danvet/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" "$since" | grep '\(Bug\w*:\|Referen\w*:\)' | wc -l`
-		regression=`git log danvet/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" --grep="regress" --all-match "$since" --pretty=onelin | wc -l`
+		patches=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" "$since" --pretty=oneline | wc -l`
+		bugs=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" "$since" | grep '\(Bug\w*:\|Referen\w*:\)' | wc -l`
+		regression=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" --grep="regress" --all-match "$since" --pretty=onelin | wc -l`
 		echo $patches patches merged, referencing $bugs reported issues and fixing $regression regressions
 		pulls=`git log --grep='Merge \(branch\|tag\).*danvet' "$since" --pretty=oneline airlied/drm-next | wc -l`
 		echo $pulls pull requests merged by upstream drm maintainer Dave Airlie
-		nexts=`git log danvet/drm-intel-nightly --decorate "$since" | grep "tag: drm-intel-next-[0-9-]*[,)]" | wc -l`
+		nexts=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly --decorate "$since" | grep "tag: drm-intel-next-[0-9-]*[,)]" | wc -l`
 		echo $nexts drm-intel-next feature slices sent off to QA for extended manual testing
 
-		kernel_patches=`git log danvet/drm-intel-nightly --author="Daniel Vetter" "$since" --pretty=oneline | wc -l`
+		kernel_patches=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly --author="Daniel Vetter" "$since" --pretty=oneline | wc -l`
 		cd ~/xorg/intel-gpu-tools
 		git fetch origin &> /dev/null
 		igt_patches=`git log origin/master --author="Daniel Vetter" "$since" --pretty=oneline | wc -l`
