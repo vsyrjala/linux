@@ -11,7 +11,7 @@ _dim ()
 	cmds="$cmds magic-rebase-resolve mrr"
 	cmds="$cmds apply-resolved ar tc check-patch cp"
 	cmds="$cmds pull-request pull-request-fixes pull-request-topic update-next"
-	cmds="$cmds upload-docs checker maintainer-stats ms"
+	cmds="$cmds upload-docs checker"
 
 	COMPREPLY=()   # Array variable storing the possible completions.
 	cur=${COMP_WORDS[COMP_CWORD]}

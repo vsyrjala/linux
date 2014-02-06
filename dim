@@ -499,27 +499,6 @@ case "$1" in
 		rm drivers/gpu/drm/i915/*.ko &> /dev/null || true
 		make C=1 drivers/gpu/drm/i915/i915.ko
 		;;
-	maintainer-stats|ms)
-		since='--since="1 month ago"'
-		git fetch $DIM_DRM_INTEL_REMOTE &> /dev/null
-		git fetch $DIM_DRM_UPSTREAM_REMOTE &> /dev/null
-		echo Maintainer statistics for roughly the past month:
-		patches=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" "$since" --pretty=oneline | wc -l`
-		bugs=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" "$since" | grep '\(Bug\w*:\|Referen\w*:\)' | wc -l`
-		regression=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" --grep="regress" --all-match "$since" --pretty=onelin | wc -l`
-		echo $patches patches merged, referencing $bugs reported issues and fixing $regression regressions
-		pulls=`git log --grep='Merge \(branch\|tag\).*danvet' "$since" --pretty=oneline $DIM_DRM_UPSTREAM_REMOTE/drm-next | wc -l`
-		echo $pulls pull requests merged by upstream drm maintainer Dave Airlie
-		nexts=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly --decorate "$since" | grep "tag: drm-intel-next-[0-9-]*[,)]" | wc -l`
-		echo $nexts drm-intel-next feature slices sent off to QA for extended manual testing
-
-		kernel_patches=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly --author="Daniel Vetter" "$since" --pretty=oneline | wc -l`
-		cd ~/xorg/intel-gpu-tools
-		git fetch origin &> /dev/null
-		igt_patches=`git log origin/master --author="Daniel Vetter" "$since" --pretty=oneline | wc -l`
-		echo
-		echo own patches merged into the kernel: $kernel_patches, intel-gpu-tools: $igt_patches
-		;;
 	*)
 		exec ${PAGER:-cat} <<-HERE
 		dim drm-intel maintainer script
@@ -637,10 +616,6 @@ case "$1" in
 		checker
 
 		Run sparse on the kernel.
-
-		maintainer-stats|ms
-
-		Gathers some maintainer statistics.
 		HERE
 
 		;;
