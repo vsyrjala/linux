@@ -49,6 +49,9 @@ fi
 # prefix for repo directories
 DIM_PREFIX=${DIM_PREFIX:-$HOME/linux}
 
+# main maintainer repo under $DIM_PREFIX
+DIM_DRM_INTEL=${DIM_DRM_INTEL:-src}
+
 #
 # Internal configuration.
 #
@@ -62,7 +65,7 @@ drm_intel_git=ssh://git.freedesktop.org/git/drm-intel
 
 function update_linux_next
 {
-	cd $DIM_PREFIX/src
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
 
 	if git grep "EXTRAVERSION.*=" origin/master Makefile | grep rc > /dev/null ; then
 		echo linux-next: -rc phase
@@ -257,7 +260,7 @@ function setup_dim
 	fi
 }
 
-cd $DIM_PREFIX/src
+cd $DIM_PREFIX/$DIM_DRM_INTEL
 
 case "$1" in
 	setup)
@@ -278,7 +281,7 @@ case "$1" in
 		;;
 	update-branches|ub)
 		git fetch danvet
-		check_repo_clean $DIM_PREFIX/src Kernel
+		check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
 		dim co
 		git rebase -i danvet/drm-intel-next-queued
 		dim cof
@@ -425,7 +428,7 @@ case "$1" in
 		mutt -s '[PULL] topic' 'airlied' -c intel-gfx -c dri-devel -i ~/tmp/dim-pull-request
 		;;
 	update-next)
-		cd $DIM_PREFIX/src
+		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		git fetch danvet
 		if ! git branch --merged danvet/drm-intel-nightly | grep drm-intel-fixes &> /dev/null ; then
 			echo "drm-intel-fixes not merged into -nigthly, please update!"
