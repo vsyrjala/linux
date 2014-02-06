@@ -1,0 +1,19 @@
+# Sample configuration file for dim. Place this at $HOME/.dimrc or point
+# DIM_CONFIG environment variable to it.
+#
+# Defaults are in the comments below.
+
+# Prefix for the repo directories. The prefix will contain
+# $DIM_DRM_INTEL, drm-intel-nightly, maintainer-tools, etc.
+#DIM_PREFIX=$HOME/linux
+
+# Name of the main maintainer repo under $DIM_PREFIX.
+#DIM_DRM_INTEL=src
+
+# Name of the remote for ssh://git.freedesktop.org/git/drm-intel within
+# $DIM_DRM_INTEL
+#DIM_DRM_INTEL_REMOTE=danvet
+
+# Name of the remote for git://people.freedesktop.org/~airlied/linux
+# within $DIM_DRM_INTEL
+#DIM_DRM_UPSTREAM_REMOTE=airlied

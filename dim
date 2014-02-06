@@ -31,13 +31,13 @@
 # - Improve docs/workflow for topic branches
 # - extract the integration tree logic and make it generally useful, maybe for a
 #   drm-integration tree ...
-# - add support to spec some of the config variables in a dotfile
 
 # fail on any goof-up
 set -e
 
 #
-# User configuration. Set in environment or configuration file.
+# User configuration. Set in environment or configuration file. See
+# dimrc.sample for an example.
 #
 
 # dim configuration file
