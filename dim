@@ -55,6 +55,9 @@ DIM_DRM_INTEL=${DIM_DRM_INTEL:-src}
 # name of the $drm_intel_git remote within $DIM_DRM_INTEL
 DIM_DRM_INTEL_REMOTE=${DIM_DRM_INTEL_REMOTE:-danvet}
 
+# name of the $drm_upstream_git remote within $DIM_DRM_INTEL
+DIM_DRM_UPSTREAM_REMOTE=${DIM_DRM_UPSTREAM_REMOTE:-airlied}
+
 #
 # Internal configuration.
 #
@@ -65,6 +68,7 @@ nightly_branches="$nightly_branches drm-upstream/drm-next drm-upstream/drm-fixes
 nightly_branches="$nightly_branches origin/topic/core-stuff"
 
 drm_intel_git=ssh://git.freedesktop.org/git/drm-intel
+drm_upstream_git=git://people.freedesktop.org/~airlied/linux
 
 function update_linux_next
 {
@@ -229,8 +233,6 @@ function setup_dim
 {
 	cd $DIM_PREFIX
 
-	drm_upstream_git=git://people.freedesktop.org/~airlied/linux
-
 	if [ ! -d maintainer-tools ]; then
 		git clone $drm_intel_git maintainer-tools
 	fi
@@ -391,7 +393,7 @@ case "$1" in
 		fi
 		;;
 	pull-request)
-		upstream=airlied/drm-next
+		upstream=$DIM_DRM_UPSTREAM_REMOTE/drm-next
 		if [[ "x$2" != "x" ]] ; then
 			upstream=$2
 		fi
@@ -442,7 +444,7 @@ case "$1" in
 			exit 2
 		fi
 
-		gitk drm-intel-next-queued ^airlied/drm-next &
+		gitk drm-intel-next-queued ^$DIM_DRM_UPSTREAM_REMOTE/drm-next &
 
 		git push $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
 		tag=drm-intel-next-$today
@@ -480,13 +482,13 @@ case "$1" in
 	maintainer-stats|ms)
 		since='--since="1 month ago"'
 		git fetch $DIM_DRM_INTEL_REMOTE &> /dev/null
-		git fetch airlied &> /dev/null
+		git fetch $DIM_DRM_UPSTREAM_REMOTE &> /dev/null
 		echo Maintainer statistics for roughly the past month:
 		patches=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" "$since" --pretty=oneline | wc -l`
 		bugs=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" "$since" | grep '\(Bug\w*:\|Referen\w*:\)' | wc -l`
 		regression=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly -i --grep="Signed.*Daniel Vetter" --grep="regress" --all-match "$since" --pretty=onelin | wc -l`
 		echo $patches patches merged, referencing $bugs reported issues and fixing $regression regressions
-		pulls=`git log --grep='Merge \(branch\|tag\).*danvet' "$since" --pretty=oneline airlied/drm-next | wc -l`
+		pulls=`git log --grep='Merge \(branch\|tag\).*danvet' "$since" --pretty=oneline $DIM_DRM_UPSTREAM_REMOTE/drm-next | wc -l`
 		echo $pulls pull requests merged by upstream drm maintainer Dave Airlie
 		nexts=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-nightly --decorate "$since" | grep "tag: drm-intel-next-[0-9-]*[,)]" | wc -l`
 		echo $nexts drm-intel-next feature slices sent off to QA for extended manual testing
