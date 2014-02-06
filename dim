@@ -69,6 +69,7 @@ nightly_branches="$nightly_branches origin/topic/core-stuff"
 
 drm_intel_git=ssh://git.freedesktop.org/git/drm-intel
 drm_upstream_git=git://people.freedesktop.org/~airlied/linux
+linux_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 
 function update_linux_next
 {
@@ -232,6 +233,25 @@ function prep_pull_mail
 function setup_dim
 {
 	cd $DIM_PREFIX
+
+	if [ ! -d $DIM_DRM_INTEL ]; then
+		echo "please set up $DIM_PREFIX/$DIM_DRM_INTEL (or update config)"
+		exit 1
+	fi
+	cd $DIM_DRM_INTEL
+	if ! git remote -v | grep "^origin[[:space:]]" | grep $linux_upstream_git > /dev/null; then
+		echo "please set up remote origin for $linux_upstream_git"
+		exit 1
+	fi
+	if ! git remote -v | grep "^$DIM_DRM_INTEL_REMOTE[[:space:]]" | grep $drm_intel_git > /dev/null; then
+		echo "please set up remote $DIM_DRM_INTEL_REMOTE for $drm_intel_git (or update config)"
+		exit 1
+	fi
+	if ! git remote -v | grep "^$DIM_DRM_UPSTREAM_REMOTE[[:space:]]" | grep $drm_upstream_git > /dev/null; then
+		echo "please set up remote $DIM_DRM_UPSTREAM_REMOTE for $drm_upstream_git (or update config)"
+		exit 1
+	fi
+	cd ..
 
 	if [ ! -d maintainer-tools ]; then
 		git clone $drm_intel_git maintainer-tools
