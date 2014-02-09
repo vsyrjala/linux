@@ -3782,6 +3782,38 @@ static int i915_debugfs_create(struct dentry *root,
 	return drm_add_fake_info_node(minor, ent, fops);
 }
 
+static bool irqs_disabled;
+
+static int
+i915_disable_irqs_get(void *data, u64 *val)
+{
+	*val = irqs_disabled;
+
+	return 0;
+}
+
+static int
+i915_disable_irqs_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+
+	if (!!val == irqs_disabled)
+		return 0;
+
+	irqs_disabled = !!val;
+
+	if (!irqs_disabled)
+		intel_runtime_pm_disable_interrupts(dev);
+	else
+		intel_runtime_pm_restore_interrupts(dev);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_disable_irqs_fops,
+			i915_disable_irqs_get, i915_disable_irqs_set,
+			"0x%llx\n");
+
 static const struct drm_info_list i915_debugfs_list[] = {
 	{"i915_capabilities", i915_capabilities, 0},
 	{"i915_gem_objects", i915_gem_object_info, 0},
@@ -3844,6 +3876,7 @@ static const struct i915_debugfs_files {
 	{"i915_pri_wm_latency", &i915_pri_wm_latency_fops},
 	{"i915_spr_wm_latency", &i915_spr_wm_latency_fops},
 	{"i915_cur_wm_latency", &i915_cur_wm_latency_fops},
+	{"i915_disable_irqs", &i915_disable_irqs_fops},
 };
 
 void intel_display_crc_init(struct drm_device *dev)
