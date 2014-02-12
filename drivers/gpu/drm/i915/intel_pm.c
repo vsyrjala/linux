@@ -463,6 +463,7 @@ void intel_update_fbc(struct drm_device *dev)
 	struct drm_i915_gem_object *obj;
 	const struct drm_display_mode *adjusted_mode;
 	unsigned int max_width, max_height;
+	unsigned int rotation;
 
 	if (!HAS_FBC(dev)) {
 		set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED);
@@ -557,8 +558,11 @@ void intel_update_fbc(struct drm_device *dev)
 		goto out_disable;
 	}
 
+	rotation = drm_rotation_chain(intel_crtc->pipe_rotation,
+				      intel_crtc->primary_rotation);
+
 	if (INTEL_INFO(dev)->gen <= 4 && !IS_G4X(dev) &&
-	    intel_crtc->primary_rotation != BIT(DRM_ROTATE_0)) {
+	    rotation != BIT(DRM_ROTATE_0)) {
 		if (set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED_MODE))
 			DRM_DEBUG_KMS("mode incompatible with compression, "
 				      "disabling\n");

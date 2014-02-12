@@ -1926,6 +1926,15 @@ void i915_driver_lastclose(struct drm_device * dev)
 		}
 	}
 
+	if (dev_priv->crtc_rotation_property) {
+		list_for_each_entry(crtc, &dev->mode_config.crtc_list, base.head) {
+			crtc->pipe_rotation = BIT(DRM_ROTATE_0);
+			drm_object_property_set_value(&crtc->base.base,
+						      dev_priv->crtc_rotation_property,
+						      crtc->pipe_rotation);
+		}
+	}
+
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
 		intel_fbdev_restore_mode(dev);
 		vga_switcheroo_process_delayed_switch();

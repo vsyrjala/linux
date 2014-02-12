@@ -341,6 +341,7 @@ struct intel_crtc {
 	enum plane plane;
 	unsigned int primary_rotation; /* primary plane in relation to the pipe */
 	unsigned int cursor_rotation; /* cursor plane in relation to the pipe */
+	unsigned int pipe_rotation; /* entire pipe */
 
 	u8 lut_r[256], lut_g[256], lut_b[256];
 	/*

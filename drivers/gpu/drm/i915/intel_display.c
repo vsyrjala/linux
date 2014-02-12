@@ -39,6 +39,7 @@
 #include "i915_trace.h"
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_rect.h>
 #include <linux/dma_remapping.h>
 
 static void intel_increase_pllclock(struct drm_crtc *crtc);
@@ -2060,6 +2061,8 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 	u32 dspcntr;
 	u32 reg;
 	int pixel_size;
+	unsigned int rotation = drm_rotation_chain(intel_crtc->pipe_rotation,
+						   intel_crtc->primary_rotation);
 
 	switch (plane) {
 	case 0:
@@ -2133,7 +2136,7 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		intel_crtc->dspaddr_offset = linear_offset;
 	}
 
-	if (intel_crtc->primary_rotation == BIT(DRM_ROTATE_180)) {
+	if (rotation == BIT(DRM_ROTATE_180)) {
 		dspcntr |= DISPPLANE_ROTATE_180;
 
 		x += (intel_crtc->config.pipe_src_w - 1);
@@ -2173,6 +2176,8 @@ static int ironlake_update_plane(struct drm_crtc *crtc,
 	u32 dspcntr;
 	u32 reg;
 	int pixel_size;
+	unsigned int rotation = drm_rotation_chain(intel_crtc->pipe_rotation,
+						   intel_crtc->primary_rotation);
 
 	switch (plane) {
 	case 0:
@@ -2238,7 +2243,7 @@ static int ironlake_update_plane(struct drm_crtc *crtc,
 					       fb->pitches[0]);
 	linear_offset -= intel_crtc->dspaddr_offset;
 
-	if (intel_crtc->primary_rotation == BIT(DRM_ROTATE_180)) {
+	if (rotation == BIT(DRM_ROTATE_180)) {
 		dspcntr |= DISPPLANE_ROTATE_180;
 
 		if (!IS_HASWELL(dev) && !IS_BROADWELL(dev)) {
@@ -7439,6 +7444,8 @@ static void i9xx_update_cursor(struct drm_crtc *crtc, u32 base, bool force)
 	bool visible = base != 0;
 
 	if (force || intel_crtc->cursor_visible != visible) {
+		unsigned int rotation = drm_rotation_chain(intel_crtc->pipe_rotation,
+							   intel_crtc->cursor_rotation);
 		uint32_t cntl = I915_READ(CURCNTR(pipe));
 		if (base) {
 			cntl &= ~(CURSOR_MODE | MCURSOR_PIPE_SELECT);
@@ -7448,7 +7455,7 @@ static void i9xx_update_cursor(struct drm_crtc *crtc, u32 base, bool force)
 			cntl &= ~(CURSOR_MODE | MCURSOR_GAMMA_ENABLE);
 			cntl |= CURSOR_MODE_DISABLE;
 		}
-		if (intel_crtc->cursor_rotation == BIT(DRM_ROTATE_180))
+		if (rotation == BIT(DRM_ROTATE_180))
 			cntl |= CURSOR_ROTATE_180;
 		else
 			cntl &= ~CURSOR_ROTATE_180;
@@ -7471,6 +7478,8 @@ static void ivb_update_cursor(struct drm_crtc *crtc, u32 base, bool force)
 	bool visible = base != 0;
 
 	if (force || intel_crtc->cursor_visible != visible) {
+		unsigned int rotation = drm_rotation_chain(intel_crtc->pipe_rotation,
+							   intel_crtc->cursor_rotation);
 		uint32_t cntl = I915_READ(CURCNTR_IVB(pipe));
 		if (base) {
 			cntl &= ~CURSOR_MODE;
@@ -7483,7 +7492,7 @@ static void ivb_update_cursor(struct drm_crtc *crtc, u32 base, bool force)
 			cntl |= CURSOR_PIPE_CSC_ENABLE;
 			cntl &= ~CURSOR_TRICKLE_FEED_DISABLE;
 		}
-		if (intel_crtc->cursor_rotation == BIT(DRM_ROTATE_180))
+		if (rotation == BIT(DRM_ROTATE_180))
 			cntl |= CURSOR_ROTATE_180;
 		else
 			cntl &= ~CURSOR_ROTATE_180;
@@ -7509,9 +7518,25 @@ static void intel_crtc_update_cursor(struct drm_crtc *crtc,
 	int y = intel_crtc->cursor_y;
 	u32 base = 0, pos = 0;
 	bool visible;
+	struct drm_rect r = {
+		.x1 = x,
+		.x2 = x + intel_crtc->cursor_width,
+		.y1 = y,
+		.y2 = y + intel_crtc->cursor_height,
+	};
+	unsigned int rotation = drm_rotation_chain(intel_crtc->pipe_rotation,
+						   intel_crtc->cursor_rotation);
 
 	if (on)
 		base = intel_crtc->cursor_addr;
+
+	drm_rect_rotate(&r,
+			intel_crtc->config.pipe_src_w,
+			intel_crtc->config.pipe_src_h,
+			intel_crtc->pipe_rotation);
+
+	x = r.x1;
+	y = r.y1;
 
 	if (x >= intel_crtc->config.pipe_src_w)
 		base = 0;
@@ -7542,8 +7567,7 @@ static void intel_crtc_update_cursor(struct drm_crtc *crtc,
 		return;
 
 	/* ILK+ do this automagically */
-	if (!HAS_PCH_SPLIT(dev) && visible &&
-	    intel_crtc->cursor_rotation == BIT(DRM_ROTATE_180))
+	if (!HAS_PCH_SPLIT(dev) && visible && rotation == BIT(DRM_ROTATE_180))
 		base += (intel_crtc->cursor_height *
 			 intel_crtc->cursor_width - 1) * 4;
 
@@ -8795,6 +8819,66 @@ free_work:
 	return ret;
 }
 
+static int intel_set_primary_plane_rotation(struct intel_crtc *crtc,
+					    unsigned int rotation)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	unsigned int old_rotation;
+	int ret = 0;
+
+	old_rotation = crtc->primary_rotation;
+	crtc->primary_rotation = rotation;
+
+	if (!crtc->active)
+		return 0;
+
+	rotation = drm_rotation_chain(crtc->pipe_rotation,
+				      crtc->primary_rotation);
+
+	intel_crtc_wait_for_pending_flips(&crtc->base);
+
+	/* FBC does not work on some platforms for rotated planes */
+	if (dev_priv->fbc.plane == crtc->plane &&
+	    INTEL_INFO(dev)->gen <= 4 && !IS_G4X(dev) &&
+	    rotation != BIT(DRM_ROTATE_0))
+		intel_disable_fbc(dev);
+
+	ret = dev_priv->display.update_plane(&crtc->base, crtc->base.fb, 0, 0);
+	if (ret)
+		crtc->primary_rotation = old_rotation;
+
+	return ret;
+}
+
+static void intel_set_cursor_plane_rotation(struct intel_crtc *crtc,
+					    unsigned int rotation)
+{
+	crtc->cursor_rotation = rotation;
+
+	if (crtc->active)
+		intel_crtc_update_cursor(&crtc->base, true, true);
+}
+
+static int intel_update_planes(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct intel_plane *plane;
+
+	list_for_each_entry(plane, &dev->mode_config.plane_list, base.head) {
+		int ret;
+
+		if (plane->pipe != crtc->pipe)
+			continue;
+
+		ret = intel_plane_restore(&plane->base);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int intel_crtc_set_property(struct drm_crtc *crtc,
 				    struct drm_property *prop,
 				    uint64_t val)
@@ -8810,22 +8894,46 @@ static int intel_crtc_set_property(struct drm_crtc *crtc,
 		if (hweight32(val & 0xf) != 1)
 			return -EINVAL;
 
-		old_val = intel_crtc->primary_rotation;
-		intel_crtc->primary_rotation = val;
+		return intel_set_primary_plane_rotation(intel_crtc, val);
+	} else if (prop == dev_priv->cursor_rotation_property) {
+		/* exactly one rotation angle please */
+		if (hweight32(val & 0xf) != 1)
+			return -EINVAL;
 
-		if (intel_crtc->active) {
-			intel_crtc_wait_for_pending_flips(crtc);
+		intel_set_cursor_plane_rotation(intel_crtc, val);
 
-			/* FBC does not work on some platforms for rotated planes */
-			if (dev_priv->fbc.plane == intel_crtc->plane &&
-			    INTEL_INFO(dev)->gen <= 4 && !IS_G4X(dev) &&
-			    intel_crtc->primary_rotation != BIT(DRM_ROTATE_0))
-				intel_disable_fbc(dev);
+		return 0;
+	} else if (prop == dev_priv->crtc_rotation_property) {
+		/* exactly one rotation angle please */
+		if (hweight32(val & 0xf) != 1)
+			return -EINVAL;
 
-			ret = dev_priv->display.update_plane(crtc, crtc->fb, 0, 0);
-			if (ret)
-				intel_crtc->primary_rotation = old_val;
+		old_val = intel_crtc->pipe_rotation;
+		intel_crtc->pipe_rotation = val;
+
+		ret = intel_set_primary_plane_rotation(intel_crtc,
+						       intel_crtc->primary_rotation);
+		if (ret) {
+			intel_crtc->pipe_rotation = old_val;
+			return ret;
 		}
+
+		ret = intel_update_planes(intel_crtc);
+		if (ret) {
+			intel_crtc->pipe_rotation = old_val;
+
+			if (intel_set_primary_plane_rotation(intel_crtc,
+							     intel_crtc->primary_rotation))
+				DRM_ERROR("failed to restore primary plane rotation\n");
+			if (intel_update_planes(intel_crtc))
+				DRM_ERROR("failed to restore sprite plane rotation\n");
+			return ret;
+		}
+
+		intel_set_cursor_plane_rotation(intel_crtc,
+						intel_crtc->cursor_rotation);
+
+		return 0;
 	}
 
 	return ret;
@@ -10374,6 +10482,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->plane = pipe;
 	intel_crtc->primary_rotation = BIT(DRM_ROTATE_0);
 	intel_crtc->cursor_rotation = BIT(DRM_ROTATE_0);
+	intel_crtc->pipe_rotation = BIT(DRM_ROTATE_0);
 	if (HAS_FBC(dev) && INTEL_INFO(dev)->gen < 4) {
 		DRM_DEBUG_KMS("swapping pipes & planes for FBC\n");
 		intel_crtc->plane = !pipe;
@@ -10404,6 +10513,16 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 			drm_object_attach_property(&intel_crtc->base.base,
 						dev_priv->cursor_rotation_property,
 						intel_crtc->cursor_rotation);
+
+		if (!dev_priv->crtc_rotation_property)
+			dev_priv->crtc_rotation_property =
+				drm_mode_create_rotation_property(dev, "crtc-rotation",
+								  BIT(DRM_ROTATE_0) |
+								  BIT(DRM_ROTATE_180));
+		if (dev_priv->crtc_rotation_property)
+			drm_object_attach_property(&intel_crtc->base.base,
+						   dev_priv->crtc_rotation_property,
+						   intel_crtc->pipe_rotation);
 	}
 
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);

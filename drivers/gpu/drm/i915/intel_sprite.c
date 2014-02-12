@@ -53,6 +53,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	u32 sprctl;
 	unsigned long sprsurf_offset, linear_offset;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
+	unsigned int rotation = drm_rotation_chain(to_intel_crtc(crtc)->pipe_rotation,
+						   intel_plane->rotation);
 
 	sprctl = I915_READ(SPCNTR(pipe, plane));
 
@@ -132,7 +134,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 							fb->pitches[0]);
 	linear_offset -= sprsurf_offset;
 
-	if (intel_plane->rotation == BIT(DRM_ROTATE_180)) {
+	if (rotation == BIT(DRM_ROTATE_180)) {
 		sprctl |= SP_ROTATE_180;
 
 		x += src_w;
@@ -239,6 +241,8 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	u32 sprctl, sprscale = 0;
 	unsigned long sprsurf_offset, linear_offset;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
+	unsigned int rotation = drm_rotation_chain(to_intel_crtc(crtc)->pipe_rotation,
+						   intel_plane->rotation);
 
 	sprctl = I915_READ(SPRCTL(pipe));
 
@@ -309,7 +313,7 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 					       pixel_size, fb->pitches[0]);
 	linear_offset -= sprsurf_offset;
 
-	if (intel_plane->rotation == BIT(DRM_ROTATE_180)) {
+	if (rotation == BIT(DRM_ROTATE_180)) {
 		sprctl |= SPRITE_ROTATE_180;
 
 		/* HSW and BDW does this automagically in hardware */
@@ -435,6 +439,8 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	unsigned long dvssurf_offset, linear_offset;
 	u32 dvscntr, dvsscale;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
+	unsigned int rotation = drm_rotation_chain(to_intel_crtc(crtc)->pipe_rotation,
+						   intel_plane->rotation);
 
 	dvscntr = I915_READ(DVSCNTR(pipe));
 
@@ -500,7 +506,7 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 					       pixel_size, fb->pitches[0]);
 	linear_offset -= dvssurf_offset;
 
-	if (intel_plane->rotation == BIT(DRM_ROTATE_180)) {
+	if (rotation == BIT(DRM_ROTATE_180)) {
 		dvscntr |= DVS_ROTATE_180;
 
 		x += src_w;
@@ -738,6 +744,8 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		.src_w = src_w,
 		.src_h = src_h,
 	};
+	unsigned int rotation = drm_rotation_chain(intel_crtc->pipe_rotation,
+						   intel_plane->rotation);
 
 	/* Don't modify another pipe's plane */
 	if (intel_plane->pipe != intel_crtc->pipe) {
@@ -769,8 +777,11 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	max_scale = intel_plane->max_downscale << 16;
 	min_scale = intel_plane->can_scale ? 1 : (1 << 16);
 
+	drm_rect_rotate(&dst, drm_rect_width(&clip), drm_rect_height(&clip),
+			intel_crtc->pipe_rotation);
+
 	drm_rect_rotate(&src, fb->width << 16, fb->height << 16,
-			intel_plane->rotation);
+			rotation);
 
 	hscale = drm_rect_calc_hscale_relaxed(&src, &dst, min_scale, max_scale);
 	BUG_ON(hscale < 0);
@@ -811,7 +822,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 				     drm_rect_height(&dst) * vscale - drm_rect_height(&src));
 
 		drm_rect_rotate_inv(&src, fb->width << 16, fb->height << 16,
-				    intel_plane->rotation);
+				    rotation);
 
 		/* sanity check to make sure the src viewport wasn't enlarged */
 		WARN_ON(src.x1 < (int) src_x ||
