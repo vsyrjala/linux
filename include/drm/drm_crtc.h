@@ -1185,6 +1185,7 @@ extern int drm_format_horz_chroma_subsampling(uint32_t format);
 extern int drm_format_vert_chroma_subsampling(uint32_t format);
 extern const char *drm_get_format_name(uint32_t format);
 extern struct drm_property *drm_mode_create_rotation_property(struct drm_device *dev,
+							      const char *name,
 							      unsigned int supported_rotations);
 extern unsigned int drm_rotation_simplify(unsigned int rotation,
 					  unsigned int supported_rotations);

@@ -10372,7 +10372,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	if (INTEL_INFO(dev)->gen >= 4) {
 		if (!dev_priv->rotation_property)
 			dev_priv->rotation_property =
-				drm_mode_create_rotation_property(dev,
+				drm_mode_create_rotation_property(dev, "rotation",
 								BIT(DRM_ROTATE_0) |
 								BIT(DRM_ROTATE_180));
 		if (dev_priv->rotation_property)

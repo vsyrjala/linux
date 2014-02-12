@@ -4179,6 +4179,7 @@ void drm_mode_config_cleanup(struct drm_device *dev)
 EXPORT_SYMBOL(drm_mode_config_cleanup);
 
 struct drm_property *drm_mode_create_rotation_property(struct drm_device *dev,
+						       const char *name,
 						       unsigned int supported_rotations)
 {
 	static const struct drm_prop_enum_list props[] = {
@@ -4190,7 +4191,7 @@ struct drm_property *drm_mode_create_rotation_property(struct drm_device *dev,
 		{ DRM_REFLECT_Y,  "reflect-y" },
 	};
 
-	return drm_property_create_bitmask(dev, 0, "rotation",
+	return drm_property_create_bitmask(dev, 0, name,
 					   props, ARRAY_SIZE(props),
 					   supported_rotations);
 }

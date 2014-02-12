@@ -1216,7 +1216,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 
 	if (!dev_priv->rotation_property)
 		dev_priv->rotation_property =
-			drm_mode_create_rotation_property(dev,
+			drm_mode_create_rotation_property(dev, "rotation",
 							  BIT(DRM_ROTATE_0) |
 							  BIT(DRM_ROTATE_180));
 

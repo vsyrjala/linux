@@ -300,7 +300,7 @@ void omap_plane_install_properties(struct drm_plane *plane,
 	if (priv->has_dmm) {
 		prop = priv->rotation_prop;
 		if (!prop) {
-			prop = drm_mode_create_rotation_property(dev,
+			prop = drm_mode_create_rotation_property(dev, "rotation",
 					BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_90) |
 					BIT(DRM_ROTATE_180) | BIT(DRM_ROTATE_270) |
 					BIT(DRM_REFLECT_X) | BIT(DRM_REFLECT_Y));
