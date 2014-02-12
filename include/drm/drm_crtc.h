@@ -1189,6 +1189,8 @@ extern struct drm_property *drm_mode_create_rotation_property(struct drm_device 
 							      unsigned int supported_rotations);
 extern unsigned int drm_rotation_simplify(unsigned int rotation,
 					  unsigned int supported_rotations);
+extern unsigned int drm_rotation_chain(unsigned int crtc_rotation,
+				       unsigned int plane_rotation);
 
 /* Helpers */
 static inline struct drm_crtc *drm_crtc_find(struct drm_device *dev,

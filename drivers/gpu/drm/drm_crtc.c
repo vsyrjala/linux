@@ -4065,6 +4065,48 @@ unsigned int drm_rotation_simplify(unsigned int rotation,
 EXPORT_SYMBOL(drm_rotation_simplify);
 
 /**
+ * drm_rotation_chain() - Chain plane and crtc rotations together
+ * @crtc_rotation: rotation for the entire crtc
+ * @plane_rotation: rotation for the plane in relation to the crtc
+ *
+ * Given @crtc_rotation and @plane_rotation, this function will
+ * comptute the total rotation for the plane in relation to 0
+ * degree rotated crtc. This can be used eg. to implement full crtc
+ * rotation using just plane rotation in hardware. Obviously that
+ * requires that all planes must support rotation since the crtc
+ * itself won't rotate the composed scene.
+ */
+unsigned int drm_rotation_chain(unsigned int crtc_rotation,
+				unsigned int plane_rotation)
+{
+	unsigned int rotation;
+
+	/* add up the rotation angles */
+	rotation = 1 << ((ffs(plane_rotation & 0xf) + ffs(crtc_rotation & 0xf) - 2) % 4);
+
+	/* plane reflection before plane rotation */
+	rotation |= plane_rotation & (BIT(DRM_REFLECT_X) | BIT(DRM_REFLECT_Y));
+
+	/* crtc reflection after plane rotation and before crtc rotation */
+	switch (plane_rotation & 0xf) {
+	case BIT(DRM_ROTATE_0):
+	case BIT(DRM_ROTATE_180):
+		rotation ^= crtc_rotation & (BIT(DRM_REFLECT_X) | BIT(DRM_REFLECT_Y));
+		break;
+	case BIT(DRM_ROTATE_90):
+	case BIT(DRM_ROTATE_270):
+		if (crtc_rotation & BIT(DRM_REFLECT_X))
+			rotation ^= BIT(DRM_REFLECT_Y);
+		if (crtc_rotation & BIT(DRM_REFLECT_Y))
+			rotation ^= BIT(DRM_REFLECT_X);
+		break;
+	}
+
+	return rotation;
+}
+EXPORT_SYMBOL(drm_rotation_chain);
+
+/**
  * drm_mode_config_init - initialize DRM mode_configuration structure
  * @dev: DRM device
  *
