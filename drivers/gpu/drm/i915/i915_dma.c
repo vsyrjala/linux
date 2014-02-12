@@ -1893,12 +1893,29 @@ int i915_driver_open(struct drm_device *dev, struct drm_file *file)
 void i915_driver_lastclose(struct drm_device * dev)
 {
 	drm_i915_private_t *dev_priv = dev->dev_private;
+	struct intel_crtc *crtc;
+	struct intel_plane *plane;
 
 	/* On gen6+ we refuse to init without kms enabled, but then the drm core
 	 * goes right around and calls lastclose. Check for this and don't clean
 	 * up anything. */
 	if (!dev_priv)
 		return;
+
+	if (dev_priv->rotation_property) {
+		list_for_each_entry(crtc, &dev->mode_config.crtc_list, base.head) {
+			crtc->rotation = BIT(DRM_ROTATE_0);
+			drm_object_property_set_value(&crtc->base.base,
+						dev_priv->rotation_property,
+						crtc->rotation);
+		}
+		list_for_each_entry(plane, &dev->mode_config.plane_list, base.head) {
+			plane->rotation = BIT(DRM_ROTATE_0);
+			drm_object_property_set_value(&plane->base.base,
+						dev_priv->rotation_property,
+						plane->rotation);
+		}
+	}
 
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
 		intel_fbdev_restore_mode(dev);
