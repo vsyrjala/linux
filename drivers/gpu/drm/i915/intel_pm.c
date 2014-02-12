@@ -558,7 +558,7 @@ void intel_update_fbc(struct drm_device *dev)
 	}
 
 	if (INTEL_INFO(dev)->gen <= 4 && !IS_G4X(dev) &&
-	    intel_crtc->rotation != BIT(DRM_ROTATE_0)) {
+	    intel_crtc->primary_rotation != BIT(DRM_ROTATE_0)) {
 		if (set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED_MODE))
 			DRM_DEBUG_KMS("mode incompatible with compression, "
 				      "disabling\n");

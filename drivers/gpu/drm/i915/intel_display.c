@@ -2133,7 +2133,7 @@ static int i9xx_update_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
 		intel_crtc->dspaddr_offset = linear_offset;
 	}
 
-	if (intel_crtc->rotation == BIT(DRM_ROTATE_180)) {
+	if (intel_crtc->primary_rotation == BIT(DRM_ROTATE_180)) {
 		dspcntr |= DISPPLANE_ROTATE_180;
 
 		x += (intel_crtc->config.pipe_src_w - 1);
@@ -2238,7 +2238,7 @@ static int ironlake_update_plane(struct drm_crtc *crtc,
 					       fb->pitches[0]);
 	linear_offset -= intel_crtc->dspaddr_offset;
 
-	if (intel_crtc->rotation == BIT(DRM_ROTATE_180)) {
+	if (intel_crtc->primary_rotation == BIT(DRM_ROTATE_180)) {
 		dspcntr |= DISPPLANE_ROTATE_180;
 
 		if (!IS_HASWELL(dev) && !IS_BROADWELL(dev)) {
@@ -8796,8 +8796,8 @@ static int intel_crtc_set_property(struct drm_crtc *crtc,
 		if (hweight32(val & 0xf) != 1)
 			return -EINVAL;
 
-		old_val = intel_crtc->rotation;
-		intel_crtc->rotation = val;
+		old_val = intel_crtc->primary_rotation;
+		intel_crtc->primary_rotation = val;
 
 		if (intel_crtc->active) {
 			intel_crtc_wait_for_pending_flips(crtc);
@@ -8805,12 +8805,12 @@ static int intel_crtc_set_property(struct drm_crtc *crtc,
 			/* FBC does not work on some platforms for rotated planes */
 			if (dev_priv->fbc.plane == intel_crtc->plane &&
 			    INTEL_INFO(dev)->gen <= 4 && !IS_G4X(dev) &&
-			    intel_crtc->rotation != BIT(DRM_ROTATE_0))
+			    intel_crtc->primary_rotation != BIT(DRM_ROTATE_0))
 				intel_disable_fbc(dev);
 
 			ret = dev_priv->display.update_plane(crtc, crtc->fb, 0, 0);
 			if (ret)
-				intel_crtc->rotation = old_val;
+				intel_crtc->primary_rotation = old_val;
 		}
 	}
 
@@ -10358,7 +10358,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	 */
 	intel_crtc->pipe = pipe;
 	intel_crtc->plane = pipe;
-	intel_crtc->rotation = BIT(DRM_ROTATE_0);
+	intel_crtc->primary_rotation = BIT(DRM_ROTATE_0);
 	if (HAS_FBC(dev) && INTEL_INFO(dev)->gen < 4) {
 		DRM_DEBUG_KMS("swapping pipes & planes for FBC\n");
 		intel_crtc->plane = !pipe;
@@ -10378,7 +10378,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 		if (dev_priv->rotation_property)
 			drm_object_attach_property(&intel_crtc->base.base,
 						dev_priv->rotation_property,
-						intel_crtc->rotation);
+						intel_crtc->primary_rotation);
 	}
 
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);

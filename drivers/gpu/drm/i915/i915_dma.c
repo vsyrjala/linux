@@ -1904,10 +1904,10 @@ void i915_driver_lastclose(struct drm_device * dev)
 
 	if (dev_priv->rotation_property) {
 		list_for_each_entry(crtc, &dev->mode_config.crtc_list, base.head) {
-			crtc->rotation = BIT(DRM_ROTATE_0);
+			crtc->primary_rotation = BIT(DRM_ROTATE_0);
 			drm_object_property_set_value(&crtc->base.base,
 						dev_priv->rotation_property,
-						crtc->rotation);
+						crtc->primary_rotation);
 		}
 		list_for_each_entry(plane, &dev->mode_config.plane_list, base.head) {
 			plane->rotation = BIT(DRM_ROTATE_0);
