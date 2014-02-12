@@ -3639,6 +3639,190 @@ static int i915_debugfs_create(struct dentry *root,
 	return drm_add_fake_info_node(minor, ent, fops);
 }
 
+static int
+i915_pipe_rotation_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct intel_crtc *crtc;
+
+	drm_modeset_lock_all(dev);
+	crtc = list_first_entry(&dev->mode_config.crtc_list, struct intel_crtc, base.head);
+	*val = crtc->pipe_rotation;
+	drm_modeset_unlock_all(dev);
+
+	return 0;
+}
+
+static int
+i915_pipe_rotation_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_property *property = dev_priv->crtc_rotation_property;
+	struct drm_crtc *crtc;
+	int ret = 0;
+
+	if (!property)
+		return -EINVAL;
+
+	if (val & ~(BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_180)))
+		return -EINVAL;
+
+	drm_modeset_lock_all(dev);
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		ret = crtc->funcs->set_property(crtc, property, val);
+		if (!ret)
+			drm_object_property_set_value(&crtc->base, property, val);
+		else
+			break;
+	}
+	drm_modeset_unlock_all(dev);
+
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_pipe_rotation_fops,
+			i915_pipe_rotation_get, i915_pipe_rotation_set,
+			"0x%llx\n");
+
+static int
+i915_primary_rotation_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct intel_crtc *crtc;
+
+	drm_modeset_lock_all(dev);
+	crtc = list_first_entry(&dev->mode_config.crtc_list, struct intel_crtc, base.head);
+	*val = crtc->primary_rotation;
+	drm_modeset_unlock_all(dev);
+
+	return 0;
+}
+
+static int
+i915_primary_rotation_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_property *property = dev_priv->rotation_property;
+	struct drm_crtc *crtc;
+	int ret = 0;
+
+	if (!property)
+		return -EINVAL;
+
+	if (val & ~(BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_180)))
+		return -EINVAL;
+
+	drm_modeset_lock_all(dev);
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		ret = crtc->funcs->set_property(crtc, property, val);
+		if (!ret)
+			drm_object_property_set_value(&crtc->base, property, val);
+		else
+			break;
+	}
+	drm_modeset_unlock_all(dev);
+
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_primary_rotation_fops,
+			i915_primary_rotation_get, i915_primary_rotation_set,
+			"0x%llx\n");
+
+static int
+i915_cursor_rotation_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct intel_crtc *crtc;
+
+	drm_modeset_lock_all(dev);
+	crtc = list_first_entry(&dev->mode_config.crtc_list, struct intel_crtc, base.head);
+	*val = crtc->cursor_rotation;
+	drm_modeset_unlock_all(dev);
+
+	return 0;
+}
+
+static int
+i915_cursor_rotation_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_property *property = dev_priv->cursor_rotation_property;
+	struct drm_crtc *crtc;
+	int ret = 0;
+
+	if (!property)
+		return -EINVAL;
+
+	if (val & ~(BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_180)))
+		return -EINVAL;
+
+	drm_modeset_lock_all(dev);
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		ret = crtc->funcs->set_property(crtc, property, val);
+		if (!ret)
+			drm_object_property_set_value(&crtc->base, property, val);
+		else
+			break;
+	}
+	drm_modeset_unlock_all(dev);
+
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_cursor_rotation_fops,
+			i915_cursor_rotation_get, i915_cursor_rotation_set,
+			"0x%llx\n");
+
+static int
+i915_sprite_rotation_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct intel_plane *plane;
+
+	drm_modeset_lock_all(dev);
+	plane = list_first_entry(&dev->mode_config.plane_list, struct intel_plane, base.head);
+	*val = plane->rotation;
+	drm_modeset_unlock_all(dev);
+
+	return 0;
+}
+
+static int
+i915_sprite_rotation_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_property *property = dev_priv->rotation_property;
+	struct drm_plane *plane;
+	int ret = 0;
+
+	if (!property)
+		return -EINVAL;
+
+	if (val & ~(BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_180)))
+		return -EINVAL;
+
+	drm_modeset_lock_all(dev);
+	list_for_each_entry(plane, &dev->mode_config.plane_list, head) {
+		ret = plane->funcs->set_property(plane, property, val);
+		if (!ret)
+			drm_object_property_set_value(&plane->base, property, val);
+		else
+			break;
+	}
+	drm_modeset_unlock_all(dev);
+
+	return ret;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_sprite_rotation_fops,
+			i915_sprite_rotation_get, i915_sprite_rotation_set,
+			"0x%llx\n");
+
 static const struct drm_info_list i915_debugfs_list[] = {
 	{"i915_capabilities", i915_capabilities, 0},
 	{"i915_gem_objects", i915_gem_object_info, 0},
@@ -3702,6 +3886,10 @@ static const struct i915_debugfs_files {
 	{"i915_pri_wm_latency", &i915_pri_wm_latency_fops},
 	{"i915_spr_wm_latency", &i915_spr_wm_latency_fops},
 	{"i915_cur_wm_latency", &i915_cur_wm_latency_fops},
+	{"i915_pipe_rotation", &i915_pipe_rotation_fops},
+	{"i915_primary_rotation", &i915_primary_rotation_fops},
+	{"i915_cursor_rotation", &i915_cursor_rotation_fops},
+	{"i915_sprite_rotation", &i915_sprite_rotation_fops},
 };
 
 void intel_display_crc_init(struct drm_device *dev)
