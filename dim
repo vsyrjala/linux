@@ -71,6 +71,12 @@ drm_intel_git=ssh://git.freedesktop.org/git/drm-intel
 drm_upstream_git=git://people.freedesktop.org/~airlied/linux
 linux_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 
+# email aliases
+addr_drm_maintainer="Dave Airlie <airlied@gmail.com>"
+addr_intel_gfx="intel-gfx@lists.freedesktop.org"
+addr_dri_devel="dri-devel@lists.freedesktop.org"
+addr_intel_qa="Terence Yang <guang.a.yang@intel.com>"
+
 function update_linux_next
 {
 	cd $DIM_PREFIX/$DIM_DRM_INTEL
@@ -423,7 +429,7 @@ case "$1" in
 		drm_intel_next_tags=`git log drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
 		prep_pull_mail_tags $drm_intel_next_tags
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-next >> ~/tmp/dim-pull-request
-		mutt -s '[PULL] drm-intel-next' 'airlied' -c intel-gfx -c dri-devel -i ~/tmp/dim-pull-request
+		mutt -s '[PULL] drm-intel-next' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -i ~/tmp/dim-pull-request
 		;;
 	pull-request-fixes)
 		upstream=origin/master
@@ -435,7 +441,7 @@ case "$1" in
 		git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
 		prep_pull_mail
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-fixes >> ~/tmp/dim-pull-request
-		mutt -s '[PULL] drm-intel-fixes' 'airlied' -c intel-gfx -c dri-devel -i ~/tmp/dim-pull-request
+		mutt -s '[PULL] drm-intel-fixes' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -i ~/tmp/dim-pull-request
 		;;
 	pull-request-topic)
 		if [[ "x$3" != "x" ]] ; then
@@ -450,7 +456,7 @@ case "$1" in
 		fi
 		prep_pull_mail
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/$branch >> ~/tmp/dim-pull-request
-		mutt -s '[PULL] topic' 'airlied' -c intel-gfx -c dri-devel -i ~/tmp/dim-pull-request
+		mutt -s '[PULL] topic' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -i ~/tmp/dim-pull-request
 		;;
 	update-next)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
@@ -492,7 +498,7 @@ case "$1" in
 		Cheers, Daniel
 		HERE
 
-		mutt -s "Updated drm-intel-testing" 'guang.a.yang' -c intel-gfx -i ~/tmp/test-request
+		mutt -s "Updated drm-intel-testing" "$addr_intel_qa" -c "$addr_intel_gfx" -i ~/tmp/test-request
 		;;
 	checker)
 		rm drivers/gpu/drm/i915/*.o &> /dev/null || true
