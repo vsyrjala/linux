@@ -73,6 +73,8 @@ linux_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.
 
 # email aliases
 addr_drm_maintainer="Dave Airlie <airlied@gmail.com>"
+addr_intel_gfx_maintainer1="Daniel Vetter <daniel.vetter@ffwll.ch>"
+addr_intel_gfx_maintainer2="Jani Nikula <jani.nikula@linux.intel.com>"
 addr_intel_gfx="intel-gfx@lists.freedesktop.org"
 addr_dri_devel="dri-devel@lists.freedesktop.org"
 addr_intel_qa="Terence Yang <guang.a.yang@intel.com>"
@@ -429,7 +431,7 @@ case "$1" in
 		drm_intel_next_tags=`git log drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
 		prep_pull_mail_tags $drm_intel_next_tags
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-next >> ~/tmp/dim-pull-request
-		mutt -s '[PULL] drm-intel-next' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -i ~/tmp/dim-pull-request
+		mutt -s '[PULL] drm-intel-next' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -c "$addr_intel_gfx_maintainer1" -c "$addr_intel_gfx_maintainer2" -i ~/tmp/dim-pull-request
 		;;
 	pull-request-fixes)
 		upstream=origin/master
@@ -441,7 +443,7 @@ case "$1" in
 		git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
 		prep_pull_mail
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-fixes >> ~/tmp/dim-pull-request
-		mutt -s '[PULL] drm-intel-fixes' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -i ~/tmp/dim-pull-request
+		mutt -s '[PULL] drm-intel-fixes' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -c "$addr_intel_gfx_maintainer1" -c "$addr_intel_gfx_maintainer2" -i ~/tmp/dim-pull-request
 		;;
 	pull-request-topic)
 		if [[ "x$3" != "x" ]] ; then
@@ -456,7 +458,7 @@ case "$1" in
 		fi
 		prep_pull_mail
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/$branch >> ~/tmp/dim-pull-request
-		mutt -s '[PULL] topic' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -i ~/tmp/dim-pull-request
+		mutt -s '[PULL] topic' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -c "$addr_intel_gfx_maintainer1" -c "$addr_intel_gfx_maintainer2" -i ~/tmp/dim-pull-request
 		;;
 	update-next)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
@@ -498,7 +500,7 @@ case "$1" in
 		Cheers, Daniel
 		HERE
 
-		mutt -s "Updated drm-intel-testing" "$addr_intel_qa" -c "$addr_intel_gfx" -i ~/tmp/test-request
+		mutt -s "Updated drm-intel-testing" "$addr_intel_qa" -c "$addr_intel_gfx" -c "$addr_intel_gfx_maintainer1" -c "$addr_intel_gfx_maintainer2" -i ~/tmp/test-request
 		;;
 	checker)
 		rm drivers/gpu/drm/i915/*.o &> /dev/null || true
