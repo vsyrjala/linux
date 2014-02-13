@@ -359,7 +359,7 @@ case "$1" in
 			shift
 			git am -3 $@
 			dim_checkpatch HEAD
-			git ca &
+			git commit --amend &
 		else
 			echo "You're on the wrong branch."
 		fi
@@ -375,7 +375,7 @@ case "$1" in
 	apply-resolved|ar)
 		make -j 20 && git add -u && git am --resolved
 		dim_checkpatch HEAD
-		git ca &
+		git commit --amend &
 		;;
 	apply-igt|ai)
 		cd ~/xorg/intel-gpu-tools/
