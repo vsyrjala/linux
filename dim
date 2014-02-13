@@ -58,6 +58,10 @@ DIM_DRM_INTEL_REMOTE=${DIM_DRM_INTEL_REMOTE:-danvet}
 # name of the $drm_upstream_git remote within $DIM_DRM_INTEL
 DIM_DRM_UPSTREAM_REMOTE=${DIM_DRM_UPSTREAM_REMOTE:-airlied}
 
+# mail user agent. must support a subset of mutt(1) command line options:
+# usage: $DIM_MUA [-s subject] [-i file] [-c cc-addr] to-addr [...]
+DIM_MUA=${DIM_MUA:-mutt}
+
 #
 # Internal configuration.
 #
@@ -431,7 +435,13 @@ case "$1" in
 		drm_intel_next_tags=`git log drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
 		prep_pull_mail_tags $drm_intel_next_tags
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-next >> ~/tmp/dim-pull-request
-		mutt -s '[PULL] drm-intel-next' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -c "$addr_intel_gfx_maintainer1" -c "$addr_intel_gfx_maintainer2" -i ~/tmp/dim-pull-request
+		$DIM_MUA -s "[PULL] drm-intel-next" \
+			-i ~/tmp/dim-pull-request \
+			-c "$addr_intel_gfx" \
+			-c "$addr_dri_devel" \
+			-c "$addr_intel_gfx_maintainer1" \
+			-c "$addr_intel_gfx_maintainer2" \
+			"$addr_drm_maintainer"
 		;;
 	pull-request-fixes)
 		upstream=origin/master
@@ -443,7 +453,13 @@ case "$1" in
 		git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
 		prep_pull_mail
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-fixes >> ~/tmp/dim-pull-request
-		mutt -s '[PULL] drm-intel-fixes' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -c "$addr_intel_gfx_maintainer1" -c "$addr_intel_gfx_maintainer2" -i ~/tmp/dim-pull-request
+		$DIM_MUA -s "[PULL] drm-intel-fixes" \
+			-i ~/tmp/dim-pull-request \
+			-c "$addr_intel_gfx" \
+			-c "$addr_dri_devel" \
+			-c "$addr_intel_gfx_maintainer1" \
+			-c "$addr_intel_gfx_maintainer2" \
+			"$addr_drm_maintainer"
 		;;
 	pull-request-topic)
 		if [[ "x$3" != "x" ]] ; then
@@ -458,7 +474,13 @@ case "$1" in
 		fi
 		prep_pull_mail
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/$branch >> ~/tmp/dim-pull-request
-		mutt -s '[PULL] topic' "$addr_drm_maintainer" -c "$addr_intel_gfx" -c "$addr_dri_devel" -c "$addr_intel_gfx_maintainer1" -c "$addr_intel_gfx_maintainer2" -i ~/tmp/dim-pull-request
+		$DIM_MUA -s "[PULL] topic" \
+			-i ~/tmp/dim-pull-request \
+			-c "$addr_intel_gfx" \
+			-c "$addr_dri_devel" \
+			-c "$addr_intel_gfx_maintainer1" \
+			-c "$addr_intel_gfx_maintainer2" \
+			"$addr_drm_maintainer"
 		;;
 	update-next)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
@@ -500,7 +522,12 @@ case "$1" in
 		Cheers, Daniel
 		HERE
 
-		mutt -s "Updated drm-intel-testing" "$addr_intel_qa" -c "$addr_intel_gfx" -c "$addr_intel_gfx_maintainer1" -c "$addr_intel_gfx_maintainer2" -i ~/tmp/test-request
+		$DIM_MUA -s "Updated drm-intel-testing" \
+			-i ~/tmp/test-request \
+			-c "$addr_intel_gfx" \
+			-c "$addr_intel_gfx_maintainer1" \
+			-c "$addr_intel_gfx_maintainer2" \
+			"$addr_intel_qa"
 		;;
 	checker)
 		rm drivers/gpu/drm/i915/*.o &> /dev/null || true

@@ -17,3 +17,7 @@
 # Name of the remote for git://people.freedesktop.org/~airlied/linux
 # within $DIM_DRM_INTEL
 #DIM_DRM_UPSTREAM_REMOTE=airlied
+
+# Mail User Agent supporting a subset of mutt(1) command line options:
+# [-s subject] [-i file] [-c cc-addr] to-addr [...]
+#DIM_MUA=mutt
