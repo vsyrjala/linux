@@ -350,8 +350,8 @@ case "$subcommand" in
 		git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
 		# TODO: Restore -nightly merge state from the rerere-cache
 		# branch
-		test -d $DIM_PREFIX/drm-intel-rerere/ || mkdir $DIM_PREFIX/drm-intel-rerere/
 		cd $DIM_PREFIX/drm-intel-rerere/
+		git fetch origin
 		cp rr-cache/* $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ -r
 		rm $DIM_PREFIX/*fixup.patch &> /dev/null || true
 		cp *.patch $DIM_PREFIX &> /dev/null || true
