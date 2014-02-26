@@ -312,6 +312,7 @@ function setup_dim
 		git clone $drm_intel_git drm-intel-nightly
 	fi
 	cd drm-intel-nightly
+	mkdir -p .git/rr-cache
 	git config remote.origin.url $drm_intel_git
 	if git remote | grep drm-upstream > /dev/null ; then
 		git config remote.drm-upstream.url $drm_upstream_git
