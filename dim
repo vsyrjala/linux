@@ -199,7 +199,6 @@ function update_nightly
 		cp $DIM_PREFIX/$integration_branch/.git/rr-cache/* rr-cache -r
 		cp ../$integration_branch*fixup.patch . >& /dev/null || true
 		git add *.patch >& /dev/null || true
-		git rm dim qf &> /dev/null || true
 		git add rr-cache/* > /dev/null
 		if git commit -m "$time: $integration_branch rerere cache update" >& /dev/null; then
 			git push $DRY_RUN origin HEAD >& /dev/null && echo "rerere cache successfully updated"
