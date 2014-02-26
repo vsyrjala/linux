@@ -114,18 +114,18 @@ function update_linux_next
 		echo linux-next: -rc phase
 		if [[ $1 == queued ]] ; then
 			echo Updating for-linux-next to -queued and updating for-linux-next-fixes
-			git push $DIM_DRM_INTEL_REMOTE +drm-intel-next-queued:for-linux-next >& /dev/null
-			git push $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next-fixes >& /dev/null
+			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +drm-intel-next-queued:for-linux-next >& /dev/null
+			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next-fixes >& /dev/null
 		fi
 		if [[ $1 == fixes ]] ; then
 			echo Updating for-linux-next-fixes
-			git push $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next-fixes >& /dev/null
+			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next-fixes >& /dev/null
 		fi
 	else
 		echo linux-next: merge window
 		if [[ $1 == fixes ]] ; then
 			echo Updating for-linux-next to -fixes
-			git push $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next >& /dev/null
+			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next >& /dev/null
 		fi
 	fi
 }
@@ -190,7 +190,7 @@ function update_nightly
 	git add integration-manifest
 	git commit -m "$integration_branch: $time integration manifest"
 
-	git push origin +HEAD >& /dev/null && echo "$integration_branch branch successfully updated"
+	git push $DRY_RUN origin +HEAD >& /dev/null && echo "$integration_branch branch successfully updated"
 
 	cd $DIM_PREFIX/drm-intel-rerere/
 	if git branch | grep rerere-cache | grep '\*' >& /dev/null ; then
@@ -202,7 +202,7 @@ function update_nightly
 		git rm dim qf &> /dev/null || true
 		git add rr-cache/* > /dev/null
 		if git commit -m "$time: $integration_branch rerere cache update" >& /dev/null; then
-			git push origin HEAD >& /dev/null && echo "rerere cache successfully updated"
+			git push $DRY_RUN origin HEAD >& /dev/null && echo "rerere cache successfully updated"
 		else
 			echo "nothing changed in the rerere cache"
 		fi
@@ -330,7 +330,7 @@ case "$subcommand" in
 		# cd back
 		cd -
 		make htmldocs
-		scp -r Documentation/DocBook/drm annarchy.freedesktop.org:~/public_html
+		$DRY scp -r Documentation/DocBook/drm annarchy.freedesktop.org:~/public_html
 		;;
 	nightly-forget)
 		cd $DIM_PREFIX/drm-intel-nightly
@@ -361,7 +361,7 @@ case "$subcommand" in
 		;;
 	push-queued|pq)
 		if git branch | grep drm-intel-next-queued | grep '\*' ; then
-			git push $DIM_DRM_INTEL_REMOTE	drm-intel-next-queued $@
+			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued $@
 
 			update_nightly
 			update_linux_next queued
@@ -371,7 +371,7 @@ case "$subcommand" in
 		;;
 	push-fixes|pf)
 		if git branch | grep drm-intel-fixes | grep '\*' ; then
-			git push $DIM_DRM_INTEL_REMOTE	drm-intel-fixes  $@
+			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-fixes  $@
 
 			update_nightly
 			update_linux_next fixes
@@ -467,8 +467,8 @@ case "$subcommand" in
 			upstream=$2
 		fi
 		echo Using $upstream as the upstream
-		git tag -f drm-intel-fixes-$today $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
-		git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
+		$DRY git tag -f drm-intel-fixes-$today $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
+		$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
 		prep_pull_mail
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-fixes >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] drm-intel-fixes" \
@@ -514,13 +514,13 @@ case "$subcommand" in
 
 		gitk drm-intel-next-queued ^$DIM_DRM_UPSTREAM_REMOTE/drm-next &
 
-		git push $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
+		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
 		tag=drm-intel-next-$today
-		git tag -f -a $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
-		git push -f $DIM_DRM_INTEL_REMOTE $tag
+		$DRY git tag -f -a $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
+		git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
 
 		echo "Updating -testing to latest -nightly"
-		git push $DIM_DRM_INTEL_REMOTE +$DIM_DRM_INTEL_REMOTE/drm-intel-nightly:drm-intel-testing
+		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$DIM_DRM_INTEL_REMOTE/drm-intel-nightly:drm-intel-testing
 
 		cat > ~/tmp/test-request <<-HERE
 		Hi all,
