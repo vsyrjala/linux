@@ -83,6 +83,29 @@ addr_intel_gfx="intel-gfx@lists.freedesktop.org"
 addr_dri_devel="dri-devel@lists.freedesktop.org"
 addr_intel_qa="Terence Yang <guang.a.yang@intel.com>"
 
+#
+# Command line options.
+#
+
+DRY_RUN=
+DRY=
+
+while getopts d opt; do
+	case "$opt" in
+		d)
+			DRY_RUN=--dry-run
+			DRY=echo
+			;;
+		*)
+			exit
+	esac
+done
+shift `expr $OPTIND - 1`
+
+# first positional argument is the subcommand
+subcommand="$1"
+shift
+
 function update_linux_next
 {
 	cd $DIM_PREFIX/$DIM_DRM_INTEL
@@ -299,7 +322,7 @@ function setup_dim
 
 cd $DIM_PREFIX/$DIM_DRM_INTEL
 
-case "$1" in
+case "$subcommand" in
 	setup)
 		setup_dim
 		;;
@@ -338,7 +361,6 @@ case "$1" in
 		;;
 	push-queued|pq)
 		if git branch | grep drm-intel-next-queued | grep '\*' ; then
-			shift
 			git push $DIM_DRM_INTEL_REMOTE	drm-intel-next-queued $@
 
 			update_nightly
@@ -349,7 +371,6 @@ case "$1" in
 		;;
 	push-fixes|pf)
 		if git branch | grep drm-intel-fixes | grep '\*' ; then
-			shift
 			git push $DIM_DRM_INTEL_REMOTE	drm-intel-fixes  $@
 
 			update_nightly
@@ -365,10 +386,9 @@ case "$1" in
 		git checkout drm-intel-fixes
 		;;
 	apply-branch|ab)
-		shift
 		branch=$1
+		shift
 		if git branch | grep $branch | grep '\*' ; then
-			shift
 			git am -3 $@
 			dim_checkpatch HEAD
 			git commit --amend &
@@ -377,11 +397,9 @@ case "$1" in
 		fi
 		;;
 	apply-queued|aq)
-		shift
 		dim apply-branch drm-intel-next-queued $@
 		;;
 	apply-fixes|af)
-		shift
 		dim apply-branch drm-intel-fixes $@
 		;;
 	apply-resolved|ar)
