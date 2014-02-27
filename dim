@@ -159,6 +159,11 @@ function update_nightly
 	local first=1
 
 	cd $DIM_PREFIX/$integration_branch
+	if ! git branch | grep $integration_branch | grep '\*' >& /dev/null ; then
+		echo "Branch setup for the integration repo is borked"
+		exit 1
+	fi
+
 	# git fetch returns 128 if there's nothing to be fetched
 	git fetch origin >& /dev/null || true
 	# don't auto-fetch drm-upstream to avoid including -rc1 too early
@@ -313,6 +318,9 @@ function setup_dim
 	cd drm-intel-nightly
 	mkdir -p .git/rr-cache
 	git config remote.origin.url $drm_intel_git
+	if ! git branch | grep drm-intel-nightly > /dev/null ; then
+		git checkout -t origin/drm-intel-nightly
+	fi
 	if git remote | grep drm-upstream > /dev/null ; then
 		git config remote.drm-upstream.url $drm_upstream_git
 	else
