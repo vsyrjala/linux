@@ -298,8 +298,8 @@ case "$1" in
 		username=${username+`git config user.name || true`}
 		username=${username+`getent passwd $USER | cut -d: -f 5 | cut -d, -f 1 || true`}
 		useremail=$GIT_COMMMITTER_EMAIL
-		useremail=${username+`git config user.email || true`}
-		useremail=${username+$EMAIL}
+		useremail=${useremail+`git config user.email || true`}
+		useremail=${useremail+$EMAIL}
 
 		if [[ -z $useremail || -z $username ]] ; then
 			echo User name/email not found, please fix your config
