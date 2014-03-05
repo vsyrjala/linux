@@ -295,11 +295,11 @@ case "$1" in
 		quilt_clean_check
 
 		username=$GIT_COMMMITTER_NAME
-		username=${username+`git config user.name || true`}
-		username=${username+`getent passwd $USER | cut -d: -f 5 | cut -d, -f 1 || true`}
+		username=${username:-`git config user.name || true`}
+		username=${username:-`getent passwd $USER | cut -d: -f 5 | cut -d, -f 1 || true`}
 		useremail=$GIT_COMMMITTER_EMAIL
-		useremail=${useremail+`git config user.email || true`}
-		useremail=${useremail+$EMAIL}
+		useremail=${useremail:-`git config user.email || true`}
+		useremail=${useremail:-$EMAIL}
 
 		if [[ -z $useremail || -z $username ]] ; then
 			echo User name/email not found, please fix your config
