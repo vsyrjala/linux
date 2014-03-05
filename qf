@@ -158,7 +158,7 @@ function branch_init
 		.*
 		HERE
 		git add series .gitignore config -f
-		git c -m "Initial quilt commit" -m "Baseline: $baseline"
+		git commit -m "Initial quilt commit" -m "Baseline: $baseline"
 	fi
 
 	# set the quilts upstream
