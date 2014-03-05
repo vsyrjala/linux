@@ -72,6 +72,7 @@ nightly_branches="$nightly_branches drm-upstream/drm-next drm-upstream/drm-fixes
 nightly_branches="$nightly_branches origin/topic/core-stuff"
 
 drm_intel_ssh=ssh://git.freedesktop.org/git/drm-intel
+drm_intel_git=git://anongit.freedesktop.org/drm-intel
 drm_upstream_git=git://people.freedesktop.org/~airlied/linux
 linux_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 
@@ -460,7 +461,7 @@ case "$subcommand" in
 		# generate tag list
 		drm_intel_next_tags=`git log drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
 		prep_pull_mail_tags $drm_intel_next_tags
-		git request-pull $upstream $drm_intel_ssh $DIM_DRM_INTEL_REMOTE/drm-intel-next >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-next >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] drm-intel-next" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
@@ -478,7 +479,7 @@ case "$subcommand" in
 		$DRY git tag -f drm-intel-fixes-$today $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
 		$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
 		prep_pull_mail
-		git request-pull $upstream $drm_intel_ssh $DIM_DRM_INTEL_REMOTE/drm-intel-fixes >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-fixes >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] drm-intel-fixes" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
@@ -499,7 +500,7 @@ case "$subcommand" in
 			no upstream given
 		fi
 		prep_pull_mail
-		git request-pull $upstream $drm_intel_ssh $DIM_DRM_INTEL_REMOTE/$branch >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/$branch >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] topic" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
