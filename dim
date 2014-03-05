@@ -52,7 +52,7 @@ DIM_PREFIX=${DIM_PREFIX:-$HOME/linux}
 # main maintainer repo under $DIM_PREFIX
 DIM_DRM_INTEL=${DIM_DRM_INTEL:-src}
 
-# name of the $drm_intel_git remote within $DIM_DRM_INTEL
+# name of the $drm_intel_ssh remote within $DIM_DRM_INTEL
 DIM_DRM_INTEL_REMOTE=${DIM_DRM_INTEL_REMOTE:-danvet}
 
 # name of the $drm_upstream_git remote within $DIM_DRM_INTEL
@@ -71,7 +71,7 @@ nightly_branches="origin/drm-intel-next-queued origin/drm-intel-fixes"
 nightly_branches="$nightly_branches drm-upstream/drm-next drm-upstream/drm-fixes"
 nightly_branches="$nightly_branches origin/topic/core-stuff"
 
-drm_intel_git=ssh://git.freedesktop.org/git/drm-intel
+drm_intel_ssh=ssh://git.freedesktop.org/git/drm-intel
 drm_upstream_git=git://people.freedesktop.org/~airlied/linux
 linux_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 
@@ -282,8 +282,8 @@ function setup_dim
 		echo "please set up remote origin for $linux_upstream_git"
 		exit 1
 	fi
-	if ! git remote -v | grep "^$DIM_DRM_INTEL_REMOTE[[:space:]]" | grep $drm_intel_git > /dev/null; then
-		echo "please set up remote $DIM_DRM_INTEL_REMOTE for $drm_intel_git (or update config)"
+	if ! git remote -v | grep "^$DIM_DRM_INTEL_REMOTE[[:space:]]" | grep $drm_intel_ssh > /dev/null; then
+		echo "please set up remote $DIM_DRM_INTEL_REMOTE for $drm_intel_ssh (or update config)"
 		exit 1
 	fi
 	if ! git remote -v | grep "^$DIM_DRM_UPSTREAM_REMOTE[[:space:]]" | grep $drm_upstream_git > /dev/null; then
@@ -293,31 +293,31 @@ function setup_dim
 	cd ..
 
 	if [ ! -d maintainer-tools ]; then
-		git clone $drm_intel_git maintainer-tools
+		git clone $drm_intel_ssh maintainer-tools
 	fi
 	cd maintainer-tools
-	git config remote.origin.url $drm_intel_git
+	git config remote.origin.url $drm_intel_ssh
 	if ! git branch | grep maintainer-tools > /dev/null ; then
 		git checkout -t origin/maintainer-tools
 	fi
 	cd ..
 
 	if [ ! -d drm-intel-rerere ]; then
-		git clone $drm_intel_git drm-intel-rerere
+		git clone $drm_intel_ssh drm-intel-rerere
 	fi
 	cd drm-intel-rerere
-	git config remote.origin.url $drm_intel_git
+	git config remote.origin.url $drm_intel_ssh
 	if ! git branch | grep rerere-cache > /dev/null ; then
 		git checkout -t origin/rerere-cache
 	fi
 	cd ..
 
 	if [ ! -d drm-intel-nightly ]; then
-		git clone $drm_intel_git drm-intel-nightly
+		git clone $drm_intel_ssh drm-intel-nightly
 	fi
 	cd drm-intel-nightly
 	mkdir -p .git/rr-cache
-	git config remote.origin.url $drm_intel_git
+	git config remote.origin.url $drm_intel_ssh
 	if ! git branch | grep drm-intel-nightly > /dev/null ; then
 		git checkout -t origin/drm-intel-nightly
 	fi
@@ -460,7 +460,7 @@ case "$subcommand" in
 		# generate tag list
 		drm_intel_next_tags=`git log drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
 		prep_pull_mail_tags $drm_intel_next_tags
-		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-next >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_ssh $DIM_DRM_INTEL_REMOTE/drm-intel-next >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] drm-intel-next" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
@@ -478,7 +478,7 @@ case "$subcommand" in
 		$DRY git tag -f drm-intel-fixes-$today $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
 		$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
 		prep_pull_mail
-		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-fixes >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_ssh $DIM_DRM_INTEL_REMOTE/drm-intel-fixes >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] drm-intel-fixes" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
@@ -499,7 +499,7 @@ case "$subcommand" in
 			no upstream given
 		fi
 		prep_pull_mail
-		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/$branch >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_ssh $DIM_DRM_INTEL_REMOTE/$branch >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] topic" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
