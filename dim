@@ -67,9 +67,6 @@ DIM_MUA=${DIM_MUA:-mutt}
 #
 
 today=`date +%Y-%m-%d`
-nightly_branches="origin/drm-intel-next-queued origin/drm-intel-fixes"
-nightly_branches="$nightly_branches drm-upstream/drm-next drm-upstream/drm-fixes"
-nightly_branches="$nightly_branches origin/topic/core-stuff"
 
 drm_intel_ssh=ssh://git.freedesktop.org/git/drm-intel
 drm_intel_git=git://anongit.freedesktop.org/drm-intel
@@ -173,6 +170,14 @@ function update_nightly
 	local time=`date +%Yy-%mm-%dd-%Hh-%Mm-%Ss`
 	local first=1
 
+	cd $DIM_PREFIX/drm-intel-rerere/
+	if git status --porcelain | grep nightly.conf$ > /dev/null ; then
+		echo ERROR: -nightly configuration file not commited, aborting
+		exit 1
+	fi
+
+	source $DIM_PREFIX/drm-intel-rerere/nightly.conf
+
 	cd $DIM_PREFIX/$integration_branch
 	if ! git branch | grep $integration_branch | grep '\*' >& /dev/null ; then
 		echo "Branch setup for the integration repo is borked"
@@ -222,10 +227,11 @@ function update_nightly
 		git add *.patch >& /dev/null || true
 		git add rr-cache/* > /dev/null
 		if git commit -m "$time: $integration_branch rerere cache update" >& /dev/null; then
-			git push $DRY_RUN origin HEAD >& /dev/null && echo "rerere cache successfully updated"
+			echo "new rerere-cache commit"
 		else
 			echo "nothing changed in the rerere cache"
 		fi
+		git push $DRY_RUN origin HEAD >& /dev/null && echo "rerere cache successfully updated"
 	else
 		echo "Branch setup for the rerere-cache is borked"
 	fi
