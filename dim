@@ -152,6 +152,16 @@ function check_conflicts
 	true
 }
 
+function update_rerere_cache
+{
+	cd $DIM_PREFIX/drm-intel-rerere/
+	git fetch origin
+	cp rr-cache/* $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ -r
+	rm $DIM_PREFIX/*fixup.patch &> /dev/null || true
+	cp *.patch $DIM_PREFIX &> /dev/null || true
+	cd -
+}
+
 function update_nightly
 {
 	local integration_branch=drm-intel-nightly
@@ -169,6 +179,7 @@ function update_nightly
 	git fetch origin >& /dev/null || true
 	# don't auto-fetch drm-upstream to avoid including -rc1 too early
 	#git fetch drm-upstream >& /dev/null || true
+	update_rerere_cache
 
 	# merge -fixes
 	for branch in $nightly_branches; do
@@ -359,11 +370,7 @@ case "$subcommand" in
 		git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
 		# TODO: Restore -nightly merge state from the rerere-cache
 		# branch
-		cd $DIM_PREFIX/drm-intel-rerere/
-		git fetch origin
-		cp rr-cache/* $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ -r
-		rm $DIM_PREFIX/*fixup.patch &> /dev/null || true
-		cp *.patch $DIM_PREFIX &> /dev/null || true
+		update_rerere_cache
 		;;
 	rebuild-nightly)
 		update_nightly
