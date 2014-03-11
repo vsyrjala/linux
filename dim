@@ -104,8 +104,12 @@ done
 shift `expr $OPTIND - 1`
 
 # first positional argument is the subcommand
-subcommand="$1"
-shift
+if [ "$#" = "0" ]; then
+    subcommand="help"
+else
+    subcommand="$1"
+    shift
+fi
 
 function update_linux_next
 {
