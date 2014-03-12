@@ -415,6 +415,12 @@ case "$subcommand" in
 	apply-branch|ab)
 		branch=$1
 		shift
+
+		if [[ -n `git status --porcelain --untracked-files=no` ]] ; then
+			echo Repository not clean, aborting
+			exit 2
+		fi
+
 		if git branch | grep $branch | grep '\*' ; then
 			git am -3 $@
 			dim_checkpatch HEAD
