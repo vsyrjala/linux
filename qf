@@ -483,6 +483,12 @@ case "$1" in
 		This automatically either creates a new, empty patch pile or
 		checks out the state of an existing remote.
 
+		Note that this only initializes the quilt side of things and
+		presumes that the test branch is set up already, including
+		remote tracking connection.  To create a completely new branch
+		hence first run
+		$ git checkout -b test --track origin/test
+
 		Committing changes and publishing the resulting git tree
 		$ qf git gui # commit any changes in the patch directory
 		$ qf export && qf push
@@ -511,11 +517,16 @@ case "$1" in
 		repository. If so a quilt branch of the same name with
 		$QUILT_PREFIX is created and initialized (but without any
 		patches). The remote configuration is copied over from the
-		branch in the baseline repository.
+		branch in the baseline repository. The script will fall over if
+		the branch in the baseline repository doesn't have a remote
+		properly set up.
 
 		If the quilt branch already exists in the remote the quilt then
 		it is initialized with the latest state (which is updated with
-		git fetch beforehand).
+		git fetch beforehand). The remote quilt branch must have the
+		same name as the branch in the local baseline repository, the
+		script doesn't support disparate tracking names for the quilt
+		branch.
 
 		Before the newly created branch can be used it needs to be
 		checked out first.
