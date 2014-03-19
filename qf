@@ -355,7 +355,7 @@ case "$1" in
 		fi
 
 		cd patches
-		git push $remote
+		git push $remote $quilt_branch:refs/quilts/$branch
 		cd ..
 
 		# The exported branch is a rebasing one, so force the push.
