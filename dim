@@ -483,7 +483,7 @@ case "$subcommand" in
 		echo Using $upstream as the upstream
 
 		# generate tag list
-		drm_intel_next_tags=`git log drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
+		drm_intel_next_tags=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
 		prep_pull_mail_tags $drm_intel_next_tags
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-next >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] drm-intel-next" \
