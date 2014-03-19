@@ -466,19 +466,19 @@ case "$subcommand" in
 		git rebase --continue
 		;;
 	tc)
-		git tag --contains $2 | grep ^v | sort -V | head -n 1
+		git tag --contains $1 | grep ^v | sort -V | head -n 1
 		;;
 	check-patch|cp)
-		if [ "x$2" == "x" ] ; then
+		if [ "x$1" == "x" ] ; then
 			dim_checkpatch HEAD
 		else
-			dim_checkpatch $2
+			dim_checkpatch $1
 		fi
 		;;
 	pull-request)
 		upstream=$DIM_DRM_UPSTREAM_REMOTE/drm-next
-		if [[ "x$2" != "x" ]] ; then
-			upstream=$2
+		if [[ "x$1" != "x" ]] ; then
+			upstream=$1
 		fi
 		echo Using $upstream as the upstream
 
@@ -496,8 +496,8 @@ case "$subcommand" in
 		;;
 	pull-request-fixes)
 		upstream=origin/master
-		if [[ "x$2" != "x" ]] ; then
-			upstream=$2
+		if [[ "x$1" != "x" ]] ; then
+			upstream=$1
 		fi
 		echo Using $upstream as the upstream
 		$DRY git tag -f drm-intel-fixes-$today $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
@@ -513,13 +513,13 @@ case "$subcommand" in
 			"$addr_drm_maintainer"
 		;;
 	pull-request-topic)
-		if [[ "x$3" != "x" ]] ; then
-			branch=$2
+		if [[ "x$1" != "x" ]] ; then
+			branch=$1
 		else
 			no branch given
 		fi
 		if [[ "x$2" != "x" ]] ; then
-			upstream=$3
+			upstream=$2
 		else
 			no upstream given
 		fi
