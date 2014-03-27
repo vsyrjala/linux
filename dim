@@ -156,7 +156,7 @@ function check_conflicts
 function update_rerere_cache
 {
 	cd $DIM_PREFIX/drm-intel-rerere/
-	git fetch origin
+	git pull
 	cp rr-cache/* $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ -r
 	rm $DIM_PREFIX/*fixup.patch &> /dev/null || true
 	cp *.patch $DIM_PREFIX &> /dev/null || true
