@@ -87,12 +87,16 @@ addr_intel_qa="Terence Yang <guang.a.yang@intel.com>"
 
 DRY_RUN=
 DRY=
+FORCE=
 
-while getopts d opt; do
+while getopts df opt; do
 	case "$opt" in
 		d)
 			DRY_RUN=--dry-run
 			DRY=echo
+			;;
+		f)
+			FORCE=1
 			;;
 		*)
 			exit
@@ -171,9 +175,13 @@ function update_nightly
 	local rerere=$DIM_PREFIX/drm-intel-rerere
 
 	cd $rerere
-	if git status --porcelain | grep nightly.conf$ > /dev/null ; then
-		echo ERROR: -nightly configuration file not commited, aborting
-		exit 1
+	if [[ `git status --porcelain | grep -v "^[ ?][ ?]" | wc -l` -gt 0 ]]; then
+		if [[ $FORCE ]] ; then
+			echo WARNING: -nightly configuration file not commited, but continuing with rebuild
+		else
+			echo ERROR: -nightly configuration file not commited, aborting
+			exit 1
+		fi
 	fi
 
 	source $rerere/nightly.conf
