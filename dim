@@ -158,8 +158,6 @@ function update_rerere_cache
 	cd $DIM_PREFIX/drm-intel-rerere/
 	git pull
 	cp rr-cache/* $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ -r
-	rm $DIM_PREFIX/*fixup.patch &> /dev/null || true
-	cp *.patch $DIM_PREFIX &> /dev/null || true
 	cd -
 }
 
@@ -170,13 +168,15 @@ function update_nightly
 	local time=`date +%Yy-%mm-%dd-%Hh-%Mm-%Ss`
 	local first=1
 
-	cd $DIM_PREFIX/drm-intel-rerere/
+	local rerere=$DIM_PREFIX/drm-intel-rerere
+
+	cd $rerere
 	if git status --porcelain | grep nightly.conf$ > /dev/null ; then
 		echo ERROR: -nightly configuration file not commited, aborting
 		exit 1
 	fi
 
-	source $DIM_PREFIX/drm-intel-rerere/nightly.conf
+	source $rerere/nightly.conf
 
 	cd $DIM_PREFIX/$integration_branch
 	if ! git branch | grep $integration_branch | grep '\*' >& /dev/null ; then
@@ -199,9 +199,9 @@ function update_nightly
 			first=0
 		else
 			git merge --rerere-autoupdate --no-commit $branch >& /dev/null || true
-			if [ -f ../$integration_branch-$name-fixup.patch ] ; then
+			if [ -f $rerere/$integration_branch-$name-fixup.patch ] ; then
 				echo applying manual fixup patch for $integration_branch merge ...
-				git apply --index ../$integration_branch-$name-fixup.patch
+				git apply --index $rerere/$integration_branch-$name-fixup.patch
 			fi
 			check_conflicts
 			git add -u
@@ -218,12 +218,10 @@ function update_nightly
 
 	git push $DRY_RUN origin +HEAD >& /dev/null && echo "$integration_branch branch successfully updated"
 
-	cd $DIM_PREFIX/drm-intel-rerere/
+	cd $rerere
 	if git branch | grep rerere-cache | grep '\*' >& /dev/null ; then
 		git pull >& /dev/null
-		git rm *.patch >& /dev/null || true
 		cp $DIM_PREFIX/$integration_branch/.git/rr-cache/* rr-cache -r
-		cp ../$integration_branch*fixup.patch . >& /dev/null || true
 		git add *.patch >& /dev/null || true
 		git add rr-cache/* > /dev/null
 		if git commit -m "$time: $integration_branch rerere cache update" >& /dev/null; then
