@@ -214,7 +214,9 @@ function update_nightly
 			check_conflicts
 			git add -u
 
-			git commit --no-edit || true
+			if [[ `git diff --cached --name-status | wc -l` -gt 0 ]]; then
+				git commit --no-edit || true
+			fi
 		fi
 
 		echo $branch `git rev-parse $branch` >> $specfile
