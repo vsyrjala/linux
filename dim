@@ -194,19 +194,31 @@ function update_nightly
 
 	# git fetch returns 128 if there's nothing to be fetched
 	git fetch origin >& /dev/null || true
-	# don't auto-fetch drm-upstream to avoid including -rc1 too early
-	#git fetch drm-upstream >& /dev/null || true
+	git fetch drm-upstream >& /dev/null || true
 	update_rerere_cache
 
 	# merge -fixes
-	for branch in $nightly_branches; do
+	for tree in $nightly_branches; do
+		local branch=${tree%:*}
+		local sha1=${tree#*:}
 		local name=${branch##*/}
 
+		# the : separator is optional
+		if [[ $sha1 == $tree ]] ; then
+			sha1=
+		fi
+
+		if [[ -n $sha1 ]] ; then
+			echo Using override sha1: $sha1 for branch $name
+		else
+			sha1=$branch
+		fi
+
 		if [ $first == 1 ] ; then
-			git reset --hard $branch >& /dev/null
+			git reset --hard $sha1 >& /dev/null
 			first=0
 		else
-			git merge --rerere-autoupdate --no-commit $branch >& /dev/null || true
+			git merge --rerere-autoupdate --no-commit $sha1 >& /dev/null || true
 			if [ -f $rerere/$integration_branch-$name-fixup.patch ] ; then
 				echo applying manual fixup patch for $integration_branch merge ...
 				git apply --index $rerere/$integration_branch-$name-fixup.patch
@@ -219,7 +231,7 @@ function update_nightly
 			fi
 		fi
 
-		echo $branch `git rev-parse $branch` >> $specfile
+		echo $branch `git rev-parse $sha1` >> $specfile
 	done
 
 	mv $specfile integration-manifest
