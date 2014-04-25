@@ -545,7 +545,7 @@ case "$subcommand" in
 		fi
 		prep_pull_mail
 		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/$branch >> ~/tmp/dim-pull-request
-		$DIM_MUA -s "[PULL] topic" \
+		$DIM_MUA -s "[PULL] $branch" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
 			-c "$addr_dri_devel" \
