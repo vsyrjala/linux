@@ -496,9 +496,11 @@ case "$subcommand" in
 		fi
 		;;
 	pull-request)
-		upstream=$DIM_DRM_UPSTREAM_REMOTE/drm-next
 		if [[ "x$1" != "x" ]] ; then
 			upstream=$1
+		else
+			upstream=$DIM_DRM_UPSTREAM_REMOTE/drm-next
+			git fetch $DIM_DRM_UPSTREAM_REMOTE >& /dev/null || true
 		fi
 		echo Using $upstream as the upstream
 
@@ -515,9 +517,11 @@ case "$subcommand" in
 			"$addr_drm_maintainer"
 		;;
 	pull-request-fixes)
-		upstream=origin/master
 		if [[ "x$1" != "x" ]] ; then
 			upstream=$1
+		else
+			upstream=origin/master
+			git fetch origin >& /dev/null || true
 		fi
 		echo Using $upstream as the upstream
 		$DRY git tag -f drm-intel-fixes-$today $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
