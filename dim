@@ -612,123 +612,170 @@ case "$subcommand" in
 		make C=1 drivers/gpu/drm/i915/i915.ko
 		;;
 	*)
-		exec ${PAGER:-cat} <<-HERE
-		dim drm-intel maintainer script
-		===============================
+		if hash rst2man 2>/dev/null; then
+			renderer=rst2man
+			pager="man -l -"
+		else
+			renderer=cat
+			pager=${PAGER:-cat}
+		fi
+		$renderer <<HERE | $pager
+=====
+ dim
+=====
 
-		setup prefix
+---------------------------
+drm-intel maintainer script
+---------------------------
 
-		Setup git maintainer branches in the given prefix.
+:Author: Daniel Vetter <daniel.vetter@ffwll.ch>
+:Author: Jani Nikula <jani.nikula@intel.com>
+:Date: 2014-05-15
+:Copyright: 2012-2014 Intel Corporation
+:Manual section: 1
+:Manual group: maintainer tools
 
-		nightly-forget
+SYNOPSIS
+========
 
-		Forget git rerere solutions for nightly merges in case they
-		contain a bogus merge resolution.
+**dim** [*option* ...] *command*
 
-		update-branches
+DESCRIPTION
+===========
 
-		Updates all maintainer branches.
+drm-intel maintainer script.
 
-		rebuild-nightly
+OPTIONS
+=======
 
-		Rebuilds the nightly branch. Useful when ad-hoc trees are
-		included in -nightly.
+-v		Verbose output.
+-d		Dry run.
 
-		push-queued|pq [git push arguments]
-		push-fixes|pf [git push arguments]
+COMMANDS
+========
 
-		Updates the drm-intel-fixes or the drm-intel-next-queued branch
-		respectively. Complains if that's not the current branch,
-		assuming that patches got merged to the wrong branch.
+setup *prefix*
+--------------
+Setup git maintainer branches in the given prefix.
 
-		co
-		cof
+nightly-forget
+--------------
+Forget git rerere solutions for nightly merges in case they
+contain a bogus merge resolution.
 
-		Checks out the drm-intel-fixes branch or dinq respectively for
-		merging patches.
+update-branches
+---------------
+Updates all maintainer branches.
 
-		apply-branch|ab branch [git am arguments]
+rebuild-nightly
+---------------
+Rebuilds the nightly branch. Useful when ad-hoc trees are
+included in -nightly.
 
-		Applys a patch to the given branch, complaining if it is not
-		checked out yet.
+push-queued|pq [*git push arguments*]
+-------------------------------------
 
-		apply-queued|aq [git am arguments]
-		apply-fixes|af [git am arguments]
+push-fixes|pf [*git push arguments*]
+------------------------------------
 
-		Applies a patch to fixes or queued respectively, complains if
-		it's not the right branch. Additional arguments are passed to
-		git am.
+Updates the drm-intel-fixes or the drm-intel-next-queued branch
+respectively. Complains if that's not the current branch,
+assuming that patches got merged to the wrong branch.
 
-		magic-patch|mp
+co
+--
 
-		Apply a patch using patch and then wiggle in any conflicts.
+cof
+---
+Checks out the drm-intel-fixes branch or dinq respectively for
+merging patches.
 
-		magic-rebase-resolve|mrr
+apply-branch|ab branch [*git am arguments*]
+-------------------------------------------
+Applys a patch to the given branch, complaining if it is not
+checked out yet.
 
-		Tries to resolve a rebase conflict by first resetting the tree
-		and the using the magic patch tool. Then builds the tree, adds
-		any changes with git add -u and continues the rebase.
+apply-queued|aq [*git am arguments*]
+------------------------------------
 
-		apply-resolved|ar
+apply-fixes|af [*git am arguments*]
+-----------------------------------
+Applies a patch to fixes or queued respectively, complains if
+it's not the right branch. Additional arguments are passed to
+git am.
 
-		Compile-test the current tree and if successfully resolve a
-		confilicted git am. Also runs the patch checker afterwards.
+magic-patch|mp
+--------------
+Apply a patch using patch and then wiggle in any conflicts.
 
-		apply-igt|ai
+magic-rebase-resolve|mrr
+------------------------
+Tries to resolve a rebase conflict by first resetting the tree
+and the using the magic patch tool. Then builds the tree, adds
+any changes with git add -u and continues the rebase.
 
-		Apply a patch to the i-g-t repository.
+apply-resolved|ar
+-----------------
+Compile-test the current tree and if successfully resolve a
+confilicted git am. Also runs the patch checker afterwards.
 
-		tc <commit-ish>
+apply-igt|ai
+------------
+Apply a patch to the i-g-t repository.
 
-		Prints the linux kernel tag which contains the supplied commit-ish
+tc *commit-ish*
+---------------
+Prints the linux kernel tag which contains the supplied commit-ish
 
-		check-patch|cp [commit-ish]
+check-patch|cp [*commit-ish*]
+-----------------------------
+Runs a commit through the check tools like when applying a
+patch. Git commit-ish can be passed in, defaults to HEAD
 
-		Runs a commit through the check tools like when applying a
-		patch. Git commit-ish can be passed in, defaults to HEAD
+pull-request [*upstream*]
+-------------------------
 
-		pull-request [upstream]
-		pull-request-fixes [upstream]
+pull-request-fixes [*upstream*]
+-------------------------------
+Create a tag for the -fixes, but no tag is created for -next
+since that's already been done by update-next. Then prepares a
+pull request in ~/tmp/dim-pull-request. The upstream for -fixes
+defaults to origin/master, the upstream for -next defaults to
+airlied/drm-next
 
-		Create a tag for the -fixes, but no tag is created for -next
-		since that's already been done by update-next. Then prepares a
-		pull request in ~/tmp/dim-pull-request. The upstream for -fixes
-		defaults to origin/master, the upstream for -next defaults to
-		airlied/drm-next
+Since the tag for -fixes is based only on the day (and not the
+exact time) and there's not tag being pushed for -next the pull
+request can be regenerated with the same commands if the
+upstream was wrong.
 
-		Since the tag for -fixes is based only on the day (and not the
-		exact time) and there's not tag being pushed for -next the pull
-		request can be regenerated with the same commands if the
-		upstream was wrong.
+Then fires up mutt with the pre-generated email with subject and
+recipients already set.
 
-		Then fires up mutt with the pre-generated email with subject and
-		recipients already set.
+pull-request-topic *branch* *upstream*
+--------------------------------------
+Generates a pull request for the given topic-branch/upstream
+combo and fires up mutt with the pre-generated email.
 
-		pull-request-topic branch upstream
+update-next
+-----------
+Pushes out the latest dinq to drm-intel-next and tags it. Also
+pushes out the latest nightly to drm-intel-testing. For an
+overview a gitk view of the currently unmerged feature pile is
+opened.
 
-		Generates a pull request for the given topic-branch/upstream
-		combo and fires up mutt with the pre-generated email.
+Also checks that the drm-intel-fixes|-next-queued are fully
+merged into -nightly to avoid operator error.
 
-		update-next
+upload-docs
+-----------
+Generate html kernel docs and upload the drm DocBook to the
+private fdo space. Note that this always uses the kernel sources
+in the current directory.
 
-		Pushes out the latest dinq to drm-intel-next and tags it. Also
-		pushes out the latest nightly to drm-intel-testing. For an
-		overview a gitk view of the currently unmerged feature pile is
-		opened.
-
-		Also checks that the drm-intel-fixes|-next-queued are fully
-		merged into -nightly to avoid operator error.
-
-		upload-docs
-
-		Generate html kernel docs and upload the drm DocBook to the
-		private fdo space. Note that this always uses the kernel sources
-		in the current directory.
-
-		checker
-
-		Run sparse on the kernel.
-		HERE
-
+checker
+-------
+Run sparse on the kernel.
+HERE
+		exit 0
 		;;
 esac
