@@ -458,194 +458,228 @@ case "$1" in
 		gitk "$@"
 		;;
 	help)
-		exec ${PAGER:-cat} <<-HERE
-		qf - quilt git flow script
-		==========================
+		if hash rst2man 2>/dev/null; then
+			renderer=rst2man
+			pager="man -l -"
+		else
+			renderer=cat
+			pager=${PAGER:-cat}
+		fi
+		$renderer <<HERE | $pager
+====
+ qf
+====
 
-		Overview
-		--------
+---------------------
+quilt git flow script
+---------------------
 
-		qf is a workflow script to manage a quilt patch pile on top of a
-		git baseline and track any changes in git itself. The quilt
-		patches and any other metadata is tracked in git refs outside of
-		the normal tag/branch namespace. The current baseline (as a git
-		commit sha1) of the quilt patch pile is also tracked. An
-		integral part is support to export the quilt patch to an git
-		branch in the baseline repository and push/fetch changes to the
-		remote linked to this branch.
+:Author: Daniel Vetter <daniel.vetter@ffwll.ch>
+:Date: 2014-05-15
+:Copyright: 2013-2014 Intel Corporation
+:Manual section: 1
+:Manual group: maintainer tools
 
-		Assuming there's already a branch "test" set up to track a
-		remote a quickstart overview (output omitted):
+SYNOPSIS
+========
 
-		Gettting started
-		$ qf setup test
-		$ qf checkout test
-		This automatically either creates a new, empty patch pile or
-		checks out the state of an existing remote.
+**qf** *command* [*arg* ...]
 
-		Note that this only initializes the quilt side of things and
-		presumes that the test branch is set up already, including
-		remote tracking connection.  To create a completely new branch
-		hence first run
-		$ git checkout -b test --track origin/test
+DESCRIPTION
+===========
 
-		Committing changes and publishing the resulting git tree
-		$ qf git gui # commit any changes in the patch directory
-		$ qf export && qf push
+**qf** is a workflow script to manage a quilt patch pile on top of a
+git baseline and track any changes in git itself. The quilt
+patches and any other metadata is tracked in git refs outside of
+the normal tag/branch namespace. The current baseline (as a git
+commit sha1) of the quilt patch pile is also tracked. An
+integral part is support to export the quilt patch to an git
+branch in the baseline repository and push/fetch changes to the
+remote linked to this branch.
 
-		Rebasing
-		$ qf baseline # print old baseline commit
-		$ qf rebase upstream
-		$ qf baseline # check new baseline commit
+Assuming there's already a branch "test" set up to track a
+remote a quickstart overview (output omitted):
 
-		Following changes in upstream
-		$ qf fetch
-		$ qf git pull && qf checkout test
-		Doing only a git pull on the quilt branch leads to an
-		inconsitent state if the baseline changed.
+Getting started
+---------------
+$ qf setup test
 
-		Commands
-		--------
+$ qf checkout test
 
-		setup [branch-name]
+This automatically either creates a new, empty patch pile or
+checks out the state of an existing remote.
 
-		Sets up a git repository for this quilt worflow script by
-		creating and initializing (if this isn't done yet) the git
-		repository in <git-root>/patches.
+Note that this only initializes the quilt side of things and
+presumes that the test branch is set up already, including
+remote tracking connection. To create a completely new branch
+hence first run
 
-		If a branch name is given it must exist in the baseline
-		repository. If so a quilt branch of the same name with
-		$QUILT_PREFIX is created and initialized (but without any
-		patches). The remote configuration is copied over from the
-		branch in the baseline repository. The script will fall over if
-		the branch in the baseline repository doesn't have a remote
-		properly set up.
+$ git checkout -b test --track origin/test
 
-		If the quilt branch already exists in the remote the quilt then
-		it is initialized with the latest state (which is updated with
-		git fetch beforehand). The remote quilt branch must have the
-		same name as the branch in the local baseline repository, the
-		script doesn't support disparate tracking names for the quilt
-		branch.
+Committing changes and publishing the resulting git tree
+--------------------------------------------------------
+$ qf git gui # commit any changes in the patch directory
 
-		Before the newly created branch can be used it needs to be
-		checked out first.
+$ qf export && qf push
 
-		checkout|co <commit-ish|quilt-branch>
+Rebasing
+--------
+$ qf baseline # print old baseline commit
 
-		Checks out the given branch/commit-ish (same rules as for git
-		checkout apply) in the patches directory. If you want to check
-		out an earlier revision you might need to run qf fetch first to
-		make sure that the base repo has all the baseline refs. When
-		checking out a branch it's not necessary to add the
-		$QUILT_PREFIX (quilt/ by default) to the branch name, the script
-		will complete the name automatically.
+$ qf rebase upstream
 
-		At the end all quilt patches will be pushed. Presuming the quilt
-		flow state hasn't been hand-edited or an incompletely pushed
-		quilt branch has been committed this will always succeed.
+$ qf baseline # check new baseline commit
 
-		rebase <commit-ish>
+Following changes in upstream
+-----------------------------
+$ qf fetch
 
-		Pops off all quilt patches, rebases the baseline to the given
-		commit and then reapplys all the quilt patches up to the same
-		patch as before. Then updates the BASELINE variable in
-		patches/config.
+$ qf git pull && qf checkout test
 
-		clean-patches
+Doing only a git pull on the quilt branch leads to an
+inconsitent state if the baseline changed.
 
-		Removes all unused patch files from the patches/ directory.
+COMMANDS
+========
 
-		refresh
+setup [*branch-name*]
+---------------------
+Sets up a git repository for this quilt worflow script by
+creating and initializing (if this isn't done yet) the git
+repository in <git-root>/patches.
 
-		Refreshes all the quilt patches up to the currently applied
-		patch. Then it commits a wash-up commit with all the refreshed
-		patches. The command aborts if there are uncommited changes in
-		the patches repository.
+If a branch name is given it must exist in the baseline
+repository. If so a quilt branch of the same name with
+$QUILT_PREFIX is created and initialized (but without any
+patches). The remote configuration is copied over from the
+branch in the baseline repository. The script will fall over if
+the branch in the baseline repository doesn't have a remote
+properly set up.
 
-		export
+If the quilt branch already exists in the remote the quilt then
+it is initialized with the latest state (which is updated with
+git fetch beforehand). The remote quilt branch must have the
+same name as the branch in the local baseline repository, the
+script doesn't support disparate tracking names for the quilt
+branch.
 
-		Flattens the current quilt branch and exports it into the
-		respective git branch in the base tree.
+Before the newly created branch can be used it needs to be
+checked out first.
 
-		The reflog'ed QUILT_EXPORT is always updated with the result of
-		the export. This is useful to export when in the detached HEAD
-		state in the quilt repository hence there's no branch to export
-		to.
+checkout|co *commit-ish|quilt-branch*
+-------------------------------------
+Checks out the given branch/commit-ish (same rules as for git
+checkout apply) in the patches directory. If you want to check
+out an earlier revision you might need to run qf fetch first to
+make sure that the base repo has all the baseline refs. When
+checking out a branch it's not necessary to add the
+$QUILT_PREFIX (quilt/ by default) to the branch name, the script
+will complete the name automatically.
 
-		export-visualize|ev
+At the end all quilt patches will be pushed. Presuming the quilt
+flow state hasn't been hand-edited or an incompletely pushed
+quilt branch has been committed this will always succeed.
 
-		Visualizes the latest export result using gitk, down to the
-		current baseline.
+rebase *commit-ish*
+-------------------
+Pops off all quilt patches, rebases the baseline to the given
+commit and then reapplys all the quilt patches up to the same
+patch as before. Then updates the BASELINE variable in
+patches/config.
 
-		push
+clean-patches
+-------------
+Removes all unused patch files from the patches/ directory.
 
-		Exports the tree and then pushes both the quilt branch, the
-		exported branch and any new baselines to the respective remotes.
+refresh
+-------
+Refreshes all the quilt patches up to the currently applied
+patch. Then it commits a wash-up commit with all the refreshed
+patches. The command aborts if there are uncommited changes in
+the patches repository.
 
-		fetch
+export
+------
+Flattens the current quilt branch and exports it into the
+respective git branch in the base tree.
 
-		Fetches both the main and patches barnch remotes and pulls all
-		the baseline refs into the main repo.
+The reflog'ed QUILT_EXPORT is always updated with the result of
+the export. This is useful to export when in the detached HEAD
+state in the quilt repository hence there's no branch to export
+to.
 
-		stage
+export-visualize|ev
+-------------------
+Visualizes the latest export result using gitk, down to the
+current baseline.
 
-		Resets the git index and then (re-)applies all currently applied
-		quilt patches to it. Useful to use git tools like git diff to
-		compare changes against the quilt patch state.
+push
+----
+Exports the tree and then pushes both the quilt branch, the
+exported branch and any new baselines to the respective remotes.
 
-		wiggle-push|wp
+fetch
+-----
+Fetches both the main and patches barnch remotes and pulls all
+the baseline refs into the main repo.
 
-		Force-push the next patch and then wiggle in any conflicts. Does
-		not refresh the patch automatically, so that the conflict
-		resolution can be cross-checked.
+stage
+-----
+Resets the git index and then (re-)applies all currently applied
+quilt patches to it. Useful to use git tools like git diff to
+compare changes against the quilt patch state.
 
-		resolved
+wiggle-push|wp
+--------------
+Force-push the next patch and then wiggle in any conflicts. Does
+not refresh the patch automatically, so that the conflict
+resolution can be cross-checked.
 
-		Little helper when a patch conflict was resolved. First
-		refreshes the topmost patch, then fires up vim to edit the
-		headers.
+resolved
+--------
+Little helper when a patch conflict was resolved. First
+refreshes the topmost patch, then fires up vim to edit the
+headers.
 
-		apply patch-name
+apply *patch-name*
+------------------
+Adds a patch to the quilt series and tries to push it.
 
-		Adds a patch to the quilt series and tries to push it.
+patch-amend|pa
+--------------
+Open the top most patch in the editor directly to e.g. amend the
+commit message.
 
-		patch-amend|pa
+list-unused-patches [*--purge*]
+-------------------------------
+Lists unused patches and if --purge is specified deletes them.
+Since the quilt patch pile is managed with git itself nothing
+should get lost.
 
-		Open the top most patch in the editor directly to e.g. amend the
-		commit message.
+baseline
+--------
+Prints out the current baseline sha1.
 
-		list-unused-patches [--purge]
+git|g [*args*]
+--------------
+Run git with the given arguments in the quilt patches directory.
 
-		Lists unused patches and if --purge is specified deletes them.
-		Since the quilt patch pile is managed with git itself nothing
-		should get lost.
+gitk|k [*args*]
+---------------
+Run gitk with the given argumenst in the quilt patches
+directory.
 
-		baseline
+help
+----
+This help text here
 
-		Prints out the current baseline sha1.
-
-		git|g [args]
-
-		Run git with the given arguments in the quilt patches directory.
-
-		IMPORTANT:
-
-		Any other subcommands are executed directly in the quilt patches
-		directory as git commans. When using quilt flow in scripts it is
-		import to use the explicit forwarding to avoid clashes with
-		furture extensions.
-
-		gitk|k [args]
-
-		Run gitk with the given argumenst in the quilt patches
-		directory.
-
-		help
-
-		This help text here
-		HERE
-
+all other subcommands - IMPORTANT
+---------------------------------
+Any other subcommands are executed directly in the quilt patches
+directory as git commans. When using quilt flow in scripts it is
+import to use the explicit forwarding to avoid clashes with
+furture extensions.
+HERE
 		;;
 	*)
 		cd_toplevel
