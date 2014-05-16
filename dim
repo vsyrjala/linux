@@ -71,6 +71,7 @@ today=`date +%Y-%m-%d`
 drm_intel_ssh=ssh://git.freedesktop.org/git/drm-intel
 drm_intel_git=git://anongit.freedesktop.org/drm-intel
 drm_upstream_git=git://people.freedesktop.org/~airlied/linux
+sound_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/tiwai/sound.git
 linux_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 
 # email aliases
@@ -195,6 +196,7 @@ function update_nightly
 	# git fetch returns 128 if there's nothing to be fetched
 	git fetch origin >& /dev/null || true
 	git fetch drm-upstream >& /dev/null || true
+	git fetch sound-upstream >& /dev/null || true
 	update_rerere_cache
 
 	# merge -fixes
@@ -368,6 +370,11 @@ function setup_dim
 		git config remote.drm-upstream.url $drm_upstream_git
 	else
 		git remote add drm-upstream $drm_upstream_git
+	fi
+	if git remote | grep sound-upstream > /dev/null ; then
+		git config remote.sound-upstream.url $sound_upstream_git
+	else
+		git remote add sound-upstream $sound_upstream_git
 	fi
 }
 
