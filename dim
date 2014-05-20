@@ -31,6 +31,8 @@
 # - Improve docs/workflow for topic branches
 # - extract the integration tree logic and make it generally useful, maybe for a
 #   drm-integration tree ...
+# - add helper to write a diff into the right fixup patch file for the current
+#   conflict
 
 # fail on any goof-up
 set -e
@@ -220,10 +222,14 @@ function update_nightly
 			git reset --hard $sha1 >& /dev/null
 			first=0
 		else
+			local fixup_file=$rerere/$integration_branch-$name-fixup.patch
+
+			echo $fixup_file > .fixup_file_path
+
 			git merge --rerere-autoupdate --no-commit $sha1 >& /dev/null || true
-			if [ -f $rerere/$integration_branch-$name-fixup.patch ] ; then
+			if [ -f $fixup_file ] ; then
 				echo applying manual fixup patch for $integration_branch merge ...
-				git apply --index $rerere/$integration_branch-$name-fixup.patch
+				patch -p1 -i $fixup_file
 			fi
 			check_conflicts
 			git add -u
@@ -412,6 +418,10 @@ case "$subcommand" in
 		;;
 	rebuild-nightly)
 		update_nightly
+		;;
+	cat-to-fixup)
+		cd $DIM_PREFIX/drm-intel-nightly
+		cat > `cat .fixup_file_path`
 		;;
 	push-queued|pq)
 		if git branch | grep drm-intel-next-queued | grep '\*' ; then
@@ -678,6 +688,11 @@ rebuild-nightly
 ---------------
 Rebuilds the nightly branch. Useful when ad-hoc trees are
 included in -nightly.
+
+cat-to-fixup
+------------
+
+Pipes stdin into the fixup patch file for the current -nightly merge.
 
 push-queued|pq [*git push arguments*]
 -------------------------------------
