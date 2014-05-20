@@ -31,8 +31,6 @@
 # - Improve docs/workflow for topic branches
 # - extract the integration tree logic and make it generally useful, maybe for a
 #   drm-integration tree ...
-# - add helper to write a diff into the right fixup patch file for the current
-#   conflict
 
 # fail on any goof-up
 set -e
