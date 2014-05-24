@@ -2521,6 +2521,8 @@ static void i915_gem_reset_ring_status(struct drm_i915_private *dev_priv,
 static void i915_gem_reset_ring_cleanup(struct drm_i915_private *dev_priv,
 					struct intel_engine_cs *ring)
 {
+	struct intel_ring_notify *notify, *next;
+
 	while (!list_empty(&ring->active_list)) {
 		struct drm_i915_gem_object *obj;
 
@@ -2552,6 +2554,14 @@ static void i915_gem_reset_ring_cleanup(struct drm_i915_private *dev_priv,
 	kfree(ring->preallocated_lazy_request);
 	ring->preallocated_lazy_request = NULL;
 	ring->outstanding_lazy_seqno = 0;
+
+	spin_lock_irq(&ring->lock);
+	list_for_each_entry_safe(notify, next, &ring->notify_list, list) {
+		intel_ring_notify_complete(notify);
+		/* FIXME should we notify at reset? */
+		notify->notify(notify);
+	}
+	spin_unlock_irq(&ring->lock);
 }
 
 void i915_gem_restore_fences(struct drm_device *dev)

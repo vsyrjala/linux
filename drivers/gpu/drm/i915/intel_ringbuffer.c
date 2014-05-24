@@ -1447,6 +1447,9 @@ static int intel_init_ring_buffer(struct drm_device *dev,
 
 	init_waitqueue_head(&ring->irq_queue);
 
+	INIT_LIST_HEAD(&ring->notify_list);
+	spin_lock_init(&ring->lock);
+
 	if (I915_NEED_GFX_HWS(dev)) {
 		ret = init_status_page(ring);
 		if (ret)
@@ -2406,4 +2409,90 @@ intel_stop_ring_buffer(struct intel_engine_cs *ring)
 			  ring->name, ret);
 
 	stop_ring(ring);
+}
+
+void intel_ring_notify_complete(struct intel_ring_notify *notify)
+{
+	struct intel_engine_cs *ring = notify->ring;
+
+	ring->irq_put(ring);
+	list_del(&notify->list);
+	notify->ring = NULL;
+}
+
+void intel_ring_notify_check(struct intel_engine_cs *ring)
+{
+	struct intel_ring_notify *notify, *next;
+	u32 seqno;
+
+	assert_spin_locked(&ring->lock);
+
+	if (list_empty(&ring->notify_list))
+		return;
+
+	seqno = ring->get_seqno(ring, false);
+
+	list_for_each_entry_safe(notify, next, &ring->notify_list, list) {
+		if (i915_seqno_passed(seqno, notify->seqno)) {
+			intel_ring_notify_complete(notify);
+			notify->notify(notify);
+		}
+	}
+}
+
+int intel_ring_notify_add(struct intel_engine_cs *ring,
+			  struct intel_ring_notify *notify)
+{
+	unsigned long irqflags;
+	int ret;
+
+	lockdep_assert_held(&ring->dev->struct_mutex);
+
+	if (WARN_ON(notify->ring != NULL || notify->seqno == 0))
+		return -EINVAL;
+
+	if (i915_seqno_passed(ring->get_seqno(ring, true), notify->seqno))
+		goto notify_immediately;
+
+	ret = i915_gem_check_olr(ring, notify->seqno);
+	if (ret)
+		return ret;
+
+	if (WARN_ON(!ring->irq_get(ring)))
+		goto notify_immediately;
+
+	spin_lock_irqsave(&ring->lock, irqflags);
+	notify->ring = ring;
+	list_add_tail(&notify->list, &ring->notify_list);
+	/* check again in case we just missed it */
+	intel_ring_notify_check(ring);
+	spin_unlock_irqrestore(&ring->lock, irqflags);
+
+	return 0;
+
+ notify_immediately:
+	spin_lock_irqsave(&ring->lock, irqflags);
+	notify->notify(notify);
+	spin_unlock_irqrestore(&ring->lock, irqflags);
+
+	return 0;
+}
+
+bool intel_ring_notify_pending(struct intel_ring_notify *notify)
+{
+	return notify->ring != NULL;
+}
+
+void intel_ring_notify_cancel(struct intel_ring_notify *notify)
+{
+	struct intel_engine_cs *ring = ACCESS_ONCE(notify->ring);
+	unsigned long irqflags;
+
+	if (!ring)
+		return;
+
+	spin_lock_irqsave(&ring->lock, irqflags);
+	if (notify->ring)
+		intel_ring_notify_complete(notify);
+	spin_unlock_irqrestore(&ring->lock, irqflags);
 }

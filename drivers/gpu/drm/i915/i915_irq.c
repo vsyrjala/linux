@@ -1221,6 +1221,10 @@ static void notify_ring(struct drm_device *dev,
 	if (drm_core_check_feature(dev, DRIVER_MODESET))
 		intel_notify_mmio_flip(ring);
 
+	spin_lock(&ring->lock);
+	intel_ring_notify_check(ring);
+	spin_unlock(&ring->lock);
+
 	wake_up_all(&ring->irq_queue);
 	i915_queue_hangcheck(dev);
 }

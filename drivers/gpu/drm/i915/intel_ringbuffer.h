@@ -79,6 +79,13 @@ struct intel_ringbuffer {
 	u32 last_retired_head;
 };
 
+struct intel_ring_notify {
+	void (*notify)(struct intel_ring_notify *notify);
+	struct intel_engine_cs *ring;
+	struct list_head list;
+	u32 seqno;
+};
+
 struct  intel_engine_cs {
 	const char	*name;
 	enum intel_ring_id {
@@ -217,6 +224,9 @@ struct  intel_engine_cs {
 	 * to encode the command length in the header).
 	 */
 	u32 (*get_cmd_length_mask)(u32 cmd_header);
+
+	struct list_head notify_list;
+	spinlock_t lock;
 };
 
 static inline bool
@@ -334,6 +344,13 @@ static inline void i915_trace_irq_get(struct intel_engine_cs *ring, u32 seqno)
 	if (ring->trace_irq_seqno == 0 && ring->irq_get(ring))
 		ring->trace_irq_seqno = seqno;
 }
+
+void intel_ring_notify_complete(struct intel_ring_notify *notify);
+void intel_ring_notify_check(struct intel_engine_cs *ring);
+int __must_check intel_ring_notify_add(struct intel_engine_cs *ring,
+				       struct intel_ring_notify *notify);
+bool intel_ring_notify_pending(struct intel_ring_notify *notify);
+void intel_ring_notify_cancel(struct intel_ring_notify *notify);
 
 /* DRI warts */
 int intel_render_ring_init_dri(struct drm_device *dev, u64 start, u32 size);
