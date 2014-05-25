@@ -1736,7 +1736,15 @@ static bool intel_pipe_handle_vblank(struct drm_device *dev, enum pipe pipe)
 	if (!drm_handle_vblank(dev, pipe))
 		return false;
 
+	if (!drm_core_check_feature(dev, DRIVER_MODESET))
+		return true;
+
 	crtc = to_intel_crtc(intel_get_crtc_for_pipe(dev, pipe));
+
+	spin_lock(&crtc->lock);
+	intel_vblank_notify_check(crtc);
+	spin_unlock(&crtc->lock);
+
 	wake_up(&crtc->vbl_wait);
 
 	return true;

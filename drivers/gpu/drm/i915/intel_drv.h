@@ -358,6 +358,13 @@ struct intel_pipe_wm {
 	bool sprites_scaled;
 };
 
+struct intel_vblank_notify {
+	void (*notify)(struct intel_vblank_notify *notify);
+	struct intel_crtc *crtc;
+	struct list_head list;
+	u32 vbl_count;
+};
+
 struct intel_mmio_flip {
 	u32 seqno;
 	u32 ring_id;
@@ -417,6 +424,9 @@ struct intel_crtc {
 
 	int scanline_offset;
 	struct intel_mmio_flip mmio_flip;
+
+	struct list_head vblank_notify_list;
+	spinlock_t lock;
 };
 
 struct intel_plane_wm_parameters {
@@ -811,6 +821,12 @@ void intel_mode_from_pipe_config(struct drm_display_mode *mode,
 				 struct intel_crtc_config *pipe_config);
 int intel_format_to_fourcc(int format);
 void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc);
+int intel_vblank_notify_add(struct intel_crtc *crtc,
+			    struct intel_vblank_notify *notify);
+void intel_vblank_notify_cancel(struct intel_vblank_notify *notify);
+bool intel_vblank_notify_pending(struct intel_vblank_notify *notify);
+void intel_vblank_notify_check(struct intel_crtc *crtc);
+u32 intel_crtc_vbl_count_rel_to_abs(struct intel_crtc *crtc, u32 rel);
 
 
 /* intel_dp.c */

@@ -11499,6 +11499,9 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 
 	init_waitqueue_head(&intel_crtc->vbl_wait);
 
+	spin_lock_init(&intel_crtc->lock);
+	INIT_LIST_HEAD(&intel_crtc->vblank_notify_list);
+
 	BUG_ON(pipe >= ARRAY_SIZE(dev_priv->plane_to_crtc_mapping) ||
 	       dev_priv->plane_to_crtc_mapping[intel_crtc->plane] != NULL);
 	dev_priv->plane_to_crtc_mapping[intel_crtc->plane] = &intel_crtc->base;
@@ -13050,4 +13053,133 @@ intel_display_print_error_state(struct drm_i915_error_state_buf *m,
 		err_printf(m, "  VBLANK: %08x\n", error->transcoder[i].vblank);
 		err_printf(m, "  VSYNC: %08x\n", error->transcoder[i].vsync);
 	}
+}
+
+/* is a after b? */
+static bool vbl_count_after_eq(struct drm_device *dev, u32 a, u32 b)
+{
+	u32 mask = dev->max_vblank_count;
+
+	/* now hardware counter on gen2 */
+	if (mask == 0)
+		mask = -1;
+
+	mask &= (mask >> 1);
+
+	return !((a - b) & mask);
+}
+
+static void intel_vblank_notify_complete(struct intel_vblank_notify *notify)
+{
+	struct intel_crtc *crtc = notify->crtc;
+	struct drm_device *dev = crtc->base.dev;
+
+	assert_spin_locked(&crtc->lock);
+
+	drm_vblank_put(dev, crtc->pipe);
+	list_del(&notify->list);
+	notify->crtc = NULL;
+}
+
+void intel_vblank_notify_check(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_vblank_crtc *vblank =
+		&dev->vblank[drm_crtc_index(&crtc->base)];
+	struct intel_vblank_notify *notify, *next;
+	u32 vbl_count;
+
+	assert_spin_locked(&crtc->lock);
+
+	if (list_empty(&crtc->vblank_notify_list))
+		return;
+
+	/* no hardware frame counter on gen2 */
+	if (dev->max_vblank_count == 0)
+		vbl_count = atomic_read(&vblank->count);
+	else
+		vbl_count = dev->driver->get_vblank_counter(dev, crtc->pipe);
+
+	list_for_each_entry_safe(notify, next, &crtc->vblank_notify_list, list) {
+		if (!vbl_count_after_eq(dev, vbl_count, notify->vbl_count))
+			continue;
+
+		intel_vblank_notify_complete(notify);
+		notify->notify(notify);
+	}
+}
+
+int intel_vblank_notify_add(struct intel_crtc *crtc,
+			    struct intel_vblank_notify *notify)
+{
+	struct drm_device *dev = crtc->base.dev;
+	unsigned long irqflags;
+	u32 vbl_count;
+	int ret;
+
+	if (WARN_ON(notify->crtc))
+		return -EINVAL;
+
+	ret = drm_vblank_get(dev, crtc->pipe);
+	if (ret)
+		return ret;
+
+	spin_lock_irqsave(&crtc->lock, irqflags);
+
+	notify->crtc = crtc;
+	list_add(&notify->list, &crtc->vblank_notify_list);
+
+	/* no hardware frame counter on gen2 */
+	if (dev->max_vblank_count == 0) {
+		struct drm_vblank_crtc *vblank =
+			&dev->vblank[drm_crtc_index(&crtc->base)];
+
+		vbl_count = atomic_read(&vblank->count);
+	} else {
+		vbl_count = dev->driver->get_vblank_counter(dev, crtc->pipe);
+	}
+
+	if (vbl_count_after_eq(dev, vbl_count, notify->vbl_count)) {
+		intel_vblank_notify_complete(notify);
+		notify->notify(notify);
+	}
+
+	spin_unlock_irqrestore(&crtc->lock, irqflags);
+
+	return 0;
+}
+
+bool intel_vblank_notify_pending(struct intel_vblank_notify *notify)
+{
+	return notify->crtc != NULL;
+}
+
+void intel_vblank_notify_cancel(struct intel_vblank_notify *notify)
+{
+	struct intel_crtc *crtc = ACCESS_ONCE(notify->crtc);
+	unsigned long irqflags;
+
+	if (!crtc)
+		return;
+
+	spin_lock_irqsave(&crtc->lock, irqflags);
+	if (notify->crtc)
+		intel_vblank_notify_complete(notify);
+	spin_unlock_irqrestore(&crtc->lock, irqflags);
+}
+
+u32 intel_crtc_vbl_count_rel_to_abs(struct intel_crtc *crtc, u32 rel)
+{
+	struct drm_device *dev = crtc->base.dev;
+
+	/* now hardware counter on gen2 */
+	if (dev->max_vblank_count == 0) {
+		struct drm_vblank_crtc *vblank =
+			&dev->vblank[drm_crtc_index(&crtc->base)];
+
+		return atomic_read(&vblank->count) + rel;
+	}
+
+	return (dev->driver->get_vblank_counter(dev, crtc->pipe) + rel) &
+		dev->max_vblank_count;
 }
