@@ -237,7 +237,7 @@ function update_nightly
 			fi
 		fi
 
-		echo -e $branch `git rev-parse $sha1` "\n\t" `git log -1 $sha1 --pretty=format:%s` >> $specfile
+		echo -e "$branch `git rev-parse $sha1`\n\t`git log -1 $sha1 --pretty=format:%s`" >> $specfile
 	done
 
 	mv $specfile integration-manifest
