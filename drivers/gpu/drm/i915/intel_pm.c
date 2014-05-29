@@ -471,6 +471,7 @@ static uint32_t ilk_pipe_pixel_rate(struct drm_device *dev,
 static bool intel_fbc1_possible(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_framebuffer *fb = crtc->base.primary->fb;
 	struct drm_i915_gem_object *obj;
 
@@ -534,6 +535,12 @@ static bool intel_fbc1_possible(struct intel_crtc *crtc)
 	}
 
 	obj = to_intel_framebuffer(fb)->obj;
+
+	if (obj->base.size > dev_priv->gtt.stolen_size) {
+		DRM_DEBUG("FBC pipe %c, plane %c: framebuffer too big for stolen\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
 
 	if (obj->tiling_mode != I915_TILING_X ||
 	    obj->fence_reg == I915_FENCE_REG_NONE) {
@@ -647,6 +654,12 @@ static bool intel_fbc2_possible(struct intel_crtc *crtc)
 	}
 
 	obj = to_intel_framebuffer(fb)->obj;
+
+	if (obj->base.size > dev_priv->gtt.stolen_size) {
+		DRM_DEBUG("FBC pipe %c, plane %c: framebuffer too big for stolen\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
 
 	if (obj->tiling_mode != I915_TILING_X ||
 	    obj->fence_reg == I915_FENCE_REG_NONE) {
