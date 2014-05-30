@@ -2746,12 +2746,36 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 		intel_crtc->config.pipe_src_h = adjusted_mode->crtc_vdisplay;
 	}
 
-	dev_priv->display.update_primary_plane(crtc, fb, x, y);
-
 	old_fb = crtc->primary->fb;
 	crtc->primary->fb = fb;
 	crtc->x = x;
 	crtc->y = y;
+
+	mutex_lock(&dev_priv->fbc.mutex);
+	intel_fbc_pre_page_flip(intel_crtc);
+
+	dev_priv->display.update_primary_plane(crtc, fb, x, y);
+
+	/*
+	 * Now we can update fbc.obj for render/blitter tracking.
+	 * The flip will nuke so no need for seqno waits here.
+	 */
+	if (intel_crtc == intel_fbc_best_crtc(dev)) {
+		/*
+		 * fbc should not be enabled unless it's
+		 * on the current crtc thanks to
+		 * intel_fbc_pre_page_flip().
+		 */
+		WARN_ON(dev_priv->fbc.crtc != NULL &&
+			dev_priv->fbc.crtc != intel_crtc);
+
+		mutex_lock(&dev->struct_mutex);
+		intel_fbc_update_object(dev, to_intel_framebuffer(fb)->obj);
+		mutex_unlock(&dev->struct_mutex);
+	}
+
+	intel_fbc_post_page_flip(intel_crtc, true);
+	mutex_unlock(&dev_priv->fbc.mutex);
 
 	if (old_fb) {
 		if (intel_crtc->active && old_fb != fb)
@@ -2762,7 +2786,6 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 	}
 
 	mutex_lock(&dev->struct_mutex);
-	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
 	mutex_unlock(&dev->struct_mutex);
 
@@ -3994,8 +4017,11 @@ static void intel_crtc_enable_planes(struct drm_crtc *crtc)
 
 	hsw_enable_ips(intel_crtc);
 
+	mutex_lock(&dev_priv->fbc.mutex);
+	intel_fbc_post_plane_enable(intel_crtc);
+	mutex_unlock(&dev_priv->fbc.mutex);
+
 	mutex_lock(&dev->struct_mutex);
-	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
 	mutex_unlock(&dev->struct_mutex);
 }
@@ -4010,8 +4036,9 @@ static void intel_crtc_disable_planes(struct drm_crtc *crtc)
 
 	intel_crtc_wait_for_pending_flips(crtc);
 
-	if (dev_priv->fbc.crtc == intel_crtc)
-		intel_disable_fbc(dev);
+	mutex_lock(&dev_priv->fbc.mutex);
+	intel_fbc_disable(intel_crtc);
+	mutex_unlock(&dev_priv->fbc.mutex);
 
 	hsw_disable_ips(intel_crtc);
 
@@ -4287,8 +4314,11 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 	intel_crtc->active = false;
 	intel_update_watermarks(crtc);
 
+	mutex_lock(&dev_priv->fbc.mutex);
+	intel_fbc_schedule_update(dev);
+	mutex_unlock(&dev_priv->fbc.mutex);
+
 	mutex_lock(&dev->struct_mutex);
-	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
 	mutex_unlock(&dev->struct_mutex);
 }
@@ -4335,8 +4365,11 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 	intel_crtc->active = false;
 	intel_update_watermarks(crtc);
 
+	mutex_lock(&dev_priv->fbc.mutex);
+	intel_fbc_schedule_update(dev);
+	mutex_unlock(&dev_priv->fbc.mutex);
+
 	mutex_lock(&dev->struct_mutex);
-	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
 	mutex_unlock(&dev->struct_mutex);
 }
@@ -4887,8 +4920,11 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	intel_crtc->active = false;
 	intel_update_watermarks(crtc);
 
+	mutex_lock(&dev_priv->fbc.mutex);
+	intel_fbc_schedule_update(dev);
+	mutex_unlock(&dev_priv->fbc.mutex);
+
 	mutex_lock(&dev->struct_mutex);
-	intel_update_fbc(dev);
 	intel_edp_psr_update(dev);
 	mutex_unlock(&dev->struct_mutex);
 }
@@ -8924,8 +8960,6 @@ static void intel_unpin_work_fn(struct work_struct *__work)
 	intel_unpin_fb_obj(work->old_fb_obj);
 	drm_gem_object_unreference(&work->pending_flip_obj->base);
 	drm_gem_object_unreference(&work->old_fb_obj->base);
-
-	intel_update_fbc(dev);
 	mutex_unlock(&dev->struct_mutex);
 
 	BUG_ON(atomic_read(&to_intel_crtc(work->crtc)->unpin_work_count) == 0);
@@ -8972,6 +9006,8 @@ static void do_intel_finish_page_flip(struct drm_device *dev,
 	wake_up_all(&dev_priv->pending_flip_queue);
 
 	queue_work(dev_priv->wq, &work->work);
+
+	intel_fbc_finish_page_flip(intel_crtc);
 
 	trace_i915_flip_complete(intel_crtc->plane, work->pending_flip_obj);
 }
@@ -9531,7 +9567,16 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 
 	atomic_inc(&intel_crtc->unpin_work_count);
 
+	mutex_unlock(&dev->struct_mutex);
+
 	crtc->primary->fb = fb;
+
+	mutex_lock(&dev_priv->fbc.mutex);
+	intel_fbc_pre_page_flip(intel_crtc);
+
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		goto cleanup_fbc;
 
 	/* Reference the objects for the scheduled work. */
 	drm_gem_object_reference(&work->old_fb_obj->base);
@@ -9558,9 +9603,27 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	if (ret)
 		goto cleanup_all;
 
-	intel_disable_fbc(dev);
+	/*
+	 * Now we can update fbc.obj for render/blitter tracking.
+	 * The flip will nuke so no need for seqno waits here.
+	 */
+	if (intel_crtc == intel_fbc_best_crtc(dev)) {
+		/*
+		 * fbc should not be enabled unless it's
+		 * on the current crtc thanks to
+		 * intel_fbc_pre_page_flip().
+		 */
+		WARN_ON(dev_priv->fbc.crtc != NULL &&
+			dev_priv->fbc.crtc != intel_crtc);
+
+		intel_fbc_update_object(dev, obj);
+	}
+
 	intel_mark_fb_busy(obj, NULL);
 	mutex_unlock(&dev->struct_mutex);
+
+	intel_fbc_post_page_flip(intel_crtc, false);
+	mutex_unlock(&dev_priv->fbc.mutex);
 
 	trace_i915_flip_request(intel_crtc->plane, obj);
 
@@ -9569,7 +9632,20 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 cleanup_all:
 	drm_gem_object_unreference(&work->old_fb_obj->base);
 	drm_gem_object_unreference(&obj->base);
+	mutex_unlock(&dev->struct_mutex);
+
+cleanup_fbc:
+	/*
+	 * Restore fb before doing the fbc cleanup so that
+	 * fbc.pending_score gets correctly computed.
+	 */
 	crtc->primary->fb = old_fb;
+	/* This should get fbc back on track, eventually */
+	intel_fbc_disable(intel_crtc);
+	intel_fbc_post_plane_enable(intel_crtc);
+	mutex_unlock(&dev_priv->fbc.mutex);
+
+	mutex_lock(&dev->struct_mutex);
 	atomic_dec(&intel_crtc->unpin_work_count);
 	intel_unpin_fb_obj(obj);
 cleanup_unlock:
@@ -11548,6 +11624,8 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	spin_lock_init(&intel_crtc->lock);
 	INIT_LIST_HEAD(&intel_crtc->vblank_notify_list);
 
+	intel_fbc_crtc_init(intel_crtc);
+
 	BUG_ON(pipe >= ARRAY_SIZE(dev_priv->plane_to_crtc_mapping) ||
 	       dev_priv->plane_to_crtc_mapping[intel_crtc->plane] != NULL);
 	dev_priv->plane_to_crtc_mapping[intel_crtc->plane] = &intel_crtc->base;
@@ -12849,8 +12927,6 @@ void intel_modeset_cleanup(struct drm_device *dev)
 		intel_increase_pllclock(crtc);
 	}
 
-	intel_disable_fbc(dev);
-
 	intel_disable_gt_powersave(dev);
 
 	ironlake_teardown_rc6(dev);
@@ -12858,6 +12934,7 @@ void intel_modeset_cleanup(struct drm_device *dev)
 	mutex_unlock(&dev->struct_mutex);
 
 	intel_ips_cleanup(dev);
+	intel_fbc_cleanup(dev);
 
 	/* flush any delayed tasks or pending work */
 	flush_scheduled_work();

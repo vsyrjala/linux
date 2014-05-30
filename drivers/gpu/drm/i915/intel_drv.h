@@ -420,6 +420,11 @@ struct intel_crtc {
 
 	struct list_head vblank_notify_list;
 	spinlock_t lock;
+
+	struct {
+		struct intel_vblank_notify notify;
+		unsigned int score, pending_score;
+	} fbc;
 };
 
 struct intel_plane_wm_parameters {
@@ -959,9 +964,18 @@ void intel_update_sprite_watermarks(struct drm_plane *plane,
 void intel_init_pm(struct drm_device *dev);
 void intel_pm_setup(struct drm_device *dev);
 bool intel_fbc_enabled(struct drm_device *dev);
-void intel_disable_fbc(struct drm_device *dev);
-void intel_update_fbc(struct drm_device *dev);
 void intel_fbc_init(struct drm_device *dev);
+void intel_fbc_crtc_init(struct intel_crtc *crtc);
+void intel_fbc_cleanup(struct drm_device *dev);
+void intel_fbc_pre_page_flip(struct intel_crtc *crtc);
+void intel_fbc_post_page_flip(struct intel_crtc *crtc, bool use_vblank_notify);
+void intel_fbc_finish_page_flip(struct intel_crtc *crtc);
+void intel_fbc_update_object(struct drm_device *dev,
+			     struct drm_i915_gem_object *obj);
+void intel_fbc_post_plane_enable(struct intel_crtc *crtc);
+void intel_fbc_disable(struct intel_crtc *crtc);
+void intel_fbc_schedule_update(struct drm_device *dev);
+struct intel_crtc *intel_fbc_best_crtc(struct drm_device *dev);
 void intel_gpu_ips_init(struct drm_i915_private *dev_priv);
 void intel_gpu_ips_teardown(void);
 int intel_power_domains_init(struct drm_i915_private *);

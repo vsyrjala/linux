@@ -538,6 +538,7 @@ static int i915_drm_freeze(struct drm_device *dev)
 		drm_modeset_unlock_all(dev);
 
 		intel_ips_cleanup(dev);
+		intel_fbc_cleanup(dev);
 
 		intel_modeset_suspend_hw(dev);
 	}

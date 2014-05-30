@@ -688,6 +688,7 @@ static void
 intel_post_enable_primary(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 
 	/*
@@ -698,9 +699,9 @@ intel_post_enable_primary(struct drm_crtc *crtc)
 	 */
 	hsw_enable_ips(intel_crtc);
 
-	mutex_lock(&dev->struct_mutex);
-	intel_update_fbc(dev);
-	mutex_unlock(&dev->struct_mutex);
+	mutex_lock(&dev_priv->fbc.mutex);
+	intel_fbc_post_plane_enable(intel_crtc);
+	mutex_unlock(&dev_priv->fbc.mutex);
 }
 
 static void
@@ -710,10 +711,10 @@ intel_pre_disable_primary(struct drm_crtc *crtc)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 
-	mutex_lock(&dev->struct_mutex);
-	if (dev_priv->fbc.crtc == intel_crtc)
-		intel_disable_fbc(dev);
-	mutex_unlock(&dev->struct_mutex);
+	mutex_lock(&dev_priv->fbc.mutex);
+	intel_fbc_disable(intel_crtc);
+	intel_fbc_schedule_update(dev);
+	mutex_unlock(&dev_priv->fbc.mutex);
 
 	/*
 	 * FIXME IPS should be fine as long as one plane is

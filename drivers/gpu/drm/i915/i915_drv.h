@@ -600,21 +600,24 @@ struct intel_context {
 };
 
 struct i915_fbc {
+	/* protects most fbc state */
+	struct mutex mutex;
+
 	struct intel_crtc *crtc;
 	unsigned long size;
 	uint32_t pixel_format;
+	unsigned int score;
 	int fence_reg, pitch, y;
 
 	struct drm_mm_node *compressed_fb;
 	struct drm_mm_node *compressed_llb;
 
+	/* for render tracking, protected by struct_mutex */
 	struct drm_i915_gem_object *obj;
 
-	struct intel_fbc_work {
-		struct delayed_work work;
-		struct drm_crtc *crtc;
-		struct drm_framebuffer *fb;
-	} *fbc_work;
+	struct intel_ring_notify notify;
+
+	struct work_struct enable_work, update_work;
 
 	enum no_fbc_reason {
 		FBC_OK, /* FBC is enabled */

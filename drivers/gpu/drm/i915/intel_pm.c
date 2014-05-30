@@ -308,6 +308,28 @@ bool intel_fbc_enabled(struct drm_device *dev)
 	return dev_priv->display.fbc_enabled(dev);
 }
 
+void intel_fbc_update_object(struct drm_device *dev,
+			     struct drm_i915_gem_object *obj)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	lockdep_assert_held(&dev_priv->fbc.mutex);
+	lockdep_assert_held(&dev->struct_mutex);
+
+	intel_ring_notify_cancel(&dev_priv->fbc.notify);
+
+	if (obj == dev_priv->fbc.obj)
+		return;
+
+	if (obj)
+		drm_gem_object_reference(&obj->base);
+
+	if (dev_priv->fbc.obj)
+		drm_gem_object_unreference(&dev_priv->fbc.obj->base);
+
+	dev_priv->fbc.obj = obj;
+}
+
 static void intel_fbc_update_params(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
@@ -316,117 +338,55 @@ static void intel_fbc_update_params(struct intel_crtc *crtc)
 	struct drm_i915_gem_object *obj = to_intel_framebuffer(fb)->obj;
 
 	dev_priv->fbc.crtc = crtc;
+	dev_priv->fbc.score = crtc->fbc.score;
 	dev_priv->fbc.pixel_format = fb->pixel_format;
 	dev_priv->fbc.pitch = fb->pitches[0];
-	dev_priv->fbc.obj = obj;
 	dev_priv->fbc.fence_reg = obj->fence_reg;
 	dev_priv->fbc.y = crtc->base.y;
+
+	dev_priv->fbc.no_fbc_reason = FBC_OK;
 }
 
-static void intel_fbc_work_fn(struct work_struct *__work)
+static void __intel_fbc_disable(struct intel_crtc *crtc)
 {
-	struct intel_fbc_work *work =
-		container_of(to_delayed_work(__work),
-			     struct intel_fbc_work, work);
-	struct drm_device *dev = work->crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_device *dev;
+	struct drm_i915_private *dev_priv;
 
-	mutex_lock(&dev->struct_mutex);
-	if (work == dev_priv->fbc.fbc_work) {
-		/* Double check that we haven't switched fb without cancelling
-		 * the prior work.
-		 */
-		if (work->crtc->primary->fb == work->fb) {
-			intel_fbc_update_params(to_intel_crtc(work->crtc));
-			dev_priv->display.enable_fbc(dev);
-		}
-
-		dev_priv->fbc.fbc_work = NULL;
-	}
-	mutex_unlock(&dev->struct_mutex);
-
-	kfree(work);
-}
-
-static void intel_cancel_fbc_work(struct drm_i915_private *dev_priv)
-{
-	if (dev_priv->fbc.fbc_work == NULL)
+	if (!crtc)
 		return;
 
-	DRM_DEBUG_KMS("cancelling pending FBC enable\n");
+	dev = crtc->base.dev;
+	dev_priv = dev->dev_private;
 
-	/* Synchronisation is provided by struct_mutex and checking of
-	 * dev_priv->fbc.fbc_work, so we can perform the cancellation
-	 * entirely asynchronously.
-	 */
-	if (cancel_delayed_work(&dev_priv->fbc.fbc_work->work))
-		/* tasklet was killed before being run, clean up */
-		kfree(dev_priv->fbc.fbc_work);
+	lockdep_assert_held(&dev_priv->fbc.mutex);
 
-	/* Mark the work as no longer wanted so that if it does
-	 * wake-up (because the work was already running and waiting
-	 * for our mutex), it will discover that is no longer
-	 * necessary to run.
-	 */
-	dev_priv->fbc.fbc_work = NULL;
-}
-
-static void intel_enable_fbc(struct drm_crtc *crtc)
-{
-	struct intel_fbc_work *work;
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	if (!dev_priv->display.enable_fbc)
-		return;
-
-	intel_cancel_fbc_work(dev_priv);
-
-	work = kzalloc(sizeof(*work), GFP_KERNEL);
-	if (work == NULL) {
-		DRM_ERROR("Failed to allocate FBC work structure\n");
-		intel_fbc_update_params(to_intel_crtc(crtc));
-		dev_priv->display.enable_fbc(dev);
-		return;
-	}
-
-	work->crtc = crtc;
-	work->fb = crtc->primary->fb;
-	INIT_DELAYED_WORK(&work->work, intel_fbc_work_fn);
-
-	dev_priv->fbc.fbc_work = work;
-
-	/* Delay the actual enabling to let pageflipping cease and the
-	 * display to settle before starting the compression. Note that
-	 * this delay also serves a second purpose: it allows for a
-	 * vblank to pass after disabling the FBC before we attempt
-	 * to modify the control registers.
-	 *
-	 * A more complicated solution would involve tracking vblanks
-	 * following the termination of the page-flipping sequence
-	 * and indeed performing the enable as a co-routine and not
-	 * waiting synchronously upon the vblank.
-	 *
-	 * WaFbcWaitForVBlankBeforeEnable:ilk,snb
-	 */
-	schedule_delayed_work(&work->work, msecs_to_jiffies(50));
-}
-
-void intel_disable_fbc(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	intel_cancel_fbc_work(dev_priv);
-
-	if (!dev_priv->display.disable_fbc)
+	if (dev_priv->fbc.crtc != crtc)
 		return;
 
 	dev_priv->display.disable_fbc(dev);
 	dev_priv->fbc.crtc = NULL;
+	dev_priv->fbc.score = 0;
 	dev_priv->fbc.pixel_format = 0;
 	dev_priv->fbc.pitch = 0;
 	dev_priv->fbc.fence_reg = I915_FENCE_REG_NONE;
 	dev_priv->fbc.y = 0;
+
+	mutex_lock(&dev->struct_mutex);
+	intel_fbc_update_object(dev, NULL);
+	mutex_unlock(&dev->struct_mutex);
+}
+
+void intel_fbc_disable(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	lockdep_assert_held(&dev_priv->fbc.mutex);
+
+	intel_vblank_notify_cancel(&crtc->fbc.notify);
+	crtc->fbc.score = crtc->fbc.pending_score = 0;
+
+	__intel_fbc_disable(crtc);
 }
 
 static bool set_no_fbc_reason(struct drm_i915_private *dev_priv,
@@ -673,201 +633,464 @@ static bool intel_fbc2_possible(struct intel_crtc *crtc)
 	return true;
 }
 
-static struct intel_crtc *intel_fbc1_pick_crtc(struct drm_device *dev)
+static void intel_fbc_update_pending_score(struct intel_crtc *crtc)
 {
+	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *tmp_crtc, *crtc = NULL;
+	unsigned int pixel_rate, cpp;
+	bool ok;
 
-	list_for_each_entry(tmp_crtc, &dev->mode_config.crtc_list, base.head) {
-		if (!tmp_crtc->active)
-			continue;
+	lockdep_assert_held(&crtc->base.mutex.mutex.base);
+	lockdep_assert_held(&dev_priv->fbc.mutex);
 
-		if (crtc) {
-			if (set_no_fbc_reason(dev_priv, FBC_MULTIPLE_PIPES))
-				DRM_DEBUG_KMS("more than one pipe active, disabling FBC\n");
-			return NULL;
-		}
+	WARN_ON(intel_vblank_notify_pending(&crtc->fbc.notify));
 
-		crtc = tmp_crtc;
+	if (IS_G4X(dev) || INTEL_INFO(dev)->gen >= 5)
+		ok = intel_fbc2_possible(crtc);
+	else
+		ok = intel_fbc1_possible(crtc);
+
+	if (!ok) {
+		crtc->fbc.pending_score = 0;
+		return;
 	}
 
-	if (!crtc || !intel_fbc1_possible(crtc)) {
-		if (set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED_CONFIG))
-			DRM_DEBUG_KMS("no suitable plane, disabling FBC\n");
-		return NULL;
-	}
+	/*
+	 * If we have multiple possibilities, prefer the pipe with
+	 * the highest data rate (pixel_rate * cpp).
+	 *
+	 * FIXME: is this a good heuristic?
+	 *
+	 * FIXME: We should have something like ilk_pipe_pixel_rate()
+	 * for GMCH platforms too, but here it doesn't matter since
+	 * we anyway disallow FBC with panel fitting on g4x.
+	 */
+	if (HAS_PCH_SPLIT(dev))
+		pixel_rate = ilk_pipe_pixel_rate(dev, &crtc->base);
+	else
+		pixel_rate = crtc->config.adjusted_mode.crtc_clock;
 
-	return crtc;
+	cpp = drm_format_plane_cpp(crtc->base.primary->fb->pixel_format, 0);
+
+	crtc->fbc.pending_score = pixel_rate * cpp;
 }
 
-static struct intel_crtc *intel_fbc2_pick_crtc(struct drm_device *dev)
+static void intel_fbc_schedule_enable(struct intel_crtc *crtc)
 {
+	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *tmp_crtc, *crtc = NULL;
-	unsigned int pixel_rate = 0;
+	struct drm_i915_gem_object *obj =
+		to_intel_framebuffer(crtc->base.primary->fb)->obj;
+	int ret;
 
-	list_for_each_entry(tmp_crtc, &dev->mode_config.crtc_list, base.head) {
-		unsigned int tmp_pixel_rate;
+	lockdep_assert_held(&crtc->base.mutex.mutex.base);
+	lockdep_assert_held(&dev_priv->fbc.mutex);
 
-		if (!intel_fbc2_possible(tmp_crtc))
-			continue;
+	WARN_ON(dev_priv->fbc.crtc == crtc);
 
+	/*
+	 * Must disable fbc before touching the compressed
+	 * buffer, or most fbc paramerers.
+	 *
+	 * Note that there might be a pending ring notify
+	 * still but fbc mutex will prevent it from doign stuff.
+	 *
+	 * Use the low level function to avoid clearing fbc.obj
+	 * to skip the seqno wait in case the crtc changes but
+	 * the obj doesn't.
+	 */
+	dev_priv->display.disable_fbc(dev);
+
+	mutex_lock(&dev->struct_mutex);
+
+	ret = i915_gem_stolen_setup_compression(dev, obj->base.size);
+	if (ret) {
 		/*
-		 * If we have multiple possibilities, prefer
-		 * the pipe with the highest pixel rate.
-		 *
-		 * FIXME: is this a good heuristic?
-		 *
-		 * FIXME: We should have something like ilk_pipe_pixel_rate()
-		 * for GMCH platforms too, but here it doesn't matter since
-		 * we anyway disallow FBC with panel fitting on g4x.
+		 * FIXME what now? maybe clear the score for
+		 * the current crtc so we might try again on
+		 * another crtc?
 		 */
-		if (HAS_PCH_SPLIT(dev))
-			tmp_pixel_rate = ilk_pipe_pixel_rate(dev, &tmp_crtc->base);
-		else
-			tmp_pixel_rate = tmp_crtc->config.adjusted_mode.crtc_clock;
+		i915_gem_stolen_cleanup_compression(dev);
+		mutex_unlock(&dev->struct_mutex);
+		__intel_fbc_disable(dev_priv->fbc.crtc);
+		return;
+	}
 
-		if (pixel_rate < tmp_pixel_rate) {
-			crtc = tmp_crtc;
-			pixel_rate = tmp_pixel_rate;
+	/*
+	 * If the object changes, we must make sure we wait for
+	 * all previous writes to land before enabling fbc.
+	 */
+	if (dev_priv->fbc.obj != obj) {
+		struct intel_engine_cs *ring = NULL;
+
+		intel_fbc_update_object(dev, obj);
+		dev_priv->fbc.notify.seqno = obj->last_write_seqno;
+		if (dev_priv->fbc.notify.seqno != 0)
+			ring = obj->ring;
+
+		if (ring) {
+			ret = intel_ring_notify_add(ring, &dev_priv->fbc.notify);
+			if (ret) {
+				/* FIXME what now? */
+				i915_gem_stolen_cleanup_compression(dev);
+				mutex_unlock(&dev->struct_mutex);
+				__intel_fbc_disable(dev_priv->fbc.crtc);
+				return;
+			}
 		}
 	}
 
-	if (!crtc)
-		if (set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED_CONFIG))
-			DRM_DEBUG_KMS("no suitable plane, disabling FBC\n");
+	mutex_unlock(&dev->struct_mutex);
 
-	return crtc;
+	intel_fbc_update_params(crtc);
+
+	/*
+	 * If the object changed add a new ring notification.
+	 * If the object didn't change we either wait for the
+	 * already pending ring notification, or we just directly
+	 * enable fbc (as the seqno must have passed already).
+	 */
+	if (!intel_ring_notify_pending(&dev_priv->fbc.notify))
+		dev_priv->display.enable_fbc(dev);
 }
 
-/**
- * intel_update_fbc - enable/disable FBC as needed
- * @dev: the drm_device
- *
- * Set up the framebuffer compression hardware at mode set time.  We
- * enable it if possible:
- *   - plane A only (on pre-965)
- *   - no pixel mulitply/line duplication
- *   - no alpha buffer discard
- *   - no dual wide
- *   - framebuffer <= max_hdisplay in width, max_vdisplay in height
- *
- * We can't assume that any compression will take place (worst case),
- * so the compressed buffer has to be the same size as the uncompressed
- * one.  It also must reside (along with the line length buffer) in
- * stolen memory.
- *
- * We need to enable/disable FBC on a global basis.
- */
-void intel_update_fbc(struct drm_device *dev)
+struct intel_crtc *intel_fbc_best_crtc(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *crtc;
-	struct drm_framebuffer *fb;
-	struct drm_i915_gem_object *obj;
+	struct intel_crtc *crtc, *best_crtc;
+
+	lockdep_assert_held(&dev_priv->fbc.mutex);
 
 	if (!HAS_FBC(dev)) {
 		set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED);
-		return;
+		return NULL;
 	}
 
 	if (!i915.powersave) {
 		if (set_no_fbc_reason(dev_priv, FBC_MODULE_PARAM))
 			DRM_DEBUG_KMS("fbc disabled per module param\n");
-		return;
+		return NULL;
 	}
 
 	if (i915.enable_fbc < 0) {
 		if (set_no_fbc_reason(dev_priv, FBC_CHIP_DEFAULT))
-			DRM_DEBUG_KMS("disabled per chip default\n");
-		goto out_disable;
+			DRM_DEBUG_KMS("fbc disabled per chip default\n");
+		return NULL;
 	}
+
 	if (!i915.enable_fbc) {
 		if (set_no_fbc_reason(dev_priv, FBC_MODULE_PARAM))
 			DRM_DEBUG_KMS("fbc disabled per module param\n");
-		goto out_disable;
+		return NULL;
 	}
 
-	if (IS_G4X(dev) || INTEL_INFO(dev)->gen >= 5)
-		crtc = intel_fbc2_pick_crtc(dev);
-	else
-		crtc = intel_fbc1_pick_crtc(dev);
+	/* prefer to maintain the status quo if scores are equal */
+	best_crtc = dev_priv->fbc.crtc;
 
-	if (!crtc)
-		goto out_disable;
+	for_each_intel_crtc(dev_priv->dev, crtc) {
+		if (crtc->fbc.score == 0)
+			continue;
 
-	fb = crtc->base.primary->fb;
-	obj = to_intel_framebuffer(fb)->obj;
-
-	/* If the kernel debugger is active, always disable compression */
-	if (in_dbg_master())
-		goto out_disable;
-
-	if (i915_gem_stolen_setup_compression(dev, obj->base.size)) {
-		if (set_no_fbc_reason(dev_priv, FBC_STOLEN_TOO_SMALL))
-			DRM_DEBUG_KMS("framebuffer too large, disabling compression\n");
-		goto out_disable;
+		if (!best_crtc || crtc->fbc.score > best_crtc->fbc.score)
+			best_crtc = crtc;
 	}
 
-	/* If the scanout has not changed, don't modify the FBC settings.
-	 * Note that we make the fundamental assumption that the fb->obj
-	 * cannot be unpinned (and have its GTT offset and fence revoked)
-	 * without first being decoupled from the scanout and FBC disabled.
-	 */
-	if (dev_priv->fbc.crtc == crtc &&
-	    dev_priv->fbc.obj == obj &&
-	    dev_priv->fbc.pixel_format == fb->pixel_format &&
-	    dev_priv->fbc.pitch == fb->pitches[0] &&
-	    dev_priv->fbc.fence_reg == obj->fence_reg &&
-	    dev_priv->fbc.y == crtc->base.y)
-		return;
+	WARN_ON(best_crtc && best_crtc->fbc.score == 0);
 
-	if (intel_fbc_enabled(dev)) {
-		/* We update FBC along two paths, after changing fb/crtc
-		 * configuration (modeswitching) and after page-flipping
-		 * finishes. For the latter, we know that not only did
-		 * we disable the FBC at the start of the page-flip
-		 * sequence, but also more than one vblank has passed.
-		 *
-		 * For the former case of modeswitching, it is possible
-		 * to switch between two FBC valid configurations
-		 * instantaneously so we do need to disable the FBC
-		 * before we can modify its control registers. We also
-		 * have to wait for the next vblank for that to take
-		 * effect. However, since we delay enabling FBC we can
-		 * assume that a vblank has passed since disabling and
-		 * that we can safely alter the registers in the deferred
-		 * callback.
-		 *
-		 * In the scenario that we go from a valid to invalid
-		 * and then back to valid FBC configuration we have
-		 * no strict enforcement that a vblank occurred since
-		 * disabling the FBC. However, along all current pipe
-		 * disabling paths we do need to wait for a vblank at
-		 * some point. And we wait before enabling FBC anyway.
-		 */
-		DRM_DEBUG_KMS("disabling active FBC for update\n");
-		intel_disable_fbc(dev);
-	}
+	if (!best_crtc)
+		if (set_no_fbc_reason(dev_priv, FBC_UNSUPPORTED_CONFIG))
+			DRM_DEBUG_KMS("no suitable plane, disabling FBC\n");
 
-	intel_enable_fbc(&crtc->base);
-	dev_priv->fbc.no_fbc_reason = FBC_OK;
-	return;
-
-out_disable:
-	/* Multiple disables should be harmless */
-	if (intel_fbc_enabled(dev)) {
-		DRM_DEBUG_KMS("unsupported config, disabling FBC\n");
-		intel_disable_fbc(dev);
-	}
-	i915_gem_stolen_cleanup_compression(dev);
+	return best_crtc;
 }
 
+static void intel_fbc_disable_full(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	__intel_fbc_disable(dev_priv->fbc.crtc);
+	mutex_lock(&dev->struct_mutex);
+	i915_gem_stolen_cleanup_compression(dev);
+	mutex_unlock(&dev->struct_mutex);
+}
+
+void intel_fbc_schedule_update(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *best_crtc;
+
+	lockdep_assert_held(&dev_priv->fbc.mutex);
+
+	best_crtc = intel_fbc_best_crtc(dev);
+
+	if (best_crtc == NULL)
+		intel_fbc_disable_full(dev);
+	else if (best_crtc != dev_priv->fbc.crtc)
+		schedule_work(&dev_priv->fbc.update_work);
+}
+
+static bool intel_fbc_need_reinit(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
+	struct drm_framebuffer *fb = crtc->base.primary->fb;
+	struct drm_i915_gem_object *obj = to_intel_framebuffer(fb)->obj;
+
+	return crtc != dev_priv->fbc.crtc ||
+		obj->base.size > dev_priv->fbc.size ||
+		drm_format_plane_cpp(fb->pixel_format, 0) !=
+		drm_format_plane_cpp(dev_priv->fbc.pixel_format, 0) ||
+		fb->pitches[0] != dev_priv->fbc.pitch;
+}
+
+void intel_fbc_pre_page_flip(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *best_crtc;
+
+	lockdep_assert_held(&crtc->base.mutex.mutex.base);
+	lockdep_assert_held(&dev_priv->fbc.mutex);
+
+	WARN_ON(crtc->fbc.score == 0 && dev_priv->fbc.crtc == crtc);
+
+	intel_vblank_notify_cancel(&crtc->fbc.notify);
+	intel_fbc_update_pending_score(crtc);
+
+	/*
+	 * If fbc was already possible we can update immediately,
+	 * otherwise we will wait until the flip is finished.
+	 */
+	if (crtc->fbc.score != 0)
+		crtc->fbc.score = crtc->fbc.pending_score;
+
+	/*
+	 * Disable fbc if we're not (yet) capable, or if
+	 * we just need a full disable+enable reinit.
+	 */
+	if (crtc->fbc.score == 0 || intel_fbc_need_reinit(crtc))
+		__intel_fbc_disable(crtc);
+
+	best_crtc = intel_fbc_best_crtc(dev);
+
+	/*
+	 * Since the current crtc is the best, we're going to update
+	 * fbc.obj to the current fb (usually a bit later when we have
+	 * the protection of struct_mutex), Before doing that however,
+	 * we must kick out the previous owner.
+	 */
+	if (crtc == best_crtc && crtc != dev_priv->fbc.crtc)
+		__intel_fbc_disable(dev_priv->fbc.crtc);
+
+	if (dev_priv->fbc.crtc == crtc) {
+		/* We still have fbc, so just update the fence. */
+		intel_fbc_update_params(crtc);
+		dev_priv->display.enable_fbc(dev);
+	}
+}
+
+void intel_fbc_post_page_flip(struct intel_crtc *crtc,
+			      bool use_vblank_notify)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *best_crtc;
+
+	lockdep_assert_held(&crtc->base.mutex.mutex.base);
+	lockdep_assert_held(&dev_priv->fbc.mutex);
+
+	WARN_ON(intel_vblank_notify_pending(&crtc->fbc.notify));
+
+	best_crtc = intel_fbc_best_crtc(dev);
+
+	/* already handled in intel_fbc_pre_pageflip() */
+	if (crtc == dev_priv->fbc.crtc) {
+		WARN_ON(crtc->fbc.pending_score != crtc->fbc.score ||
+			crtc != best_crtc);
+		return;
+	}
+
+	if (crtc->fbc.pending_score != crtc->fbc.score) {
+		int ret;
+
+		WARN_ON(crtc->fbc.pending_score == 0 ||
+			crtc->fbc.score != 0);
+
+		/* will be handled by intel_fbc_finish_page_flip() */
+		if (!use_vblank_notify)
+			return;
+
+		/*
+		 * fbc wasn't possible previosuly, so must wait for the
+		 * next vblank before fbc.score can be updated.
+		 */
+		crtc->fbc.notify.vbl_count = intel_crtc_vbl_count_rel_to_abs(crtc, 1);
+		ret = intel_vblank_notify_add(crtc, &crtc->fbc.notify);
+		WARN_ON(ret != 0);
+		return;
+	}
+
+	/*
+	 * If we're the best but not currently active,
+	 * perform the full fbc enable. We have the crtc->mutex
+	 * so no need to schedule a work for this.
+	 * But maybe we want the work anyway to avoid doing
+	 * so much work in the page flip ioctl?
+	 *
+	 * If someone else is better suited for the task,
+	 * schedule a full update work.
+	 */
+	if (best_crtc == crtc)
+		intel_fbc_schedule_enable(crtc);
+	else
+		intel_fbc_schedule_update(dev);
+}
+
+void intel_fbc_finish_page_flip(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
+
+	WARN_ON(intel_vblank_notify_pending(&crtc->fbc.notify));
+
+	if (crtc->fbc.score != crtc->fbc.pending_score) {
+		WARN_ON(crtc->fbc.pending_score == 0);
+		crtc->fbc.score = crtc->fbc.pending_score;
+		schedule_work(&dev_priv->fbc.update_work);
+	}
+}
+
+/*
+ * Update fbc.pending_score, and schedule an update of
+ * fbc.score for the crtc. This should only be called
+ * when fbc wasn't previosuly possible, ie. after
+ * enabling the primary plane.
+ */
+void intel_fbc_post_plane_enable(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	lockdep_assert_held(&crtc->base.mutex.mutex.base);
+	lockdep_assert_held(&dev_priv->fbc.mutex);
+
+	WARN_ON(intel_vblank_notify_pending(&crtc->fbc.notify));
+
+	WARN_ON(crtc->fbc.score != 0 || dev_priv->fbc.crtc == crtc);
+
+	intel_fbc_update_pending_score(crtc);
+	if (crtc->fbc.pending_score != 0)
+		intel_fbc_post_page_flip(crtc, true);
+}
+
+static void intel_fbc_vblank_notify(struct intel_vblank_notify *notify)
+{
+	struct intel_crtc *crtc =
+		container_of(notify, struct intel_crtc, fbc.notify);
+	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
+
+	WARN_ON(crtc->fbc.score != 0 ||
+		crtc->fbc.score == crtc->fbc.pending_score);
+
+	crtc->fbc.score = crtc->fbc.pending_score;
+	schedule_work(&dev_priv->fbc.update_work);
+}
+
+static void intel_fbc_enable_work(struct work_struct *work)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(work, struct drm_i915_private, fbc.enable_work);
+
+	mutex_lock(&dev_priv->fbc.mutex);
+
+	if (dev_priv->fbc.crtc &&
+	    !intel_ring_notify_pending(&dev_priv->fbc.notify))
+		dev_priv->display.enable_fbc(dev_priv->dev);
+
+	mutex_unlock(&dev_priv->fbc.mutex);
+}
+
+static void intel_fbc_ring_notify(struct intel_ring_notify *notify)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(notify, struct drm_i915_private, fbc.notify);
+
+	schedule_work(&dev_priv->fbc.enable_work);
+}
+
+void intel_fbc_crtc_init(struct intel_crtc *crtc)
+{
+	crtc->fbc.notify.notify = intel_fbc_vblank_notify;
+}
+
+static void intel_fbc_update_work(struct work_struct *work)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(work, struct drm_i915_private, fbc.update_work);
+	struct drm_device *dev = dev_priv->dev;
+	struct intel_crtc *crtc, *best_crtc;
+
+	if (in_dbg_master())
+		return;
+
+	mutex_lock(&dev_priv->fbc.mutex);
+
+	crtc = intel_fbc_best_crtc(dev);
+
+	if (crtc == NULL)
+		intel_fbc_disable_full(dev);
+	else if (crtc == dev_priv->fbc.crtc)
+		/* nothing to do */
+		crtc = NULL;
+
+	mutex_unlock(&dev_priv->fbc.mutex);
+
+	if (!crtc)
+		return;
+
+	drm_modeset_lock(&crtc->base.mutex, NULL);
+	mutex_lock(&dev_priv->fbc.mutex);
+
+	/* check that things didn't change when we dropped fbc.mutex */
+	best_crtc = intel_fbc_best_crtc(dev);
+	if (crtc == best_crtc && crtc != dev_priv->fbc.crtc)
+		intel_fbc_schedule_enable(crtc);
+
+	mutex_unlock(&dev_priv->fbc.mutex);
+	drm_modeset_unlock(&crtc->base.mutex);
+}
+
+/* to be called before crtc init */
 void intel_fbc_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	dev_priv->fbc.fence_reg = I915_FENCE_REG_NONE;
+
+	mutex_init(&dev_priv->fbc.mutex);
+	dev_priv->fbc.notify.notify = intel_fbc_ring_notify;
+	INIT_WORK(&dev_priv->fbc.enable_work, intel_fbc_enable_work);
+	INIT_WORK(&dev_priv->fbc.update_work, intel_fbc_update_work);
+}
+
+/* to be called after all crtcs are disabled */
+void intel_fbc_cleanup(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *crtc;
+
+	mutex_lock(&dev_priv->fbc.mutex);
+	for_each_intel_crtc(dev, crtc)
+		intel_fbc_disable(crtc);
+	mutex_unlock(&dev_priv->fbc.mutex);
+	cancel_work_sync(&dev_priv->fbc.update_work);
+
+	intel_ring_notify_cancel(&dev_priv->fbc.notify);
+	cancel_work_sync(&dev_priv->fbc.enable_work);
+
+	WARN_ON(dev_priv->fbc.crtc != NULL);
+
+	mutex_lock(&dev->struct_mutex);
+	i915_gem_stolen_cleanup_compression(dev);
+	mutex_unlock(&dev->struct_mutex);
 }
 
 static void i915_pineview_get_mem_freq(struct drm_device *dev)
@@ -6807,6 +7030,8 @@ void intel_fini_runtime_pm(struct drm_i915_private *dev_priv)
 void intel_init_pm(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	mutex_init(&dev_priv->fbc.mutex);
 
 	if (HAS_FBC(dev)) {
 		if (INTEL_INFO(dev)->gen >= 7) {
