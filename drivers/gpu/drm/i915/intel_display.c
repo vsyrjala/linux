@@ -9515,22 +9515,6 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	if (ret)
 		goto cleanup;
 
-	/* Reference the objects for the scheduled work. */
-	drm_gem_object_reference(&work->old_fb_obj->base);
-	drm_gem_object_reference(&obj->base);
-
-	crtc->primary->fb = fb;
-
-	work->pending_flip_obj = obj;
-
-	work->enable_stall_check = true;
-
-	atomic_inc(&intel_crtc->unpin_work_count);
-	intel_crtc->reset_counter = atomic_read(&dev_priv->gpu_error.reset_counter);
-
-	if (INTEL_INFO(dev)->gen >= 5 || IS_G4X(dev))
-		work->flip_count = I915_READ(PIPE_FLIPCOUNT_GM45(intel_crtc->pipe)) + 1;
-
 	if (IS_VALLEYVIEW(dev)) {
 		ring = &dev_priv->ring[BCS];
 	} else if (INTEL_INFO(dev)->gen >= 7) {
@@ -9543,7 +9527,24 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 
 	ret = intel_pin_and_fence_fb_obj(dev, obj, ring);
 	if (ret)
-		goto cleanup_pending;
+		goto cleanup_unlock;
+
+	atomic_inc(&intel_crtc->unpin_work_count);
+
+	crtc->primary->fb = fb;
+
+	/* Reference the objects for the scheduled work. */
+	drm_gem_object_reference(&work->old_fb_obj->base);
+	drm_gem_object_reference(&obj->base);
+
+	work->pending_flip_obj = obj;
+
+	work->enable_stall_check = true;
+
+	intel_crtc->reset_counter = atomic_read(&dev_priv->gpu_error.reset_counter);
+
+	if (INTEL_INFO(dev)->gen >= 5 || IS_G4X(dev))
+		work->flip_count = I915_READ(PIPE_FLIPCOUNT_GM45(intel_crtc->pipe)) + 1;
 
 	work->gtt_offset =
 		i915_gem_obj_ggtt_offset(obj) + intel_crtc->dspaddr_offset;
@@ -9555,7 +9556,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 		ret = dev_priv->display.queue_flip(dev, crtc, fb, obj, ring,
 				page_flip_flags);
 	if (ret)
-		goto cleanup_unpin;
+		goto cleanup_all;
 
 	intel_disable_fbc(dev);
 	intel_mark_fb_busy(obj, NULL);
@@ -9565,13 +9566,13 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 
 	return 0;
 
-cleanup_unpin:
-	intel_unpin_fb_obj(obj);
-cleanup_pending:
-	atomic_dec(&intel_crtc->unpin_work_count);
-	crtc->primary->fb = old_fb;
+cleanup_all:
 	drm_gem_object_unreference(&work->old_fb_obj->base);
 	drm_gem_object_unreference(&obj->base);
+	crtc->primary->fb = old_fb;
+	atomic_dec(&intel_crtc->unpin_work_count);
+	intel_unpin_fb_obj(obj);
+cleanup_unlock:
 	mutex_unlock(&dev->struct_mutex);
 
 cleanup:
