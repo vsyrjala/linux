@@ -1444,6 +1444,49 @@ static int i915_drpc_info(struct seq_file *m, void *unused)
 		return ironlake_drpc_info(m);
 }
 
+static int i915_fbc_info(struct seq_file *m, void *unused)
+{
+	struct drm_info_node *node = m->private;
+	struct drm_device *dev = node->minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *crtc;
+
+	intel_runtime_pm_get(dev_priv);
+
+	mutex_lock(&dev_priv->fbc.mutex);
+
+	seq_printf(m, "FBC state:\n"
+		   "supported = %d\n"
+		   "enabled in hardware = %d\n"
+		   "compressed buffer size = %lu\n"
+		   "score = %d\n"
+		   "plane = %c\n"
+		   "pixel_format = %s\n"
+		   "pitch = %d\n"
+		   "fence_reg = %d\n"
+		   "y = %d\n"
+		   "obj = %p\n",
+		   HAS_FBC(dev), intel_fbc_enabled(dev),
+		   dev_priv->fbc.size, dev_priv->fbc.score,
+		   dev_priv->fbc.crtc ?
+		   plane_name(dev_priv->fbc.crtc->plane) : '?',
+		   dev_priv->fbc.pixel_format ?
+		   drm_get_format_name(dev_priv->fbc.pixel_format) : "?",
+		   dev_priv->fbc.pitch, dev_priv->fbc.fence_reg,
+		   dev_priv->fbc.y, dev_priv->fbc.obj);
+
+	for_each_intel_crtc(dev, crtc)
+		seq_printf(m, "plane %c: score = %d, pending_score = %d\n",
+			   plane_name(crtc->plane), crtc->fbc.score,
+			   crtc->fbc.pending_score);
+
+	mutex_unlock(&dev_priv->fbc.mutex);
+
+	intel_runtime_pm_put(dev_priv);
+
+	return 0;
+}
+
 static int i915_fbc_status(struct seq_file *m, void *unused)
 {
 	struct drm_info_node *node = m->private;
@@ -3807,6 +3850,7 @@ static const struct drm_info_list i915_debugfs_list[] = {
 	{"i915_emon_status", i915_emon_status, 0},
 	{"i915_ring_freq_table", i915_ring_freq_table, 0},
 	{"i915_gfxec", i915_gfxec, 0},
+	{"i915_fbc_info", i915_fbc_info, 0},
 	{"i915_fbc_status", i915_fbc_status, 0},
 	{"i915_ips_status", i915_ips_status, 0},
 	{"i915_sr_status", i915_sr_status, 0},
