@@ -358,13 +358,6 @@ struct intel_pipe_wm {
 	bool sprites_scaled;
 };
 
-struct intel_vblank_notify {
-	void (*notify)(struct intel_vblank_notify *notify);
-	struct intel_crtc *crtc;
-	struct list_head list;
-	u32 vbl_count;
-};
-
 struct intel_mmio_flip {
 	u32 seqno;
 	u32 ring_id;
@@ -813,6 +806,7 @@ ironlake_check_encoder_dotclock(const struct intel_crtc_config *pipe_config,
 bool intel_crtc_active(struct drm_crtc *crtc);
 void hsw_enable_ips(struct intel_crtc *crtc);
 void hsw_disable_ips(struct intel_crtc *crtc);
+void intel_ips_cleanup(struct drm_device *dev);
 void intel_display_set_init_power(struct drm_i915_private *dev, bool enable);
 enum intel_display_power_domain
 intel_display_port_power_domain(struct intel_encoder *intel_encoder);

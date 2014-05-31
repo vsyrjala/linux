@@ -3774,38 +3774,70 @@ static void intel_disable_planes(struct drm_crtc *crtc)
 	}
 }
 
+static void bdw_ips_work(struct work_struct *work)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(work, struct drm_i915_private, hsw_ips.work);
+	struct intel_crtc *crtc = ACCESS_ONCE(dev_priv->hsw_ips.crtc);
+
+	if (!crtc)
+		return;
+
+	drm_modeset_lock(&crtc->base.mutex, NULL);
+
+	if (WARN_ON(!crtc->config.ips_enabled))
+		goto unlock;
+
+	/*
+	 * IPS must have been disabled in the meantime,
+	 * and may not re-enabled, at least quite so soon.
+	 */
+	if (!crtc->primary_enabled ||
+	    intel_vblank_notify_pending(&dev_priv->hsw_ips.notify))
+		goto unlock;
+
+	assert_plane_enabled(dev_priv, crtc->plane);
+
+	mutex_lock(&dev_priv->rps.hw_lock);
+	WARN_ON(sandybridge_pcode_write(dev_priv, DISPLAY_IPS_CONTROL,
+					IPS_ENABLE | IPS_PCODE_CONTROL));
+	mutex_unlock(&dev_priv->rps.hw_lock);
+	/* Quoting Art Runyan: "its not safe to expect any particular
+	 * value in IPS_CTL bit 31 after enabling IPS through the
+	 * mailbox." Moreover, the mailbox may return a bogus state,
+	 * so we need to just enable it and continue on.
+	 */
+
+ unlock:
+	drm_modeset_unlock(&crtc->base.mutex);
+}
+
+static void hsw_ips_notify(struct intel_vblank_notify *notify)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(notify, struct drm_i915_private, hsw_ips.notify);
+
+	if (IS_BROADWELL(dev_priv->dev))
+		schedule_work(&dev_priv->hsw_ips.work);
+	else
+		I915_WRITE(IPS_CTL, IPS_ENABLE);
+}
+
 void hsw_enable_ips(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	lockdep_assert_held(&crtc->base.mutex.mutex.base);
+
+	WARN_ON(intel_vblank_notify_pending(&dev_priv->hsw_ips.notify));
+
 	if (!crtc->config.ips_enabled)
 		return;
 
-	/* We can only enable IPS after we enable a plane and wait for a vblank */
-	intel_wait_for_vblank(dev, crtc->pipe);
+	dev_priv->hsw_ips.crtc = crtc;
 
-	assert_plane_enabled(dev_priv, crtc->plane);
-	if (IS_BROADWELL(dev)) {
-		mutex_lock(&dev_priv->rps.hw_lock);
-		WARN_ON(sandybridge_pcode_write(dev_priv, DISPLAY_IPS_CONTROL,
-						IPS_ENABLE | IPS_PCODE_CONTROL));
-		mutex_unlock(&dev_priv->rps.hw_lock);
-		/* Quoting Art Runyan: "its not safe to expect any particular
-		 * value in IPS_CTL bit 31 after enabling IPS through the
-		 * mailbox." Moreover, the mailbox may return a bogus state,
-		 * so we need to just enable it and continue on.
-		 */
-	} else {
-		I915_WRITE(IPS_CTL, IPS_ENABLE);
-		/* The bit only becomes 1 in the next vblank, so this wait here
-		 * is essentially intel_wait_for_vblank. If we don't have this
-		 * and don't wait for vblanks until the end of crtc_enable, then
-		 * the HW state readout code will complain that the expected
-		 * IPS_CTL value is not the one we read. */
-		if (wait_for(I915_READ_NOTRACE(IPS_CTL) & IPS_ENABLE, 50))
-			DRM_ERROR("Timed out waiting for IPS enable\n");
-	}
+	intel_vblank_notify_add(crtc, &dev_priv->hsw_ips.notify);
 }
 
 void hsw_disable_ips(struct intel_crtc *crtc)
@@ -3813,8 +3845,12 @@ void hsw_disable_ips(struct intel_crtc *crtc)
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	lockdep_assert_held(&crtc->base.mutex.mutex.base);
+
 	if (!crtc->config.ips_enabled)
 		return;
+
+	intel_vblank_notify_cancel(&dev_priv->hsw_ips.notify);
 
 	assert_plane_enabled(dev_priv, crtc->plane);
 	if (IS_BROADWELL(dev)) {
@@ -3831,6 +3867,22 @@ void hsw_disable_ips(struct intel_crtc *crtc)
 
 	/* We need to wait for a vblank before we can disable the plane. */
 	intel_wait_for_vblank(dev, crtc->pipe);
+}
+
+static void intel_ips_init(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	dev_priv->hsw_ips.notify.notify = hsw_ips_notify;
+	INIT_WORK(&dev_priv->hsw_ips.work, bdw_ips_work);
+}
+
+void intel_ips_cleanup(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	intel_vblank_notify_cancel(&dev_priv->hsw_ips.notify);
+	cancel_work_sync(&dev_priv->hsw_ips.work);
 }
 
 /** Loads the palette/gamma unit for the CRTC with the prepared values */
@@ -7613,10 +7665,6 @@ static bool haswell_get_pipe_config(struct intel_crtc *crtc,
 	if (intel_display_power_enabled(dev_priv, pfit_domain))
 		ironlake_get_pfit_config(crtc, pipe_config);
 
-	if (IS_HASWELL(dev))
-		pipe_config->ips_enabled = hsw_crtc_supports_ips(crtc) &&
-			(I915_READ(IPS_CTL) & IPS_ENABLE);
-
 	pipe_config->pixel_multiplier = 1;
 
 	return true;
@@ -10207,10 +10255,6 @@ intel_pipe_config_compare(struct drm_device *dev,
 		PIPE_CONF_CHECK_I(pch_pfit.size);
 	}
 
-	/* BDW+ don't expose a synchronous way to read the state */
-	if (IS_HASWELL(dev))
-		PIPE_CONF_CHECK_I(ips_enabled);
-
 	PIPE_CONF_CHECK_I(double_wide);
 
 	PIPE_CONF_CHECK_I(shared_dpll);
@@ -12274,6 +12318,8 @@ void intel_modeset_init(struct drm_device *dev)
 		      INTEL_INFO(dev)->num_pipes,
 		      INTEL_INFO(dev)->num_pipes > 1 ? "s" : "");
 
+	intel_ips_init(dev);
+
 	for_each_pipe(pipe) {
 		intel_crtc_init(dev, pipe);
 		for_each_sprite(pipe, sprite) {
@@ -12807,6 +12853,8 @@ void intel_modeset_cleanup(struct drm_device *dev)
 	ironlake_teardown_rc6(dev);
 
 	mutex_unlock(&dev->struct_mutex);
+
+	intel_ips_cleanup(dev);
 
 	/* flush any delayed tasks or pending work */
 	flush_scheduled_work();
