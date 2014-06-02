@@ -2563,6 +2563,9 @@ static void i915_gem_reset_ring_cleanup(struct drm_i915_private *dev_priv,
 	ring->preallocated_lazy_request = NULL;
 	ring->outstanding_lazy_seqno = 0;
 
+	/* current state unknown so force a FBC RT address update */
+	ring->fbc_address = I915_FBC_RT_RESET;
+
 	spin_lock_irq(&ring->lock);
 	list_for_each_entry_safe(notify, next, &ring->notify_list, list) {
 		intel_ring_notify_complete(notify);

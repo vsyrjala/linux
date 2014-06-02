@@ -73,7 +73,7 @@ static int gen5_render_fbc_tracking(struct intel_engine_cs *ring)
 {
 	int ret;
 
-	if (!ring->fbc_address_dirty)
+	if (ring->fbc_address == ring->pending_fbc_address)
 		return 0;
 
 	ret = intel_ring_begin(ring, 4);
@@ -83,14 +83,14 @@ static int gen5_render_fbc_tracking(struct intel_engine_cs *ring)
 	intel_ring_emit(ring, MI_NOOP);
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 	intel_ring_emit(ring, ILK_FBC_RT_BASE);
-	if (ring->fbc_address != -1)
-		intel_ring_emit(ring, ring->fbc_address |
+	if (ring->pending_fbc_address != I915_FBC_RT_NONE)
+		intel_ring_emit(ring, ring->pending_fbc_address |
 				ILK_FBC_FRONT_BUFFER | ILK_FBC_RT_VALID);
 	else
 		intel_ring_emit(ring, 0);
 	intel_ring_advance(ring);
 
-	ring->fbc_address_dirty = false;
+	ring->fbc_address = ring->pending_fbc_address;
 
 	return 0;
 }
@@ -99,7 +99,7 @@ static int gen6_blt_fbc_tracking(struct intel_engine_cs *ring)
 {
 	int ret;
 
-	if (!ring->fbc_address_dirty)
+	if (ring->fbc_address == ring->pending_fbc_address)
 		return 0;
 
 	ret = intel_ring_begin(ring, 4);
@@ -109,13 +109,13 @@ static int gen6_blt_fbc_tracking(struct intel_engine_cs *ring)
 	intel_ring_emit(ring, MI_NOOP);
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 	intel_ring_emit(ring, GEN6_BLITTER_ECOSKPD);
-	if (ring->fbc_address != -1)
+	if (ring->pending_fbc_address != I915_FBC_RT_NONE)
 		intel_ring_emit(ring, _MASKED_BIT_ENABLE(GEN6_BLITTER_FBC_NOTIFY));
 	else
 		intel_ring_emit(ring, _MASKED_BIT_DISABLE(GEN6_BLITTER_FBC_NOTIFY));
 	intel_ring_advance(ring);
 
-	ring->fbc_address_dirty = false;
+	ring->fbc_address = ring->pending_fbc_address;
 
 	return 0;
 }
@@ -1504,6 +1504,9 @@ static int intel_init_ring_buffer(struct drm_device *dev,
 	memset(ring->semaphore.sync_seqno, 0, sizeof(ring->semaphore.sync_seqno));
 
 	init_waitqueue_head(&ring->irq_queue);
+
+	/* current state unknown so force a FBC RT address update */
+	ring->fbc_address = I915_FBC_RT_RESET;
 
 	INIT_LIST_HEAD(&ring->notify_list);
 	spin_lock_init(&ring->lock);

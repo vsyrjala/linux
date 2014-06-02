@@ -273,6 +273,9 @@ __create_hw_context(struct drm_device *dev,
 	 * is no remap info, it will be a NOP. */
 	ctx->remap_slice = (1 << NUM_L3_SLICES(dev)) - 1;
 
+	/* force a re-emit FBC RT address on first use */
+	ctx->fbc_address = I915_FBC_RT_RESET;
+
 	return ctx;
 
 err_out:
@@ -359,6 +362,7 @@ err_destroy:
 void i915_gem_context_reset(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_context *ctx;
 	int i;
 
 	/* Prevent the hardware from restoring the last context (which hung) on
@@ -386,6 +390,13 @@ void i915_gem_context_reset(struct drm_device *dev)
 		i915_gem_context_reference(dctx);
 		ring->last_context = dctx;
 	}
+
+	/*
+	 * FBC RT address update(s) may have been lost,
+	 * just have everyone re-emit them.
+	 */
+	list_for_each_entry(ctx, &dev_priv->context_list, link)
+		ctx->fbc_address = I915_FBC_RT_RESET;
 }
 
 int i915_gem_context_init(struct drm_device *dev)
@@ -588,13 +599,6 @@ mi_set_context(struct intel_engine_cs *ring,
 
 	intel_ring_advance(ring);
 
-	/*
-	 * FBC RT address is stored in the context, so we may have just
-	 * restored it to an old value. Make sure we emit a new LRI
-	 * to update the address.
-	 */
-	ring->fbc_address_dirty = true;
-
 	return ret;
 }
 
@@ -666,6 +670,9 @@ static int do_switch(struct intel_engine_cs *ring,
 	ret = mi_set_context(ring, to, hw_flags);
 	if (ret)
 		goto unpin_out;
+
+	if ((hw_flags & MI_RESTORE_INHIBIT) == 0)
+		ring->fbc_address = to->fbc_address;
 
 	for (i = 0; i < MAX_L3_SLICES; i++) {
 		if (!(to->remap_slice & (1<<i)))

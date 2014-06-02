@@ -587,6 +587,7 @@ struct i915_ctx_hang_stats {
 #define DEFAULT_CONTEXT_ID 0
 struct intel_context {
 	struct kref ref;
+	unsigned long fbc_address;
 	int id;
 	bool is_initialized;
 	uint8_t remap_slice;

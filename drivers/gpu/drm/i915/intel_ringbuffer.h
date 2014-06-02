@@ -175,11 +175,14 @@ struct  intel_engine_cs {
 	 * Do we have some not yet emitted requests outstanding?
 	 */
 	struct drm_i915_gem_request *preallocated_lazy_request;
+
+#define I915_FBC_RT_NONE 1 /* FBC RT disabled */
+#define I915_FBC_RT_RESET 2 /* force re-emit of FBC RT */
+	unsigned long fbc_address, pending_fbc_address;
+
 	u32 outstanding_lazy_seqno;
-	u32 fbc_address;
 	bool gpu_caches_dirty:1;
 	bool fbc_dirty:1;
-	bool fbc_address_dirty:1;
 
 	wait_queue_head_t irq_queue;
 

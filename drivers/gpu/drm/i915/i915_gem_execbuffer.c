@@ -956,29 +956,33 @@ i915_gem_validate_context(struct drm_device *dev, struct drm_file *file,
 
 static void
 i915_gem_execbuffer_mark_fbc_dirty(struct intel_engine_cs *ring,
+				   struct intel_context *ctx,
 				   struct list_head *vmas)
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	struct i915_vma *vma;
-	u32 fbc_address = -1;
+	unsigned long fbc_address = I915_FBC_RT_NONE;
 
 	list_for_each_entry(vma, vmas, exec_list) {
 		struct drm_i915_gem_object *obj = vma->obj;
 
 		if (obj->base.pending_write_domain &&
 		    obj == dev_priv->fbc.obj) {
-			WARN_ON(fbc_address != -1 &&
-				fbc_address != i915_gem_obj_ggtt_offset(obj));
-			fbc_address = i915_gem_obj_ggtt_offset(obj);
+			WARN_ON(fbc_address != I915_FBC_RT_NONE &&
+				fbc_address != vma->node.start);
+			fbc_address = vma->node.start;
 		}
 	}
 
-	/* need to nuke/cache_clean on IVB+? */
-	ring->fbc_dirty |= fbc_address != -1;
-
 	/* need to update FBC tracking? */
-	ring->fbc_address_dirty |= fbc_address != ring->fbc_address;
-	ring->fbc_address = fbc_address;
+
+	/* simple yes/no is sufficient for !RCS */
+	if (ring->id != RCS && fbc_address != I915_FBC_RT_NONE)
+		ring->pending_fbc_address = 0;
+	else
+		ring->pending_fbc_address = fbc_address;
+
+	ring->fbc_dirty |= fbc_address != I915_FBC_RT_NONE;
 }
 
 static void
@@ -1349,7 +1353,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	else
 		exec_start += i915_gem_obj_offset(batch_obj, vm);
 
-	i915_gem_execbuffer_mark_fbc_dirty(ring, &eb->vmas);
+	i915_gem_execbuffer_mark_fbc_dirty(ring, ctx, &eb->vmas);
 
 	ret = i915_switch_context(ring, ctx);
 	if (ret)
@@ -1358,6 +1362,9 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	ret = i915_gem_execbuffer_move_to_gpu(ring, &eb->vmas);
 	if (ret)
 		goto err;
+
+	if (HAS_HW_CONTEXTS(dev) && ring->id == RCS)
+		ctx->fbc_address = ring->fbc_address;
 
 	if (ring == &dev_priv->ring[RCS] &&
 	    mode != dev_priv->relative_constants_mode) {
