@@ -556,6 +556,32 @@ static bool intel_fbc2_possible(struct intel_crtc *crtc)
 		return false;
 	}
 
+	if (IS_G4X(dev)) {
+		/* WaFbcOnlyForNativeModeOnLFP:ctg */
+		if (crtc->config.gmch_pfit.control) {
+			DRM_DEBUG("FBC pipe %c, plane %c: panel fitter enabled\n",
+				  pipe_name(crtc->pipe), plane_name(crtc->plane));
+			return false;
+		}
+	}
+
+	if (IS_GEN5(dev) && crtc->config.pch_pfit.enabled) {
+		uint32_t pfit_w, pfit_h;
+
+		pfit_w = crtc->config.pch_pfit.size >> 16;
+		pfit_h = crtc->config.pch_pfit.size & 0xFFFF;
+
+		/* FBC not allowed with panel fitter downscaling */
+		if (crtc->config.pipe_src_w > pfit_w ||
+		    crtc->config.pipe_src_h > pfit_h) {
+			DRM_DEBUG("FBC pipe %c, plane %c: panel fitter downscaling\n",
+				  pipe_name(crtc->pipe), plane_name(crtc->plane));
+			return false;
+		}
+
+		/* TODO: PF-ID is also disallowed */
+	}
+
 	if (!crtc->primary_enabled) {
 		DRM_DEBUG("FBC pipe %c, plane %c: primary plane disabled\n",
 			  pipe_name(crtc->pipe), plane_name(crtc->plane));
