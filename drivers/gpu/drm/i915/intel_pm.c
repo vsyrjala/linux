@@ -508,6 +508,32 @@ static bool intel_fbc1_possible(struct intel_crtc *crtc)
 		return false;
 	}
 
+	/*
+	 * Planes A & B don't support alpha, so
+	 * the "A" formats and "X" formats are
+	 * one and the same.
+	 */
+	switch (fb->pixel_format) {
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_ABGR8888:
+		break;
+	case DRM_FORMAT_XRGB1555:
+	case DRM_FORMAT_ARGB1555:
+	case DRM_FORMAT_RGB565:
+		/* 16bpp not supported on gen2 */
+		if (!IS_GEN2(dev))
+			break;
+
+		/* fall through */
+	default:
+		DRM_DEBUG("FBC pipe %c, plane %c: framebuffer format (%s) unsupported\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane),
+			  drm_get_format_name(fb->pixel_format));
+		return false;
+	}
+
 	obj = to_intel_framebuffer(fb)->obj;
 
 	if (obj->tiling_mode != I915_TILING_X ||
@@ -594,6 +620,30 @@ static bool intel_fbc2_possible(struct intel_crtc *crtc)
 	if (!crtc->primary_enabled) {
 		DRM_DEBUG("FBC pipe %c, plane %c: primary plane disabled\n",
 			  pipe_name(crtc->pipe), plane_name(crtc->plane));
+		return false;
+	}
+
+	/*
+	 * Primary planes don't support alpha, so
+	 * the "A" formats and "X" formats are
+	 * one and the same.
+	 */
+	switch (fb->pixel_format) {
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_ABGR8888:
+		break;
+	case DRM_FORMAT_RGB565:
+		/* WaFbcOnly1to1Ratio:ctg */
+		if (!IS_G4X(dev))
+			break;
+
+		/* fall through */
+	default:
+		DRM_DEBUG("FBC pipe %c, plane %c: framebuffer format (%s) unsupported\n",
+			  pipe_name(crtc->pipe), plane_name(crtc->plane),
+			  drm_get_format_name(fb->pixel_format));
 		return false;
 	}
 
