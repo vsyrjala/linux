@@ -523,6 +523,7 @@ static bool intel_fbc1_possible(struct intel_crtc *crtc)
 static bool intel_fbc2_possible(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_framebuffer *fb = crtc->base.primary->fb;
 	struct drm_i915_gem_object *obj;
 	int max_width, max_height;
@@ -560,6 +561,14 @@ static bool intel_fbc2_possible(struct intel_crtc *crtc)
 		/* WaFbcOnlyForNativeModeOnLFP:ctg */
 		if (crtc->config.gmch_pfit.control) {
 			DRM_DEBUG("FBC pipe %c, plane %c: panel fitter enabled\n",
+				  pipe_name(crtc->pipe), plane_name(crtc->plane));
+			return false;
+		}
+
+		/* WaFbcDisabledForOverlaySprite:ctg */
+		/* FIXME need to figure this out nicer */
+		if (I915_READ(DVSCNTR(crtc->pipe)) & DVS_ENABLE) {
+			DRM_DEBUG("FBC pipe %c, plane %c: video sprite enabled\n",
 				  pipe_name(crtc->pipe), plane_name(crtc->plane));
 			return false;
 		}
