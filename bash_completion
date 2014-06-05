@@ -5,7 +5,7 @@ _dim ()
 	local cur cmds
 
 	cmds="setup nightly-forget update-branches"
-	cmds="$cmds rebuild-nightly cat-to-file"
+	cmds="$cmds rebuild-nightly cat-to-fixup"
 	cmds="$cmds push-queued pq push-fixes co cof"
 	cmds="$cmds apply-branch apply-queued aq apply-fixes af magic-patch mp"
 	cmds="$cmds apply-igt ai"
