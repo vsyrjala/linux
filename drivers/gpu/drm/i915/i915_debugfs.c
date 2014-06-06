@@ -2923,11 +2923,16 @@ static int pipe_crc_set_source(struct drm_device *dev, enum pipe pipe,
 	/* real source -> none transition */
 	if (source == INTEL_PIPE_CRC_SOURCE_NONE) {
 		struct intel_pipe_crc_entry *entries;
+		struct intel_crtc *crtc =
+			to_intel_crtc(dev_priv->pipe_to_crtc_mapping[pipe]);
 
 		DRM_DEBUG_DRIVER("stopping CRCs for pipe %c\n",
 				 pipe_name(pipe));
 
-		intel_wait_for_vblank(dev, pipe);
+		mutex_lock(&crtc->base.mutex);
+		if (crtc->active)
+			intel_wait_for_vblank(dev, pipe);
+		mutex_unlock(&crtc->base.mutex);
 
 		spin_lock_irq(&pipe_crc->lock);
 		entries = pipe_crc->entries;
