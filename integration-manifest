@@ -1,0 +1,14 @@
+origin/drm-intel-next-queued e4964a6e664b4c338b5ab1f1820b0477bec68396
+	drm/i915: Update DRIVER_DATE to 20140606
+origin/drm-intel-fixes 15d24aa5602fb87c7b1358cfabcfeb9b26db290f
+	drm/i915: BDW: Adding missing cursor offsets.
+drm-upstream/drm-next 8d4ad9d4bb0a618c975a32d77087694ec6336f68
+	Merge commit '9e9a928eed8796a0a1aaed7e0b676db86ba84594' into drm-next
+drm-upstream/drm-fixes 0a4ae727d6aa459247b027387edb6ff99f657792
+	Merge branch 'drm-fixes-3.15' of git://people.freedesktop.org/~deathsimple/linux into drm-fixes
+origin/topic/core-stuff 69355f9476c0d19551b9b9e1bb72a5e840ced43c
+	drm: Don't export internal module variables
+origin/topic/kicking-dogs-and-vgacon aaab8eff3a4bfca3e04b1391c17b8a5fde0597ad
+	drm/i915: Kick out vga console
+sound-upstream/for-next 72009433b28c2bf27f69e3e28f6cb425cefb76c0
+	ALSA: hda/realtek - Add support of ALC667 codec
