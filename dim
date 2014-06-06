@@ -31,6 +31,8 @@
 # - Improve docs/workflow for topic branches
 # - extract the integration tree logic and make it generally useful, maybe for a
 #   drm-integration tree ...
+# - add a Link: tag referring to mid.mail-archive.com/<msg-id> to merged
+#   patches
 
 # fail on any goof-up
 set -e
@@ -522,7 +524,7 @@ case "$subcommand" in
 		# generate tag list
 		drm_intel_next_tags=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
 		prep_pull_mail_tags $drm_intel_next_tags
-		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-next >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_git drm-intel-next-$today >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] drm-intel-next" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
@@ -542,7 +544,7 @@ case "$subcommand" in
 		$DRY git tag -f drm-intel-fixes-$today $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
 		$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
 		prep_pull_mail
-		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/drm-intel-fixes >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_git drm-intel-fixes-$today >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] drm-intel-fixes" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
@@ -565,7 +567,7 @@ case "$subcommand" in
 		$DRY git tag -f $branch-$today $DIM_DRM_INTEL_REMOTE/$branch
 		$DRY git push -f $DIM_DRM_INTEL_REMOTE $branch-$today
 		prep_pull_mail
-		git request-pull $upstream $drm_intel_git $DIM_DRM_INTEL_REMOTE/$branch >> ~/tmp/dim-pull-request
+		git request-pull $upstream $drm_intel_git $branch-$today >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] $branch" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
