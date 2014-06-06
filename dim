@@ -588,6 +588,13 @@ case "$subcommand" in
 			exit 2
 		fi
 
+		driver_date=`date +%Y%m%d`
+		sed -i -e "s/^#define DRIVER_DATE.*\"[0-9]*\"$/#define DRIVER_DATE\t\t\"$driver_date\"/" \
+			drivers/gpu/drm/i915/i915_drv.h
+		git add drivers/gpu/drm/i915/i915_drv.h
+		echo -e "drm/i915: Update DRIVER_DATE to $driver_date\n\nSigned-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>" | \
+			git commit -s -F -
+
 		gitk drm-intel-next-queued ^$DIM_DRM_UPSTREAM_REMOTE/drm-next &
 
 		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
