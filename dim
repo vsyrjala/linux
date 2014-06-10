@@ -449,7 +449,7 @@ case "$subcommand" in
 	cof)
 		git checkout drm-intel-fixes
 		;;
-	apply-branch|ab)
+	apply-branch|ab|sob)
 		branch=$1
 		shift
 
@@ -719,7 +719,7 @@ cof
 Checks out the drm-intel-fixes branch or dinq respectively for
 merging patches.
 
-apply-branch|ab branch [*git am arguments*]
+apply-branch|ab|sob branch [*git am arguments*]
 -------------------------------------------
 Applys a patch to the given branch, complaining if it is not
 checked out yet.
