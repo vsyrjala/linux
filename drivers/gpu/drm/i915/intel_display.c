@@ -4010,7 +4010,7 @@ static void intel_crtc_disable_planes(struct drm_crtc *crtc)
 
 	intel_crtc_wait_for_pending_flips(crtc);
 
-	if (dev_priv->fbc.plane == plane)
+	if (dev_priv->fbc.crtc == intel_crtc)
 		intel_disable_fbc(dev);
 
 	hsw_disable_ips(intel_crtc);
@@ -12320,6 +12320,7 @@ void intel_modeset_init(struct drm_device *dev)
 		      INTEL_INFO(dev)->num_pipes > 1 ? "s" : "");
 
 	intel_ips_init(dev);
+	intel_fbc_init(dev);
 
 	for_each_pipe(pipe) {
 		intel_crtc_init(dev, pipe);

@@ -711,7 +711,7 @@ intel_pre_disable_primary(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 
 	mutex_lock(&dev->struct_mutex);
-	if (dev_priv->fbc.plane == intel_crtc->plane)
+	if (dev_priv->fbc.crtc == intel_crtc)
 		intel_disable_fbc(dev);
 	mutex_unlock(&dev->struct_mutex);
 

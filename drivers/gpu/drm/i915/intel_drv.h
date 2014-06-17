@@ -961,6 +961,7 @@ void intel_pm_setup(struct drm_device *dev);
 bool intel_fbc_enabled(struct drm_device *dev);
 void intel_disable_fbc(struct drm_device *dev);
 void intel_update_fbc(struct drm_device *dev);
+void intel_fbc_init(struct drm_device *dev);
 void intel_gpu_ips_init(struct drm_i915_private *dev_priv);
 void intel_gpu_ips_teardown(void);
 int intel_power_domains_init(struct drm_i915_private *);

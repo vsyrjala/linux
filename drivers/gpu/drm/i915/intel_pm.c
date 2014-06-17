@@ -88,21 +88,17 @@ static void i8xx_disable_fbc(struct drm_device *dev)
 	DRM_DEBUG_KMS("disabled FBC\n");
 }
 
-static void i8xx_enable_fbc(struct drm_crtc *crtc)
+static void i8xx_enable_fbc(struct drm_device *dev)
 {
-	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_framebuffer *fb = crtc->primary->fb;
-	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
-	struct drm_i915_gem_object *obj = intel_fb->obj;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_crtc *crtc = dev_priv->fbc.crtc;
 	int cfb_pitch;
 	int i;
 	u32 fbc_ctl;
 
 	cfb_pitch = dev_priv->fbc.size / FBC_LL_SIZE;
-	if (fb->pitches[0] < cfb_pitch)
-		cfb_pitch = fb->pitches[0];
+	if (dev_priv->fbc.pitch < cfb_pitch)
+		cfb_pitch = dev_priv->fbc.pitch;
 
 	/* FBC_CTL wants 32B or 64B units */
 	if (IS_GEN2(dev))
@@ -119,9 +115,9 @@ static void i8xx_enable_fbc(struct drm_crtc *crtc)
 
 		/* Set it up... */
 		fbc_ctl2 = FBC_CTL_FENCE_DBL | FBC_CTL_IDLE_IMM | FBC_CTL_CPU_FENCE;
-		fbc_ctl2 |= FBC_CTL_PLANE(intel_crtc->plane);
+		fbc_ctl2 |= FBC_CTL_PLANE(crtc->plane);
 		I915_WRITE(FBC_CONTROL2, fbc_ctl2);
-		I915_WRITE(FBC_FENCE_OFF, crtc->y);
+		I915_WRITE(FBC_FENCE_OFF, dev_priv->fbc.y);
 	}
 
 	/* enable it... */
@@ -131,11 +127,11 @@ static void i8xx_enable_fbc(struct drm_crtc *crtc)
 	if (IS_I945GM(dev))
 		fbc_ctl |= FBC_CTL_C3_IDLE; /* 945 needs special SR handling */
 	fbc_ctl |= (cfb_pitch & 0xff) << FBC_CTL_STRIDE_SHIFT;
-	fbc_ctl |= obj->fence_reg;
+	fbc_ctl |= dev_priv->fbc.fence_reg;
 	I915_WRITE(FBC_CONTROL, fbc_ctl);
 
 	DRM_DEBUG_KMS("enabled FBC, pitch %d, yoff %d, plane %c\n",
-		      cfb_pitch, crtc->y, plane_name(intel_crtc->plane));
+		      cfb_pitch, dev_priv->fbc.y, plane_name(crtc->plane));
 }
 
 static bool i8xx_fbc_enabled(struct drm_device *dev)
@@ -145,29 +141,25 @@ static bool i8xx_fbc_enabled(struct drm_device *dev)
 	return I915_READ(FBC_CONTROL) & FBC_CTL_EN;
 }
 
-static void g4x_enable_fbc(struct drm_crtc *crtc)
+static void g4x_enable_fbc(struct drm_device *dev)
 {
-	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_framebuffer *fb = crtc->primary->fb;
-	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
-	struct drm_i915_gem_object *obj = intel_fb->obj;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_crtc *crtc = dev_priv->fbc.crtc;
 	u32 dpfc_ctl;
 
-	dpfc_ctl = DPFC_CTL_PLANE(intel_crtc->plane) | DPFC_SR_EN;
-	if (drm_format_plane_cpp(fb->pixel_format, 0) == 2)
+	dpfc_ctl = DPFC_CTL_PLANE(crtc->plane) | DPFC_SR_EN;
+	if (drm_format_plane_cpp(dev_priv->fbc.pixel_format, 0) == 2)
 		dpfc_ctl |= DPFC_CTL_LIMIT_2X;
 	else
 		dpfc_ctl |= DPFC_CTL_LIMIT_1X;
-	dpfc_ctl |= DPFC_CTL_FENCE_EN | obj->fence_reg;
+	dpfc_ctl |= DPFC_CTL_FENCE_EN | dev_priv->fbc.fence_reg;
 
-	I915_WRITE(DPFC_FENCE_YOFF, crtc->y);
+	I915_WRITE(DPFC_FENCE_YOFF, dev_priv->fbc.y);
 
 	/* enable it... */
 	I915_WRITE(DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
 
-	DRM_DEBUG_KMS("enabled fbc on plane %c\n", plane_name(intel_crtc->plane));
+	DRM_DEBUG_KMS("enabled fbc on plane %c\n", plane_name(crtc->plane));
 }
 
 static void g4x_disable_fbc(struct drm_device *dev)
@@ -217,38 +209,35 @@ static void sandybridge_blit_fbc_update(struct drm_device *dev)
 	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_MEDIA);
 }
 
-static void ironlake_enable_fbc(struct drm_crtc *crtc)
+static void ironlake_enable_fbc(struct drm_device *dev)
 {
-	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_framebuffer *fb = crtc->primary->fb;
-	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
-	struct drm_i915_gem_object *obj = intel_fb->obj;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_crtc *crtc = dev_priv->fbc.crtc;
 	u32 dpfc_ctl;
 
-	dpfc_ctl = DPFC_CTL_PLANE(intel_crtc->plane);
-	if (drm_format_plane_cpp(fb->pixel_format, 0) == 2)
+	dpfc_ctl = DPFC_CTL_PLANE(crtc->plane);
+	if (drm_format_plane_cpp(dev_priv->fbc.pixel_format, 0) == 2)
 		dpfc_ctl |= DPFC_CTL_LIMIT_2X;
 	else
 		dpfc_ctl |= DPFC_CTL_LIMIT_1X;
 	dpfc_ctl |= DPFC_CTL_FENCE_EN;
 	if (IS_GEN5(dev))
-		dpfc_ctl |= obj->fence_reg;
+		dpfc_ctl |= dev_priv->fbc.fence_reg;
 
-	I915_WRITE(ILK_DPFC_FENCE_YOFF, crtc->y);
-	I915_WRITE(ILK_FBC_RT_BASE, i915_gem_obj_ggtt_offset(obj) | ILK_FBC_RT_VALID);
+	I915_WRITE(ILK_DPFC_FENCE_YOFF, dev_priv->fbc.y);
+	I915_WRITE(ILK_FBC_RT_BASE, i915_gem_obj_ggtt_offset(dev_priv->fbc.obj) |
+		   ILK_FBC_RT_VALID);
 	/* enable it... */
 	I915_WRITE(ILK_DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
 
 	if (IS_GEN6(dev)) {
 		I915_WRITE(SNB_DPFC_CTL_SA,
-			   SNB_CPU_FENCE_ENABLE | obj->fence_reg);
-		I915_WRITE(DPFC_CPU_FENCE_OFFSET, crtc->y);
+			   SNB_CPU_FENCE_ENABLE | dev_priv->fbc.fence_reg);
+		I915_WRITE(DPFC_CPU_FENCE_OFFSET, dev_priv->fbc.y);
 		sandybridge_blit_fbc_update(dev);
 	}
 
-	DRM_DEBUG_KMS("enabled fbc on plane %c\n", plane_name(intel_crtc->plane));
+	DRM_DEBUG_KMS("enabled fbc on plane %c\n", plane_name(crtc->plane));
 }
 
 static void ironlake_disable_fbc(struct drm_device *dev)
@@ -273,18 +262,14 @@ static bool ironlake_fbc_enabled(struct drm_device *dev)
 	return I915_READ(ILK_DPFC_CONTROL) & DPFC_CTL_EN;
 }
 
-static void gen7_enable_fbc(struct drm_crtc *crtc)
+static void gen7_enable_fbc(struct drm_device *dev)
 {
-	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_framebuffer *fb = crtc->primary->fb;
-	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
-	struct drm_i915_gem_object *obj = intel_fb->obj;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_crtc *crtc = dev_priv->fbc.crtc;
 	u32 dpfc_ctl;
 
-	dpfc_ctl = IVB_DPFC_CTL_PLANE(intel_crtc->plane);
-	if (drm_format_plane_cpp(fb->pixel_format, 0) == 2)
+	dpfc_ctl = IVB_DPFC_CTL_PLANE(crtc->plane);
+	if (drm_format_plane_cpp(dev_priv->fbc.pixel_format, 0) == 2)
 		dpfc_ctl |= DPFC_CTL_LIMIT_2X;
 	else
 		dpfc_ctl |= DPFC_CTL_LIMIT_1X;
@@ -299,18 +284,18 @@ static void gen7_enable_fbc(struct drm_crtc *crtc)
 			   ILK_FBCQ_DIS);
 	} else {
 		/* WaFbcAsynchFlipDisableFbcQueue:hsw,bdw */
-		I915_WRITE(CHICKEN_PIPESL_1(intel_crtc->pipe),
-			   I915_READ(CHICKEN_PIPESL_1(intel_crtc->pipe)) |
+		I915_WRITE(CHICKEN_PIPESL_1(crtc->pipe),
+			   I915_READ(CHICKEN_PIPESL_1(crtc->pipe)) |
 			   HSW_FBCQ_DIS);
 	}
 
 	I915_WRITE(SNB_DPFC_CTL_SA,
-		   SNB_CPU_FENCE_ENABLE | obj->fence_reg);
-	I915_WRITE(DPFC_CPU_FENCE_OFFSET, crtc->y);
+		   SNB_CPU_FENCE_ENABLE | dev_priv->fbc.fence_reg);
+	I915_WRITE(DPFC_CPU_FENCE_OFFSET, dev_priv->fbc.y);
 
 	sandybridge_blit_fbc_update(dev);
 
-	DRM_DEBUG_KMS("enabled fbc on plane %c\n", plane_name(intel_crtc->plane));
+	DRM_DEBUG_KMS("enabled fbc on plane %c\n", plane_name(crtc->plane));
 }
 
 bool intel_fbc_enabled(struct drm_device *dev)
@@ -321,6 +306,21 @@ bool intel_fbc_enabled(struct drm_device *dev)
 		return false;
 
 	return dev_priv->display.fbc_enabled(dev);
+}
+
+static void intel_fbc_update_params(struct intel_crtc *crtc)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_framebuffer *fb = crtc->base.primary->fb;
+	struct drm_i915_gem_object *obj = to_intel_framebuffer(fb)->obj;
+
+	dev_priv->fbc.crtc = crtc;
+	dev_priv->fbc.pixel_format = fb->pixel_format;
+	dev_priv->fbc.pitch = fb->pitches[0];
+	dev_priv->fbc.obj = obj;
+	dev_priv->fbc.fence_reg = obj->fence_reg;
+	dev_priv->fbc.y = crtc->base.y;
 }
 
 static void intel_fbc_work_fn(struct work_struct *__work)
@@ -337,11 +337,8 @@ static void intel_fbc_work_fn(struct work_struct *__work)
 		 * the prior work.
 		 */
 		if (work->crtc->primary->fb == work->fb) {
-			dev_priv->display.enable_fbc(work->crtc);
-
-			dev_priv->fbc.plane = to_intel_crtc(work->crtc)->plane;
-			dev_priv->fbc.fb_id = work->crtc->primary->fb->base.id;
-			dev_priv->fbc.y = work->crtc->y;
+			intel_fbc_update_params(to_intel_crtc(work->crtc));
+			dev_priv->display.enable_fbc(dev);
 		}
 
 		dev_priv->fbc.fbc_work = NULL;
@@ -388,7 +385,8 @@ static void intel_enable_fbc(struct drm_crtc *crtc)
 	work = kzalloc(sizeof(*work), GFP_KERNEL);
 	if (work == NULL) {
 		DRM_ERROR("Failed to allocate FBC work structure\n");
-		dev_priv->display.enable_fbc(crtc);
+		intel_fbc_update_params(to_intel_crtc(crtc));
+		dev_priv->display.enable_fbc(dev);
 		return;
 	}
 
@@ -424,7 +422,11 @@ void intel_disable_fbc(struct drm_device *dev)
 		return;
 
 	dev_priv->display.disable_fbc(dev);
-	dev_priv->fbc.plane = -1;
+	dev_priv->fbc.crtc = NULL;
+	dev_priv->fbc.pixel_format = 0;
+	dev_priv->fbc.pitch = 0;
+	dev_priv->fbc.fence_reg = I915_FENCE_REG_NONE;
+	dev_priv->fbc.y = 0;
 }
 
 static bool set_no_fbc_reason(struct drm_i915_private *dev_priv,
@@ -812,8 +814,11 @@ void intel_update_fbc(struct drm_device *dev)
 	 * cannot be unpinned (and have its GTT offset and fence revoked)
 	 * without first being decoupled from the scanout and FBC disabled.
 	 */
-	if (dev_priv->fbc.plane == crtc->plane &&
-	    dev_priv->fbc.fb_id == fb->base.id &&
+	if (dev_priv->fbc.crtc == crtc &&
+	    dev_priv->fbc.obj == obj &&
+	    dev_priv->fbc.pixel_format == fb->pixel_format &&
+	    dev_priv->fbc.pitch == fb->pitches[0] &&
+	    dev_priv->fbc.fence_reg == obj->fence_reg &&
 	    dev_priv->fbc.y == crtc->base.y)
 		return;
 
@@ -856,6 +861,13 @@ out_disable:
 		intel_disable_fbc(dev);
 	}
 	i915_gem_stolen_cleanup_compression(dev);
+}
+
+void intel_fbc_init(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	dev_priv->fbc.fence_reg = I915_FENCE_REG_NONE;
 }
 
 static void i915_pineview_get_mem_freq(struct drm_device *dev)

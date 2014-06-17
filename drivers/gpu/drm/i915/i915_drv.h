@@ -410,7 +410,7 @@ struct dpll;
 
 struct drm_i915_display_funcs {
 	bool (*fbc_enabled)(struct drm_device *dev);
-	void (*enable_fbc)(struct drm_crtc *crtc);
+	void (*enable_fbc)(struct drm_device *dev);
 	void (*disable_fbc)(struct drm_device *dev);
 	int (*get_display_clock_speed)(struct drm_device *dev);
 	int (*get_fifo_size)(struct drm_device *dev, int plane);
@@ -600,13 +600,15 @@ struct intel_context {
 };
 
 struct i915_fbc {
+	struct intel_crtc *crtc;
 	unsigned long size;
-	unsigned int fb_id;
-	enum plane plane;
-	int y;
+	uint32_t pixel_format;
+	int fence_reg, pitch, y;
 
 	struct drm_mm_node *compressed_fb;
 	struct drm_mm_node *compressed_llb;
+
+	struct drm_i915_gem_object *obj;
 
 	struct intel_fbc_work {
 		struct delayed_work work;
