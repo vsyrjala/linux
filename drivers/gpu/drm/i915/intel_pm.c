@@ -96,6 +96,9 @@ static void i8xx_enable_fbc(struct drm_device *dev)
 	int i;
 	u32 fbc_ctl;
 
+	if ((I915_READ(FBC_CONTROL) & FBC_CTL_EN) == 0)
+		DRM_DEBUG_KMS("enabling FBC on plane %c\n", plane_name(crtc->plane));
+
 	cfb_pitch = dev_priv->fbc.size / FBC_LL_SIZE;
 	if (dev_priv->fbc.pitch < cfb_pitch)
 		cfb_pitch = dev_priv->fbc.pitch;
@@ -129,9 +132,6 @@ static void i8xx_enable_fbc(struct drm_device *dev)
 	fbc_ctl |= (cfb_pitch & 0xff) << FBC_CTL_STRIDE_SHIFT;
 	fbc_ctl |= dev_priv->fbc.fence_reg;
 	I915_WRITE(FBC_CONTROL, fbc_ctl);
-
-	DRM_DEBUG_KMS("enabled FBC, pitch %d, yoff %d, plane %c\n",
-		      cfb_pitch, dev_priv->fbc.y, plane_name(crtc->plane));
 }
 
 static bool i8xx_fbc_enabled(struct drm_device *dev)
@@ -147,6 +147,9 @@ static void g4x_enable_fbc(struct drm_device *dev)
 	struct intel_crtc *crtc = dev_priv->fbc.crtc;
 	u32 dpfc_ctl;
 
+	if ((I915_READ(DPFC_CONTROL) & DPFC_CTL_EN) == 0)
+		DRM_DEBUG_KMS("enabling FBC on plane %c\n", plane_name(crtc->plane));
+
 	dpfc_ctl = DPFC_CTL_PLANE(crtc->plane) | DPFC_SR_EN;
 	if (drm_format_plane_cpp(dev_priv->fbc.pixel_format, 0) == 2)
 		dpfc_ctl |= DPFC_CTL_LIMIT_2X;
@@ -158,8 +161,6 @@ static void g4x_enable_fbc(struct drm_device *dev)
 
 	/* enable it... */
 	I915_WRITE(DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
-
-	DRM_DEBUG_KMS("enabled fbc on plane %c\n", plane_name(crtc->plane));
 }
 
 static void g4x_disable_fbc(struct drm_device *dev)
@@ -215,6 +216,9 @@ static void ironlake_enable_fbc(struct drm_device *dev)
 	struct intel_crtc *crtc = dev_priv->fbc.crtc;
 	u32 dpfc_ctl;
 
+	if ((I915_READ(ILK_DPFC_CONTROL) & DPFC_CTL_EN) == 0)
+		DRM_DEBUG_KMS("enabling FBC on plane %c\n", plane_name(crtc->plane));
+
 	dpfc_ctl = DPFC_CTL_PLANE(crtc->plane);
 	if (drm_format_plane_cpp(dev_priv->fbc.pixel_format, 0) == 2)
 		dpfc_ctl |= DPFC_CTL_LIMIT_2X;
@@ -236,8 +240,6 @@ static void ironlake_enable_fbc(struct drm_device *dev)
 		I915_WRITE(DPFC_CPU_FENCE_OFFSET, dev_priv->fbc.y);
 		sandybridge_blit_fbc_update(dev);
 	}
-
-	DRM_DEBUG_KMS("enabled fbc on plane %c\n", plane_name(crtc->plane));
 }
 
 static void ironlake_disable_fbc(struct drm_device *dev)
@@ -268,6 +270,9 @@ static void gen7_enable_fbc(struct drm_device *dev)
 	struct intel_crtc *crtc = dev_priv->fbc.crtc;
 	u32 dpfc_ctl;
 
+	if ((I915_READ(ILK_DPFC_CONTROL) & DPFC_CTL_EN) == 0)
+		DRM_DEBUG_KMS("enabling fbc on plane %c\n", plane_name(crtc->plane));
+
 	dpfc_ctl = IVB_DPFC_CTL_PLANE(crtc->plane);
 	if (drm_format_plane_cpp(dev_priv->fbc.pixel_format, 0) == 2)
 		dpfc_ctl |= DPFC_CTL_LIMIT_2X;
@@ -294,8 +299,6 @@ static void gen7_enable_fbc(struct drm_device *dev)
 	I915_WRITE(DPFC_CPU_FENCE_OFFSET, dev_priv->fbc.y);
 
 	sandybridge_blit_fbc_update(dev);
-
-	DRM_DEBUG_KMS("enabled fbc on plane %c\n", plane_name(crtc->plane));
 }
 
 bool intel_fbc_enabled(struct drm_device *dev)
