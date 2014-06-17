@@ -776,7 +776,7 @@ struct intel_crtc *intel_fbc_best_crtc(struct drm_device *dev)
 		return NULL;
 	}
 
-	if (i915.enable_fbc < 0) {
+	if (i915.enable_fbc < 0 && INTEL_INFO(dev)->gen < 5) {
 		if (set_no_fbc_reason(dev_priv, FBC_CHIP_DEFAULT))
 			DRM_DEBUG_KMS("fbc disabled per chip default\n");
 		return NULL;
