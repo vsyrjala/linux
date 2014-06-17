@@ -1,0 +1,59 @@
+#!/bin/bash
+set -e
+
+script=$(basename $0)
+
+function usage() {
+	cat << EOU
+Usage: $script start end expr
+
+  Frob patches.
+
+  This tiny script renames "git format-patch" patches by executing 'expr'
+  on the number that prefix the patch file, but only if the patch file name
+  starts with a number in ['start','end'].
+
+Examples:
+  $ ls *patch
+  0008-Super-patch.patch
+  0009-Mega-patch.patch
+  $ $script 8 9 -7
+  $ ls *patch
+  0001-Super-patch.patch
+  0002-Mega-patch.patch
+
+  $ ls *patch
+  0117-Super-patch.patch
+  0118-Mega-patch.patch
+  $ $script 117 118 +900 -17
+  $ ls *patch
+  1000-Super-patch.patch
+  1001-Mega-patch.patch
+EOU
+}
+
+[ $# -ge 3 ] || {
+	usage
+	exit 1
+}
+
+start=$1
+end=$2
+shift 2
+op=$*
+
+for i in $(seq $start $end); do
+	prefix=$(printf "%04d" $i)
+	files="$files $(ls $prefix-*.patch)"
+done
+
+for f in $files; do
+	prefix=${f:0:4}
+	base=${f#$prefix-}
+
+	rank=$((10#$prefix))	# don't interpret the leading 0 as base 8
+	((n=$rank $op))
+
+	new_prefix=$(printf "%04d" $n)
+	mv $prefix-$base $new_prefix-$base
+done
