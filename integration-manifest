@@ -1,0 +1,14 @@
+origin/drm-intel-next-queued 5d0cf3d6e07957502dae8602e2f96eb6790ddc13
+	Merge branch 'topic/soix' into drm-intel-next-queued
+origin/drm-intel-fixes 223a6f2b975ab35d93270ea1d4fb6e0ac6b27fe6
+	drm/i915/bdw: remove erroneous chv specific workarounds from bdw code
+drm-upstream/drm-next bc1dfff04a5d4064ba0db1fab13f84ab4f333d2b
+	Merge branch 'drm-nouveau-next' of git://anongit.freedesktop.org/git/nouveau/linux-2.6 into drm-next
+drm-upstream/drm-fixes 571366284b50c93ba4ba5f13fad3f2430024c613
+	Merge branch 'drm-nouveau-next' of git://anongit.freedesktop.org/git/nouveau/linux-2.6 into drm-next
+origin/topic/core-stuff c3e25ae34fab3557b17a585446b5576e49d2f203
+	drm: fix uninitialized acquire_ctx fields (v2)
+sound-upstream/for-next efd4b76ef789541e7046e873b3546209352cdb59
+	Merge branch 'for-linus' into for-next
+origin/topic/soix 8abdc17941c71b37311bb93876ac83dce58160c8
+	drm/i915: make sure PC8 is enabled on suspend and disabled on resume v4
