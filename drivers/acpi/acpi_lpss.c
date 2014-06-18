@@ -200,6 +200,7 @@ static const struct acpi_device_id acpi_lpss_device_ids[] = {
 	{ "80860F14", LPSS_ADDR(byt_sdio_dev_desc) },
 	{ "80860F41", LPSS_ADDR(byt_i2c_dev_desc) },
 	{ "INT33B2", },
+	{ "INT33FC", },
 
 	{ "INT3430", LPSS_ADDR(lpt_dev_desc) },
 	{ "INT3431", LPSS_ADDR(lpt_dev_desc) },
