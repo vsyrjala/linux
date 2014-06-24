@@ -125,7 +125,7 @@ function repo_init
 	# setup for quilt patch repo
 	git clone --local --no-checkout -- . patches
 	cd patches
-	git remote remove origin
+	git remote rm origin
 
 	# include remotes and branches and all that from parent repo
 	git config include.path ../../.git/config
