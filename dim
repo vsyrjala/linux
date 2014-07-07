@@ -696,7 +696,11 @@ contain a bogus merge resolution.
 
 update-branches
 ---------------
-Updates all maintainer branches.
+Updates all maintainer branches. Only needs to be run to synchronize branches
+between different machines (or maintainers fwiw). As long a given branch is
+always maintained from the same machine, even if different branches are
+maintained on different machines (by different maintainers), there's no need to
+run this command.
 
 rebuild-nightly
 ---------------
