@@ -596,21 +596,23 @@ case "$subcommand" in
 		fi
 
 		driver_date=`date +%Y%m%d`
-		sed -i -e "s/^#define DRIVER_DATE.*\"[0-9]*\"$/#define DRIVER_DATE\t\t\"$driver_date\"/" \
+		$DRY sed -i -e "s/^#define DRIVER_DATE.*\"[0-9]*\"$/#define DRIVER_DATE\t\t\"$driver_date\"/" \
 			drivers/gpu/drm/i915/i915_drv.h
-		git add drivers/gpu/drm/i915/i915_drv.h
+		$DRY git add drivers/gpu/drm/i915/i915_drv.h
 		echo -e "drm/i915: Update DRIVER_DATE to $driver_date\n\nSigned-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>" | \
 			git commit -s -F -
 
 		gitk drm-intel-next-queued ^$DIM_DRM_UPSTREAM_REMOTE/drm-next &
 
-		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
+		$DRY git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
 		tag=drm-intel-next-$today
 		$DRY git tag -f -a $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
-		git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
+		$DRY git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
 
 		echo "Updating -testing to latest -nightly"
-		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$DIM_DRM_INTEL_REMOTE/drm-intel-nightly:drm-intel-testing
+		$DRY git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$DIM_DRM_INTEL_REMOTE/drm-intel-nightly:drm-intel-testing
+		$DRY git tag -f drm-intel-testing-$today $DIM_DRM_INTEL_REMOTE/drm-intel-testing
+		$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-testing-$today
 
 		cat > ~/tmp/test-request <<-HERE
 		Hi all,
