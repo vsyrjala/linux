@@ -537,7 +537,8 @@ case "$subcommand" in
 		# generate tag list
 		drm_intel_next_tags=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
 		prep_pull_mail_tags $drm_intel_next_tags
-		git request-pull $upstream $drm_intel_git drm-intel-next-$today >> ~/tmp/dim-pull-request
+		din_tag=`git describe --exact $DIM_DRM_INTEL_REMOTE/drm-intel-next`
+		git request-pull $upstream $drm_intel_git $din_tag >> ~/tmp/dim-pull-request
 		$DIM_MUA -s "[PULL] drm-intel-next" \
 			-i ~/tmp/dim-pull-request \
 			-c "$addr_intel_gfx" \
