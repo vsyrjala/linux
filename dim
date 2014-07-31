@@ -74,6 +74,7 @@ drm_intel_ssh=ssh://git.freedesktop.org/git/drm-intel
 drm_intel_git=git://anongit.freedesktop.org/drm-intel
 drm_upstream_git=git://people.freedesktop.org/~airlied/linux
 sound_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/tiwai/sound.git
+driver_core_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core.git
 linux_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 
 # email aliases
@@ -388,6 +389,11 @@ function setup_dim
 		git config remote.sound-upstream.url $sound_upstream_git
 	else
 		git remote add sound-upstream $sound_upstream_git
+	fi
+	if git remote | grep driver-core-upstream > /dev/null ; then
+		git config remote.driver-core-upstream.url $driver_core_upstream_git
+	else
+		git remote add driver-core-upstream $driver_core_upstream_git
 	fi
 }
 
