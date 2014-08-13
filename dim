@@ -200,6 +200,7 @@ function update_nightly
 	git fetch origin >& /dev/null || true
 	git fetch drm-upstream >& /dev/null || true
 	git fetch sound-upstream >& /dev/null || true
+	git fetch driver-core-upstream >& /dev/null || true
 	update_rerere_cache
 
 	# merge -fixes
