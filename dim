@@ -651,6 +651,22 @@ case "$subcommand" in
 			-c "$addr_intel_gfx_maintainer2" \
 			"$addr_intel_qa"
 		;;
+	tag-next)
+		cd $DIM_PREFIX/$DIM_DRM_INTEL
+		git fetch $DIM_DRM_INTEL_REMOTE
+
+		if [ $(git rev-parse drm-intel-next) == $(git rev-parse drm-intel-next@{u}) ] ; then
+			echo "Tagging current drm-intel-next"
+
+			tag=drm-intel-next-$today
+			$DRY git tag -f $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
+			$DRY git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
+		else
+			echo "drm-intel-next not up-to-date, aborting"
+			exit
+		fi
+
+		;;
 	checker)
 		rm drivers/gpu/drm/i915/*.o &> /dev/null || true
 		rm drivers/gpu/drm/i915/*.ko &> /dev/null || true
@@ -819,6 +835,14 @@ opened.
 
 Also checks that the drm-intel-fixes|-next-queued are fully
 merged into -nightly to avoid operator error.
+
+tag-next
+--------
+
+Pushes a new tag for the current drm-intel-next state after checking that the
+remote is up-to-date. Useful if drm-intel-next has been changed since the last
+run of the update-next command (e.g. to apply a hotfix before sending out the
+pull request).
 
 upload-docs
 -----------
