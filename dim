@@ -405,12 +405,6 @@ case "$subcommand" in
 	setup)
 		setup_dim
 		;;
-	upload-docs)
-		# cd back
-		cd -
-		make htmldocs
-		$DRY scp -r Documentation/DocBook/drm annarchy.freedesktop.org:~/public_html
-		;;
 	nightly-forget)
 		cd $DIM_PREFIX/drm-intel-nightly
 		git fetch origin >& /dev/null
@@ -843,12 +837,6 @@ Pushes a new tag for the current drm-intel-next state after checking that the
 remote is up-to-date. Useful if drm-intel-next has been changed since the last
 run of the update-next command (e.g. to apply a hotfix before sending out the
 pull request).
-
-upload-docs
------------
-Generate html kernel docs and upload the drm DocBook to the
-private fdo space. Note that this always uses the kernel sources
-in the current directory.
 
 checker
 -------
