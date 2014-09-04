@@ -103,6 +103,7 @@ while getopts df opt; do
 			FORCE=1
 			;;
 		*)
+			echo "Try 'dim help' for more information."
 			exit
 	esac
 done
@@ -741,7 +742,7 @@ Checks out the drm-intel-fixes branch or dinq respectively for
 merging patches.
 
 apply-branch|ab|sob branch [*git am arguments*]
--------------------------------------------
+-----------------------------------------------
 Applys a patch to the given branch, complaining if it is not
 checked out yet.
 
@@ -825,6 +826,10 @@ in the current directory.
 checker
 -------
 Run sparse on the kernel.
+
+help
+----
+Show this help. Install **rst2man(1)** for best results.
 HERE
 		exit 0
 		;;
