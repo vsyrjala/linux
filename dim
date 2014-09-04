@@ -532,8 +532,9 @@ case "$subcommand" in
 			upstream=$1
 		else
 			upstream=$DIM_DRM_UPSTREAM_REMOTE/drm-next
-			git fetch $DIM_DRM_UPSTREAM_REMOTE >& /dev/null || true
 		fi
+
+		git fetch ${upstream%%/*} >& /dev/null || true
 		echo Using $upstream as the upstream
 
 		# generate tag list
@@ -554,9 +555,11 @@ case "$subcommand" in
 			upstream=$1
 		else
 			upstream=origin/master
-			git fetch origin >& /dev/null || true
 		fi
+
+		git fetch ${upstream%%/*} >& /dev/null || true
 		echo Using $upstream as the upstream
+
 		$DRY git tag -f drm-intel-fixes-$today $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
 		$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
 		prep_pull_mail
