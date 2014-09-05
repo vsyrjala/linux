@@ -1169,6 +1169,7 @@ void ilk_wm_get_hw_state(struct drm_device *dev);
 void skl_wm_get_hw_state(struct drm_device *dev);
 void skl_ddb_get_hw_state(struct drm_i915_private *dev_priv,
 			  struct skl_ddb_allocation *ddb /* out */);
+uint32_t ilk_pipe_pixel_rate(const struct intel_crtc_config *pipe_config);
 
 
 /* intel_sdvo.c */
