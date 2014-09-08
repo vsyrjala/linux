@@ -238,7 +238,12 @@ function update_nightly
 			git add -u
 
 			if [[ `git diff --cached --name-status | wc -l` -gt 0 ]]; then
-				git commit --no-edit || true
+				# If the conflict is silent git merge succeeded,
+				# so there's no cached commit message around.
+				# Since it's too hard to detect this reliably
+				# (git scripting is fragile) just try a second
+				# time with a commit message supplied.
+				git commit --no-edit || git commit -m "Applying $fixup_file"
 			fi
 		fi
 
