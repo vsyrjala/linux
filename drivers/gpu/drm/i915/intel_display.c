@@ -10058,7 +10058,7 @@ static void i9xx_update_cursor(struct intel_plane *cursor, bool on)
 {
 	struct drm_i915_private *dev_priv = to_i915(cursor->base.dev);
 	enum pipe pipe = cursor->pipe;
-	uint32_t cntl = 0, base = 0, pos = 0;
+	uint32_t cntl = 0, base = 0, pos = 0, size = 0;
 
 	if (on) {
 		struct drm_plane_state *state = cursor->base.state;
@@ -10090,10 +10090,16 @@ static void i9xx_update_cursor(struct intel_plane *cursor, bool on)
 
 		base = intel_cursor_base(cursor, state);
 		pos = intel_cursor_position(cursor, state);
+
+		if (state->crtc_h != state->crtc_w)
+			size = CUR_FBC_CTL_EN | (state->crtc_h - 1);
 	}
 
 	if (cursor->cursor.cntl != cntl)
 		I915_WRITE(CURCNTR(pipe), cntl);
+
+	if (HAS_CUR_FBC(dev_priv) && cursor->cursor.size != size)
+		I915_WRITE(CUR_FBC_CTL(pipe), size);
 
 	if (on)
 		I915_WRITE(CURPOS(pipe), pos);
@@ -10106,6 +10112,7 @@ static void i9xx_update_cursor(struct intel_plane *cursor, bool on)
 
 	cursor->cursor.cntl = cntl;
 	cursor->cursor.base = base;
+	cursor->cursor.size = size;
 }
 
 /* If no-part of the cursor is visible on the framebuffer, then the GPU may hang... */
@@ -10120,8 +10127,11 @@ static void intel_update_cursor(struct intel_plane *cursor, bool on)
 }
 
 static bool cursor_size_ok(struct drm_device *dev,
-			   uint32_t width, uint32_t height)
+			   const struct drm_plane_state *state)
 {
+	int width = state->crtc_w;
+	int height = state->crtc_h;
+
 	if (width == 0 || height == 0)
 		return false;
 
@@ -10130,6 +10140,9 @@ static bool cursor_size_ok(struct drm_device *dev,
 	 * the width of their cursors, the height is arbitrary up to
 	 * the precision of the register. Everything else requires
 	 * square cursors, limited to a few power-of-two sizes.
+	 *
+	 * ivb+ have CUR_FBC_CTL which allows reducing the cursor
+	 * height down to a minimum of 8 lines.
 	 */
 	if (IS_845G(dev) || IS_I865G(dev)) {
 		if ((width & 63) != 0)
@@ -10141,7 +10154,7 @@ static bool cursor_size_ok(struct drm_device *dev,
 		if (height > 1023)
 			return false;
 	} else {
-		switch (width | height) {
+		switch (width) {
 		case 256:
 		case 128:
 			if (IS_GEN2(dev))
@@ -10150,6 +10163,15 @@ static bool cursor_size_ok(struct drm_device *dev,
 			break;
 		default:
 			return false;
+		}
+
+		if (!HAS_CUR_FBC(dev) ||
+		    state->rotation & BIT(DRM_ROTATE_180)) {
+			if (height != width)
+				return false;
+		} else {
+			if (height < 8 || height > width)
+				return false;
 		}
 	}
 
@@ -13980,7 +14002,7 @@ intel_check_cursor_plane(struct drm_plane *plane,
 		return 0;
 
 	/* Check for which cursor types we support */
-	if (!cursor_size_ok(plane->dev, state->base.crtc_w, state->base.crtc_h)) {
+	if (!cursor_size_ok(plane->dev, &state->base)) {
 		DRM_DEBUG("Cursor dimension %dx%d not supported\n",
 			  state->base.crtc_w, state->base.crtc_h);
 		return -EINVAL;
