@@ -10122,7 +10122,7 @@ static void i9xx_update_cursor(struct intel_plane *cursor, bool on)
 {
 	struct drm_i915_private *dev_priv = to_i915(cursor->base.dev);
 	enum pipe pipe = cursor->pipe;
-	uint32_t cntl = 0, base = 0, pos = 0;
+	uint32_t cntl = 0, base = 0, pos = 0, size = 0;
 
 	if (on) {
 		struct drm_plane_state *state = cursor->base.state;
@@ -10154,15 +10154,22 @@ static void i9xx_update_cursor(struct intel_plane *cursor, bool on)
 
 		base = intel_cursor_base(cursor, state);
 		pos = intel_cursor_position(cursor, state);
+
+		if (state->crtc_h != state->crtc_w)
+			size = CUR_FBC_CTL_EN | (state->crtc_h - 1);
 	}
 
 	if (cursor->cursor.cntl != cntl)
 		I915_WRITE(CURCNTR(pipe), cntl);
 
+	if (cursor->cursor.size != size)
+		I915_WRITE(CUR_FBC_CTL(pipe), size);
+
 	if (on)
 		I915_WRITE(CURPOS(pipe), pos);
 
 	if (cursor->cursor.cntl != cntl ||
+	    cursor->cursor.size != size ||
 	    cursor->cursor.base != base)
 		I915_WRITE(CURBASE(pipe), base);
 
@@ -10170,6 +10177,7 @@ static void i9xx_update_cursor(struct intel_plane *cursor, bool on)
 
 	cursor->cursor.cntl = cntl;
 	cursor->cursor.base = base;
+	cursor->cursor.size = size;
 }
 
 /* If no-part of the cursor is visible on the framebuffer, then the GPU may hang... */
@@ -10184,28 +10192,35 @@ static void intel_update_cursor(struct intel_plane *cursor, bool on)
 }
 
 static bool cursor_size_ok(struct drm_device *dev,
-			   uint32_t width, uint32_t height)
+			   const struct drm_plane_state *state)
 {
+	int width = state->crtc_w;
+	int height = state->crtc_h;
+
 	if (width == 0 || height == 0)
 		return false;
 
-	/*
-	 * 845g/865g are special in that they are only limited by
-	 * the width of their cursors, the height is arbitrary up to
-	 * the precision of the register. Everything else requires
-	 * square cursors, limited to a few power-of-two sizes.
-	 */
 	if (IS_845G(dev) || IS_I865G(dev)) {
+		/*
+		 * supported cursor widths:
+		 * 845g: 64
+		 * 865g: 64. 128, 256, 512
+		 */
 		if ((width & 63) != 0)
 			return false;
 
 		if (width > (IS_845G(dev) ? 64 : 512))
 			return false;
 
+		/*
+		 * 845g/865g are special in that they are only limited by
+		 * the width of their cursors, the height is arbitrary up to
+		 * the precision of the register.
+		 */
 		if (height > 1023)
 			return false;
 	} else {
-		switch (width | height) {
+		switch (width) {
 		case 256:
 		case 128:
 			if (IS_GEN2(dev))
@@ -10214,6 +10229,22 @@ static bool cursor_size_ok(struct drm_device *dev,
 			break;
 		default:
 			return false;
+		}
+
+		/*
+		 * ivb+ have CUR_FBC_CTL which allows an arbitrary cursor
+		 * height from 8 lines up to the cursor width, when the
+		 * cursor is not rotated.
+		 *
+		 * Everything else requires square cursors, limited to a
+		 * few power-of-two sizes.
+		 */
+		if (HAS_CUR_FBC(dev) && state->rotation & BIT(DRM_ROTATE_0)) {
+			if (height < 8 || height > width)
+				return false;
+		} else {
+			if (height != width)
+				return false;
 		}
 	}
 
@@ -14068,7 +14099,7 @@ intel_check_cursor_plane(struct drm_plane *plane,
 		return 0;
 
 	/* Check for which cursor types we support */
-	if (!cursor_size_ok(plane->dev, state->base.crtc_w, state->base.crtc_h)) {
+	if (!cursor_size_ok(plane->dev, &state->base)) {
 		DRM_DEBUG("Cursor dimension %dx%d not supported\n",
 			  state->base.crtc_w, state->base.crtc_h);
 		return -EINVAL;
@@ -14127,7 +14158,8 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 
 	cursor->cursor.base = ~0;
 	cursor->cursor.cntl = ~0;
-	cursor->cursor.size = ~0;
+	if (IS_845G(dev) || IS_I865G(dev) || HAS_CUR_FBC(dev))
+		cursor->cursor.size = ~0;
 
 	cursor->check_plane = intel_check_cursor_plane;
 	cursor->commit_plane = intel_commit_cursor_plane;
