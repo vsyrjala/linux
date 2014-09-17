@@ -421,9 +421,9 @@ case "$subcommand" in
 		git fetch $DIM_DRM_INTEL_REMOTE
 		check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
 		dim co
-		git rebase -i $DIM_DRM_INTEL_REMOTE/drm-intel-next-queued
+		git rebase -i
 		dim cof
-		git rebase -i $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
+		git rebase -i
 		git checkout drm-intel-next
 		git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
 		# TODO: Restore -nightly merge state from the rerere-cache
