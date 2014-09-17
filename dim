@@ -119,25 +119,22 @@ fi
 
 function update_linux_next
 {
-	cd $DIM_PREFIX/$DIM_DRM_INTEL
+	cd $DIM_PREFIX/drm-intel-nightly
 
-	if git grep "EXTRAVERSION.*=" origin/master Makefile | grep rc > /dev/null ; then
-		echo linux-next: -rc phase
-		if [[ $1 == queued ]] ; then
-			echo Updating for-linux-next to -queued and updating for-linux-next-fixes
-			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +drm-intel-next-queued:for-linux-next >& /dev/null
-			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next-fixes >& /dev/null
-		fi
-		if [[ $1 == fixes ]] ; then
-			echo Updating for-linux-next-fixes
-			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next-fixes >& /dev/null
-		fi
+	# always update drm-intel-fixes
+	git push $DRY_RUN origin +origin/drm-intel-fixes:for-linux-next-fixes >& /dev/null
+
+	if git merge-base --is-ancestor origin/drm-intel-next-fixes origin/drm-intel-fixes ; then
+		# -fixes has caught up to dinf, i.e. we're out of the merge
+		# window. Push the next queue.
+		echo Pushing dinq to for-linux-next
+		git push $DRY_RUN origin +origin/drm-intel-next-queued:for-linux-next >& /dev/null
 	else
-		echo linux-next: merge window
-		if [[ $1 == fixes ]] ; then
-			echo Updating for-linux-next to -fixes
-			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +drm-intel-fixes:for-linux-next >& /dev/null
-		fi
+		# dinf is ahead of -fixes, i.e. drm-next has already closed for
+		# the next merge window and we've started to gather new fixes
+		# for the current -next cycle. Push dinf
+		echo Pushing dinf to for-linux-next
+		git push $DRY_RUN origin +origin/drm-intel-next-fixes:for-linux-next >& /dev/null
 	fi
 }
 
