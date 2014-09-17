@@ -424,6 +424,8 @@ case "$subcommand" in
 		git rebase -i
 		dim cof
 		git rebase -i
+		dim conf
+		git rebase -i
 		git checkout drm-intel-next
 		git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
 		# TODO: Restore -nightly merge state from the rerere-cache
@@ -447,6 +449,16 @@ case "$subcommand" in
 			echo "You're on the wrong branch."
 		fi
 		;;
+	push-next-fixes|pnf)
+		if git branch | grep drm-intel-next-fixes | grep '\*' ; then
+			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-fixes $@
+
+			update_nightly
+			update_linux_next queued
+		else
+			echo "You're on the wrong branch."
+		fi
+		;;
 	push-fixes|pf)
 		if git branch | grep drm-intel-fixes | grep '\*' ; then
 			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-fixes  $@
@@ -462,6 +474,9 @@ case "$subcommand" in
 		;;
 	cof)
 		git checkout drm-intel-fixes
+		;;
+	conf)
+		git checkout drm-intel-next-fixes
 		;;
 	apply-branch|ab|sob)
 		branch=$1
@@ -485,6 +500,9 @@ case "$subcommand" in
 		;;
 	apply-fixes|af)
 		dim apply-branch drm-intel-fixes $@
+		;;
+	apply-next-fixes|anf)
+		dim apply-branch drm-intel-next-fixes $@
 		;;
 	apply-resolved|ar)
 		make -j 20 && git add -u && git am --resolved
@@ -741,37 +759,45 @@ cat-to-fixup
 
 Pipes stdin into the fixup patch file for the current -nightly merge.
 
-push-queued|pq [*git push arguments*]
--------------------------------------
-
 push-fixes|pf [*git push arguments*]
 ------------------------------------
 
-Updates the drm-intel-fixes or the drm-intel-next-queued branch
-respectively. Complains if that's not the current branch,
-assuming that patches got merged to the wrong branch.
+push-next-fixes|pnf [*git push arguments*]
+-------------------------------------
+
+push-queued|pq [*git push arguments*]
+-------------------------------------
+
+Updates the drm-intel-fixes, drm-intel-next-fixes or the drm-intel-next-queued
+branch respectively. Complains if that's not the current branch, assuming that
+patches got merged to the wrong branch.
 
 co
 --
 
 cof
 ---
-Checks out the drm-intel-fixes branch or dinq respectively for
-merging patches.
+
+conf
+----
+Checks out the drm-intel-fixes branch, dinf or dinq respectively for merging
+patches.
 
 apply-branch|ab|sob branch [*git am arguments*]
 -----------------------------------------------
 Applys a patch to the given branch, complaining if it is not
 checked out yet.
 
-apply-queued|aq [*git am arguments*]
-------------------------------------
-
 apply-fixes|af [*git am arguments*]
 -----------------------------------
-Applies a patch to fixes or queued respectively, complains if
-it's not the right branch. Additional arguments are passed to
-git am.
+
+apply-next-fixes|anf [*git am arguments*]
+----------------------------------------
+
+apply-queued|aq [*git am arguments*]
+------------------------------------
+Applies a patch to -fixes, -next-fixes or -next-queued respectively, complains
+if it's not the right branch. Additional arguments are passed to git am.
 
 magic-patch|mp
 --------------
