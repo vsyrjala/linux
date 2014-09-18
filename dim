@@ -760,7 +760,7 @@ push-fixes|pf [*git push arguments*]
 ------------------------------------
 
 push-next-fixes|pnf [*git push arguments*]
--------------------------------------
+------------------------------------------
 
 push-queued|pq [*git push arguments*]
 -------------------------------------
@@ -789,7 +789,7 @@ apply-fixes|af [*git am arguments*]
 -----------------------------------
 
 apply-next-fixes|anf [*git am arguments*]
-----------------------------------------
+-----------------------------------------
 
 apply-queued|aq [*git am arguments*]
 ------------------------------------
