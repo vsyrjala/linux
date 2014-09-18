@@ -299,6 +299,23 @@ function dim_checkpatch
 	git show $commit | grep '^\+.*drm_i915_private_t' > /dev/null && echo "WARNING: New drm_i915_private_t added" || true
 }
 
+function dim_checkrange
+{
+	local range
+
+	if [ -z "$1" ]; then
+		range="HEAD^..HEAD"
+	elif [ -n "`echo $1 | grep '\.\.'`" ]; then
+		range="$1"
+	else
+		range="$1..HEAD"
+	fi
+
+	for commit in $(git rev-list --reverse $range); do
+		dim_checkpatch $commit || true
+	done
+}
+
 function prep_pull_mail_tags
 {
 	cat > ~/tmp/dim-pull-request <<-HERE
@@ -538,11 +555,7 @@ case "$subcommand" in
 		git tag --contains $1 | grep ^v | sort -V | head -n 1
 		;;
 	check-patch|cp)
-		if [ "x$1" == "x" ] ; then
-			dim_checkpatch HEAD
-		else
-			dim_checkpatch $1
-		fi
+		dim_checkrange $@
 		;;
 	pull-request)
 		if [[ "x$1" != "x" ]] ; then
@@ -822,10 +835,11 @@ tc *commit-ish*
 ---------------
 Prints the linux kernel tag which contains the supplied commit-ish
 
-check-patch|cp [*commit-ish*]
------------------------------
-Runs a commit through the check tools like when applying a
-patch. Git commit-ish can be passed in, defaults to HEAD
+check-patch|cp [*commit-ish* [.. *commit-ish*]]
+-----------------------------------------------
+Runs the given commit range commit-ish..commit-ish through the check tools. If
+no commit-ish is passed, defaults to HEAD^..HEAD. If one commit-ish is passed
+instead of a range, the range commit-ish..HEAD is used.
 
 pull-request [*upstream*]
 -------------------------
