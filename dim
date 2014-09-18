@@ -873,6 +873,37 @@ Run sparse on the kernel.
 help
 ----
 Show this help. Install **rst2man(1)** for best results.
+
+ENVIRONMENT
+===========
+
+DIM_CONFIG
+----------
+Path to the dim configuration file, \$HOME/.dimrc by default, which is sourced
+if it exists. It can be used to set other environment variables to control dim.
+
+DIM_PREFIX
+----------
+Path prefix for kernel repositories.
+
+DIM_DRM_INTEL
+-------------
+The main maintainer repository under \$DIM_PREFIX.
+
+DIM_DRM_INTEL_REMOTE
+--------------------
+Name of the $drm_intel_ssh remote within \$DIM_DRM_INTEL.
+
+DIM_DRM_UPSTREAM_REMOTE
+-----------------------
+Name of the $drm_upstream_git remote within \$DIM_DRM_INTEL.
+
+DIM_MUA
+-------
+
+Mail user agent. Must support the following subset of **mutt(1)** command line
+options: \$DIM_MUA [-s subject] [-i file] [-c cc-addr] to-addr [...]
+
 HERE
 		exit 0
 		;;
