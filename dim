@@ -421,6 +421,18 @@ function setup_dim
 	fi
 }
 
+function branch_check
+{
+	local branch=$1
+		if git branch | grep $branch | grep '\*' ; then
+			return 0
+		else
+			echo "You're on the wrong branch, expected $branch"
+			return 1
+		fi
+
+}
+
 cd $DIM_PREFIX/$DIM_DRM_INTEL
 
 case "$subcommand" in
@@ -457,34 +469,28 @@ case "$subcommand" in
 		cat > `cat .fixup_file_path`
 		;;
 	push-queued|pq)
-		if git branch | grep drm-intel-next-queued | grep '\*' ; then
-			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued $@
+		branch_check drm-intel-next-queued
 
-			update_nightly
-			update_linux_next queued
-		else
-			echo "You're on the wrong branch."
-		fi
+		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued $@
+
+		update_nightly
+		update_linux_next queued
 		;;
 	push-next-fixes|pnf)
-		if git branch | grep drm-intel-next-fixes | grep '\*' ; then
-			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-fixes $@
+		branch_check drm-intel-next-fixes
 
-			update_nightly
-			update_linux_next queued
-		else
-			echo "You're on the wrong branch."
-		fi
+		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-fixes $@
+
+		update_nightly
+		update_linux_next queued
 		;;
 	push-fixes|pf)
-		if git branch | grep drm-intel-fixes | grep '\*' ; then
-			git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-fixes  $@
+		branch_check drm-intel-fixes
 
-			update_nightly
-			update_linux_next fixes
-		else
-			echo "You're on the wrong branch."
-		fi
+		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-fixes  $@
+
+		update_nightly
+		update_linux_next fixes
 		;;
 	co)
 		git checkout drm-intel-next-queued
@@ -499,18 +505,16 @@ case "$subcommand" in
 		branch=$1
 		shift
 
+		branch_check $branch
+
 		if [[ -n `git status --porcelain --untracked-files=no` ]] ; then
 			echo Repository not clean, aborting
 			exit 2
 		fi
 
-		if git branch | grep $branch | grep '\*' ; then
-			git am -3 $@
-			dim_checkpatch HEAD
-			git commit --amend &
-		else
-			echo "You're on the wrong branch."
-		fi
+		git am -3 $@
+		dim_checkpatch HEAD
+		git commit --amend &
 		;;
 	apply-queued|aq)
 		dim apply-branch drm-intel-next-queued $@
