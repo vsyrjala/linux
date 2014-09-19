@@ -631,6 +631,9 @@ case "$subcommand" in
 		;;
 	update-next)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
+
+		branch_check drm-intel-next-queued
+
 		git fetch $DIM_DRM_INTEL_REMOTE
 		if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-fixes &> /dev/null ; then
 			echo "drm-intel-fixes not merged into -nigthly, please update!"
