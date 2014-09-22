@@ -421,7 +421,7 @@ function setup_dim
 	fi
 }
 
-function branch_check
+function assert_branch
 {
 	local branch=$1
 		if git branch | grep $branch | grep '\*' ; then
@@ -469,7 +469,7 @@ case "$subcommand" in
 		cat > `cat .fixup_file_path`
 		;;
 	push-queued|pq)
-		branch_check drm-intel-next-queued
+		assert_branch drm-intel-next-queued
 
 		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued $@
 
@@ -477,7 +477,7 @@ case "$subcommand" in
 		update_linux_next queued
 		;;
 	push-next-fixes|pnf)
-		branch_check drm-intel-next-fixes
+		assert_branch drm-intel-next-fixes
 
 		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-fixes $@
 
@@ -485,7 +485,7 @@ case "$subcommand" in
 		update_linux_next queued
 		;;
 	push-fixes|pf)
-		branch_check drm-intel-fixes
+		assert_branch drm-intel-fixes
 
 		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-fixes  $@
 
@@ -505,7 +505,7 @@ case "$subcommand" in
 		branch=$1
 		shift
 
-		branch_check $branch
+		assert_branch $branch
 
 		if [[ -n `git status --porcelain --untracked-files=no` ]] ; then
 			echo Repository not clean, aborting
@@ -632,7 +632,7 @@ case "$subcommand" in
 	update-next)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 
-		branch_check drm-intel-next-queued
+		assert_branch drm-intel-next-queued
 
 		git fetch $DIM_DRM_INTEL_REMOTE
 		if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-fixes &> /dev/null ; then
