@@ -378,6 +378,21 @@ case "$1" in
 
 		git fetch $remote
 		;;
+	pull)
+		cd_toplevel
+		repo_check 0
+
+		qf fetch
+		cd patches
+
+		if [[ $2 == "--rebase" ]] ; then
+			git rebase @{upstream}
+		else
+			git merge @{upstream}
+		fi
+
+		qf co
+		;;
 	stage)
 		cd_toplevel
 		repo_check 1
@@ -622,6 +637,13 @@ fetch
 -----
 Fetches both the main and patches barnch remotes and pulls all
 the baseline refs into the main repo.
+
+pull [--rebase]
+---------------
+
+First runs qf fetch and then updates the patches branch (with a git merge) and
+the checks out the latest working copy. When given --rebase will rebase the
+patches branch instead of merging.
 
 stage
 -----
