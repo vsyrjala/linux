@@ -29,15 +29,12 @@
 # TODO
 # - get better at preventing and cleaning up a mess when switching branches
 # while there's still applied quilt patches around ...
-# - list quilt branches
-# - bash completion (do this late once the workflow has stabilized a bit)
 # - combine quilt annotate and git blame into one tool
 # - use the index a bit more to e.g. stage all applied quilt patches, then use
 # the output of git diff to refresh a quilt patch
 # - use git commit-tree and git write-tree in the setup code instead of the
 # current high-level hacks
 # - track/restore the topmost patch maybe?
-# - qf pull ... maybe needs a git checkout --no-apply
 # - synchronize quilt notes in qf push and qf fetch
 
 # config
