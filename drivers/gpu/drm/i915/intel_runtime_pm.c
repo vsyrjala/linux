@@ -1401,6 +1401,6 @@ int i915_get_cdclk_freq(void)
 	dev_priv = container_of(hsw_pwr, struct drm_i915_private,
 				power_domains);
 
-	return intel_ddi_get_cdclk_freq(dev_priv);
+	return dev_priv->display.get_display_clock_speed(dev_priv->dev);
 }
 EXPORT_SYMBOL_GPL(i915_get_cdclk_freq);
