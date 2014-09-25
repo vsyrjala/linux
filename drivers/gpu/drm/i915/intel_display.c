@@ -4745,20 +4745,22 @@ static int valleyview_get_vco(struct drm_i915_private *dev_priv)
 	return vco_freq[hpll_freq] * 1000;
 }
 
-static void vlv_update_cdclk(struct drm_device *dev)
+static void intel_update_cdclk(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	dev_priv->vlv_cdclk_freq = dev_priv->display.get_display_clock_speed(dev);
+	dev_priv->cdclk_freq = dev_priv->display.get_display_clock_speed(dev);
 	DRM_DEBUG_DRIVER("Current CD clock rate: %d kHz\n",
-			 dev_priv->vlv_cdclk_freq);
+			 dev_priv->cdclk_freq);
 
-	/*
-	 * Program the gmbus_freq based on the cdclk frequency.
-	 * BSpec erroneously claims we should aim for 4MHz, but
-	 * in fact 1MHz is the correct frequency.
-	 */
-	I915_WRITE(GMBUSFREQ_VLV, DIV_ROUND_UP(dev_priv->vlv_cdclk_freq, 1000));
+	if (IS_VALLEYVIEW(dev)) {
+		/*
+		 * Program the gmbus_freq based on the cdclk frequency.
+		 * BSpec erroneously claims we should aim for 4MHz, but
+		 * in fact 1MHz is the correct frequency.
+		 */
+		I915_WRITE(GMBUSFREQ_VLV, DIV_ROUND_UP(dev_priv->cdclk_freq, 1000));
+	}
 }
 
 /* Adjust CDclk dividers to allow high res or save power if possible */
@@ -4767,7 +4769,7 @@ static void valleyview_set_cdclk(struct drm_device *dev, int cdclk)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 val, cmd;
 
-	WARN_ON(dev_priv->display.get_display_clock_speed(dev) != dev_priv->vlv_cdclk_freq);
+	WARN_ON(dev_priv->display.get_display_clock_speed(dev) != dev_priv->cdclk_freq);
 
 	if (cdclk >= 320000) /* jump to highest voltage for 400MHz too */
 		cmd = 2;
@@ -4823,7 +4825,7 @@ static void valleyview_set_cdclk(struct drm_device *dev, int cdclk)
 	vlv_bunit_write(dev_priv, BUNIT_REG_BISOC, val);
 	mutex_unlock(&dev_priv->dpio_lock);
 
-	vlv_update_cdclk(dev);
+	intel_update_cdclk(dev);
 }
 
 static void cherryview_set_cdclk(struct drm_device *dev, int cdclk)
@@ -4831,7 +4833,7 @@ static void cherryview_set_cdclk(struct drm_device *dev, int cdclk)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 val, cmd;
 
-	WARN_ON(dev_priv->display.get_display_clock_speed(dev) != dev_priv->vlv_cdclk_freq);
+	WARN_ON(dev_priv->display.get_display_clock_speed(dev) != dev_priv->cdclk_freq);
 
 	switch (cdclk) {
 	case 400000:
@@ -4864,7 +4866,7 @@ static void cherryview_set_cdclk(struct drm_device *dev, int cdclk)
 	}
 	mutex_unlock(&dev_priv->rps.hw_lock);
 
-	vlv_update_cdclk(dev);
+	intel_update_cdclk(dev);
 }
 
 static int valleyview_calc_cdclk(struct drm_i915_private *dev_priv,
@@ -4922,8 +4924,7 @@ static void valleyview_modeset_global_pipes(struct drm_device *dev,
 	struct intel_crtc *intel_crtc;
 	int max_pixclk = intel_mode_max_pixclk(dev_priv);
 
-	if (valleyview_calc_cdclk(dev_priv, max_pixclk) ==
-	    dev_priv->vlv_cdclk_freq)
+	if (valleyview_calc_cdclk(dev_priv, max_pixclk) == dev_priv->cdclk_freq)
 		return;
 
 	/* disable/enable all currently active pipes while we change cdclk */
@@ -4938,7 +4939,7 @@ static void valleyview_modeset_global_resources(struct drm_device *dev)
 	int max_pixclk = intel_mode_max_pixclk(dev_priv);
 	int req_cdclk = valleyview_calc_cdclk(dev_priv, max_pixclk);
 
-	if (req_cdclk != dev_priv->vlv_cdclk_freq) {
+	if (req_cdclk != dev_priv->cdclk_freq) {
 		if (IS_CHERRYVIEW(dev))
 			cherryview_set_cdclk(dev, req_cdclk);
 		else
@@ -8151,6 +8152,8 @@ static void hsw_disable_lcpll(struct drm_i915_private *dev_priv,
 		I915_WRITE(LCPLL_CTL, val);
 		POSTING_READ(LCPLL_CTL);
 	}
+
+	intel_update_cdclk(dev_priv->dev);
 }
 
 /*
@@ -8217,6 +8220,8 @@ static void hsw_restore_lcpll(struct drm_i915_private *dev_priv)
 	if (--dev_priv->uncore.forcewake_count == 0)
 		dev_priv->uncore.funcs.force_wake_put(dev_priv, FORCEWAKE_ALL);
 	spin_unlock_irq(&dev_priv->uncore.lock);
+
+	intel_update_cdclk(dev_priv->dev);
 }
 
 /*
@@ -11931,6 +11936,8 @@ static void intel_shared_dpll_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	intel_update_cdclk(dev);
+
 	if (HAS_DDI(dev))
 		intel_ddi_pll_init(dev);
 	else if (HAS_PCH_IBX(dev) || HAS_PCH_CPT(dev))
@@ -13270,10 +13277,9 @@ static void i915_disable_vga(struct drm_device *dev)
 
 void intel_modeset_init_hw(struct drm_device *dev)
 {
-	intel_prepare_ddi(dev);
+	intel_update_cdclk(dev);
 
-	if (IS_VALLEYVIEW(dev))
-		vlv_update_cdclk(dev);
+	intel_prepare_ddi(dev);
 
 	intel_init_clock_gating(dev);
 
