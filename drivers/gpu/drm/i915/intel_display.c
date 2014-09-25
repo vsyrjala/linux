@@ -12912,7 +12912,8 @@ static void intel_init_display(struct drm_device *dev)
 	else if (IS_G33(dev) || IS_G4X(dev))
 		dev_priv->display.get_display_clock_speed =
 			g33_get_display_clock_speed;
-	else if (IS_I945G(dev))
+	else if (IS_I945G(dev) || IS_BROADWATER(dev) ||
+		 IS_GEN6(dev) || IS_IVYBRIDGE(dev))
 		dev_priv->display.get_display_clock_speed =
 			i945_get_display_clock_speed;
 	else if (IS_I915G(dev))
