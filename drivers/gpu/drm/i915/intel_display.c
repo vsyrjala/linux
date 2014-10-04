@@ -5327,6 +5327,15 @@ static void intel_update_max_cdclk(struct drm_device *dev)
 			dev_priv->max_cdclk_freq = 540000;
 		else
 			dev_priv->max_cdclk_freq = 675000;
+	} else if (IS_HASWELL(dev)) {
+		if (I915_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
+			dev_priv->max_cdclk_freq = 450000;
+		else if (IS_HSW_ULX(dev))
+			dev_priv->max_cdclk_freq = 337500;
+		else if (IS_HSW_ULT(dev))
+			dev_priv->max_cdclk_freq = 450000;
+		else
+			dev_priv->max_cdclk_freq = 540000;
 	} else if (IS_CHERRYVIEW(dev)) {
 		dev_priv->max_cdclk_freq = 320000;
 	} else if (IS_VALLEYVIEW(dev)) {
@@ -9492,6 +9501,51 @@ static int ilk_max_pixel_rate(struct drm_atomic_state *state)
 	return max_pixel_rate;
 }
 
+static void haswell_set_cdclk(struct drm_device *dev, int cdclk)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	uint32_t val;
+
+	if (WARN((I915_READ(LCPLL_CTL) &
+		  (LCPLL_PLL_DISABLE | LCPLL_PLL_LOCK |
+		   LCPLL_CD_CLOCK_DISABLE | LCPLL_ROOT_CD_CLOCK_DISABLE |
+		   LCPLL_CD2X_CLOCK_DISABLE | LCPLL_POWER_DOWN_ALLOW |
+		   LCPLL_CD_SOURCE_FCLK)) != LCPLL_PLL_LOCK,
+		 "trying to change cdclk frequency with cdclk not enabled\n"))
+		return;
+
+	val = I915_READ(LCPLL_CTL);
+	val &= ~LCPLL_CLK_FREQ_MASK;
+
+	switch (cdclk) {
+	case 450000:
+		val |= LCPLL_CLK_FREQ_450;
+		break;
+	case 337500:
+	case 540000:
+		val |= LCPLL_CLK_FREQ_ALT_HSW;
+		break;
+	default:
+		WARN(1, "invalid cdclk frequency\n");
+		return;
+	}
+
+	I915_WRITE(LCPLL_CTL, val);
+
+	if (IS_HSW_ULX(dev)) {
+		mutex_lock(&dev_priv->rps.hw_lock);
+		sandybridge_pcode_write(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ,
+					cdclk == 337500);
+		mutex_unlock(&dev_priv->rps.hw_lock);
+	}
+
+	intel_update_cdclk(dev);
+
+	WARN(cdclk != dev_priv->cdclk_freq,
+	     "cdclk requested %d kHz but got %d kHz\n",
+	     cdclk, dev_priv->cdclk_freq);
+}
+
 static void broadwell_set_cdclk(struct drm_device *dev, int cdclk)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -9569,7 +9623,7 @@ static void broadwell_set_cdclk(struct drm_device *dev, int cdclk)
 	     cdclk, dev_priv->cdclk_freq);
 }
 
-static int broadwell_modeset_calc_cdclk(struct drm_atomic_state *state)
+static int haswell_modeset_calc_cdclk(struct drm_atomic_state *state)
 {
 	struct drm_i915_private *dev_priv = to_i915(state->dev);
 	int max_pixclk = ilk_max_pixel_rate(state);
@@ -9594,12 +9648,19 @@ static int broadwell_modeset_calc_cdclk(struct drm_atomic_state *state)
 			cdclk = 288000;
 		else
 			cdclk = 144000;
-	} else {
+	} else if (IS_BROADWELL(dev_priv)) {
 		if (max_pixclk > 540000)
 			cdclk = 675000;
 		else if (max_pixclk > 450000)
 			cdclk = 540000;
 		else if (max_pixclk > 337500)
+			cdclk = 450000;
+		else
+			cdclk = 337500;
+	} else {
+		if (max_pixclk > 450000)
+			cdclk = 540000;
+		else if (max_pixclk > 337500 || !IS_HSW_ULX(dev_priv))
 			cdclk = 450000;
 		else
 			cdclk = 337500;
@@ -9620,15 +9681,17 @@ static int broadwell_modeset_calc_cdclk(struct drm_atomic_state *state)
 	return 0;
 }
 
-static void broadwell_modeset_commit_cdclk(struct drm_atomic_state *old_state)
+static void haswell_modeset_commit_cdclk(struct drm_atomic_state *old_state)
 {
 	struct drm_device *dev = old_state->dev;
 	unsigned int req_cdclk = to_intel_atomic_state(old_state)->cdclk;
 
 	if (IS_BROXTON(dev))
 		broxton_set_cdclk(dev, req_cdclk);
-	else
+	else if (IS_BROADWELL(dev))
 		broadwell_set_cdclk(dev, req_cdclk);
+	else
+		haswell_set_cdclk(dev, req_cdclk);
 }
 
 static int haswell_crtc_compute_clock(struct intel_crtc *crtc,
@@ -14597,11 +14660,11 @@ static void intel_init_display(struct drm_device *dev)
 		dev_priv->display.fdi_link_train = hsw_fdi_link_train;
 	}
 
-	if (IS_BROADWELL(dev) || IS_BROXTON(dev)) {
+	if (IS_HASWELL(dev) || IS_BROADWELL(dev) || IS_BROXTON(dev)) {
 		dev_priv->display.modeset_commit_cdclk =
-			broadwell_modeset_commit_cdclk;
+			haswell_modeset_commit_cdclk;
 		dev_priv->display.modeset_calc_cdclk =
-			broadwell_modeset_calc_cdclk;
+			haswell_modeset_calc_cdclk;
 	} else if (IS_VALLEYVIEW(dev)) {
 		dev_priv->display.modeset_commit_cdclk =
 			valleyview_modeset_commit_cdclk;
