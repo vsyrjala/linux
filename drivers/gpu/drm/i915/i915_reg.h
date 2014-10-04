@@ -8014,6 +8014,7 @@ enum {
 #define  LCPLL_PLL_LOCK			(1<<30)
 #define  LCPLL_CLK_FREQ_MASK		(3<<26)
 #define  LCPLL_CLK_FREQ_450		(0<<26)
+#define  LCPLL_CLK_FREQ_ALT_HSW		(1<<26) /* 337.5 (ULX) or 540 */
 #define  LCPLL_CLK_FREQ_54O_BDW		(1<<26)
 #define  LCPLL_CLK_FREQ_337_5_BDW	(2<<26)
 #define  LCPLL_CLK_FREQ_675_BDW		(3<<26)

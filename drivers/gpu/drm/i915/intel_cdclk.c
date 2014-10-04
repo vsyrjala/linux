@@ -399,6 +399,17 @@ static void gm45_get_cdclk(struct drm_i915_private *dev_priv,
 	}
 }
 
+static int hsw_calc_cdclk(const struct drm_i915_private *dev_priv,
+			  int max_pixclk)
+{
+	if (max_pixclk > 450000)
+		return 540000;
+	else if (max_pixclk > 337500 || !IS_HSW_ULX(dev_priv))
+		return 450000;
+	else
+		return 337500;
+}
+
 static void hsw_get_cdclk(struct drm_i915_private *dev_priv,
 			  struct intel_cdclk_state *cdclk_state)
 {
@@ -415,6 +426,52 @@ static void hsw_get_cdclk(struct drm_i915_private *dev_priv,
 		cdclk_state->cdclk = 337500;
 	else
 		cdclk_state->cdclk = 540000;
+}
+
+static void hsw_set_cdclk(struct drm_i915_private *dev_priv,
+			 const struct intel_cdclk_state *cdclk_state)
+{
+	int cdclk = cdclk_state->cdclk;
+	uint32_t val;
+
+	if (WARN((I915_READ(LCPLL_CTL) &
+		  (LCPLL_PLL_DISABLE | LCPLL_PLL_LOCK |
+		   LCPLL_CD_CLOCK_DISABLE | LCPLL_ROOT_CD_CLOCK_DISABLE |
+		   LCPLL_CD2X_CLOCK_DISABLE | LCPLL_POWER_DOWN_ALLOW |
+		   LCPLL_CD_SOURCE_FCLK)) != LCPLL_PLL_LOCK,
+		 "trying to change cdclk frequency with cdclk not enabled\n"))
+		return;
+
+	val = I915_READ(LCPLL_CTL);
+	val &= ~LCPLL_CLK_FREQ_MASK;
+
+	switch (cdclk) {
+	case 450000:
+		val |= LCPLL_CLK_FREQ_450;
+		break;
+	case 337500:
+	case 540000:
+		val |= LCPLL_CLK_FREQ_ALT_HSW;
+		break;
+	default:
+		WARN(1, "invalid cdclk frequency\n");
+		return;
+	}
+
+	I915_WRITE(LCPLL_CTL, val);
+
+	if (IS_HSW_ULX(dev_priv)) {
+		mutex_lock(&dev_priv->rps.hw_lock);
+		sandybridge_pcode_write(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ,
+					cdclk == 337500);
+		mutex_unlock(&dev_priv->rps.hw_lock);
+	}
+
+	intel_update_cdclk(dev_priv);
+
+	WARN(cdclk != dev_priv->cdclk.hw.cdclk,
+	     "cdclk requested %d kHz but got %d kHz\n",
+	     cdclk, dev_priv->cdclk.hw.cdclk);
 }
 
 static int vlv_calc_cdclk(struct drm_i915_private *dev_priv,
@@ -1533,6 +1590,35 @@ static int intel_max_pixel_rate(struct drm_atomic_state *state)
 	return max_pixel_rate;
 }
 
+static int hsw_modeset_calc_cdclk(struct drm_atomic_state *state)
+{
+	struct drm_i915_private *dev_priv = to_i915(state->dev);
+	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
+	int max_pixclk = intel_max_pixel_rate(state);
+	int cdclk;
+
+	cdclk = hsw_calc_cdclk(dev_priv, max_pixclk);
+
+	if (cdclk > dev_priv->max_cdclk_freq) {
+		DRM_DEBUG_KMS("requested cdclk (%d kHz) exceeds max (%d kHz)\n",
+			      cdclk, dev_priv->max_cdclk_freq);
+		return -EINVAL;
+	}
+
+	intel_state->cdclk.logical.cdclk = cdclk;
+
+	if (!intel_state->active_crtcs) {
+		cdclk = hsw_calc_cdclk(dev_priv, 0);
+
+		intel_state->cdclk.actual.cdclk = cdclk;
+	} else {
+		intel_state->cdclk.actual =
+			intel_state->cdclk.logical;
+	}
+
+	return 0;
+}
+
 static int vlv_modeset_calc_cdclk(struct drm_atomic_state *state)
 {
 	struct drm_i915_private *dev_priv = to_i915(state->dev);
@@ -1747,6 +1833,15 @@ void intel_update_max_cdclk(struct drm_i915_private *dev_priv)
 			dev_priv->max_cdclk_freq = 540000;
 		else
 			dev_priv->max_cdclk_freq = 675000;
+	} else if (IS_HASWELL(dev_priv)) {
+		if (I915_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
+			dev_priv->max_cdclk_freq = 450000;
+		else if (IS_HSW_ULX(dev_priv))
+			dev_priv->max_cdclk_freq = 337500;
+		else if (IS_HSW_ULT(dev_priv))
+			dev_priv->max_cdclk_freq = 450000;
+		else
+			dev_priv->max_cdclk_freq = 540000;
 	} else if (IS_CHERRYVIEW(dev_priv)) {
 		dev_priv->max_cdclk_freq = 320000;
 	} else if (IS_VALLEYVIEW(dev_priv)) {
@@ -1864,6 +1959,10 @@ void intel_init_cdclk_hooks(struct drm_i915_private *dev_priv)
 		dev_priv->display.set_cdclk = vlv_set_cdclk;
 		dev_priv->display.modeset_calc_cdclk =
 			vlv_modeset_calc_cdclk;
+	} else if (IS_HASWELL(dev_priv)) {
+		dev_priv->display.set_cdclk = hsw_set_cdclk;
+		dev_priv->display.modeset_calc_cdclk =
+			hsw_modeset_calc_cdclk;
 	} else if (IS_BROADWELL(dev_priv)) {
 		dev_priv->display.set_cdclk = bdw_set_cdclk;
 		dev_priv->display.modeset_calc_cdclk =

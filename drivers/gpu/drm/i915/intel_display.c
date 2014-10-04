@@ -15466,7 +15466,8 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 
 			intel_crtc_compute_pixel_rate(crtc_state);
 
-			if (INTEL_GEN(dev_priv) >= 9 || IS_BROADWELL(dev_priv) ||
+			if (INTEL_GEN(dev_priv) >= 9 ||
+			    IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv) ||
 			    IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
 				pixclk = crtc_state->pixel_rate;
 			else
