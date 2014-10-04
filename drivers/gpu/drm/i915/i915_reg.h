@@ -6046,6 +6046,7 @@ enum punit_power_well {
 #define   GEN6_ENCODE_RC6_VID(mv)		(((mv) - 245) / 5)
 #define   GEN6_DECODE_RC6_VID(vids)		(((vids) * 5) + 245)
 #define   HSW_PCODE_DE_WRITE_FREQ_REQ		0x17
+#define   BDW_PCODE_DISPLAY_FREQ_CHANGE_REQ	0x18
 #define   DISPLAY_IPS_CONTROL			0x19
 #define GEN6_PCODE_DATA				0x138128
 #define   GEN6_PCODE_FREQ_IA_RATIO_SHIFT	8

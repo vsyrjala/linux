@@ -4749,7 +4749,22 @@ static void intel_update_max_cdclk(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if (IS_HASWELL(dev)) {
+	if (IS_BROADWELL(dev))  {
+		/*
+		 * FIXME with extra cooling we can allow
+		 * 540 MHz for ULX and 675 Mhz for ULT.
+		 * How can we know if extra cooling is
+		 * available? PCI ID, VTB, something else?
+		 */
+		if (I915_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
+			dev_priv->max_cdclk_freq = 450000;
+		else if (IS_BDW_ULX(dev))
+			dev_priv->max_cdclk_freq = 450000;
+		else if (IS_BDW_ULT(dev))
+			dev_priv->max_cdclk_freq = 540000;
+		else
+			dev_priv->max_cdclk_freq = 675000;
+	} else if (IS_HASWELL(dev)) {
 		if (I915_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
 			dev_priv->max_cdclk_freq = 450000;
 		else if (IS_HSW_ULX(dev))
@@ -5536,12 +5551,11 @@ static bool pipe_config_supports_ips(struct drm_i915_private *dev_priv,
 		return true;
 
 	/*
-	 * FIXME if we compare against max we should then
-	 * increase the cdclk frequency when the current
-	 * value is too low. The other option is to compare
-	 * against the cdclk frqeuncy we're going have post
-	 * modeset (ie. one we computed using other constraints).
-	 * Need to measure whether using a lower cdclk w/o IPS
+	 * We compare against max which means we must take
+	 * the increased cdclk requirement into account when
+	 * claculating the new cdclk.
+	 *
+	 * Should measure whether using a lower cdclk w/o IPS
 	 * is better or worse than a higher cdclk w/ IPS.
 	 */
 	return ilk_pipe_pixel_rate(pipe_config) <=
@@ -8335,9 +8349,18 @@ static int ilk_max_pixel_rate(struct drm_i915_private *dev_priv)
 	int max_pixel_rate = 0;
 
 	for_each_intel_crtc(dev, crtc) {
-		if (crtc->new_enabled)
-			max_pixel_rate = max_t(int, max_pixel_rate,
-					       ilk_pipe_pixel_rate(crtc->new_config));
+		int pixel_rate;
+
+		if (!crtc->new_enabled)
+			continue;
+
+		pixel_rate = ilk_pipe_pixel_rate(crtc->new_config);
+
+		/* pixel rate mustn't exceed 95% of cdclk with IPS on BDW */
+		if (IS_BROADWELL(dev) && crtc->new_config->ips_enabled)
+			pixel_rate = DIV_ROUND_UP(pixel_rate * 100, 95);
+
+		max_pixel_rate = max(max_pixel_rate, pixel_rate);
 	}
 
 	return max_pixel_rate;
@@ -8352,7 +8375,9 @@ static int haswell_calc_cdclk(struct drm_i915_private *dev_priv,
 	 * FIXME should also account for plane ratio
 	 * once 64bpp pixel formats are supported.
 	 */
-	if (max_pixel_rate > 450000)
+	if (max_pixel_rate > 540000)
+		cdclk = 675000;
+	else if (max_pixel_rate > 450000)
 		cdclk = 540000;
 	else if (max_pixel_rate > 337500 || !IS_HSW_ULX(dev_priv))
 		cdclk = 450000;
@@ -8417,6 +8442,83 @@ static void haswell_set_cdclk(struct drm_device *dev, int cdclk)
 	     cdclk, dev_priv->cdclk_freq);
 }
 
+static void broadwell_set_cdclk(struct drm_device *dev, int cdclk)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	uint32_t val, data;
+	int ret;
+
+	if (WARN((I915_READ(LCPLL_CTL) &
+		  (LCPLL_PLL_DISABLE | LCPLL_PLL_LOCK |
+		   LCPLL_CD_CLOCK_DISABLE | LCPLL_ROOT_CD_CLOCK_DISABLE |
+		   LCPLL_CD2X_CLOCK_DISABLE | LCPLL_POWER_DOWN_ALLOW |
+		   LCPLL_CD_SOURCE_FCLK)) != LCPLL_PLL_LOCK,
+		 "trying to change cdclk frequency with cdclk not enabled\n"))
+		return;
+
+	mutex_lock(&dev_priv->rps.hw_lock);
+	ret = sandybridge_pcode_write(dev_priv,
+				      BDW_PCODE_DISPLAY_FREQ_CHANGE_REQ, 0x0);
+	mutex_unlock(&dev_priv->rps.hw_lock);
+	if (ret) {
+		DRM_ERROR("failed to inform pcode about cdclk change\n");
+		return;
+	}
+
+	val = I915_READ(LCPLL_CTL);
+	val |= LCPLL_CD_SOURCE_FCLK;
+	I915_WRITE(LCPLL_CTL, val);
+
+	if (wait_for_atomic_us(I915_READ(LCPLL_CTL) &
+			       LCPLL_CD_SOURCE_FCLK_DONE, 1))
+		DRM_ERROR("Switching to FCLK failed\n");
+
+	val = I915_READ(LCPLL_CTL);
+	val &= ~LCPLL_CLK_FREQ_MASK;
+
+	switch (cdclk) {
+	case 450000:
+		val |= LCPLL_CLK_FREQ_450;
+		data = 0;
+		break;
+	case 540000:
+		val |= LCPLL_CLK_FREQ_54O_BDW;
+		data = 1;
+		break;
+	case 337500:
+		val |= LCPLL_CLK_FREQ_337_5_BDW;
+		data = 2;
+		break;
+	case 675000:
+		val |= LCPLL_CLK_FREQ_675_BDW;
+		data = 3;
+		break;
+	default:
+		WARN(1, "invalid cdclk frequency\n");
+		return;
+	}
+
+	I915_WRITE(LCPLL_CTL, val);
+
+	val = I915_READ(LCPLL_CTL);
+	val &= ~LCPLL_CD_SOURCE_FCLK;
+	I915_WRITE(LCPLL_CTL, val);
+
+	if (wait_for_atomic_us((I915_READ(LCPLL_CTL) &
+				LCPLL_CD_SOURCE_FCLK_DONE) == 0, 1))
+		DRM_ERROR("Switching back to LCPLL failed\n");
+
+	mutex_lock(&dev_priv->rps.hw_lock);
+	sandybridge_pcode_write(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ, data);
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	intel_update_cdclk(dev);
+
+	WARN(cdclk != dev_priv->cdclk_freq,
+	     "cdclk requested %d kHz but got %d kHz\n",
+	     cdclk, dev_priv->cdclk_freq);
+}
+
 static void haswell_modeset_global_pipes(struct drm_device *dev,
 					 unsigned *prepare_pipes)
 {
@@ -8440,7 +8542,10 @@ static void haswell_modeset_global_resources(struct drm_device *dev)
 	int req_cdclk = haswell_calc_cdclk(dev_priv, max_pixel_rate);
 
 	if (req_cdclk != dev_priv->cdclk_freq) {
-		haswell_set_cdclk(dev, req_cdclk);
+		if (IS_BROADWELL(dev))
+			broadwell_set_cdclk(dev, req_cdclk);
+		else
+			haswell_set_cdclk(dev, req_cdclk);
 	}
 }
 
@@ -11398,7 +11503,7 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 	 * mode set on this crtc.  For other crtcs we need to use the
 	 * adjusted_mode bits in the crtc directly.
 	 */
-	if (IS_VALLEYVIEW(dev) || IS_HASWELL(dev)) {
+	if (IS_VALLEYVIEW(dev) || IS_HASWELL(dev) || IS_BROADWELL(dev)) {
 		if (IS_VALLEYVIEW(dev))
 			valleyview_modeset_global_pipes(dev, &prepare_pipes);
 		else
@@ -13215,9 +13320,8 @@ static void intel_init_display(struct drm_device *dev)
 			ivb_modeset_global_resources;
 	} else if (IS_HASWELL(dev) || IS_BROADWELL(dev)) {
 		dev_priv->display.fdi_link_train = hsw_fdi_link_train;
-		if (IS_HASWELL(dev))
-			dev_priv->display.modeset_global_resources =
-				haswell_modeset_global_resources;
+		dev_priv->display.modeset_global_resources =
+			haswell_modeset_global_resources;
 	} else if (IS_VALLEYVIEW(dev)) {
 		dev_priv->display.modeset_global_resources =
 			valleyview_modeset_global_resources;
