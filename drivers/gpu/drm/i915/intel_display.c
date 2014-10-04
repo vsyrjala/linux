@@ -4749,7 +4749,16 @@ static void intel_update_max_cdclk(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if (IS_VALLEYVIEW(dev)) {
+	if (IS_HASWELL(dev)) {
+		if (I915_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
+			dev_priv->max_cdclk_freq = 450000;
+		else if (IS_HSW_ULX(dev))
+			dev_priv->max_cdclk_freq = 337500;
+		else if (IS_HSW_ULT(dev))
+			dev_priv->max_cdclk_freq = 450000;
+		else
+			dev_priv->max_cdclk_freq = 540000;
+	} else if (IS_VALLEYVIEW(dev)) {
 		dev_priv->max_cdclk_freq = 400000;
 	} else {
 		/* otherwise assume cdclk is fixed */
@@ -8318,6 +8327,123 @@ void hsw_disable_pc8(struct drm_i915_private *dev_priv)
 	intel_prepare_ddi(dev);
 }
 
+/* compute the max rate for new configuration */
+static int ilk_max_pixel_rate(struct drm_i915_private *dev_priv)
+{
+	struct drm_device *dev = dev_priv->dev;
+	struct intel_crtc *crtc;
+	int max_pixel_rate = 0;
+
+	for_each_intel_crtc(dev, crtc) {
+		if (crtc->new_enabled)
+			max_pixel_rate = max_t(int, max_pixel_rate,
+					       ilk_pipe_pixel_rate(crtc->new_config));
+	}
+
+	return max_pixel_rate;
+}
+
+static int haswell_calc_cdclk(struct drm_i915_private *dev_priv,
+			      int max_pixel_rate)
+{
+	int cdclk;
+
+	/*
+	 * FIXME should also account for plane ratio
+	 * once 64bpp pixel formats are supported.
+	 */
+	if (max_pixel_rate > 450000)
+		cdclk = 540000;
+	else if (max_pixel_rate > 337500 || !IS_HSW_ULX(dev_priv))
+		cdclk = 450000;
+	else
+		cdclk = 337500;
+
+	/*
+	 * FIXME move the cdclk caclulation to
+	 * compute_config() so we can fail gracegully.
+	 */
+	if (cdclk > dev_priv->max_cdclk_freq) {
+		DRM_ERROR("requested cdclk (%d kHz) exceeds max (%d kHz)\n",
+			  cdclk, dev_priv->max_cdclk_freq);
+		cdclk = dev_priv->max_cdclk_freq;
+	}
+
+	return cdclk;
+}
+
+static void haswell_set_cdclk(struct drm_device *dev, int cdclk)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	uint32_t val;
+
+	if (WARN((I915_READ(LCPLL_CTL) &
+		  (LCPLL_PLL_DISABLE | LCPLL_PLL_LOCK |
+		   LCPLL_CD_CLOCK_DISABLE | LCPLL_ROOT_CD_CLOCK_DISABLE |
+		   LCPLL_CD2X_CLOCK_DISABLE | LCPLL_POWER_DOWN_ALLOW |
+		   LCPLL_CD_SOURCE_FCLK)) != LCPLL_PLL_LOCK,
+		 "trying to change cdclk frequency with cdclk not enabled\n"))
+		return;
+
+	val = I915_READ(LCPLL_CTL);
+	val &= ~LCPLL_CLK_FREQ_MASK;
+
+	switch (cdclk) {
+	case 450000:
+		val |= LCPLL_CLK_FREQ_450;
+		break;
+	case 337500:
+	case 540000:
+		val |= LCPLL_CLK_FREQ_ALT_HSW;
+		break;
+	default:
+		WARN(1, "invalid cdclk frequency\n");
+		return;
+	}
+
+	I915_WRITE(LCPLL_CTL, val);
+
+	if (IS_HSW_ULX(dev)) {
+		mutex_lock(&dev_priv->rps.hw_lock);
+		sandybridge_pcode_write(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ,
+					cdclk == 337500);
+		mutex_unlock(&dev_priv->rps.hw_lock);
+	}
+
+	intel_update_cdclk(dev);
+
+	WARN(cdclk != dev_priv->cdclk_freq,
+	     "cdclk requested %d kHz but got %d kHz\n",
+	     cdclk, dev_priv->cdclk_freq);
+}
+
+static void haswell_modeset_global_pipes(struct drm_device *dev,
+					 unsigned *prepare_pipes)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *crtc;
+	int max_pixel_rate = ilk_max_pixel_rate(dev_priv);
+
+	if (haswell_calc_cdclk(dev_priv, max_pixel_rate) == dev_priv->cdclk_freq)
+		return;
+
+	/* disable/enable all currently active pipes while we change cdclk */
+	for_each_intel_crtc(dev, crtc)
+		if (crtc->base.enabled)
+			*prepare_pipes |= 1 << crtc->pipe;
+}
+
+static void haswell_modeset_global_resources(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int max_pixel_rate = ilk_max_pixel_rate(dev_priv);
+	int req_cdclk = haswell_calc_cdclk(dev_priv, max_pixel_rate);
+
+	if (req_cdclk != dev_priv->cdclk_freq) {
+		haswell_set_cdclk(dev, req_cdclk);
+	}
+}
+
 static int haswell_crtc_compute_clock(struct intel_crtc *crtc)
 {
 	if (!intel_ddi_pll_select(crtc))
@@ -11272,8 +11398,11 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 	 * mode set on this crtc.  For other crtcs we need to use the
 	 * adjusted_mode bits in the crtc directly.
 	 */
-	if (IS_VALLEYVIEW(dev)) {
-		valleyview_modeset_global_pipes(dev, &prepare_pipes);
+	if (IS_VALLEYVIEW(dev) || IS_HASWELL(dev)) {
+		if (IS_VALLEYVIEW(dev))
+			valleyview_modeset_global_pipes(dev, &prepare_pipes);
+		else
+			haswell_modeset_global_pipes(dev, &prepare_pipes);
 
 		/* may have added more to prepare_pipes than we should */
 		prepare_pipes &= ~disable_pipes;
@@ -13086,6 +13215,9 @@ static void intel_init_display(struct drm_device *dev)
 			ivb_modeset_global_resources;
 	} else if (IS_HASWELL(dev) || IS_BROADWELL(dev)) {
 		dev_priv->display.fdi_link_train = hsw_fdi_link_train;
+		if (IS_HASWELL(dev))
+			dev_priv->display.modeset_global_resources =
+				haswell_modeset_global_resources;
 	} else if (IS_VALLEYVIEW(dev)) {
 		dev_priv->display.modeset_global_resources =
 			valleyview_modeset_global_resources;

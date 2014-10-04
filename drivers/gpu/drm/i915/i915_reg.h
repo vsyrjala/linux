@@ -6045,6 +6045,7 @@ enum punit_power_well {
 #define   GEN6_PCODE_WRITE_D_COMP		0x11
 #define   GEN6_ENCODE_RC6_VID(mv)		(((mv) - 245) / 5)
 #define   GEN6_DECODE_RC6_VID(vids)		(((vids) * 5) + 245)
+#define   HSW_PCODE_DE_WRITE_FREQ_REQ		0x17
 #define   DISPLAY_IPS_CONTROL			0x19
 #define GEN6_PCODE_DATA				0x138128
 #define   GEN6_PCODE_FREQ_IA_RATIO_SHIFT	8
@@ -6454,10 +6455,12 @@ enum punit_power_well {
 #define  LCPLL_PLL_LOCK			(1<<30)
 #define  LCPLL_CLK_FREQ_MASK		(3<<26)
 #define  LCPLL_CLK_FREQ_450		(0<<26)
+#define  LCPLL_CLK_FREQ_ALT_HSW		(1<<26) /* 337.5 (ULX) or 540 */
 #define  LCPLL_CLK_FREQ_54O_BDW		(1<<26)
 #define  LCPLL_CLK_FREQ_337_5_BDW	(2<<26)
 #define  LCPLL_CLK_FREQ_675_BDW		(3<<26)
 #define  LCPLL_CD_CLOCK_DISABLE		(1<<25)
+#define  LCPLL_ROOT_CD_CLOCK_DISABLE	(1<<24)
 #define  LCPLL_CD2X_CLOCK_DISABLE	(1<<23)
 #define  LCPLL_POWER_DOWN_ALLOW		(1<<22)
 #define  LCPLL_CD_SOURCE_FCLK		(1<<21)
