@@ -4916,6 +4916,8 @@ static int valleyview_calc_cdclk(struct drm_i915_private *dev_priv,
 {
 	int freq_320 = (dev_priv->hpll_freq <<  1) % 320000 != 0 ? 333333 : 320000;
 
+	max_pixclk = max(max_pixclk, i915.cdclk);
+
 	/*
 	 * Really only a few cases to deal with, as only 4 CDclks are supported:
 	 *   200MHz
@@ -8370,6 +8372,8 @@ static int haswell_calc_cdclk(struct drm_i915_private *dev_priv,
 			      int max_pixel_rate)
 {
 	int cdclk;
+
+	max_pixel_rate = max(max_pixel_rate, i915.cdclk);
 
 	/*
 	 * FIXME should also account for plane ratio
