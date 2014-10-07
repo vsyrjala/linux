@@ -700,22 +700,6 @@ static uint32_t ilk_get_aux_clock_divider(struct intel_dp *intel_dp, int index)
 	struct drm_device *dev = intel_dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if (index)
-		return 0;
-
-	if (intel_dig_port->port == PORT_A) {
-		return DIV_ROUND_UP(dev_priv->cdclk_freq, 2000);
-	} else {
-		return DIV_ROUND_UP(intel_pch_rawclk(dev), 2);
-	}
-}
-
-static uint32_t hsw_get_aux_clock_divider(struct intel_dp *intel_dp, int index)
-{
-	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
-	struct drm_device *dev = intel_dig_port->base.base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
 	if (intel_dig_port->port == PORT_A) {
 		if (index)
 			return 0;
@@ -728,7 +712,9 @@ static uint32_t hsw_get_aux_clock_divider(struct intel_dp *intel_dp, int index)
 		default: return 0;
 		}
 	} else  {
-		return index ? 0 : DIV_ROUND_UP(intel_pch_rawclk(dev), 2);
+		if (index)
+			return 0;
+		return DIV_ROUND_UP(intel_pch_rawclk(dev), 2);
 	}
 }
 
@@ -5346,8 +5332,6 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 		intel_dp->get_aux_clock_divider = skl_get_aux_clock_divider;
 	else if (IS_VALLEYVIEW(dev))
 		intel_dp->get_aux_clock_divider = vlv_get_aux_clock_divider;
-	else if (IS_HASWELL(dev) || IS_BROADWELL(dev))
-		intel_dp->get_aux_clock_divider = hsw_get_aux_clock_divider;
 	else if (HAS_PCH_SPLIT(dev))
 		intel_dp->get_aux_clock_divider = ilk_get_aux_clock_divider;
 	else
