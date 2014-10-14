@@ -35,7 +35,7 @@
 #   patches
 
 # fail on any goof-up
-set -e
+set -eu
 
 #
 # User configuration. Set in environment or configuration file. See
