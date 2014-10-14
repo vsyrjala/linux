@@ -376,7 +376,7 @@ function setup_dim
 	cd ..
 
 	if [ ! -d maintainer-tools ]; then
-		git clone $drm_intel_ssh maintainer-tools
+		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $drm_intel_ssh maintainer-tools
 	fi
 	cd maintainer-tools
 	git config remote.origin.url $drm_intel_ssh
@@ -386,7 +386,7 @@ function setup_dim
 	cd ..
 
 	if [ ! -d drm-intel-rerere ]; then
-		git clone $drm_intel_ssh drm-intel-rerere
+		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $drm_intel_ssh drm-intel-rerere
 	fi
 	cd drm-intel-rerere
 	git config remote.origin.url $drm_intel_ssh
@@ -396,7 +396,7 @@ function setup_dim
 	cd ..
 
 	if [ ! -d drm-intel-nightly ]; then
-		git clone $drm_intel_ssh drm-intel-nightly
+		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $drm_intel_ssh drm-intel-nightly
 	fi
 	cd drm-intel-nightly
 	mkdir -p .git/rr-cache
