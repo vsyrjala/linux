@@ -33,6 +33,8 @@
 #   drm-integration tree ...
 # - add a Link: tag referring to mid.mail-archive.com/<msg-id> to merged
 #   patches
+# - Improve nightly-forget to forget a specific merge instead of just the first
+#   dinq/dif merge.
 
 # fail on any goof-up
 set -eu
