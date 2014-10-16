@@ -422,13 +422,12 @@ function setup_dim
 function assert_branch
 {
 	local branch=$1
-		if git branch | grep $branch | grep '\*' ; then
-			return 0
-		else
-			echo "You're on the wrong branch, expected $branch"
-			return 1
-		fi
-
+	if git branch | grep $branch | grep '\*' ; then
+		return 0
+	else
+		echo "You're on the wrong branch, expected $branch"
+		return 1
+	fi
 }
 
 if [ ! -d $DIM_PREFIX/$DIM_DRM_INTEL ]; then
