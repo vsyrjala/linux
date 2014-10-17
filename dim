@@ -354,6 +354,24 @@ function prep_pull_mail
 	HERE
 }
 
+# dim_pull_request branch upstream
+function dim_pull_request
+{
+	branch=$1
+	upstream=$2
+	$DRY git tag -f $branch-$today $DIM_DRM_INTEL_REMOTE/$branch
+	$DRY git push -f $DIM_DRM_INTEL_REMOTE $branch-$today
+	prep_pull_mail
+	git request-pull $upstream $drm_intel_git $branch-$today >> ~/tmp/dim-pull-request
+	$DIM_MUA -s "[PULL] $branch" \
+		-i ~/tmp/dim-pull-request \
+		-c "$addr_intel_gfx" \
+		-c "$addr_dri_devel" \
+		-c "$addr_intel_gfx_maintainer1" \
+		-c "$addr_intel_gfx_maintainer2" \
+		"$addr_drm_maintainer"
+}
+
 function setup_dim
 {
 	cd $DIM_PREFIX
@@ -620,17 +638,7 @@ case "$subcommand" in
 		else
 			echo no upstream given
 		fi
-		$DRY git tag -f $branch-$today $DIM_DRM_INTEL_REMOTE/$branch
-		$DRY git push -f $DIM_DRM_INTEL_REMOTE $branch-$today
-		prep_pull_mail
-		git request-pull $upstream $drm_intel_git $branch-$today >> ~/tmp/dim-pull-request
-		$DIM_MUA -s "[PULL] $branch" \
-			-i ~/tmp/dim-pull-request \
-			-c "$addr_intel_gfx" \
-			-c "$addr_dri_devel" \
-			-c "$addr_intel_gfx_maintainer1" \
-			-c "$addr_intel_gfx_maintainer2" \
-			"$addr_drm_maintainer"
+		dim_pull_request $*
 		;;
 	update-next)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
