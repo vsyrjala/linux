@@ -363,10 +363,19 @@ function dim_pull_request
 	git fetch ${upstream%%/*} >& /dev/null || true
 	echo "Using $upstream as the upstream"
 
-	$DRY git tag -f $branch-$today $DIM_DRM_INTEL_REMOTE/$branch
-	$DRY git push -f $DIM_DRM_INTEL_REMOTE $branch-$today
-	prep_pull_mail
-	git request-pull $upstream $drm_intel_git $branch-$today >> ~/tmp/dim-pull-request
+	if [ "$branch" = "drm-intel-next" ]; then
+		# drm-intel-next pulls have been tagged using dim update-next
+		drm_intel_next_tags=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
+		prep_pull_mail_tags $drm_intel_next_tags
+		tag=`git describe --all --exact $DIM_DRM_INTEL_REMOTE/drm-intel-next`
+	else
+		tag=$branch-$today
+		$DRY git tag -f $tag $DIM_DRM_INTEL_REMOTE/$branch
+		$DRY git push -f $DIM_DRM_INTEL_REMOTE $tag
+		prep_pull_mail
+	fi
+
+	git request-pull $upstream $drm_intel_git $tag >> ~/tmp/dim-pull-request
 	$DIM_MUA -s "[PULL] $branch" \
 		-i ~/tmp/dim-pull-request \
 		-c "$addr_intel_gfx" \
@@ -592,22 +601,7 @@ case "$subcommand" in
 		else
 			upstream=$DIM_DRM_UPSTREAM_REMOTE/drm-next
 		fi
-
-		git fetch ${upstream%%/*} >& /dev/null || true
-		echo Using $upstream as the upstream
-
-		# generate tag list
-		drm_intel_next_tags=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
-		prep_pull_mail_tags $drm_intel_next_tags
-		din_tag=`git describe --all --exact $DIM_DRM_INTEL_REMOTE/drm-intel-next`
-		git request-pull $upstream $drm_intel_git $din_tag >> ~/tmp/dim-pull-request
-		$DIM_MUA -s "[PULL] drm-intel-next" \
-			-i ~/tmp/dim-pull-request \
-			-c "$addr_intel_gfx" \
-			-c "$addr_dri_devel" \
-			-c "$addr_intel_gfx_maintainer1" \
-			-c "$addr_intel_gfx_maintainer2" \
-			"$addr_drm_maintainer"
+		dim_pull_request drm-intel-next $upstream
 		;;
 	pull-request-fixes)
 		if [[ "x$1" != "x" ]] ; then
