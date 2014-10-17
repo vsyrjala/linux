@@ -615,21 +615,7 @@ case "$subcommand" in
 		else
 			upstream=origin/master
 		fi
-
-		git fetch ${upstream%%/*} >& /dev/null || true
-		echo Using $upstream as the upstream
-
-		$DRY git tag -f drm-intel-fixes-$today $DIM_DRM_INTEL_REMOTE/drm-intel-fixes
-		$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-fixes-$today
-		prep_pull_mail
-		git request-pull $upstream $drm_intel_git drm-intel-fixes-$today >> ~/tmp/dim-pull-request
-		$DIM_MUA -s "[PULL] drm-intel-fixes" \
-			-i ~/tmp/dim-pull-request \
-			-c "$addr_intel_gfx" \
-			-c "$addr_dri_devel" \
-			-c "$addr_intel_gfx_maintainer1" \
-			-c "$addr_intel_gfx_maintainer2" \
-			"$addr_drm_maintainer"
+		dim_pull_request drm-intel-fixes $upstream
 		;;
 	pull-request-topic)
 		if [[ "x$1" != "x" ]] ; then
