@@ -611,6 +611,14 @@ case "$subcommand" in
 		fi
 		dim_pull_request drm-intel-fixes $upstream
 		;;
+	pull-request-next-fixes)
+		if [[ "x$1" != "x" ]] ; then
+			upstream=$1
+		else
+			upstream=$DIM_DRM_UPSTREAM_REMOTE/drm-next
+		fi
+		dim_pull_request drm-intel-next-fixes $upstream
+		;;
 	pull-request-topic)
 		if [[ "x$1" != "x" ]] ; then
 			branch=$1
@@ -843,29 +851,36 @@ Runs the given commit range commit-ish..commit-ish through the check tools. If
 no commit-ish is passed, defaults to HEAD^..HEAD. If one commit-ish is passed
 instead of a range, the range commit-ish..HEAD is used.
 
-pull-request [*upstream*]
--------------------------
+pull-request-topic *branch* *upstream*
+--------------------------------------
+Fetch the *upstream* remote to make sure it's up-to-date, create and push a date
+based tag for the *branch*, generate a pull request template with the specified
+*upstream*, and finally start \$DIM_MUA with the template with subject and
+recipients already set.
+
+Since the tag for the *branch* is date based, the pull request can be
+regenerated with the same commands if something goes wrong.
 
 pull-request-fixes [*upstream*]
 -------------------------------
-Create a tag for the -fixes, but no tag is created for -next
-since that's already been done by update-next. Then prepares a
-pull request in ~/tmp/dim-pull-request. The upstream for -fixes
-defaults to origin/master, the upstream for -next defaults to
-airlied/drm-next
+This is a special case of **pull-request-topic**, with *drm-intel-fixes* as the
+branch and *origin/master* as the default upstream.
 
-Since the tag for -fixes is based only on the day (and not the
-exact time) and there's not tag being pushed for -next the pull
-request can be regenerated with the same commands if the
-upstream was wrong.
+pull-request-next-fixes [*upstream*]
+------------------------------------
+This is a special case of **pull-request-topic**, with *drm-intel-next-fixes* as
+the branch and *\$DRM_UPSTREAM/drm-next* as the default upstream.
 
-Then fires up mutt with the pre-generated email with subject and
-recipients already set.
+pull-request [*upstream*]
+-------------------------
+This is similar to **pull-request-topic**, but for feature pull requests, with
+*drm-intel-next* as the branch and *\$DRM_UPSTREAM/drm-next* as the default
+upstream.
 
-pull-request-topic *branch* *upstream*
---------------------------------------
-Generates a pull request for the given topic-branch/upstream
-combo and fires up mutt with the pre-generated email.
+The difference to **pull-request-topic** is that his command does not generate a
+tag; this must have been done previously using **update-next**. This also means
+that the pull request can be regenerated with the same commands if something
+goes wrong.
 
 update-next
 -----------
