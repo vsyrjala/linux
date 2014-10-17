@@ -359,6 +359,10 @@ function dim_pull_request
 {
 	branch=$1
 	upstream=$2
+
+	git fetch ${upstream%%/*} >& /dev/null || true
+	echo "Using $upstream as the upstream"
+
 	$DRY git tag -f $branch-$today $DIM_DRM_INTEL_REMOTE/$branch
 	$DRY git push -f $DIM_DRM_INTEL_REMOTE $branch-$today
 	prep_pull_mail
