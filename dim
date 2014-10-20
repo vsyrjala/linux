@@ -37,7 +37,7 @@
 #   dinq/dif merge.
 
 # fail on any goof-up
-set -eu
+set -e
 
 #
 # User configuration. Set in environment or configuration file. See
