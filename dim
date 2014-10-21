@@ -596,39 +596,21 @@ case "$subcommand" in
 		dim_checkrange $@
 		;;
 	pull-request)
-		if [[ "x$1" != "x" ]] ; then
-			upstream=$1
-		else
-			upstream=$DIM_DRM_UPSTREAM_REMOTE/drm-next
-		fi
+		upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
 		dim_pull_request drm-intel-next $upstream
 		;;
 	pull-request-fixes)
-		if [[ "x$1" != "x" ]] ; then
-			upstream=$1
-		else
-			upstream=origin/master
-		fi
+		upstream=${1:-origin/master}
 		dim_pull_request drm-intel-fixes $upstream
 		;;
 	pull-request-next-fixes)
-		if [[ "x$1" != "x" ]] ; then
-			upstream=$1
-		else
-			upstream=$DIM_DRM_UPSTREAM_REMOTE/drm-next
-		fi
+		upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
 		dim_pull_request drm-intel-next-fixes $upstream
 		;;
 	pull-request-topic)
-		if [[ "x$1" != "x" ]] ; then
-			branch=$1
-		else
-			echo no branch given
-		fi
-		if [[ "x$2" != "x" ]] ; then
-			upstream=$2
-		else
-			echo no upstream given
+		if [[ "x$1" = "x" || "x$2" = "x" ]]; then
+			echo "usage: $0 $subcommand branch upstream"
+			exit 1
 		fi
 		dim_pull_request $*
 		;;
