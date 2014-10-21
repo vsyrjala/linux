@@ -596,6 +596,13 @@ case "$subcommand" in
 		dim_checkrange $@
 		;;
 	pull-request)
+		if [[ "x$1" = "x" || "x$2" = "x" ]]; then
+			echo "usage: $0 $subcommand branch upstream"
+			exit 1
+		fi
+		dim_pull_request $*
+		;;
+	pull-request-next)
 		upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
 		dim_pull_request drm-intel-next $upstream
 		;;
@@ -606,13 +613,6 @@ case "$subcommand" in
 	pull-request-next-fixes)
 		upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
 		dim_pull_request drm-intel-next-fixes $upstream
-		;;
-	pull-request-topic)
-		if [[ "x$1" = "x" || "x$2" = "x" ]]; then
-			echo "usage: $0 $subcommand branch upstream"
-			exit 1
-		fi
-		dim_pull_request $*
 		;;
 	update-next)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
@@ -833,8 +833,8 @@ Runs the given commit range commit-ish..commit-ish through the check tools. If
 no commit-ish is passed, defaults to HEAD^..HEAD. If one commit-ish is passed
 instead of a range, the range commit-ish..HEAD is used.
 
-pull-request-topic *branch* *upstream*
---------------------------------------
+pull-request *branch* *upstream*
+--------------------------------
 Fetch the *upstream* remote to make sure it's up-to-date, create and push a date
 based tag for the *branch*, generate a pull request template with the specified
 *upstream*, and finally start \$DIM_MUA with the template with subject and
@@ -845,21 +845,21 @@ regenerated with the same commands if something goes wrong.
 
 pull-request-fixes [*upstream*]
 -------------------------------
-This is a special case of **pull-request-topic**, with *drm-intel-fixes* as the
+This is a special case of **pull-request**, with *drm-intel-fixes* as the
 branch and *origin/master* as the default upstream.
 
 pull-request-next-fixes [*upstream*]
 ------------------------------------
-This is a special case of **pull-request-topic**, with *drm-intel-next-fixes* as
+This is a special case of **pull-request**, with *drm-intel-next-fixes* as
 the branch and *\$DRM_UPSTREAM/drm-next* as the default upstream.
 
-pull-request [*upstream*]
--------------------------
-This is similar to **pull-request-topic**, but for feature pull requests, with
+pull-request-next [*upstream*]
+------------------------------
+This is similar to **pull-request**, but for feature pull requests, with
 *drm-intel-next* as the branch and *\$DRM_UPSTREAM/drm-next* as the default
 upstream.
 
-The difference to **pull-request-topic** is that his command does not generate a
+The difference to **pull-request** is that this command does not generate a
 tag; this must have been done previously using **update-next**. This also means
 that the pull request can be regenerated with the same commands if something
 goes wrong.
