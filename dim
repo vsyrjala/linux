@@ -288,6 +288,25 @@ function dim_push
 	update_linux_next
 }
 
+# ensure we're on branch $1, and apply patches. the rest of the arguments are
+# passed to git am.
+function dim_apply
+{
+	branch=$1
+	shift
+
+	assert_branch $branch
+
+	if [[ -n `git status --porcelain --untracked-files=no` ]] ; then
+		echo Repository not clean, aborting
+		exit 2
+	fi
+
+	git am -3 "$@"
+	dim_checkpatch HEAD
+	git commit --amend &
+}
+
 function check_repo_clean
 {
 	cd $1
@@ -536,28 +555,16 @@ case "$subcommand" in
 		git checkout drm-intel-next-fixes
 		;;
 	apply-branch|ab|sob)
-		branch=$1
-		shift
-
-		assert_branch $branch
-
-		if [[ -n `git status --porcelain --untracked-files=no` ]] ; then
-			echo Repository not clean, aborting
-			exit 2
-		fi
-
-		git am -3 $@
-		dim_checkpatch HEAD
-		git commit --amend &
+		dim_apply "$@"
 		;;
 	apply-queued|aq)
-		dim apply-branch drm-intel-next-queued $@
+		dim_apply drm-intel-next-queued "$@"
 		;;
 	apply-fixes|af)
-		dim apply-branch drm-intel-fixes $@
+		dim_apply drm-intel-fixes "$@"
 		;;
 	apply-next-fixes|anf)
-		dim apply-branch drm-intel-next-fixes $@
+		dim_apply drm-intel-next-fixes "$@"
 		;;
 	apply-resolved|ar)
 		make -j 20 && git add -u && git am --resolved
