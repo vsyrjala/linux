@@ -615,8 +615,6 @@ case "$subcommand" in
 		dim_pull_request drm-intel-next-fixes $upstream
 		;;
 	update-next)
-		cd $DIM_PREFIX/$DIM_DRM_INTEL
-
 		assert_branch drm-intel-next-queued
 
 		git fetch $DIM_DRM_INTEL_REMOTE
