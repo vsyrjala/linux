@@ -273,6 +273,21 @@ function update_nightly
 
 }
 
+# push branch $1, rebuild nightly. the rest of the arguments are passed to git
+# push.
+function dim_push
+{
+	branch=$1
+	shift
+
+	assert_branch $branch
+
+	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE $branch "$@"
+
+	update_nightly
+	update_linux_next
+}
+
 function check_repo_clean
 {
 	cd $1
@@ -503,28 +518,13 @@ case "$subcommand" in
 		cat > `cat .fixup_file_path`
 		;;
 	push-queued|pq)
-		assert_branch drm-intel-next-queued
-
-		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued $@
-
-		update_nightly
-		update_linux_next queued
+		dim_push drm-intel-next-queued "$@"
 		;;
 	push-next-fixes|pnf)
-		assert_branch drm-intel-next-fixes
-
-		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-fixes $@
-
-		update_nightly
-		update_linux_next queued
+		dim_push drm-intel-next-fixes "$@"
 		;;
 	push-fixes|pf)
-		assert_branch drm-intel-fixes
-
-		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-fixes  $@
-
-		update_nightly
-		update_linux_next fixes
+		dim_push drm-intel-fixes "$@"
 		;;
 	co)
 		git checkout drm-intel-next-queued
