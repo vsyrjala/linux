@@ -8320,8 +8320,7 @@ static void lpt_enable_clkout_dp(struct drm_device *dev, bool with_spread,
 
 	if (WARN(with_fdi && !with_spread, "FDI requires downspread\n"))
 		with_spread = true;
-	if (WARN(dev_priv->pch_id == INTEL_PCH_LPT_LP_DEVICE_ID_TYPE &&
-		 with_fdi, "LP PCH doesn't have FDI\n"))
+	if (WARN(HAS_PCH_LPT_LP(dev) && with_fdi, "LP PCH doesn't have FDI\n"))
 		with_fdi = false;
 
 	mutex_lock(&dev_priv->sb_lock);
@@ -8344,8 +8343,7 @@ static void lpt_enable_clkout_dp(struct drm_device *dev, bool with_spread,
 		}
 	}
 
-	reg = (dev_priv->pch_id == INTEL_PCH_LPT_LP_DEVICE_ID_TYPE) ?
-	       SBI_GEN0 : SBI_DBUFF0;
+	reg = HAS_PCH_LPT_LP(dev) ? SBI_GEN0 : SBI_DBUFF0;
 	tmp = intel_sbi_read(dev_priv, reg, SBI_ICLK);
 	tmp |= SBI_GEN0_CFG_BUFFENABLE_DISABLE;
 	intel_sbi_write(dev_priv, reg, tmp, SBI_ICLK);
@@ -8361,8 +8359,7 @@ static void lpt_disable_clkout_dp(struct drm_device *dev)
 
 	mutex_lock(&dev_priv->sb_lock);
 
-	reg = (dev_priv->pch_id == INTEL_PCH_LPT_LP_DEVICE_ID_TYPE) ?
-	       SBI_GEN0 : SBI_DBUFF0;
+	reg = HAS_PCH_LPT_LP(dev) ? SBI_GEN0 : SBI_DBUFF0;
 	tmp = intel_sbi_read(dev_priv, reg, SBI_ICLK);
 	tmp &= ~SBI_GEN0_CFG_BUFFENABLE_DISABLE;
 	intel_sbi_write(dev_priv, reg, tmp, SBI_ICLK);
@@ -9374,7 +9371,7 @@ void hsw_enable_pc8(struct drm_i915_private *dev_priv)
 
 	DRM_DEBUG_KMS("Enabling package C8+\n");
 
-	if (dev_priv->pch_id == INTEL_PCH_LPT_LP_DEVICE_ID_TYPE) {
+	if (HAS_PCH_LPT_LP(dev)) {
 		val = I915_READ(SOUTH_DSPCLK_GATE_D);
 		val &= ~PCH_LP_PARTITION_LEVEL_DISABLE;
 		I915_WRITE(SOUTH_DSPCLK_GATE_D, val);
@@ -9394,7 +9391,7 @@ void hsw_disable_pc8(struct drm_i915_private *dev_priv)
 	hsw_restore_lcpll(dev_priv);
 	lpt_init_pch_refclk(dev);
 
-	if (dev_priv->pch_id == INTEL_PCH_LPT_LP_DEVICE_ID_TYPE) {
+	if (HAS_PCH_LPT_LP(dev)) {
 		val = I915_READ(SOUTH_DSPCLK_GATE_D);
 		val |= PCH_LP_PARTITION_LEVEL_DISABLE;
 		I915_WRITE(SOUTH_DSPCLK_GATE_D, val);
