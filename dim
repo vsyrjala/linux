@@ -66,6 +66,12 @@ DIM_DRM_UPSTREAM_REMOTE=${DIM_DRM_UPSTREAM_REMOTE:-airlied}
 # usage: $DIM_MUA [-s subject] [-i file] [-c cc-addr] to-addr [...]
 DIM_MUA=${DIM_MUA:-mutt}
 
+# greetings pull request template
+DIM_TEMPLATE_HELLO=${DIM_TEMPLATE_HELLO:-$HOME/.dim.template.hello}
+
+# signature pull request template
+DIM_TEMPLATE_SIGNATURE=${DIM_TEMPLATE_SIGNATURE:-$HOME/.dim.template.signature}
+
 #
 # Internal configuration.
 #
@@ -350,6 +356,32 @@ function dim_checkrange
 	done
 }
 
+function prep_pull_mail_greetings
+{
+	if [ -r $DIM_TEMPLATE_HELLO ]; then
+		cat $DIM_TEMPLATE_HELLO
+	else
+		cat <<-EOF
+		Hi Dave,
+
+		EOF
+	fi
+}
+
+function prep_pull_mail_signature
+{
+	if [ -r $DIM_TEMPLATE_SIGNATURE ]; then
+		cat $DIM_TEMPLATE_SIGNATURE
+	else
+		cat <<-EOF
+
+		Cheers, Daniel
+
+
+		EOF
+	fi
+}
+
 # print pull mail overview based on tags in $@, if any
 # without tags, print a reminder
 function prep_pull_mail_overview
@@ -371,19 +403,9 @@ function prep_pull_mail_overview
 # $@: tags, if any, to extract into the pull request overview
 function prep_pull_mail
 {
-	cat > ~/tmp/dim-pull-request <<-HERE
-	Hi Dave,
-
-	HERE
-
+	prep_pull_mail_greetings > ~/tmp/dim-pull-request
 	prep_pull_mail_overview $@ >> ~/tmp/dim-pull-request
-
-	cat >> ~/tmp/dim-pull-request <<-HERE
-
-	Cheers, Daniel
-
-
-	HERE
+	prep_pull_mail_signature >> ~/tmp/dim-pull-request
 }
 
 # dim_pull_request branch upstream
@@ -919,9 +941,16 @@ Name of the $drm_upstream_git remote within \$DIM_DRM_INTEL.
 
 DIM_MUA
 -------
-
 Mail user agent. Must support the following subset of **mutt(1)** command line
 options: \$DIM_MUA [-s subject] [-i file] [-c cc-addr] to-addr [...]
+
+DIM_TEMPLATE_HELLO
+------------------
+Path to a file containing a greeting template for pull request mails.
+
+DIM_TEMPLATE_SIGNATURE
+----------------------
+Path to a file containing a signature template for pull request mails.
 
 HERE
 		exit 0
