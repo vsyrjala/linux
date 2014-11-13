@@ -350,35 +350,35 @@ function dim_checkrange
 	done
 }
 
-function prep_pull_mail_tags
+# print pull mail overview based on tags in $@, if any
+# without tags, print a reminder
+function prep_pull_mail_overview
 {
-	cat > ~/tmp/dim-pull-request <<-HERE
-	Hi Dave,
-
-	HERE
-
-	for tag in $@ ; do
-		local obj=`git rev-parse $tag`
-		if [[ `git cat-file -t $obj` == "tag" ]] ; then
-			echo $tag: >> ~/tmp/dim-pull-request
-			git cat-file -p $obj | tail -n+6 >> ~/tmp/dim-pull-request
-		fi
-	done
-
-	cat >> ~/tmp/dim-pull-request <<-HERE
-
-	Cheers, Daniel
-
-
-	HERE
+	if [ "$#" = "0" ]; then
+		echo "*** insert pull request overview here ***"
+	else
+		for tag in $@ ; do
+			local obj=`git rev-parse $tag`
+			if [[ `git cat-file -t $obj` == "tag" ]] ; then
+				echo $tag:
+				git cat-file -p $obj | tail -n+6
+			fi
+		done
+	fi
 }
 
+# prepare a pull request mail
+# $@: tags, if any, to extract into the pull request overview
 function prep_pull_mail
 {
 	cat > ~/tmp/dim-pull-request <<-HERE
 	Hi Dave,
 
-	<insert pull request overview here>
+	HERE
+
+	prep_pull_mail_overview $@ >> ~/tmp/dim-pull-request
+
+	cat >> ~/tmp/dim-pull-request <<-HERE
 
 	Cheers, Daniel
 
@@ -398,7 +398,7 @@ function dim_pull_request
 	if [ "$branch" = "drm-intel-next" ]; then
 		# drm-intel-next pulls have been tagged using dim update-next
 		drm_intel_next_tags=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag:.*\(drm-intel-next-[^ ,]*\).*)$/\1/"`
-		prep_pull_mail_tags $drm_intel_next_tags
+		prep_pull_mail $drm_intel_next_tags
 		tag=`git describe --all --exact $DIM_DRM_INTEL_REMOTE/drm-intel-next`
 	else
 		tag=$branch-$today
