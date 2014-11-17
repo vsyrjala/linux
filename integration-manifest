@@ -1,0 +1,16 @@
+origin/drm-intel-next-queued afd6275dd12381a7bd3750c125b3b68b5f8b03ca
+	drm/i915: Reinit display irqs and hpd from chv pipe-a power well
+origin/drm-intel-next-fixes 07c338ce98263a5af631b991dd8f96cff6ca2548
+	drm/i915: fix short vs. long hpd detection
+origin/drm-intel-fixes 0485c9dc24ec0939b42ca5104c0373297506b555
+	drm/i915: Kick fbdev before vgacon
+drm-upstream/drm-next d0d6c524bf1d72e6d64134c3a315b77deecc9252
+	Merge branch 'msm-next' of git://people.freedesktop.org/~robclark/linux into drm-next
+drm-upstream/drm-fixes bcfef97398972de555e6e1dbf4dac33f0db38d52
+	Merge tag 'drm/tegra/for-3.18-rc5' of git://people.freedesktop.org/~tagr/linux into drm-fixes
+origin/topic/core-stuff ed9ab9ee4e313c6093a8e7a469a703af62402a81
+	drm/atomic: rip out unnecessary locking checks
+origin/topic/atomic-helpers 321ebf04dc7ab5c54d658f93db0ffe35277664ab
+	drm/atomic: Refcounting for plane_state->fb
+sound-upstream/for-next b8eca77e54525c818f35f51afb64fc13205443a3
+	ALSA: ice1712: consider error value
