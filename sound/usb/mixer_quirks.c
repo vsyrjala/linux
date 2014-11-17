@@ -41,6 +41,7 @@
 #include "usbaudio.h"
 #include "mixer.h"
 #include "mixer_quirks.h"
+#include "mixer_scarlett.h"
 #include "helper.h"
 
 extern struct snd_kcontrol_new *snd_usb_feature_unit_ctl;
@@ -51,13 +52,6 @@ struct std_mono_table {
 	const char *name;
 	snd_kcontrol_tlv_rw_t *tlv_callback;
 };
-
-/* private_free callback */
-static void usb_mixer_elem_free(struct snd_kcontrol *kctl)
-{
-	kfree(kctl->private_data);
-	kctl->private_data = NULL;
-}
 
 /* This function allows for the creation of standard UAC controls.
  * See the quirks for M-Audio FTUs or Ebox-44.
@@ -108,7 +102,7 @@ static int snd_create_std_mono_ctl_offset(struct usb_mixer_interface *mixer,
 
 	/* Set name */
 	snprintf(kctl->id.name, sizeof(kctl->id.name), name);
-	kctl->private_free = usb_mixer_elem_free;
+	kctl->private_free = snd_usb_mixer_elem_free;
 
 	/* set TLV */
 	if (tlv_callback) {
@@ -437,19 +431,9 @@ static void snd_audigy2nx_proc_read(struct snd_info_entry *entry,
 static int snd_emu0204_ch_switch_info(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_info *uinfo)
 {
-	static const char *texts[2] = {"1/2",
-				       "3/4"
-	};
+	static const char * const texts[2] = {"1/2", "3/4"};
 
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
-	uinfo->count = 1;
-	uinfo->value.enumerated.items = 2;
-	if (uinfo->value.enumerated.item > 1)
-		uinfo->value.enumerated.item = 1;
-	strcpy(uinfo->value.enumerated.name,
-		texts[uinfo->value.enumerated.item]);
-
-	return 0;
+	return snd_ctl_enum_info(uinfo, 1, ARRAY_SIZE(texts), texts);
 }
 
 static int snd_emu0204_ch_switch_get(struct snd_kcontrol *kcontrol,
@@ -573,6 +557,131 @@ static int snd_xonar_u1_controls_create(struct usb_mixer_interface *mixer)
 		return err;
 	mixer->xonar_u1_status = 0x05;
 	return 0;
+}
+
+/* Digidesign Mbox 1 clock source switch (internal/spdif) */
+
+static int snd_mbox1_switch_get(struct snd_kcontrol *kctl,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.enumerated.item[0] = kctl->private_value;
+	return 0;
+}
+
+static int snd_mbox1_switch_put(struct snd_kcontrol *kctl,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_usb_audio *chip;
+	struct usb_mixer_interface *mixer;
+	int err;
+	bool cur_val, new_val;
+	unsigned char buff[3];
+
+	cur_val = kctl->private_value;
+	new_val = ucontrol->value.enumerated.item[0];
+
+	mixer = snd_kcontrol_chip(kctl);
+	if (snd_BUG_ON(!mixer))
+		return -EINVAL;
+
+	chip = mixer->chip;
+	if (snd_BUG_ON(!chip))
+		return -EINVAL;
+
+	if (cur_val == new_val)
+		return 0;
+
+	down_read(&chip->shutdown_rwsem);
+	if (chip->shutdown) {
+		err = -ENODEV;
+		goto err;
+	}
+
+	/* Prepare for magic command to toggle clock source */
+	err = snd_usb_ctl_msg(chip->dev,
+				usb_rcvctrlpipe(chip->dev, 0), 0x81,
+				USB_DIR_IN |
+				USB_TYPE_CLASS |
+				USB_RECIP_INTERFACE, 0x00, 0x500, buff, 1);
+	if (err < 0)
+		goto err;
+	err = snd_usb_ctl_msg(chip->dev,
+				usb_rcvctrlpipe(chip->dev, 0), 0x81,
+				USB_DIR_IN |
+				USB_TYPE_CLASS |
+				USB_RECIP_ENDPOINT, 0x100, 0x81, buff, 3);
+	if (err < 0)
+		goto err;
+
+	/* 2 possibilities:	Internal    -> send sample rate
+	 *			S/PDIF sync -> send zeroes
+	 * NB: Sample rate locked to 48kHz on purpose to
+	 *     prevent user from resetting the sample rate
+	 *     while S/PDIF sync is enabled and confusing
+	 *     this configuration.
+	 */
+	if (new_val == 0) {
+		buff[0] = 0x80;
+		buff[1] = 0xbb;
+		buff[2] = 0x00;
+	} else {
+		buff[0] = buff[1] = buff[2] = 0x00;
+	}
+
+	/* Send the magic command to toggle the clock source */
+	err = snd_usb_ctl_msg(chip->dev,
+				usb_sndctrlpipe(chip->dev, 0), 0x1,
+				USB_TYPE_CLASS |
+				USB_RECIP_ENDPOINT, 0x100, 0x81, buff, 3);
+	if (err < 0)
+		goto err;
+	err = snd_usb_ctl_msg(chip->dev,
+				usb_rcvctrlpipe(chip->dev, 0), 0x81,
+				USB_DIR_IN |
+				USB_TYPE_CLASS |
+				USB_RECIP_ENDPOINT, 0x100, 0x81, buff, 3);
+	if (err < 0)
+		goto err;
+	err = snd_usb_ctl_msg(chip->dev,
+				usb_rcvctrlpipe(chip->dev, 0), 0x81,
+				USB_DIR_IN |
+				USB_TYPE_CLASS |
+				USB_RECIP_ENDPOINT, 0x100, 0x2, buff, 3);
+	if (err < 0)
+		goto err;
+	kctl->private_value = new_val;
+
+err:
+	up_read(&chip->shutdown_rwsem);
+	return err < 0 ? err : 1;
+}
+
+static int snd_mbox1_switch_info(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_info *uinfo)
+{
+	static const char *const texts[2] = {
+		"Internal",
+		"S/PDIF"
+	};
+
+	return snd_ctl_enum_info(uinfo, 1, ARRAY_SIZE(texts), texts);
+}
+
+static struct snd_kcontrol_new snd_mbox1_switch = {
+	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.name = "Clock Source",
+	.index = 0,
+	.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+	.info = snd_mbox1_switch_info,
+	.get = snd_mbox1_switch_get,
+	.put = snd_mbox1_switch_put,
+	.private_value = 0
+};
+
+static int snd_mbox1_create_sync_switch(struct usb_mixer_interface *mixer)
+{
+	return snd_ctl_add(mixer->chip->card,
+			snd_ctl_new1(&snd_mbox1_switch, mixer));
 }
 
 /* Native Instruments device quirks */
@@ -735,25 +844,12 @@ struct snd_ftu_eff_switch_priv_val {
 static int snd_ftu_eff_switch_info(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_info *uinfo)
 {
-	static const char *texts[8] = {"Room 1",
-				       "Room 2",
-				       "Room 3",
-				       "Hall 1",
-				       "Hall 2",
-				       "Plate",
-				       "Delay",
-				       "Echo"
+	static const char *const texts[8] = {
+		"Room 1", "Room 2", "Room 3", "Hall 1",
+		"Hall 2", "Plate", "Delay", "Echo"
 	};
 
-	uinfo->type = SNDRV_CTL_ELEM_TYPE_ENUMERATED;
-	uinfo->count = 1;
-	uinfo->value.enumerated.items = 8;
-	if (uinfo->value.enumerated.item > 7)
-		uinfo->value.enumerated.item = 7;
-	strcpy(uinfo->value.enumerated.name,
-		texts[uinfo->value.enumerated.item]);
-
-	return 0;
+	return snd_ctl_enum_info(uinfo, 1, ARRAY_SIZE(texts), texts);
 }
 
 static int snd_ftu_eff_switch_get(struct snd_kcontrol *kctl,
@@ -1661,6 +1757,10 @@ int snd_usb_mixer_apply_create_quirk(struct usb_mixer_interface *mixer)
 		err = snd_microii_controls_create(mixer);
 		break;
 
+	case USB_ID(0x0dba, 0x1000): /* Digidesign Mbox 1 */
+		err = snd_mbox1_create_sync_switch(mixer);
+		break;
+
 	case USB_ID(0x17cc, 0x1011): /* Traktor Audio 6 */
 		err = snd_nativeinstruments_create_mixer(mixer,
 				snd_nativeinstruments_ta6_mixers,
@@ -1676,6 +1776,14 @@ int snd_usb_mixer_apply_create_quirk(struct usb_mixer_interface *mixer)
 	case USB_ID(0x200c, 0x1018): /* Electrix Ebox-44 */
 		/* detection is disabled in mixer_maps.c */
 		err = snd_create_std_mono_table(mixer, ebox44_table);
+		break;
+
+	case USB_ID(0x1235, 0x8012): /* Focusrite Scarlett 6i6 */
+	case USB_ID(0x1235, 0x8002): /* Focusrite Scarlett 8i6 */
+	case USB_ID(0x1235, 0x8004): /* Focusrite Scarlett 18i6 */
+	case USB_ID(0x1235, 0x8014): /* Focusrite Scarlett 18i8 */
+	case USB_ID(0x1235, 0x800c): /* Focusrite Scarlett 18i20 */
+		err = snd_scarlett_controls_create(mixer);
 		break;
 	}
 

@@ -53,11 +53,12 @@ struct usb_mixer_elem_info {
 	int cached;
 	int cache_val[MAX_CHANNELS];
 	u8 initialized;
+	void *private_data;
 };
 
 int snd_usb_create_mixer(struct snd_usb_audio *chip, int ctrlif,
 			 int ignore_error);
-void snd_usb_mixer_disconnect(struct list_head *p);
+void snd_usb_mixer_disconnect(struct usb_mixer_interface *mixer);
 
 void snd_usb_mixer_notify_id(struct usb_mixer_interface *mixer, int unitid);
 
@@ -74,5 +75,13 @@ int snd_usb_mixer_vol_tlv(struct snd_kcontrol *kcontrol, int op_flag,
 int snd_usb_mixer_suspend(struct usb_mixer_interface *mixer);
 int snd_usb_mixer_resume(struct usb_mixer_interface *mixer, bool reset_resume);
 #endif
+
+int snd_usb_set_cur_mix_value(struct usb_mixer_elem_info *cval, int channel,
+                             int index, int value);
+
+int snd_usb_get_cur_mix_value(struct usb_mixer_elem_info *cval,
+                             int channel, int index, int *value);
+
+extern void snd_usb_mixer_elem_free(struct snd_kcontrol *kctl);
 
 #endif /* __USBMIXER_H */
