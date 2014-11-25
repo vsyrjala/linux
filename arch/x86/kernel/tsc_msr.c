@@ -56,6 +56,8 @@ static struct freq_desc freq_desc_tables[] = {
 	{ 6, 0x37, 1, { FREQ_83, FREQ_100, FREQ_133, FREQ_166, 0, 0, 0, 0 } },
 	/* ANN */
 	{ 6, 0x5a, 1, { FREQ_83, FREQ_100, FREQ_133, FREQ_100, 0, 0, 0, 0 } },
+	/* BXT */
+	{ 6, 0x5c, 1, { /* no freq ID on this platform */ } },
 };
 
 static int match_cpu(u8 family, u8 model)
@@ -102,10 +104,21 @@ unsigned long try_msr_calibrate_tsc(void)
 	if (!ratio)
 		goto fail;
 
-	/* Get FSB FREQ ID */
-	rdmsr(MSR_FSB_FREQ, lo, hi);
-	freq_id = lo & 0x7;
-	freq = id_to_freq(cpu_index, freq_id);
+	/*
+	 * On BXT A1 reading the MSR_FSB_FREQ causes a general protection
+	 * fault. Hard-code the frequency 100Mhz which is the SA clock
+	 * frequency.
+	 */
+	if (boot_cpu_data.x86 == 0x6 && boot_cpu_data.x86_model == 0x5c) {
+		freq_id = 0;
+		freq = 100000;
+		set_cpu_cap(&boot_cpu_data, X86_FEATURE_TSC_RELIABLE);
+	} else {
+		/* Get FSB FREQ ID */
+		rdmsr(MSR_FSB_FREQ, lo, hi);
+		freq_id = lo & 0x7;
+		freq = id_to_freq(cpu_index, freq_id);
+	}
 	pr_info("Resolved frequency ID: %u, frequency: %u KHz\n",
 				freq_id, freq);
 	if (!freq)
