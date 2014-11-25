@@ -1665,6 +1665,57 @@ static int tng_serial_setup(struct serial_private *priv,
 	return intel_mid_serial_setup(priv, board, port, idx, index, dma_dev);
 }
 
+#define PCI_DEVICE_ID_INTEL_BXT_UART0	0x0abc
+#define PCI_DEVICE_ID_INTEL_BXT_UART1	0x0abe
+#define PCI_DEVICE_ID_INTEL_BXT_UART2	0x0ac0
+#define PCI_DEVICE_ID_INTEL_BXT_UART3	0x0aee
+
+#define BXT_PRV_CLK			0x200
+#define BXT_PRV_CLK_EN			(1 << 0)
+#define BXT_PRV_CLK_M_VAL_SHIFT		1
+#define BXT_PRV_CLK_N_VAL_SHIFT		16
+#define BXT_PRV_CLK_UPDATE		(1 << 31)
+
+#define BXT_UART_RESET			0x204
+#define BXT_UART_HOST_RESET		0x3
+
+#define BXT_UART_CAP			0x2FC
+#define IDMA_PRESENT			BIT(8)
+
+#define BXT_UART_IC_CLOCK		0x238
+#define BXT_UART_IC_CLOCK_UART		0x3
+
+static void
+bxt_set_termios(struct uart_port *p, struct ktermios *termios,
+		struct ktermios *old)
+{
+	serial8250_do_set_termios(p, termios, old);
+}
+
+static int
+bxt_serial_setup(struct serial_private *priv,
+		 const struct pciserial_board *board,
+		 struct uart_8250_port *port, int idx)
+{
+	int ret;
+
+	ret = pci_default_setup(priv, board, port, idx);
+
+	port->port.iotype = UPIO_MEM32;
+	port->port.type = PORT_16550A;
+	port->port.flags = (port->port.flags | UPF_FIXED_PORT | UPF_FIXED_TYPE);
+	port->port.set_termios = bxt_set_termios;
+	port->port.fifosize = 64;
+	port->tx_loadsz = 64;
+	port->capabilities = UART_CAP_FIFO | UART_CAP_AFE;
+
+	writel(0, port->port.membase + BXT_UART_RESET);
+	writel(BXT_UART_HOST_RESET, port->port.membase + BXT_UART_RESET);
+	writel(BXT_UART_IC_CLOCK_UART, port->port.membase + BXT_UART_IC_CLOCK);
+
+	return ret;
+}
+
 static int
 pci_omegapci_setup(struct serial_private *priv,
 		      const struct pciserial_board *board,
@@ -2061,6 +2112,34 @@ static struct pci_serial_quirk pci_serial_quirks[] __refdata = {
 		.subdevice	= PCI_ANY_ID,
 		.init		= pci_hp_diva_init,
 		.setup		= pci_hp_diva_setup,
+	},
+	{
+		.vendor		= PCI_VENDOR_ID_INTEL,
+		.device		= PCI_DEVICE_ID_INTEL_BXT_UART0,
+		.subvendor	= PCI_ANY_ID,
+		.subdevice	= PCI_ANY_ID,
+		.setup		= bxt_serial_setup,
+	},
+	{
+		.vendor		= PCI_VENDOR_ID_INTEL,
+		.device		= PCI_DEVICE_ID_INTEL_BXT_UART1,
+		.subvendor	= PCI_ANY_ID,
+		.subdevice	= PCI_ANY_ID,
+		.setup		= bxt_serial_setup,
+	},
+	{
+		.vendor		= PCI_VENDOR_ID_INTEL,
+		.device		= PCI_DEVICE_ID_INTEL_BXT_UART2,
+		.subvendor	= PCI_ANY_ID,
+		.subdevice	= PCI_ANY_ID,
+		.setup		= bxt_serial_setup,
+	},
+	{
+		.vendor		= PCI_VENDOR_ID_INTEL,
+		.device		= PCI_DEVICE_ID_INTEL_BXT_UART3,
+		.subvendor	= PCI_ANY_ID,
+		.subdevice	= PCI_ANY_ID,
+		.setup		= bxt_serial_setup,
 	},
 	/*
 	 * Intel
@@ -3049,6 +3128,7 @@ enum pci_board_num_t {
 	pbn_pnw,
 	pbn_tng,
 	pbn_qrk,
+	pbn_bxt,
 	pbn_omegapci,
 	pbn_NETMOS9900_2s_115200,
 	pbn_brcm_trumanage,
@@ -3845,6 +3925,12 @@ static struct pciserial_board pci_boards[] = {
 		.num_ports	= 1,
 		.base_baud	= 2764800,
 		.reg_shift	= 2,
+	},
+	[pbn_bxt] = {
+		.flags		= FL_BASE0,
+		.num_ports	= 1,
+		.base_baud	= 115200,
+		.reg_shift      = 2,
 	},
 	[pbn_omegapci] = {
 		.flags		= FL_BASE0,
@@ -5605,6 +5691,19 @@ static struct pci_device_id serial_pci_tbl[] = {
 	{	PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_QRK_UART,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0,
 		pbn_qrk },
+	/* Intel Broxton */
+	{       PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BXT_UART0,
+		PCI_ANY_ID,  PCI_ANY_ID, 0, 0,
+		pbn_bxt },
+	{       PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BXT_UART1,
+		PCI_ANY_ID,  PCI_ANY_ID, 0, 0,
+		pbn_bxt },
+	{       PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BXT_UART2,
+		PCI_ANY_ID,  PCI_ANY_ID, 0, 0,
+		pbn_bxt },
+	{       PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BXT_UART3,
+		PCI_ANY_ID,  PCI_ANY_ID, 0, 0,
+		pbn_bxt },
 	/*
 	 * Cronyx Omega PCI
 	 */
