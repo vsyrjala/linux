@@ -463,6 +463,8 @@ function setup_dim
 	fi
 	cd maintainer-tools
 	git config remote.origin.url $drm_intel_ssh
+	echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
+	git repack -a -d -l
 	if ! git branch | grep maintainer-tools > /dev/null ; then
 		git checkout -t origin/maintainer-tools
 	fi
@@ -473,6 +475,8 @@ function setup_dim
 	fi
 	cd drm-intel-rerere
 	git config remote.origin.url $drm_intel_ssh
+	echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
+	git repack -a -d -l
 	if ! git branch | grep rerere-cache > /dev/null ; then
 		git checkout -t origin/rerere-cache
 	fi
@@ -484,6 +488,8 @@ function setup_dim
 	cd drm-intel-nightly
 	mkdir -p .git/rr-cache
 	git config remote.origin.url $drm_intel_ssh
+	echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
+	git repack -a -d -l
 	if ! git branch | grep drm-intel-nightly > /dev/null ; then
 		git checkout -t origin/drm-intel-nightly
 	fi
