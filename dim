@@ -148,19 +148,7 @@ function update_linux_next
 
 function check_conflicts
 {
-	if git diff | grep '<<<<<<<' ; then
-		echo conflict found
-		exit 1
-	fi
-	if git diff | grep '=======' ; then
-		echo conflict found
-		exit 1
-	fi
-	if git diff | grep '>>>>>>>' ; then
-		echo conflict found
-		exit 1
-	fi
-	if git diff | grep '|||||||' ; then
+	if git diff | grep '\(<<<<<<<\|=======\|>>>>>>>\||||||||\)' ; then
 		echo conflict found
 		exit 1
 	fi
