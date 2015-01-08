@@ -192,11 +192,12 @@ function update_nightly
 		exit 1
 	fi
 
-	# git fetch returns 128 if there's nothing to be fetched
-	git fetch origin >& /dev/null || true
-	git fetch drm-upstream >& /dev/null || true
-	git fetch sound-upstream >& /dev/null || true
-	git fetch driver-core-upstream >& /dev/null || true
+	for remote in $(echo $nightly_branches | tr " " "\n" | sed 's|/.*$||g' | sort -u); do
+		echo -n "Fetching $remote... "
+		# git fetch returns 128 if there's nothing to be fetched
+		git fetch $remote >& /dev/null || true
+		echo "Done."
+	done
 
 	echo -n "Updating rerere cache... "
 	update_rerere_cache >& /dev/null
