@@ -149,7 +149,9 @@ function update_linux_next
 function check_conflicts
 {
 	if git diff | grep '\(<<<<<<<\|=======\|>>>>>>>\||||||||\)' ; then
-		echo conflict found
+		if [ -n "$1" ]; then
+			echo $*
+		fi
 		exit 1
 	fi
 	true
@@ -195,7 +197,10 @@ function update_nightly
 	git fetch drm-upstream >& /dev/null || true
 	git fetch sound-upstream >& /dev/null || true
 	git fetch driver-core-upstream >& /dev/null || true
-	update_rerere_cache
+
+	echo -n "Updating rerere cache... "
+	update_rerere_cache >& /dev/null
+	echo "Done."
 
 	# merge -fixes
 	for tree in $nightly_branches; do
@@ -208,17 +213,21 @@ function update_nightly
 			sha1=
 		fi
 
+		echo -n "Merging $branch... "
+
 		if [[ -n $sha1 ]] ; then
-			echo Using override sha1: $sha1 for branch $name
+			echo -n "Using override sha1: $sha1... "
 		else
 			sha1=$branch
 		fi
 
 		if [ $first == 1 ] ; then
+			echo "Reset. Done."
 			git reset --hard $sha1 >& /dev/null
 			first=0
 		elif git merge --rerere-autoupdate --ff-only $sha1 >& /dev/null ; then
 			# nothing to do if just fast-forward
+			echo "Fast-forward. Done."
 			true
 		else
 			local fixup_file=$rerere/$integration_branch-$name-fixup.patch
@@ -227,26 +236,31 @@ function update_nightly
 
 			git merge --rerere-autoupdate --no-commit $sha1 >& /dev/null || true
 			if [ -f $fixup_file ] ; then
-				echo applying manual fixup patch for $integration_branch merge ...
+				echo -n "Applying manual fixup patch for $integration_branch merge... "
 				patch -p1 -i $fixup_file
 			fi
-			check_conflicts
+			check_conflicts "Fail: conflict merging $tree"
 			git add -u
 
 			# because we filter out fast-forward merges there will
 			# always be something to commit
-			git commit --no-edit
+			git commit --no-edit --quiet
+			echo "Done."
 		fi
 
 		echo -e "$branch `git rev-parse $sha1`\n\t`git log -1 $sha1 --pretty=format:%s`" >> $specfile
 	done
 
+	echo -n "Adding integration manifest $integration_branch: $time... "
 	mv $specfile integration-manifest
 	git add integration-manifest
-	git commit -m "$integration_branch: $time integration manifest"
+	git commit --quiet -m "$integration_branch: $time integration manifest"
+	echo "Done."
 
-	git push $DRY_RUN origin +HEAD >& /dev/null && echo "$integration_branch branch successfully updated"
+	echo -n "Pushing $integration_branch... "
+	git push $DRY_RUN origin +HEAD >& /dev/null && echo "Done."
 
+	echo -n "Updating rerere cache... "
 	cd $rerere
 	if git branch | grep rerere-cache | grep '\*' >& /dev/null ; then
 		git pull >& /dev/null
@@ -254,13 +268,14 @@ function update_nightly
 		git add *.patch >& /dev/null || true
 		git add rr-cache/* > /dev/null
 		if git commit -m "$time: $integration_branch rerere cache update" >& /dev/null; then
-			echo "new rerere-cache commit"
+			echo -n "New commit. "
 		else
-			echo "nothing changed in the rerere cache"
+			echo -n "Nothing changed. "
 		fi
-		git push $DRY_RUN origin HEAD >& /dev/null && echo "rerere cache successfully updated"
+		echo -n "Pushing rerere cache... "
+		git push $DRY_RUN origin HEAD >& /dev/null && echo "Done."
 	else
-		echo "Branch setup for the rerere-cache is borked"
+		echo "Fail: Branch setup for the rerere-cache is borked."
 	fi
 
 }
