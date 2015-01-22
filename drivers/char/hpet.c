@@ -892,6 +892,19 @@ int hpet_alloc(struct hpet_data *hdp)
 		return -ENODEV;
 	}
 
+	period = (cap & HPET_COUNTER_CLK_PERIOD_MASK) >>
+		HPET_COUNTER_CLK_PERIOD_SHIFT; /* fs, 10^-15 */
+	/*
+	 * HACK: Sunrisepoint A stepping HPET has a bug that reading the
+	 * upper 32 bits of capabilities register returns zero. This is
+	 * supposed to be fixed in B stepping.
+	 */
+	if (!period) {
+		printk(KERN_WARNING "hpet: period is zero, ignoring\n");
+		kfree(hpetp);
+		return -ENODEV;
+	}
+
 	if (last)
 		last->hp_next = hpetp;
 	else
@@ -899,8 +912,6 @@ int hpet_alloc(struct hpet_data *hdp)
 
 	last = hpetp;
 
-	period = (cap & HPET_COUNTER_CLK_PERIOD_MASK) >>
-		HPET_COUNTER_CLK_PERIOD_SHIFT; /* fs, 10^-15 */
 	temp = 1000000000000000uLL; /* 10^15 femtoseconds per second */
 	temp += period >> 1; /* round */
 	do_div(temp, period);
