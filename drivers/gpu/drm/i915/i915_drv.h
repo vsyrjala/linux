@@ -506,7 +506,12 @@ struct drm_i915_error_state {
 	u32 gam_ecochk;
 	u32 gab_ctl;
 	u32 gfx_mode;
-	u32 extra_instdone[I915_NUM_INSTDONE_REG];
+	struct extra_instdone {
+		u32 slice_common;
+		u32 sampler;
+		u32 row;
+	} extra_instdone;
+
 	u64 fence[I915_MAX_NUM_FENCES];
 	struct intel_overlay_error_state *overlay;
 	struct intel_display_error_state *display;
@@ -3224,7 +3229,8 @@ void i915_error_state_get(struct drm_device *dev,
 void i915_error_state_put(struct i915_error_state_file_priv *error_priv);
 void i915_destroy_error_state(struct drm_device *dev);
 
-void i915_get_extra_instdone(struct drm_device *dev, uint32_t *instdone);
+void i915_get_extra_instdone(struct drm_device *dev,
+			     struct extra_instdone *extra);
 const char *i915_cache_level_str(struct drm_i915_private *i915, int type);
 
 /* i915_cmd_parser.c */

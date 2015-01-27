@@ -388,9 +388,11 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 	for (i = 0; i < dev_priv->num_fence_regs; i++)
 		err_printf(m, "  fence[%d] = %08llx\n", i, error->fence[i]);
 
-	for (i = 0; i < ARRAY_SIZE(error->extra_instdone); i++)
-		err_printf(m, "  INSTDONE_%d: 0x%08x\n", i,
-			   error->extra_instdone[i]);
+	err_printf(m, "  SC_INSTDONE (slice common): 0x%08x\n",
+		   error->extra_instdone.slice_common);
+	err_printf(m, "  SAMPLER_INTSDONE: 0x%08x\n",
+		   error->extra_instdone.sampler);
+	err_printf(m, "  ROW_INSTDONE: 0x%08x\n", error->extra_instdone.row);
 
 	if (INTEL_INFO(dev)->gen >= 6) {
 		err_printf(m, "ERROR: 0x%08x\n", error->error);
@@ -1237,7 +1239,7 @@ static void i915_capture_reg_state(struct drm_i915_private *dev_priv,
 	error->eir = I915_READ(EIR);
 	error->pgtbl_er = I915_READ(PGTBL_ER);
 
-	i915_get_extra_instdone(dev, error->extra_instdone);
+	i915_get_extra_instdone(dev, &error->extra_instdone);
 }
 
 static void i915_error_capture_msg(struct drm_device *dev,
@@ -1386,20 +1388,26 @@ const char *i915_cache_level_str(struct drm_i915_private *i915, int type)
 }
 
 /* NB: please notice the memset */
-void i915_get_extra_instdone(struct drm_device *dev, uint32_t *instdone)
+void i915_get_extra_instdone(struct drm_device *dev,
+			     struct extra_instdone *extra)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	memset(instdone, 0, sizeof(*instdone) * I915_NUM_INSTDONE_REG);
 
-	if (IS_GEN2(dev) || IS_GEN3(dev))
-		instdone[0] = I915_READ(INSTDONE);
-	else if (IS_GEN4(dev) || IS_GEN5(dev) || IS_GEN6(dev)) {
-		instdone[0] = I915_READ(INSTDONE_I965);
-		instdone[1] = I915_READ(INSTDONE1);
-	} else if (INTEL_INFO(dev)->gen >= 7) {
-		instdone[0] = I915_READ(GEN7_INSTDONE_1);
-		instdone[1] = I915_READ(GEN7_SC_INSTDONE);
-		instdone[2] = I915_READ(GEN7_SAMPLER_INSTDONE);
-		instdone[3] = I915_READ(GEN7_ROW_INSTDONE);
+	switch (INTEL_INFO(dev)->gen) {
+	default:
+	case 7:
+	case 6:
+	case 5:
+	case 4:
+		extra->slice_common = I915_READ(GEN7_SC_INSTDONE);
+		extra->sampler = I915_READ(GEN7_SAMPLER_INSTDONE);
+		extra->row = I915_READ(GEN7_ROW_INSTDONE);
+		/* INSTDONE1 is read by the ring collection */
+		break;
+	case 3:
+	case 2:
+		/* HACK: Using the wrong struct member */
+		extra->slice_common = I915_READ(INSTDONE);
+		break;
 	}
 }

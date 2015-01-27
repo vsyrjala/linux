@@ -2237,19 +2237,27 @@ static void i915_reset_and_wakeup(struct drm_device *dev)
 	}
 }
 
+static inline void
+i915_err_print_instdone(struct extra_instdone *extra)
+{
+	pr_err("  INSTDONE (common): 0x%08x\n", extra->slice_common);
+	pr_err("  INSTDONE (sampler): 0x%08x\n", extra->sampler);
+	pr_err("  INSTDONE (row): 0x%08x\n", extra->row);
+}
+
 static void i915_report_and_clear_eir(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	uint32_t instdone[I915_NUM_INSTDONE_REG];
+	struct extra_instdone extra = {0};
 	u32 eir = I915_READ(EIR);
-	int pipe, i;
+	int pipe;
 
 	if (!eir)
 		return;
 
 	pr_err("render error detected, EIR: 0x%08x\n", eir);
 
-	i915_get_extra_instdone(dev, instdone);
+	i915_get_extra_instdone(dev, &extra);
 
 	if (IS_G4X(dev)) {
 		if (eir & (GM45_ERROR_MEM_PRIV | GM45_ERROR_CP_PRIV)) {
@@ -2257,8 +2265,7 @@ static void i915_report_and_clear_eir(struct drm_device *dev)
 
 			pr_err("  IPEIR: 0x%08x\n", I915_READ(IPEIR_I965));
 			pr_err("  IPEHR: 0x%08x\n", I915_READ(IPEHR_I965));
-			for (i = 0; i < ARRAY_SIZE(instdone); i++)
-				pr_err("  INSTDONE_%d: 0x%08x\n", i, instdone[i]);
+			i915_err_print_instdone(&extra);
 			pr_err("  INSTPS: 0x%08x\n", I915_READ(INSTPS));
 			pr_err("  ACTHD: 0x%08x\n", I915_READ(ACTHD_I965));
 			I915_WRITE(IPEIR_I965, ipeir);
@@ -2293,8 +2300,7 @@ static void i915_report_and_clear_eir(struct drm_device *dev)
 	if (eir & I915_ERROR_INSTRUCTION) {
 		pr_err("instruction error\n");
 		pr_err("  INSTPM: 0x%08x\n", I915_READ(INSTPM));
-		for (i = 0; i < ARRAY_SIZE(instdone); i++)
-			pr_err("  INSTDONE_%d: 0x%08x\n", i, instdone[i]);
+		i915_err_print_instdone(&extra);
 		if (INTEL_INFO(dev)->gen < 4) {
 			u32 ipeir = I915_READ(IPEIR);
 
