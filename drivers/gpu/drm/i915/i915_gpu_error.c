@@ -341,7 +341,7 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_error_state *error = error_priv->error;
 	struct drm_i915_error_object *obj;
-	int i, j, offset, elt;
+	int i, j, slice, subslice, offset, elt;
 	int max_hangcheck_score;
 
 	if (!error) {
@@ -390,9 +390,14 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 
 	err_printf(m, "  SC_INSTDONE (slice common): 0x%08x\n",
 		   error->extra_instdone.slice_common);
-	err_printf(m, "  SAMPLER_INTSDONE: 0x%08x\n",
-		   error->extra_instdone.sampler);
-	err_printf(m, "  ROW_INSTDONE: 0x%08x\n", error->extra_instdone.row);
+	for (slice = 0; slice < 3; slice++) {
+		for (subslice = 0; subslice < 3; subslice++) {
+			err_printf(m, "  SAMPLER_INTSDONE: 0x%08x\n",
+				   error->extra_instdone.sampler[slice][subslice]);
+			err_printf(m, "  ROW_INSTDONE: 0x%08x\n",
+				   error->extra_instdone.row[slice][subslice]);
+		}
+	}
 
 	if (INTEL_INFO(dev)->gen >= 6) {
 		err_printf(m, "ERROR: 0x%08x\n", error->error);
@@ -1387,21 +1392,51 @@ const char *i915_cache_level_str(struct drm_i915_private *i915, int type)
 	}
 }
 
+static inline uint32_t instdone_read(struct drm_i915_private *dev_priv,
+				     int slice, int subslice, uint32_t offset)
+{
+	/* XXX: The MCR register should be locked, but since we are only using
+	 * it for debug/error state, it's not terribly important to synchronize
+	 * it properly. */
+	uint32_t ret, tmp = I915_READ(GEN8_MCR_SELECTOR);
+	I915_WRITE(GEN8_MCR_SELECTOR,
+		   tmp | GEN8_MCR_SLICE(slice) | GEN8_MCR_SUBSLICE(subslice));
+	ret = I915_READ(offset);
+	I915_WRITE(GEN8_MCR_SELECTOR, tmp);
+
+	return ret;
+}
+
 /* NB: please notice the memset */
 void i915_get_extra_instdone(struct drm_device *dev,
 			     struct extra_instdone *extra)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	int slice, subslice;
 
 	switch (INTEL_INFO(dev)->gen) {
-	default:
+	case 9:
+	case 8:
+		for (slice = 0; slice < 3; slice++) {
+			for (subslice = 0; subslice < 3; subslice++) {
+				extra->sampler[slice][subslice] =
+					instdone_read(dev_priv,
+						      slice, subslice, GEN7_SAMPLER_INSTDONE);
+				extra->sampler[slice][subslice] =
+					instdone_read(dev_priv,
+						      slice, subslice, GEN7_ROW_INSTDONE);
+			}
+		}
+		extra->slice_common = I915_READ(GEN7_SC_INSTDONE);
+		break;
 	case 7:
 	case 6:
 	case 5:
 	case 4:
+	default:
 		extra->slice_common = I915_READ(GEN7_SC_INSTDONE);
-		extra->sampler = I915_READ(GEN7_SAMPLER_INSTDONE);
-		extra->row = I915_READ(GEN7_ROW_INSTDONE);
+		extra->sampler[0][0] = I915_READ(GEN7_SAMPLER_INSTDONE);
+		extra->row[0][0] = I915_READ(GEN7_ROW_INSTDONE);
 		/* INSTDONE1 is read by the ring collection */
 		break;
 	case 3:

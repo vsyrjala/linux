@@ -2241,8 +2241,8 @@ static inline void
 i915_err_print_instdone(struct extra_instdone *extra)
 {
 	pr_err("  INSTDONE (common): 0x%08x\n", extra->slice_common);
-	pr_err("  INSTDONE (sampler): 0x%08x\n", extra->sampler);
-	pr_err("  INSTDONE (row): 0x%08x\n", extra->row);
+	pr_err("  INSTDONE (sampler): 0x%08x\n", extra->sampler[0][0]);
+	pr_err("  INSTDONE (row): 0x%08x\n", extra->row[0][0]);
 }
 
 static void i915_report_and_clear_eir(struct drm_device *dev)

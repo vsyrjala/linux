@@ -1570,6 +1570,9 @@ enum skl_disp_power_wells {
 #define GEN7_SAMPLER_INSTDONE	0x0e160
 #define GEN7_ROW_INSTDONE	0x0e164
 #define I915_NUM_INSTDONE_REG	4
+#define GEN8_MCR_SELECTOR	0xfdc
+#define   GEN8_MCR_SLICE(slice) ((slice) << 26 & 0x3)
+#define   GEN8_MCR_SUBSLICE(slice) ((slice) << 24 & 0x3)
 #define RING_IPEIR(base)	((base)+0x64)
 #define RING_IPEHR(base)	((base)+0x68)
 #define RING_INSTDONE(base)	((base)+0x6c)

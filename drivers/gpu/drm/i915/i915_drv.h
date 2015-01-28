@@ -508,8 +508,8 @@ struct drm_i915_error_state {
 	u32 gfx_mode;
 	struct extra_instdone {
 		u32 slice_common;
-		u32 sampler;
-		u32 row;
+		u32 sampler[3][3];
+		u32 row[3][3];
 	} extra_instdone;
 
 	u64 fence[I915_MAX_NUM_FENCES];
