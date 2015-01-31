@@ -102,6 +102,16 @@ DRY_RUN=
 DRY=
 FORCE=
 
+function warn_or_fail
+{
+	if [[ $FORCE ]] ; then
+		echo WARNING: $1, but continuing
+	else
+		echo ERROR: $1, aborting
+		exit 1
+	fi
+}
+
 while getopts df opt; do
 	case "$opt" in
 		d)
@@ -177,12 +187,7 @@ function update_nightly
 
 	cd $rerere
 	if [[ `git status --porcelain | grep -v "^[ ?][ ?]" | wc -l` -gt 0 ]]; then
-		if [[ $FORCE ]] ; then
-			echo WARNING: -nightly configuration file not commited, but continuing with rebuild
-		else
-			echo ERROR: -nightly configuration file not commited, aborting
-			exit 1
-		fi
+		warn_or_fail "-nightly configuration file not commited"
 	fi
 
 	source $rerere/nightly.conf
@@ -334,12 +339,7 @@ function dim_checkpatch
 	git --no-pager log --oneline -1 $commit
 	git show $commit --pretty=email | scripts/checkpatch.pl -q --strict - || true
 	if git show $commit | grep '^\+.*\WBUG' > /dev/null; then
-		if [[ $FORCE ]] ; then
-			echo "WARNING: New BUG macro added"
-		else
-			echo "ERROR: New BUG macro added"
-			return 1
-		fi
+		warn_or_fail "New BUG macro added"
 	fi
 	git show $commit | grep '^\+.*drm_i915_private_t' > /dev/null && echo "WARNING: New drm_i915_private_t added" || true
 }
