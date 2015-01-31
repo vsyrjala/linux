@@ -726,6 +726,43 @@ case "$subcommand" in
 		fi
 
 		;;
+	create-branch)
+		if [[ "x$1" = "x" ]]; then
+			echo "usage: $0 $subcommand branch [commit-ish]"
+			exit 1
+		fi
+		branch=$1
+		if [[ "x$2" = "x" ]]; then
+			start=HEAD
+		else
+			start=$2
+		fi
+		git branch $branch $start
+		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$branch --set-upstream
+		cd $DIM_PREFIX/drm-intel-rerere
+		echo "nightly_branches=\"\$nightly_branches origin/$branch\"" \
+			>> nightly.conf
+		git add nightly.conf
+		git commit --quiet -m "Adding $branch to -nightly"
+		;;
+	remove-branch)
+		if [[ "x$1" = "x" ]]; then
+			echo "usage: $0 $subcommand branch"
+			exit 1
+		fi
+		branch=$1
+		if ! git branch -d $branch ; then
+			warn_or_fail "Can't remove $branch in working repo"
+		fi
+		cd $DIM_PREFIX/drm-intel-nightly
+		git push $DRY_RUN origin --delete $branch
+		git fetch origin --prune
+		cd $DIM_PREFIX/drm-intel-rerere
+		full_branch="origin/$branch"
+		sed -e "/${full_branch//\//\\\/}/d" -i nightly.conf
+		git add nightly.conf
+		git commit --quiet -m "Deleted $branch and removed from -nightly"
+		;;
 	checker)
 		rm drivers/gpu/drm/i915/*.o &> /dev/null || true
 		rm drivers/gpu/drm/i915/*.ko &> /dev/null || true
@@ -922,6 +959,17 @@ pull request).
 checker
 -------
 Run sparse on the kernel.
+
+create-branch *branch* [*commit-ish*]
+-------------------------------------
+
+Create a new topic branch with the given name. Note that topic/ is not
+automatically prepended. The branch starts at HEAD or the given commit-ish.
+
+remove-branch *branch*
+----------------------
+
+Remove the given topic branch.
 
 help
 ----
