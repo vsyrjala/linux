@@ -190,6 +190,10 @@ function update_nightly
 		warn_or_fail "-nightly configuration file not commited"
 	fi
 
+	echo -n "Updating rerere cache and nightly.conf... "
+	update_rerere_cache >& /dev/null
+	echo "Done."
+
 	source $rerere/nightly.conf
 
 	cd $DIM_PREFIX/$integration_branch
@@ -204,10 +208,6 @@ function update_nightly
 		git fetch $remote >& /dev/null || true
 		echo "Done."
 	done
-
-	echo -n "Updating rerere cache... "
-	update_rerere_cache >& /dev/null
-	echo "Done."
 
 	# merge -fixes
 	for tree in $nightly_branches; do
