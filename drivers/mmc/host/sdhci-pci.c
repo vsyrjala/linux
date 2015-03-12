@@ -327,6 +327,11 @@ static void spt_read_drive_strength(struct sdhci_host *host)
 	if (t != 0x200 && t != 0x300)
 		return;
 
+	if (t == 0x200) {
+		host->quirks2 &= ~SDHCI_QUIRK2_CAPS_BIT63_FOR_HS400;
+		return;
+	}
+
 	sdhci_pci_spt_drive_strength = 0x10 | ((val >> 12) & 0xf);
 }
 
