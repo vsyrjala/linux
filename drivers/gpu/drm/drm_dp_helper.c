@@ -496,6 +496,27 @@ static int drm_dp_i2c_retry_count(const struct drm_dp_aux_msg *msg,
 	return DIV_ROUND_UP(i2c_len, aux_len + AUX_RETRY_INTERVAL);
 }
 
+static void drm_dp_i2c_msg_set_request(struct drm_dp_aux_msg *msg,
+				       const struct i2c_msg *i2c_msg)
+{
+	msg->request = (i2c_msg->flags & I2C_M_RD) ?
+		DP_AUX_I2C_READ : DP_AUX_I2C_WRITE;
+	msg->request |= DP_AUX_I2C_MOT;
+}
+
+static void drm_dp_i2c_msg_write_status_update(struct drm_dp_aux_msg *msg)
+{
+	/*
+	 * In case of i2c defer or short i2c ack reply to a write,
+	 * we need to switch to WRITE_STATUS_UPDATE to drain the
+	 * rest of the message
+	 */
+	if ((msg->request & ~DP_AUX_I2C_MOT) == DP_AUX_I2C_WRITE) {
+		msg->request &= DP_AUX_I2C_MOT;
+		msg->request |= DP_AUX_I2C_WRITE_STATUS_UPDATE;
+	}
+}
+
 /*
  * FIXME currently assumes 10 kHz as some real world devices seem
  * to require it. We should query/set the speed via DPCD if supported.
@@ -576,6 +597,8 @@ static int drm_dp_i2c_do_msg(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg)
 			 * Both native ACK and I2C ACK replies received. We
 			 * can assume the transfer was successful.
 			 */
+			if (ret != msg->size)
+				drm_dp_i2c_msg_write_status_update(msg);
 			return ret;
 
 		case DP_AUX_I2C_REPLY_NACK:
@@ -593,6 +616,7 @@ static int drm_dp_i2c_do_msg(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg)
 			if (defer_i2c < 7)
 				defer_i2c++;
 			usleep_range(AUX_RETRY_INTERVAL, AUX_RETRY_INTERVAL + 100);
+			drm_dp_i2c_msg_write_status_update(msg);
 			continue;
 
 		default:
@@ -658,10 +682,7 @@ static int drm_dp_i2c_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs,
 
 	for (i = 0; i < num; i++) {
 		msg.address = msgs[i].addr;
-		msg.request = (msgs[i].flags & I2C_M_RD) ?
-			DP_AUX_I2C_READ :
-			DP_AUX_I2C_WRITE;
-		msg.request |= DP_AUX_I2C_MOT;
+		drm_dp_i2c_msg_set_request(&msg, &msgs[i]);
 		/* Send a bare address packet to start the transaction.
 		 * Zero sized messages specify an address only (bare
 		 * address) transaction.
@@ -669,6 +690,13 @@ static int drm_dp_i2c_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs,
 		msg.buffer = NULL;
 		msg.size = 0;
 		err = drm_dp_i2c_do_msg(aux, &msg);
+
+		/*
+		 * Reset msg.request in case in case it got
+		 * changed into a WRITE_STATUS_UPDATE.
+		 */
+		drm_dp_i2c_msg_set_request(&msg, &msgs[i]);
+
 		if (err < 0)
 			break;
 		/* We want each transaction to be as large as possible, but
@@ -681,6 +709,13 @@ static int drm_dp_i2c_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs,
 			msg.size = min(transfer_size, msgs[i].len - j);
 
 			err = drm_dp_i2c_drain_msg(aux, &msg);
+
+			/*
+			 * Reset msg.request in case in case it got
+			 * changed into a WRITE_STATUS_UPDATE.
+			 */
+			drm_dp_i2c_msg_set_request(&msg, &msgs[i]);
+
 			if (err < 0)
 				break;
 			transfer_size = err;
