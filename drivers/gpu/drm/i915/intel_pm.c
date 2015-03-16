@@ -373,6 +373,12 @@ static bool _intel_set_memory_cxsr(struct drm_i915_private *dev_priv, bool enabl
 			       _MASKED_BIT_DISABLE(INSTPM_SELF_EN);
 		I915_WRITE(INSTPM, val);
 		POSTING_READ(INSTPM);
+	} else if (IS_I85X(dev_priv)) {
+		was_enabled = I915_READ(MI_STATE) & MI_SR_EN;
+		val = enable ? _MASKED_BIT_ENABLE(MI_SR_EN) :
+			       _MASKED_BIT_DISABLE(MI_SR_EN);
+		I915_WRITE(MI_STATE, val);
+		POSTING_READ(MI_STATE);
 	} else {
 		return false;
 	}

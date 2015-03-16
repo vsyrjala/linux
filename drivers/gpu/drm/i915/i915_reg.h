@@ -2281,6 +2281,7 @@ enum skl_disp_power_wells {
 #define   MI_ARB_DISPLAY_PRIORITY_B_A		(1 << 0)	/* display B > display A */
 
 #define MI_STATE	_MMIO(0x20e4) /* gen2 only */
+#define   MI_SR_EN				(3 << 3) /* 85x only */
 #define   MI_AGPBUSY_INT_EN			(1 << 1) /* 85x only */
 #define   MI_AGPBUSY_830_MODE			(1 << 0) /* 85x only */
 

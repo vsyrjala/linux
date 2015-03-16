@@ -1767,6 +1767,8 @@ static int i915_sr_status(struct seq_file *m, void *unused)
 		sr_enabled = I915_READ(DSPFW3) & PINEVIEW_SELF_REFRESH_EN;
 	else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
 		sr_enabled = I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN;
+	else if (IS_I85X(dev_priv))
+		sr_enabled = I915_READ(MI_STATE) & MI_SR_EN;
 
 	intel_display_power_put(dev_priv, POWER_DOMAIN_INIT);
 	intel_runtime_pm_put(dev_priv);
