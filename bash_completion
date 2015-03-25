@@ -10,7 +10,7 @@ _dim ()
 	cmds="$cmds apply-branch apply-queued aq apply-fixes af magic-patch mp"
 	cmds="$cmds apply-igt ai"
 	cmds="$cmds magic-rebase-resolve mrr"
-	cmds="$cmds apply-resolved ar tc check-patch cp"
+	cmds="$cmds apply-resolved ar tc check-patch cp cherry-pick"
 	cmds="$cmds pull-request pull-request-fixes pull-request-topic update-next"
 	cmds="$cmds create-branch remove-branch"
 	cmds="$cmds tag-next checker"

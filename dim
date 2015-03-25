@@ -633,6 +633,20 @@ case "$subcommand" in
 	check-patch|cp)
 		dim_checkrange $@
 		;;
+	cherry-pick)
+		if [[ "x$1" = "x" ]]; then
+			echo "usage: $0 $subcommand commit-ish"
+			exit 1
+		fi
+		sha=`git rev-parse $1`
+		sha_short=${sha:0:8}
+
+		# need latest -nightly
+		git fetch $DIM_DRM_INTEL_REMOTE
+		echo Possible fixup patches for your cherry-pick:
+		git log --grep=$sha_short --pretty=oneline $sha..$DIM_DRM_INTEL_REMOTE/drm-intel-nightly
+		$DRY git cherry-pick $1
+		;;
 	pull-request)
 		if [[ "x$1" = "x" || "x$2" = "x" ]]; then
 			echo "usage: $0 $subcommand branch upstream"
@@ -805,7 +819,7 @@ drm-intel maintainer script.
 OPTIONS
 =======
 
--v		Verbose output.
+-f		Ignore some error conditions.
 -d		Dry run.
 
 COMMANDS
@@ -906,6 +920,14 @@ check-patch|cp [*commit-ish* [.. *commit-ish*]]
 Runs the given commit range commit-ish..commit-ish through the check tools. If
 no commit-ish is passed, defaults to HEAD^..HEAD. If one commit-ish is passed
 instead of a range, the range commit-ish..HEAD is used.
+
+cherry-pick *commit-ish* [*git cherry-pick arguments*]
+------------------------------------------------------
+
+Improved git cherry-pick version which also scans drm-intel-nightly for any
+mentions of the cherry-picked commit. Should be used when cherry-pick from -next
+to -fixes to make sure all fixups are picked, too. In dry-run mode/-d only the
+patch list is generated.
 
 pull-request *branch* *upstream*
 --------------------------------
