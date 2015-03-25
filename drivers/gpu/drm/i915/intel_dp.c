@@ -2355,6 +2355,8 @@ static void chv_post_disable_dp(struct intel_encoder *encoder)
 
 	intel_dp_link_down(intel_dp);
 
+	chv_powergate_phy_lanes(encoder, 0xf);
+
 	mutex_lock(&dev_priv->dpio_lock);
 
 	/* Propagate soft reset to data lane reset */
@@ -2500,6 +2502,12 @@ static void intel_enable_dp(struct intel_encoder *encoder)
 
 	if (IS_VALLEYVIEW(dev))
 		vlv_init_panel_power_sequencer(intel_dp);
+
+	if (IS_CHERRYVIEW(dev)) {
+		/* FIXME deal with lane reversal */
+		lane_mask = 0xf & ~((1 << intel_dp->lane_count) - 1);
+		chv_powergate_phy_lanes(encoder, lane_mask);
+	}
 
 	intel_dp_enable_port(intel_dp);
 

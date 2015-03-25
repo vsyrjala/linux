@@ -1345,6 +1345,8 @@ void intel_runtime_pm_put(struct drm_i915_private *dev_priv);
 
 void intel_display_set_init_power(struct drm_i915_private *dev, bool enable);
 
+void chv_powergate_phy_lanes(struct intel_encoder *encoder, unsigned int mask);
+
 /* intel_pm.c */
 void intel_init_clock_gating(struct drm_device *dev);
 void intel_suspend_hw(struct drm_device *dev);

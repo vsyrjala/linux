@@ -924,6 +924,9 @@ static void intel_disable_hdmi(struct intel_encoder *encoder)
 		I915_WRITE(intel_hdmi->hdmi_reg, temp);
 		POSTING_READ(intel_hdmi->hdmi_reg);
 	}
+
+	if (IS_CHERRYVIEW(dev))
+		chv_powergate_phy_lanes(encoder, 0xf);
 }
 
 static int hdmi_portclock_limit(struct intel_hdmi *hdmi, bool respect_dvi_limit)
@@ -1641,6 +1644,8 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 	intel_hdmi->set_infoframes(&encoder->base,
 				   intel_crtc->config->has_hdmi_sink,
 				   adjusted_mode);
+
+	chv_powergate_phy_lanes(encoder, 0x0);
 
 	intel_enable_hdmi(encoder);
 

@@ -949,6 +949,9 @@ static void chv_dpio_cmn_power_well_enable(struct drm_i915_private *dev_priv,
 
 	dev_priv->chv_phy_control |= PHY_COM_LANE_RESET_DEASSERT(phy);
 	I915_WRITE(DISPLAY_PHY_CONTROL, dev_priv->chv_phy_control);
+
+	DRM_DEBUG_KMS("Enabled DPIO PHY%d (DPIO_PHY_CONTROL=0x%08x)\n",
+		      phy, dev_priv->chv_phy_control);
 }
 
 static void chv_dpio_cmn_power_well_disable(struct drm_i915_private *dev_priv,
@@ -961,10 +964,15 @@ static void chv_dpio_cmn_power_well_disable(struct drm_i915_private *dev_priv,
 
 	if (power_well->data == PUNIT_POWER_WELL_DPIO_CMN_BC) {
 		phy = DPIO_PHY0;
+		dev_priv->chv_phy_control |=
+			PHY_CH_POWER_DOWN_OVRD(0xf, phy, DPIO_CH0) |
+			PHY_CH_POWER_DOWN_OVRD(0xf, phy, DPIO_CH1);
 		assert_pll_disabled(dev_priv, PIPE_A);
 		assert_pll_disabled(dev_priv, PIPE_B);
 	} else {
 		phy = DPIO_PHY1;
+		dev_priv->chv_phy_control |=
+			PHY_CH_POWER_DOWN_OVRD(0xf, phy, DPIO_CH0);
 		assert_pll_disabled(dev_priv, PIPE_C);
 	}
 
@@ -972,6 +980,25 @@ static void chv_dpio_cmn_power_well_disable(struct drm_i915_private *dev_priv,
 	I915_WRITE(DISPLAY_PHY_CONTROL, dev_priv->chv_phy_control);
 
 	vlv_set_power_well(dev_priv, power_well, false);
+
+	DRM_DEBUG_KMS("Disabled DPIO PHY%d (DPIO_PHY_CONTROL=0x%08x)\n",
+		      phy, dev_priv->chv_phy_control);
+}
+
+void chv_powergate_phy_lanes(struct intel_encoder *encoder, unsigned int mask)
+{
+	struct drm_device *dev = encoder->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	enum dpio_phy phy = DPIO_PHY(intel_crtc->pipe);
+	enum dpio_channel ch = vlv_dport_to_channel(enc_to_dig_port(&encoder->base));
+
+	dev_priv->chv_phy_control &= ~PHY_CH_POWER_DOWN_OVRD(0xf, phy, ch);
+	dev_priv->chv_phy_control |= PHY_CH_POWER_DOWN_OVRD(mask, phy, ch);
+	I915_WRITE(DISPLAY_PHY_CONTROL, dev_priv->chv_phy_control);
+
+	DRM_DEBUG_KMS("Power gating DPIO PHY%d CH%d lanes 0x%x (DPIO_PHY_CONTROL=0x%08x)\n",
+		      phy, ch, mask, dev_priv->chv_phy_control);
 }
 
 static bool chv_pipe_power_well_enabled(struct drm_i915_private *dev_priv,
@@ -1718,19 +1745,53 @@ static void chv_phy_control_init(struct drm_i915_private *dev_priv)
 	 * DISPLAY_PHY_CONTROL can get corrupted if read. As a
 	 * workaround never ever read DISPLAY_PHY_CONTROL, and
 	 * instead maintain a shadow copy ourselves. Use the actual
-	 * power well state to reconstruct the expected initial
-	 * value.
+	 * power well state and lane status to reconstruct the
+	 * expected initial value.
 	 */
 	dev_priv->chv_phy_control =
+		PHY_CH_POWER_DOWN_OVRD_EN(DPIO_PHY0, DPIO_CH0) |
+		PHY_CH_POWER_DOWN_OVRD_EN(DPIO_PHY0, DPIO_CH1) |
+		PHY_CH_POWER_DOWN_OVRD_EN(DPIO_PHY1, DPIO_CH0) |
 		PHY_LDO_SEQ_DELAY(PHY_LDO_DELAY_600NS, DPIO_PHY0) |
 		PHY_LDO_SEQ_DELAY(PHY_LDO_DELAY_600NS, DPIO_PHY1) |
 		PHY_CH_POWER_MODE(PHY_CH_SU_PSR, DPIO_PHY0, DPIO_CH0) |
 		PHY_CH_POWER_MODE(PHY_CH_SU_PSR, DPIO_PHY0, DPIO_CH1) |
 		PHY_CH_POWER_MODE(PHY_CH_SU_PSR, DPIO_PHY1, DPIO_CH0);
-	if (cmn_bc->ops->is_enabled(dev_priv, cmn_bc))
+
+	if (cmn_bc->ops->is_enabled(dev_priv, cmn_bc)) {
+		uint32_t status = I915_READ(DPLL(PIPE_A));
+		unsigned int mask;
+
+		mask = status & DPLL_PORTB_READY_MASK;
+		dev_priv->chv_phy_control |=
+			PHY_CH_POWER_DOWN_OVRD(mask, DPIO_PHY0, DPIO_CH0);
+		mask = (status & DPLL_PORTC_READY_MASK) >> 4;
+		dev_priv->chv_phy_control |=
+			PHY_CH_POWER_DOWN_OVRD(mask, DPIO_PHY0, DPIO_CH1);
+
 		dev_priv->chv_phy_control |= PHY_COM_LANE_RESET_DEASSERT(DPIO_PHY0);
-	if (cmn_d->ops->is_enabled(dev_priv, cmn_d))
+	} else {
+		dev_priv->chv_phy_control |=
+			PHY_CH_POWER_DOWN_OVRD(0xf, DPIO_PHY0, DPIO_CH0) |
+			PHY_CH_POWER_DOWN_OVRD(0xf, DPIO_PHY0, DPIO_CH1);
+	}
+
+	if (cmn_d->ops->is_enabled(dev_priv, cmn_d)) {
+		uint32_t status = I915_READ(DPIO_PHY_STATUS);
+		unsigned int mask;
+
+		mask = status & DPLL_PORTD_READY_MASK;
+		dev_priv->chv_phy_control |=
+			PHY_CH_POWER_DOWN_OVRD(mask, DPIO_PHY1, DPIO_CH0);
+
 		dev_priv->chv_phy_control |= PHY_COM_LANE_RESET_DEASSERT(DPIO_PHY1);
+	} else {
+		dev_priv->chv_phy_control |=
+			PHY_CH_POWER_DOWN_OVRD(0xf, DPIO_PHY1, DPIO_CH0);
+	}
+
+	DRM_DEBUG_KMS("Initial DPIO_PHY_CONTROL=0x%08x\n",
+		      dev_priv->chv_phy_control);
 }
 
 static void vlv_cmnlane_wa(struct drm_i915_private *dev_priv)
