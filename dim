@@ -141,19 +141,24 @@ function update_linux_next
 	cd $DIM_PREFIX/drm-intel-nightly
 
 	# always update drm-intel-fixes
+	echo -n "Pushing drm-intel-fixes to for-linux-next-fixes... "
 	git push $DRY_RUN origin +origin/drm-intel-fixes:for-linux-next-fixes >& /dev/null
+	echo "Done."
 
 	if git merge-base --is-ancestor origin/drm-intel-next-fixes origin/drm-intel-fixes ; then
 		# -fixes has caught up to dinf, i.e. we're out of the merge
 		# window. Push the next queue.
-		echo Pushing dinq to for-linux-next
+		echo -n "Out of merge window. Pushing drm-intel-next-queued to for-linux-next... "
 		git push $DRY_RUN origin +origin/drm-intel-next-queued:for-linux-next >& /dev/null
+		echo "Done."
 	else
 		# dinf is ahead of -fixes, i.e. drm-next has already closed for
 		# the next merge window and we've started to gather new fixes
 		# for the current -next cycle. Push dinf
-		echo Pushing dinf to for-linux-next
+
+		echo -n "Pushing drm-intel-next-fixes to for-linux-next... "
 		git push $DRY_RUN origin +origin/drm-intel-next-fixes:for-linux-next >& /dev/null
+		echo "Done."
 	fi
 }
 
