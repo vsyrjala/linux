@@ -572,6 +572,13 @@ case "$subcommand" in
 		cd $DIM_PREFIX/drm-intel-nightly
 		cat > `cat .fixup_file_path`
 		;;
+	push-branch)
+		if [[ "x$1" = "x" ]]; then
+			echo "usage: $0 $subcommand branch"
+			exit 1
+		fi
+		dim_push "$@"
+		;;
 	push-queued|pq)
 		dim_push drm-intel-next-queued "$@"
 		;;
@@ -857,6 +864,9 @@ cat-to-fixup
 
 Pipes stdin into the fixup patch file for the current -nightly merge.
 
+push-branch branch [*git push arguments*]
+-----------------------------------------
+
 push-fixes|pf [*git push arguments*]
 ------------------------------------
 
@@ -866,9 +876,9 @@ push-next-fixes|pnf [*git push arguments*]
 push-queued|pq [*git push arguments*]
 -------------------------------------
 
-Updates the drm-intel-fixes, drm-intel-next-fixes or the drm-intel-next-queued
-branch respectively. Complains if that's not the current branch, assuming that
-patches got merged to the wrong branch.
+Updates the named branch, or drm-intel-fixes, drm-intel-next-fixes or the
+drm-intel-next-queued branch respectively. Complains if that's not the current
+branch, assuming that patches got merged to the wrong branch.
 
 co
 --
