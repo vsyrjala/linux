@@ -1,0 +1,20 @@
+origin/drm-intel-fixes 5df0582bf036bb5f9a8ad8db5884fe13a55347d1
+	drm/i915/vlv: remove wait for previous GFX clk disable request
+drm-upstream/drm-fixes f4274e23fb16721449d973ed607505f5dbdcd2df
+	Merge tag 'drm-intel-fixes-2015-04-08' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes 6e0aa8018f9c676b115b7ca6c20a056fc57c68a9
+	Merge tag 'v4.0-rc6' into drm-intel-next
+origin/drm-intel-next-queued 47b26b288ce8cb3e1348f83b2193851bafb6a957
+	drm/i915: Remove vestigal DRI1 ring quiescing code
+drm-upstream/drm-next 1d8ac08d498d579aae36221a80b4b724b2f52f39
+	Merge tag 'v4.0-rc7' into drm-next
+origin/topic/atomic-core 9469244d869623e8b54d9f3d4d00737e377af273
+	drm/atomic: Fix potential use of state after free
+sound-upstream/for-next cfd3113e7cc358b68bc13a2ca46714b0445dca56
+	ALSA: hda/via - Add missing stream_pm ops setup
+origin/topic/drm-misc 0578be680c6623ad6515b60a0b41ec70ebc1f204
+	drm: Use kref_put_mutex in drm_gem_object_unreference_unlocked
+origin/topic/drm-fixes 6f67f0f928e25aca99796974834f60ffc309c5fd
+	drm: fix drm_mode_getconnector() locking imbalance regression
+origin/topic/bxt-stage1 1c046bc1db49e5a42e5c4167ac42cee4c1725a37
+	drm/i915/bxt: Support BXT in SSEU device status dump
