@@ -221,7 +221,7 @@ DEFINE_EVENT(i915_page_table_entry, i915_page_table_entry_alloc,
 
 DECLARE_EVENT_CLASS(i915_page_table_entry_update,
 	TP_PROTO(struct i915_address_space *vm, u32 pde,
-		 struct i915_page_table_entry *pt, u32 first, u32 count, u32 bits),
+		 struct i915_page_table *pt, u32 first, u32 count, u32 bits),
 	TP_ARGS(vm, pde, pt, first, count, bits),
 
 	TP_STRUCT__entry(
@@ -251,7 +251,7 @@ DECLARE_EVENT_CLASS(i915_page_table_entry_update,
 
 DEFINE_EVENT(i915_page_table_entry_update, i915_page_table_entry_map,
 	TP_PROTO(struct i915_address_space *vm, u32 pde,
-		 struct i915_page_table_entry *pt, u32 first, u32 count, u32 bits),
+		 struct i915_page_table *pt, u32 first, u32 count, u32 bits),
 	TP_ARGS(vm, pde, pt, first, count, bits)
 );
 
@@ -595,33 +595,6 @@ TRACE_EVENT(i915_gem_request_wait_begin,
 DEFINE_EVENT(i915_gem_request, i915_gem_request_wait_end,
 	    TP_PROTO(struct drm_i915_gem_request *req),
 	    TP_ARGS(req)
-);
-
-DECLARE_EVENT_CLASS(i915_ring,
-	    TP_PROTO(struct intel_engine_cs *ring),
-	    TP_ARGS(ring),
-
-	    TP_STRUCT__entry(
-			     __field(u32, dev)
-			     __field(u32, ring)
-			     ),
-
-	    TP_fast_assign(
-			   __entry->dev = ring->dev->primary->index;
-			   __entry->ring = ring->id;
-			   ),
-
-	    TP_printk("dev=%u, ring=%u", __entry->dev, __entry->ring)
-);
-
-DEFINE_EVENT(i915_ring, i915_ring_wait_begin,
-	    TP_PROTO(struct intel_engine_cs *ring),
-	    TP_ARGS(ring)
-);
-
-DEFINE_EVENT(i915_ring, i915_ring_wait_end,
-	    TP_PROTO(struct intel_engine_cs *ring),
-	    TP_ARGS(ring)
 );
 
 TRACE_EVENT(i915_flip_request,

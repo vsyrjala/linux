@@ -471,7 +471,6 @@ struct intel_crtc {
 
 	struct intel_initial_plane_config plane_config;
 	struct intel_crtc_state *config;
-	struct intel_crtc_state *new_config;
 	bool new_enabled;
 
 	/* reset counter value when the last flip was submitted */
@@ -855,7 +854,6 @@ void hsw_fdi_link_train(struct drm_crtc *crtc);
 void intel_ddi_init(struct drm_device *dev, enum port port);
 enum port intel_ddi_get_encoder_port(struct intel_encoder *intel_encoder);
 bool intel_ddi_get_hw_state(struct intel_encoder *encoder, enum pipe *pipe);
-int intel_ddi_get_cdclk_freq(struct drm_i915_private *dev_priv);
 void intel_ddi_pll_init(struct drm_device *dev);
 void intel_ddi_enable_transcoder_func(struct drm_crtc *crtc);
 void intel_ddi_disable_transcoder_func(struct drm_i915_private *dev_priv,
@@ -1264,7 +1262,10 @@ void gen6_update_ring_freq(struct drm_device *dev);
 void gen6_rps_busy(struct drm_i915_private *dev_priv);
 void gen6_rps_reset_ei(struct drm_i915_private *dev_priv);
 void gen6_rps_idle(struct drm_i915_private *dev_priv);
-void gen6_rps_boost(struct drm_i915_private *dev_priv);
+void gen6_rps_boost(struct drm_i915_private *dev_priv,
+		    struct drm_i915_file_private *file_priv);
+void intel_queue_rps_boost_for_request(struct drm_device *dev,
+				       struct drm_i915_gem_request *rq);
 void ilk_wm_get_hw_state(struct drm_device *dev);
 void skl_wm_get_hw_state(struct drm_device *dev);
 void skl_ddb_get_hw_state(struct drm_i915_private *dev_priv,
