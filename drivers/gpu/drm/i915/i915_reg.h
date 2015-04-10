@@ -671,8 +671,6 @@ enum skl_disp_power_wells {
 #define   FB_FMAX_VMIN_FREQ_LO_MASK		0xf8000000
 
 #define VLV_CZ_CLOCK_TO_MILLI_SEC		100000
-#define VLV_RP_UP_EI_THRESHOLD			90
-#define VLV_RP_DOWN_EI_THRESHOLD		70
 
 /* vlv2 north clock has */
 #define CCK_FUSE_REG				0x8
@@ -1788,16 +1786,16 @@ enum skl_disp_power_wells {
 #define   GMBUS_RATE_400KHZ	(2<<8) /* reserved on Pineview */
 #define   GMBUS_RATE_1MHZ	(3<<8) /* reserved on Pineview */
 #define   GMBUS_HOLD_EXT	(1<<7) /* 300ns hold time, rsvd on Pineview */
-#define   GMBUS_PORT_DISABLED	0
-#define   GMBUS_PORT_SSC	1
-#define   GMBUS_PORT_VGADDC	2
-#define   GMBUS_PORT_PANEL	3
-#define   GMBUS_PORT_DPD_CHV	3 /* HDMID_CHV */
-#define   GMBUS_PORT_DPC	4 /* HDMIC */
-#define   GMBUS_PORT_DPB	5 /* SDVO, HDMIB */
-#define   GMBUS_PORT_DPD	6 /* HDMID */
-#define   GMBUS_PORT_RESERVED	7 /* 7 reserved */
-#define   GMBUS_NUM_PORTS	(GMBUS_PORT_DPD - GMBUS_PORT_SSC + 1)
+#define   GMBUS_PIN_DISABLED	0
+#define   GMBUS_PIN_SSC		1
+#define   GMBUS_PIN_VGADDC	2
+#define   GMBUS_PIN_PANEL	3
+#define   GMBUS_PIN_DPD_CHV	3 /* HDMID_CHV */
+#define   GMBUS_PIN_DPC		4 /* HDMIC */
+#define   GMBUS_PIN_DPB		5 /* SDVO, HDMIB */
+#define   GMBUS_PIN_DPD		6 /* HDMID */
+#define   GMBUS_PIN_RESERVED	7 /* 7 reserved */
+#define   GMBUS_NUM_PINS	7 /* including 0 */
 #define GMBUS1			0x5104 /* command/status */
 #define   GMBUS_SW_CLR_INT	(1<<31)
 #define   GMBUS_SW_RDY		(1<<30)
@@ -2747,6 +2745,20 @@ enum skl_disp_power_wells {
 #define   EDP_PSR_DEBUG_MASK_LPSP	(1<<27)
 #define   EDP_PSR_DEBUG_MASK_MEMUP	(1<<26)
 #define   EDP_PSR_DEBUG_MASK_HPD	(1<<25)
+
+#define EDP_PSR2_CTL			0x6f900
+#define   EDP_PSR2_ENABLE		(1<<31)
+#define   EDP_SU_TRACK_ENABLE		(1<<30)
+#define   EDP_MAX_SU_DISABLE_TIME(t)	((t)<<20)
+#define   EDP_MAX_SU_DISABLE_TIME_MASK	(0x1f<<20)
+#define   EDP_PSR2_TP2_TIME_500		(0<<8)
+#define   EDP_PSR2_TP2_TIME_100		(1<<8)
+#define   EDP_PSR2_TP2_TIME_2500	(2<<8)
+#define   EDP_PSR2_TP2_TIME_50		(3<<8)
+#define   EDP_PSR2_TP2_TIME_MASK	(3<<8)
+#define   EDP_PSR2_FRAME_BEFORE_SU_SHIFT 4
+#define   EDP_PSR2_FRAME_BEFORE_SU_MASK	(0xf<<4)
+#define   EDP_PSR2_IDLE_MASK		0xf
 
 /* VGA port control */
 #define ADPA			0x61100
@@ -4854,7 +4866,9 @@ enum skl_disp_power_wells {
 #define   PLANE_CTL_ALPHA_HW_PREMULTIPLY	(  3 << 4)
 #define   PLANE_CTL_ROTATE_MASK			0x3
 #define   PLANE_CTL_ROTATE_0			0x0
+#define   PLANE_CTL_ROTATE_90			0x1
 #define   PLANE_CTL_ROTATE_180			0x2
+#define   PLANE_CTL_ROTATE_270			0x3
 #define _PLANE_STRIDE_1_A			0x70188
 #define _PLANE_STRIDE_2_A			0x70288
 #define _PLANE_STRIDE_3_A			0x70388
@@ -5321,6 +5335,9 @@ enum skl_disp_power_wells {
 
 #define GEN7_L3SQCREG1				0xB010
 #define  VLV_B0_WA_L3SQCREG1_VALUE		0x00D30000
+
+#define GEN8_L3SQCREG1				0xB100
+#define  BDW_WA_L3SQCREG1_DEFAULT		0x784000
 
 #define GEN7_L3CNTLREG1				0xB01C
 #define  GEN7_WA_FOR_GEN7_L3_CONTROL			0x3C47FF8C
@@ -6085,6 +6102,7 @@ enum skl_disp_power_wells {
 # define GEN6_CSUNIT_CLOCK_GATE_DISABLE			(1 << 7)
 
 #define GEN6_UCGCTL2				0x9404
+# define GEN6_VFUNIT_CLOCK_GATE_DISABLE			(1 << 31)
 # define GEN7_VDSUNIT_CLOCK_GATE_DISABLE		(1 << 30)
 # define GEN7_TDLUNIT_CLOCK_GATE_DISABLE		(1 << 22)
 # define GEN6_RCZUNIT_CLOCK_GATE_DISABLE		(1 << 13)
@@ -6182,6 +6200,8 @@ enum skl_disp_power_wells {
 #define GEN9_MEDIA_PG_IDLE_HYSTERESIS		0xA0C4
 #define GEN9_RENDER_PG_IDLE_HYSTERESIS		0xA0C8
 #define GEN9_PG_ENABLE				0xA210
+#define GEN9_RENDER_PG_ENABLE			(1<<0)
+#define GEN9_MEDIA_PG_ENABLE			(1<<1)
 
 #define VLV_CHICKEN_3				(VLV_DISPLAY_BASE + 0x7040C)
 #define  PIXEL_OVERLAP_CNT_MASK			(3 << 30)

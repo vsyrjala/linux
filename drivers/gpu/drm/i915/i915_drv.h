@@ -56,7 +56,7 @@
 
 #define DRIVER_NAME		"i915"
 #define DRIVER_DESC		"Intel Graphics"
-#define DRIVER_DATE		"20150327"
+#define DRIVER_DATE		"20150410"
 
 #undef WARN_ON
 /* Many gcc seem to no see through this and fall over :( */
@@ -455,6 +455,7 @@ struct drm_i915_error_state {
 		u32 semaphore_seqno[I915_NUM_RINGS - 1];
 
 		/* Register state */
+		u32 start;
 		u32 tail;
 		u32 head;
 		u32 ctl;
@@ -881,6 +882,8 @@ struct i915_psr {
 	struct delayed_work work;
 	unsigned busy_frontbuffer_bits;
 	bool link_standby;
+	bool psr2_support;
+	bool aux_frame_sync;
 };
 
 enum intel_pch {
@@ -1034,11 +1037,16 @@ struct intel_gen6_power_mgmt {
 	u8 rp0_freq;		/* Non-overclocked max frequency. */
 	u32 cz_freq;
 
+	u8 up_threshold; /* Current %busy required to uplock */
+	u8 down_threshold; /* Current %busy required to downclock */
+
 	int last_adj;
 	enum { LOW_POWER, BETWEEN, HIGH_POWER } power;
 
 	bool enabled;
 	struct delayed_work delayed_resume_work;
+	struct list_head clients;
+	unsigned boosts;
 
 	/* manual wa residency calculations */
 	struct intel_rps_ei up_ei, down_ei;
@@ -1136,11 +1144,6 @@ struct intel_l3_parity {
 	int which_slice;
 };
 
-struct i915_gem_batch_pool {
-	struct drm_device *dev;
-	struct list_head cache_list;
-};
-
 struct i915_gem_mm {
 	/** Memory allocator for GTT stolen memory */
 	struct drm_mm stolen;
@@ -1153,13 +1156,6 @@ struct i915_gem_mm {
 	 * (presumably uncached) pages still attached.
 	 */
 	struct list_head unbound_list;
-
-	/*
-	 * A pool of objects to use as shadow copies of client batch buffers
-	 * when the command parser is enabled. Prevents the client from
-	 * modifying the batch contents after software parsing.
-	 */
-	struct i915_gem_batch_pool batch_pool;
 
 	/** Usable portion of the GTT for GEM */
 	unsigned long stolen_base; /* limited to low memory (32-bit) */
@@ -1563,7 +1559,9 @@ struct i915_virtual_gpu {
 
 struct drm_i915_private {
 	struct drm_device *dev;
-	struct kmem_cache *slab;
+	struct kmem_cache *objects;
+	struct kmem_cache *vmas;
+	struct kmem_cache *requests;
 
 	const struct intel_device_info info;
 
@@ -1575,8 +1573,7 @@ struct drm_i915_private {
 
 	struct i915_virtual_gpu vgpu;
 
-	struct intel_gmbus gmbus[GMBUS_NUM_PORTS];
-
+	struct intel_gmbus gmbus[GMBUS_NUM_PINS];
 
 	/** gmbus_mutex protects against concurrent usage of the single hw gmbus
 	 * controller on different i2c buses. */
@@ -1815,19 +1812,17 @@ struct drm_i915_private {
 
 	/* Abstract the submission mechanism (legacy ringbuffer or execlists) away */
 	struct {
-		int (*do_execbuf)(struct drm_device *dev, struct drm_file *file,
-				  struct intel_engine_cs *ring,
-				  struct intel_context *ctx,
-				  struct drm_i915_gem_execbuffer2 *args,
-				  struct list_head *vmas,
-				  struct drm_i915_gem_object *batch_obj,
-				  u64 exec_start, u32 flags);
+		int (*execbuf_submit)(struct drm_device *dev, struct drm_file *file,
+				      struct intel_engine_cs *ring,
+				      struct intel_context *ctx,
+				      struct drm_i915_gem_execbuffer2 *args,
+				      struct list_head *vmas,
+				      struct drm_i915_gem_object *batch_obj,
+				      u64 exec_start, u32 flags);
 		int (*init_rings)(struct drm_device *dev);
 		void (*cleanup_ring)(struct intel_engine_cs *ring);
 		void (*stop_ring)(struct intel_engine_cs *ring);
 	} gt;
-
-	uint32_t request_uniq;
 
 	/*
 	 * NOTE: This is the dri1/ums dungeon, don't add stuff here. Your patch
@@ -1917,7 +1912,7 @@ struct drm_i915_gem_object {
 	/** Used in execbuf to temporarily hold a ref */
 	struct list_head obj_exec_link;
 
-	struct list_head batch_pool_list;
+	struct list_head batch_pool_link;
 
 	/**
 	 * This is set if the object is on the active lists (has pending
@@ -1986,6 +1981,10 @@ struct drm_i915_gem_object {
 
 	struct sg_table *pages;
 	int pages_pin_count;
+	struct get_page {
+		struct scatterlist *sg;
+		int last;
+	} get_page;
 
 	/* prime dma-buf support */
 	void *dma_buf_vmapping;
@@ -2046,6 +2045,7 @@ struct drm_i915_gem_request {
 	struct kref ref;
 
 	/** On Which ring this request was generated */
+	struct drm_i915_private *i915;
 	struct intel_engine_cs *ring;
 
 	/** GEM sequence number associated with this request. */
@@ -2093,8 +2093,6 @@ struct drm_i915_gem_request {
 	/** process identifier submitting this request */
 	struct pid *pid;
 
-	uint32_t uniq;
-
 	/**
 	 * The ELSP only accepts two elements at a time, so we queue
 	 * context/tail pairs on a given queue (ring->execlist_queue) until the
@@ -2116,6 +2114,8 @@ struct drm_i915_gem_request {
 
 };
 
+int i915_gem_request_alloc(struct intel_engine_cs *ring,
+			   struct intel_context *ctx);
 void i915_gem_request_free(struct kref *req_ref);
 
 static inline uint32_t
@@ -2143,6 +2143,19 @@ i915_gem_request_unreference(struct drm_i915_gem_request *req)
 	kref_put(&req->ref, i915_gem_request_free);
 }
 
+static inline void
+i915_gem_request_unreference__unlocked(struct drm_i915_gem_request *req)
+{
+	struct drm_device *dev;
+
+	if (!req)
+		return;
+
+	dev = req->ring->dev;
+	if (kref_put_mutex(&req->ref, i915_gem_request_free, &dev->struct_mutex))
+		mutex_unlock(&dev->struct_mutex);
+}
+
 static inline void i915_gem_request_assign(struct drm_i915_gem_request **pdst,
 					   struct drm_i915_gem_request *src)
 {
@@ -2168,12 +2181,13 @@ struct drm_i915_file_private {
 	struct {
 		spinlock_t lock;
 		struct list_head request_list;
-		struct delayed_work idle_work;
 	} mm;
 	struct idr context_idr;
 
-	atomic_t rps_wait_boost;
-	struct  intel_engine_cs *bsd_ring;
+	struct list_head rps_boost;
+	struct intel_engine_cs *bsd_ring;
+
+	unsigned rps_boosts;
 };
 
 /*
@@ -2520,6 +2534,13 @@ void intel_uncore_forcewake_get(struct drm_i915_private *dev_priv,
 				enum forcewake_domains domains);
 void intel_uncore_forcewake_put(struct drm_i915_private *dev_priv,
 				enum forcewake_domains domains);
+/* Like above but the caller must manage the uncore.lock itself.
+ * Must be used with I915_READ_FW and friends.
+ */
+void intel_uncore_forcewake_get__locked(struct drm_i915_private *dev_priv,
+					enum forcewake_domains domains);
+void intel_uncore_forcewake_put__locked(struct drm_i915_private *dev_priv,
+					enum forcewake_domains domains);
 void assert_forcewakes_inactive(struct drm_i915_private *dev_priv);
 static inline bool intel_vgpu_active(struct drm_device *dev)
 {
@@ -2641,15 +2662,32 @@ int i915_gem_obj_prepare_shmem_read(struct drm_i915_gem_object *obj,
 				    int *needs_clflush);
 
 int __must_check i915_gem_object_get_pages(struct drm_i915_gem_object *obj);
-static inline struct page *i915_gem_object_get_page(struct drm_i915_gem_object *obj, int n)
+
+static inline int __sg_page_count(struct scatterlist *sg)
 {
-	struct sg_page_iter sg_iter;
-
-	for_each_sg_page(obj->pages->sgl, &sg_iter, obj->pages->nents, n)
-		return sg_page_iter_page(&sg_iter);
-
-	return NULL;
+	return sg->length >> PAGE_SHIFT;
 }
+
+static inline struct page *
+i915_gem_object_get_page(struct drm_i915_gem_object *obj, int n)
+{
+	if (WARN_ON(n >= obj->base.size >> PAGE_SHIFT))
+		return NULL;
+
+	if (n < obj->get_page.last) {
+		obj->get_page.sg = obj->pages->sgl;
+		obj->get_page.last = 0;
+	}
+
+	while (obj->get_page.last + __sg_page_count(obj->get_page.sg) <= n) {
+		obj->get_page.last += __sg_page_count(obj->get_page.sg++);
+		if (unlikely(sg_is_chain(obj->get_page.sg)))
+			obj->get_page.sg = sg_chain_ptr(obj->get_page.sg);
+	}
+
+	return nth_page(sg_page(obj->get_page.sg), n - obj->get_page.last);
+}
+
 static inline void i915_gem_object_pin_pages(struct drm_i915_gem_object *obj)
 {
 	BUG_ON(obj->pages == NULL);
@@ -2992,6 +3030,7 @@ int i915_verify_lists(struct drm_device *dev);
 /* i915_debugfs.c */
 int i915_debugfs_init(struct drm_minor *minor);
 void i915_debugfs_cleanup(struct drm_minor *minor);
+int i915_debugfs_connector_add(struct drm_connector *connector);
 #ifdef CONFIG_DEBUG_FS
 void intel_display_crc_init(struct drm_device *dev);
 #else
@@ -3021,13 +3060,6 @@ void i915_destroy_error_state(struct drm_device *dev);
 void i915_get_extra_instdone(struct drm_device *dev, uint32_t *instdone);
 const char *i915_cache_level_str(struct drm_i915_private *i915, int type);
 
-/* i915_gem_batch_pool.c */
-void i915_gem_batch_pool_init(struct drm_device *dev,
-			      struct i915_gem_batch_pool *pool);
-void i915_gem_batch_pool_fini(struct i915_gem_batch_pool *pool);
-struct drm_i915_gem_object*
-i915_gem_batch_pool_get(struct i915_gem_batch_pool *pool, size_t size);
-
 /* i915_cmd_parser.c */
 int i915_cmd_parser_get_version(void);
 int i915_cmd_parser_init_ring(struct intel_engine_cs *ring);
@@ -3051,13 +3083,11 @@ void i915_teardown_sysfs(struct drm_device *dev_priv);
 /* intel_i2c.c */
 extern int intel_setup_gmbus(struct drm_device *dev);
 extern void intel_teardown_gmbus(struct drm_device *dev);
-static inline bool intel_gmbus_is_port_valid(unsigned port)
-{
-	return (port >= GMBUS_PORT_SSC && port <= GMBUS_PORT_DPD);
-}
+extern bool intel_gmbus_is_valid_pin(struct drm_i915_private *dev_priv,
+				     unsigned int pin);
 
-extern struct i2c_adapter *intel_gmbus_get_adapter(
-		struct drm_i915_private *dev_priv, unsigned port);
+extern struct i2c_adapter *
+intel_gmbus_get_adapter(struct drm_i915_private *dev_priv, unsigned int pin);
 extern void intel_gmbus_set_speed(struct i2c_adapter *adapter, int speed);
 extern void intel_gmbus_force_bit(struct i2c_adapter *adapter, bool force_bit);
 static inline bool intel_gmbus_is_forced_bit(struct i2c_adapter *adapter)
@@ -3202,6 +3232,17 @@ int intel_freq_opcode(struct drm_i915_private *dev_priv, int val);
 
 #define POSTING_READ(reg)	(void)I915_READ_NOTRACE(reg)
 #define POSTING_READ16(reg)	(void)I915_READ16_NOTRACE(reg)
+
+/* These are untraced mmio-accessors that are only valid to be used inside
+ * criticial sections inside IRQ handlers where forcewake is explicitly
+ * controlled.
+ * Think twice, and think again, before using these.
+ * Note: Should only be used between intel_uncore_forcewake_irqlock() and
+ * intel_uncore_forcewake_irqunlock().
+ */
+#define I915_READ_FW(reg__) readl(dev_priv->regs + (reg__))
+#define I915_WRITE_FW(reg__, val__) writel(val__, dev_priv->regs + (reg__))
+#define POSTING_READ_FW(reg__) (void)I915_READ_FW(reg__)
 
 /* "Broadcast RGB" property */
 #define INTEL_BROADCAST_RGB_AUTO 0

@@ -985,8 +985,7 @@ static void ironlake_rps_change_irq_handler(struct drm_device *dev)
 	return;
 }
 
-static void notify_ring(struct drm_device *dev,
-			struct intel_engine_cs *ring)
+static void notify_ring(struct intel_engine_cs *ring)
 {
 	if (!intel_ring_initialized(ring))
 		return;
@@ -1049,7 +1048,7 @@ static u32 vlv_wa_c0_ei(struct drm_i915_private *dev_priv, u32 pm_iir)
 	if (pm_iir & GEN6_PM_RP_DOWN_EI_EXPIRED) {
 		if (!vlv_c0_above(dev_priv,
 				  &dev_priv->rps.down_ei, &now,
-				  VLV_RP_DOWN_EI_THRESHOLD))
+				  dev_priv->rps.down_threshold))
 			events |= GEN6_PM_RP_DOWN_THRESHOLD;
 		dev_priv->rps.down_ei = now;
 	}
@@ -1057,7 +1056,7 @@ static u32 vlv_wa_c0_ei(struct drm_i915_private *dev_priv, u32 pm_iir)
 	if (pm_iir & GEN6_PM_RP_UP_EI_EXPIRED) {
 		if (vlv_c0_above(dev_priv,
 				 &dev_priv->rps.up_ei, &now,
-				 VLV_RP_UP_EI_THRESHOLD))
+				 dev_priv->rps.up_threshold))
 			events |= GEN6_PM_RP_UP_THRESHOLD;
 		dev_priv->rps.up_ei = now;
 	}
@@ -1095,21 +1094,20 @@ static void gen6_pm_rps_work(struct work_struct *work)
 	pm_iir |= vlv_wa_c0_ei(dev_priv, pm_iir);
 
 	adj = dev_priv->rps.last_adj;
+	new_delay = dev_priv->rps.cur_freq;
 	if (pm_iir & GEN6_PM_RP_UP_THRESHOLD) {
 		if (adj > 0)
 			adj *= 2;
-		else {
-			/* CHV needs even encode values */
-			adj = IS_CHERRYVIEW(dev_priv->dev) ? 2 : 1;
-		}
-		new_delay = dev_priv->rps.cur_freq + adj;
-
+		else /* CHV needs even encode values */
+			adj = IS_CHERRYVIEW(dev_priv) ? 2 : 1;
 		/*
 		 * For better performance, jump directly
 		 * to RPe if we're below it.
 		 */
-		if (new_delay < dev_priv->rps.efficient_freq)
+		if (new_delay < dev_priv->rps.efficient_freq - adj) {
 			new_delay = dev_priv->rps.efficient_freq;
+			adj = 0;
+		}
 	} else if (pm_iir & GEN6_PM_RP_DOWN_TIMEOUT) {
 		if (dev_priv->rps.cur_freq > dev_priv->rps.efficient_freq)
 			new_delay = dev_priv->rps.efficient_freq;
@@ -1119,23 +1117,21 @@ static void gen6_pm_rps_work(struct work_struct *work)
 	} else if (pm_iir & GEN6_PM_RP_DOWN_THRESHOLD) {
 		if (adj < 0)
 			adj *= 2;
-		else {
-			/* CHV needs even encode values */
-			adj = IS_CHERRYVIEW(dev_priv->dev) ? -2 : -1;
-		}
-		new_delay = dev_priv->rps.cur_freq + adj;
+		else /* CHV needs even encode values */
+			adj = IS_CHERRYVIEW(dev_priv) ? -2 : -1;
 	} else { /* unknown event */
-		new_delay = dev_priv->rps.cur_freq;
+		adj = 0;
 	}
+
+	dev_priv->rps.last_adj = adj;
 
 	/* sysfs frequency interfaces may have snuck in while servicing the
 	 * interrupt
 	 */
+	new_delay += adj;
 	new_delay = clamp_t(int, new_delay,
 			    dev_priv->rps.min_freq_softlimit,
 			    dev_priv->rps.max_freq_softlimit);
-
-	dev_priv->rps.last_adj = new_delay - dev_priv->rps.cur_freq;
 
 	intel_set_rps(dev_priv->dev, new_delay);
 
@@ -1251,9 +1247,9 @@ static void ilk_gt_irq_handler(struct drm_device *dev,
 {
 	if (gt_iir &
 	    (GT_RENDER_USER_INTERRUPT | GT_RENDER_PIPECTL_NOTIFY_INTERRUPT))
-		notify_ring(dev, &dev_priv->ring[RCS]);
+		notify_ring(&dev_priv->ring[RCS]);
 	if (gt_iir & ILK_BSD_USER_INTERRUPT)
-		notify_ring(dev, &dev_priv->ring[VCS]);
+		notify_ring(&dev_priv->ring[VCS]);
 }
 
 static void snb_gt_irq_handler(struct drm_device *dev,
@@ -1263,11 +1259,11 @@ static void snb_gt_irq_handler(struct drm_device *dev,
 
 	if (gt_iir &
 	    (GT_RENDER_USER_INTERRUPT | GT_RENDER_PIPECTL_NOTIFY_INTERRUPT))
-		notify_ring(dev, &dev_priv->ring[RCS]);
+		notify_ring(&dev_priv->ring[RCS]);
 	if (gt_iir & GT_BSD_USER_INTERRUPT)
-		notify_ring(dev, &dev_priv->ring[VCS]);
+		notify_ring(&dev_priv->ring[VCS]);
 	if (gt_iir & GT_BLT_USER_INTERRUPT)
-		notify_ring(dev, &dev_priv->ring[BCS]);
+		notify_ring(&dev_priv->ring[BCS]);
 
 	if (gt_iir & (GT_BLT_CS_ERROR_INTERRUPT |
 		      GT_BSD_CS_ERROR_INTERRUPT |
@@ -1278,86 +1274,72 @@ static void snb_gt_irq_handler(struct drm_device *dev,
 		ivybridge_parity_error_irq_handler(dev, gt_iir);
 }
 
-static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
-				       struct drm_i915_private *dev_priv,
+static irqreturn_t gen8_gt_irq_handler(struct drm_i915_private *dev_priv,
 				       u32 master_ctl)
 {
-	struct intel_engine_cs *ring;
-	u32 rcs, bcs, vcs;
-	uint32_t tmp = 0;
 	irqreturn_t ret = IRQ_NONE;
 
 	if (master_ctl & (GEN8_GT_RCS_IRQ | GEN8_GT_BCS_IRQ)) {
-		tmp = I915_READ(GEN8_GT_IIR(0));
+		u32 tmp = I915_READ_FW(GEN8_GT_IIR(0));
 		if (tmp) {
-			I915_WRITE(GEN8_GT_IIR(0), tmp);
+			I915_WRITE_FW(GEN8_GT_IIR(0), tmp);
 			ret = IRQ_HANDLED;
 
-			rcs = tmp >> GEN8_RCS_IRQ_SHIFT;
-			ring = &dev_priv->ring[RCS];
-			if (rcs & GT_RENDER_USER_INTERRUPT)
-				notify_ring(dev, ring);
-			if (rcs & GT_CONTEXT_SWITCH_INTERRUPT)
-				intel_lrc_irq_handler(ring);
+			if (tmp & (GT_CONTEXT_SWITCH_INTERRUPT << GEN8_RCS_IRQ_SHIFT))
+				intel_lrc_irq_handler(&dev_priv->ring[RCS]);
+			if (tmp & (GT_RENDER_USER_INTERRUPT << GEN8_RCS_IRQ_SHIFT))
+				notify_ring(&dev_priv->ring[RCS]);
 
-			bcs = tmp >> GEN8_BCS_IRQ_SHIFT;
-			ring = &dev_priv->ring[BCS];
-			if (bcs & GT_RENDER_USER_INTERRUPT)
-				notify_ring(dev, ring);
-			if (bcs & GT_CONTEXT_SWITCH_INTERRUPT)
-				intel_lrc_irq_handler(ring);
+			if (tmp & (GT_CONTEXT_SWITCH_INTERRUPT << GEN8_BCS_IRQ_SHIFT))
+				intel_lrc_irq_handler(&dev_priv->ring[BCS]);
+			if (tmp & (GT_RENDER_USER_INTERRUPT << GEN8_BCS_IRQ_SHIFT))
+				notify_ring(&dev_priv->ring[BCS]);
 		} else
 			DRM_ERROR("The master control interrupt lied (GT0)!\n");
 	}
 
 	if (master_ctl & (GEN8_GT_VCS1_IRQ | GEN8_GT_VCS2_IRQ)) {
-		tmp = I915_READ(GEN8_GT_IIR(1));
+		u32 tmp = I915_READ_FW(GEN8_GT_IIR(1));
 		if (tmp) {
-			I915_WRITE(GEN8_GT_IIR(1), tmp);
+			I915_WRITE_FW(GEN8_GT_IIR(1), tmp);
 			ret = IRQ_HANDLED;
 
-			vcs = tmp >> GEN8_VCS1_IRQ_SHIFT;
-			ring = &dev_priv->ring[VCS];
-			if (vcs & GT_RENDER_USER_INTERRUPT)
-				notify_ring(dev, ring);
-			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
-				intel_lrc_irq_handler(ring);
+			if (tmp & (GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VCS1_IRQ_SHIFT))
+				intel_lrc_irq_handler(&dev_priv->ring[VCS]);
+			if (tmp & (GT_RENDER_USER_INTERRUPT << GEN8_VCS1_IRQ_SHIFT))
+				notify_ring(&dev_priv->ring[VCS]);
 
-			vcs = tmp >> GEN8_VCS2_IRQ_SHIFT;
-			ring = &dev_priv->ring[VCS2];
-			if (vcs & GT_RENDER_USER_INTERRUPT)
-				notify_ring(dev, ring);
-			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
-				intel_lrc_irq_handler(ring);
+			if (tmp & (GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VCS2_IRQ_SHIFT))
+				intel_lrc_irq_handler(&dev_priv->ring[VCS2]);
+			if (tmp & (GT_RENDER_USER_INTERRUPT << GEN8_VCS2_IRQ_SHIFT))
+				notify_ring(&dev_priv->ring[VCS2]);
 		} else
 			DRM_ERROR("The master control interrupt lied (GT1)!\n");
 	}
 
+	if (master_ctl & GEN8_GT_VECS_IRQ) {
+		u32 tmp = I915_READ_FW(GEN8_GT_IIR(3));
+		if (tmp) {
+			I915_WRITE_FW(GEN8_GT_IIR(3), tmp);
+			ret = IRQ_HANDLED;
+
+			if (tmp & (GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VECS_IRQ_SHIFT))
+				intel_lrc_irq_handler(&dev_priv->ring[VECS]);
+			if (tmp & (GT_RENDER_USER_INTERRUPT << GEN8_VECS_IRQ_SHIFT))
+				notify_ring(&dev_priv->ring[VECS]);
+		} else
+			DRM_ERROR("The master control interrupt lied (GT3)!\n");
+	}
+
 	if (master_ctl & GEN8_GT_PM_IRQ) {
-		tmp = I915_READ(GEN8_GT_IIR(2));
+		u32 tmp = I915_READ_FW(GEN8_GT_IIR(2));
 		if (tmp & dev_priv->pm_rps_events) {
-			I915_WRITE(GEN8_GT_IIR(2),
-				   tmp & dev_priv->pm_rps_events);
+			I915_WRITE_FW(GEN8_GT_IIR(2),
+				      tmp & dev_priv->pm_rps_events);
 			ret = IRQ_HANDLED;
 			gen6_rps_irq_handler(dev_priv, tmp);
 		} else
 			DRM_ERROR("The master control interrupt lied (PM)!\n");
-	}
-
-	if (master_ctl & GEN8_GT_VECS_IRQ) {
-		tmp = I915_READ(GEN8_GT_IIR(3));
-		if (tmp) {
-			I915_WRITE(GEN8_GT_IIR(3), tmp);
-			ret = IRQ_HANDLED;
-
-			vcs = tmp >> GEN8_VECS_IRQ_SHIFT;
-			ring = &dev_priv->ring[VECS];
-			if (vcs & GT_RENDER_USER_INTERRUPT)
-				notify_ring(dev, ring);
-			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
-				intel_lrc_irq_handler(ring);
-		} else
-			DRM_ERROR("The master control interrupt lied (GT3)!\n");
 	}
 
 	return ret;
@@ -1654,7 +1636,7 @@ static void gen6_rps_irq_handler(struct drm_i915_private *dev_priv, u32 pm_iir)
 
 	if (HAS_VEBOX(dev_priv->dev)) {
 		if (pm_iir & PM_VEBOX_USER_INTERRUPT)
-			notify_ring(dev_priv->dev, &dev_priv->ring[VECS]);
+			notify_ring(&dev_priv->ring[VECS]);
 
 		if (pm_iir & PM_VEBOX_CS_ERROR_INTERRUPT)
 			DRM_DEBUG("Command parser error, pm_iir 0x%08x\n", pm_iir);
@@ -1848,7 +1830,7 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 			I915_WRITE(VLV_IIR, iir);
 		}
 
-		gen8_gt_irq_handler(dev, dev_priv, master_ctl);
+		gen8_gt_irq_handler(dev_priv, master_ctl);
 
 		/* Call regardless, as some status bits might not be
 		 * signalled in iir */
@@ -2181,17 +2163,16 @@ static irqreturn_t gen8_irq_handler(int irq, void *arg)
 		aux_mask |=  GEN9_AUX_CHANNEL_B | GEN9_AUX_CHANNEL_C |
 			GEN9_AUX_CHANNEL_D;
 
-	master_ctl = I915_READ(GEN8_MASTER_IRQ);
+	master_ctl = I915_READ_FW(GEN8_MASTER_IRQ);
 	master_ctl &= ~GEN8_MASTER_IRQ_CONTROL;
 	if (!master_ctl)
 		return IRQ_NONE;
 
-	I915_WRITE(GEN8_MASTER_IRQ, 0);
-	POSTING_READ(GEN8_MASTER_IRQ);
+	I915_WRITE_FW(GEN8_MASTER_IRQ, 0);
 
 	/* Find, clear, then process each source of interrupt */
 
-	ret = gen8_gt_irq_handler(dev, dev_priv, master_ctl);
+	ret = gen8_gt_irq_handler(dev_priv, master_ctl);
 
 	if (master_ctl & GEN8_DE_MISC_IRQ) {
 		tmp = I915_READ(GEN8_DE_MISC_IIR);
@@ -2284,8 +2265,8 @@ static irqreturn_t gen8_irq_handler(int irq, void *arg)
 
 	}
 
-	I915_WRITE(GEN8_MASTER_IRQ, GEN8_MASTER_IRQ_CONTROL);
-	POSTING_READ(GEN8_MASTER_IRQ);
+	I915_WRITE_FW(GEN8_MASTER_IRQ, GEN8_MASTER_IRQ_CONTROL);
+	POSTING_READ_FW(GEN8_MASTER_IRQ);
 
 	return ret;
 }
@@ -3696,7 +3677,7 @@ static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 		new_iir = I915_READ16(IIR); /* Flush posted writes */
 
 		if (iir & I915_USER_INTERRUPT)
-			notify_ring(dev, &dev_priv->ring[RCS]);
+			notify_ring(&dev_priv->ring[RCS]);
 
 		for_each_pipe(dev_priv, pipe) {
 			int plane = pipe;
@@ -3887,7 +3868,7 @@ static irqreturn_t i915_irq_handler(int irq, void *arg)
 		new_iir = I915_READ(IIR); /* Flush posted writes */
 
 		if (iir & I915_USER_INTERRUPT)
-			notify_ring(dev, &dev_priv->ring[RCS]);
+			notify_ring(&dev_priv->ring[RCS]);
 
 		for_each_pipe(dev_priv, pipe) {
 			int plane = pipe;
@@ -4114,9 +4095,9 @@ static irqreturn_t i965_irq_handler(int irq, void *arg)
 		new_iir = I915_READ(IIR); /* Flush posted writes */
 
 		if (iir & I915_USER_INTERRUPT)
-			notify_ring(dev, &dev_priv->ring[RCS]);
+			notify_ring(&dev_priv->ring[RCS]);
 		if (iir & I915_BSD_USER_INTERRUPT)
-			notify_ring(dev, &dev_priv->ring[VCS]);
+			notify_ring(&dev_priv->ring[VCS]);
 
 		for_each_pipe(dev_priv, pipe) {
 			if (pipe_stats[pipe] & PIPE_START_VBLANK_INTERRUPT_STATUS &&

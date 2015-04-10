@@ -378,13 +378,13 @@ out:
 void *i915_gem_object_alloc(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	return kmem_cache_zalloc(dev_priv->slab, GFP_KERNEL);
+	return kmem_cache_zalloc(dev_priv->objects, GFP_KERNEL);
 }
 
 void i915_gem_object_free(struct drm_i915_gem_object *obj)
 {
 	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
-	kmem_cache_free(dev_priv->slab, obj);
+	kmem_cache_free(dev_priv->objects, obj);
 }
 
 static int
@@ -1181,14 +1181,6 @@ static bool missed_irq(struct drm_i915_private *dev_priv,
 	return test_bit(ring->id, &dev_priv->gpu_error.missed_irq_rings);
 }
 
-static bool can_wait_boost(struct drm_i915_file_private *file_priv)
-{
-	if (file_priv == NULL)
-		return true;
-
-	return !atomic_xchg(&file_priv->rps_wait_boost, true);
-}
-
 /**
  * __i915_wait_request - wait until execution of request has finished
  * @req: duh!
@@ -1230,13 +1222,8 @@ int __i915_wait_request(struct drm_i915_gem_request *req,
 	timeout_expire = timeout ?
 		jiffies + nsecs_to_jiffies_timeout((u64)*timeout) : 0;
 
-	if (INTEL_INFO(dev)->gen >= 6 && ring->id == RCS && can_wait_boost(file_priv)) {
-		gen6_rps_boost(dev_priv);
-		if (file_priv)
-			mod_delayed_work(dev_priv->wq,
-					 &file_priv->mm.idle_work,
-					 msecs_to_jiffies(100));
-	}
+	if (INTEL_INFO(dev)->gen >= 6)
+		gen6_rps_boost(dev_priv, file_priv);
 
 	if (!irq_test_in_progress && WARN_ON(!ring->irq_get(ring)))
 		return -ENODEV;
@@ -2178,6 +2165,10 @@ i915_gem_object_get_pages(struct drm_i915_gem_object *obj)
 		return ret;
 
 	list_add_tail(&obj->global_list, &dev_priv->mm.unbound_list);
+
+	obj->get_page.sg = obj->pages->sgl;
+	obj->get_page.last = 0;
+
 	return 0;
 }
 
@@ -2420,7 +2411,6 @@ int __i915_add_request(struct intel_engine_cs *ring,
 
 	i915_queue_hangcheck(ring->dev);
 
-	cancel_delayed_work_sync(&dev_priv->mm.idle_work);
 	queue_delayed_work(dev_priv->wq,
 			   &dev_priv->mm.retire_work,
 			   round_jiffies_up_relative(HZ));
@@ -2515,7 +2505,45 @@ void i915_gem_request_free(struct kref *req_ref)
 		i915_gem_context_unreference(ctx);
 	}
 
-	kfree(req);
+	kmem_cache_free(req->i915->requests, req);
+}
+
+int i915_gem_request_alloc(struct intel_engine_cs *ring,
+			   struct intel_context *ctx)
+{
+	struct drm_i915_private *dev_priv = to_i915(ring->dev);
+	struct drm_i915_gem_request *rq;
+	int ret;
+
+	if (ring->outstanding_lazy_request)
+		return 0;
+
+	rq = kmem_cache_zalloc(dev_priv->requests, GFP_KERNEL);
+	if (rq == NULL)
+		return -ENOMEM;
+
+	kref_init(&rq->ref);
+	rq->i915 = dev_priv;
+
+	ret = i915_gem_get_seqno(ring->dev, &rq->seqno);
+	if (ret) {
+		kfree(rq);
+		return ret;
+	}
+
+	rq->ring = ring;
+
+	if (i915.enable_execlists)
+		ret = intel_logical_ring_alloc_request_extras(rq, ctx);
+	else
+		ret = intel_ring_alloc_request_extras(rq);
+	if (ret) {
+		kfree(rq);
+		return ret;
+	}
+
+	ring->outstanding_lazy_request = rq;
+	return 0;
 }
 
 struct drm_i915_gem_request *
@@ -2577,7 +2605,6 @@ static void i915_gem_reset_ring_cleanup(struct drm_i915_private *dev_priv,
 				struct drm_i915_gem_request,
 				execlist_link);
 		list_del(&submit_req->execlist_link);
-		intel_runtime_pm_put(dev_priv);
 
 		if (submit_req->ctx != ring->default_context)
 			intel_lr_context_unpin(ring, submit_req->ctx);
@@ -2767,8 +2794,25 @@ i915_gem_idle_work_handler(struct work_struct *work)
 {
 	struct drm_i915_private *dev_priv =
 		container_of(work, typeof(*dev_priv), mm.idle_work.work);
+	struct drm_device *dev = dev_priv->dev;
+	struct intel_engine_cs *ring;
+	int i;
 
-	intel_mark_idle(dev_priv->dev);
+	for_each_ring(ring, dev_priv, i)
+		if (!list_empty(&ring->request_list))
+			return;
+
+	intel_mark_idle(dev);
+
+	if (mutex_trylock(&dev->struct_mutex)) {
+		struct intel_engine_cs *ring;
+		int i;
+
+		for_each_ring(ring, dev_priv, i)
+			i915_gem_batch_pool_fini(&ring->batch_pool);
+
+		mutex_unlock(&dev->struct_mutex);
+	}
 }
 
 /**
@@ -2866,9 +2910,7 @@ i915_gem_wait_ioctl(struct drm_device *dev, void *data, struct drm_file *file)
 	ret = __i915_wait_request(req, reset_counter, true,
 				  args->timeout_ns > 0 ? &args->timeout_ns : NULL,
 				  file->driver_priv);
-	mutex_lock(&dev->struct_mutex);
-	i915_gem_request_unreference(req);
-	mutex_unlock(&dev->struct_mutex);
+	i915_gem_request_unreference__unlocked(req);
 	return ret;
 
 out:
@@ -4071,9 +4113,7 @@ i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file)
 	if (ret == 0)
 		queue_delayed_work(dev_priv->wq, &dev_priv->mm.retire_work, 0);
 
-	mutex_lock(&dev->struct_mutex);
-	i915_gem_request_unreference(target);
-	mutex_unlock(&dev->struct_mutex);
+	i915_gem_request_unreference__unlocked(target);
 
 	return ret;
 }
@@ -4374,7 +4414,7 @@ void i915_gem_object_init(struct drm_i915_gem_object *obj,
 	INIT_LIST_HEAD(&obj->ring_list);
 	INIT_LIST_HEAD(&obj->obj_exec_link);
 	INIT_LIST_HEAD(&obj->vma_list);
-	INIT_LIST_HEAD(&obj->batch_pool_list);
+	INIT_LIST_HEAD(&obj->batch_pool_link);
 
 	obj->ops = ops;
 
@@ -4576,7 +4616,7 @@ void i915_gem_vma_destroy(struct i915_vma *vma)
 
 	list_del(&vma->vma_link);
 
-	kfree(vma);
+	kmem_cache_free(to_i915(vma->obj->base.dev)->vmas, vma);
 }
 
 static void
@@ -4863,12 +4903,12 @@ int i915_gem_init(struct drm_device *dev)
 	}
 
 	if (!i915.enable_execlists) {
-		dev_priv->gt.do_execbuf = i915_gem_ringbuffer_submission;
+		dev_priv->gt.execbuf_submit = i915_gem_ringbuffer_submission;
 		dev_priv->gt.init_rings = i915_gem_init_rings;
 		dev_priv->gt.cleanup_ring = intel_cleanup_ring_buffer;
 		dev_priv->gt.stop_ring = intel_stop_ring_buffer;
 	} else {
-		dev_priv->gt.do_execbuf = intel_execlists_submission;
+		dev_priv->gt.execbuf_submit = intel_execlists_submission;
 		dev_priv->gt.init_rings = intel_logical_rings_init;
 		dev_priv->gt.cleanup_ring = intel_logical_ring_cleanup;
 		dev_priv->gt.stop_ring = intel_logical_ring_stop;
@@ -4950,9 +4990,19 @@ i915_gem_load(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int i;
 
-	dev_priv->slab =
+	dev_priv->objects =
 		kmem_cache_create("i915_gem_object",
 				  sizeof(struct drm_i915_gem_object), 0,
+				  SLAB_HWCACHE_ALIGN,
+				  NULL);
+	dev_priv->vmas =
+		kmem_cache_create("i915_gem_vma",
+				  sizeof(struct i915_vma), 0,
+				  SLAB_HWCACHE_ALIGN,
+				  NULL);
+	dev_priv->requests =
+		kmem_cache_create("i915_gem_request",
+				  sizeof(struct drm_i915_gem_request), 0,
 				  SLAB_HWCACHE_ALIGN,
 				  NULL);
 
@@ -4997,16 +5047,12 @@ i915_gem_load(struct drm_device *dev)
 
 	i915_gem_shrinker_init(dev_priv);
 
-	i915_gem_batch_pool_init(dev, &dev_priv->mm.batch_pool);
-
 	mutex_init(&dev_priv->fb_tracking.lock);
 }
 
 void i915_gem_release(struct drm_device *dev, struct drm_file *file)
 {
 	struct drm_i915_file_private *file_priv = file->driver_priv;
-
-	cancel_delayed_work_sync(&file_priv->mm.idle_work);
 
 	/* Clean up our request list when the client is going away, so that
 	 * later retire_requests won't dereference our soon-to-be-gone
@@ -5023,15 +5069,12 @@ void i915_gem_release(struct drm_device *dev, struct drm_file *file)
 		request->file_priv = NULL;
 	}
 	spin_unlock(&file_priv->mm.lock);
-}
 
-static void
-i915_gem_file_idle_work_handler(struct work_struct *work)
-{
-	struct drm_i915_file_private *file_priv =
-		container_of(work, typeof(*file_priv), mm.idle_work.work);
-
-	atomic_set(&file_priv->rps_wait_boost, false);
+	if (!list_empty(&file_priv->rps_boost)) {
+		mutex_lock(&to_i915(dev)->rps.hw_lock);
+		list_del(&file_priv->rps_boost);
+		mutex_unlock(&to_i915(dev)->rps.hw_lock);
+	}
 }
 
 int i915_gem_open(struct drm_device *dev, struct drm_file *file)
@@ -5048,11 +5091,10 @@ int i915_gem_open(struct drm_device *dev, struct drm_file *file)
 	file->driver_priv = file_priv;
 	file_priv->dev_priv = dev->dev_private;
 	file_priv->file = file;
+	INIT_LIST_HEAD(&file_priv->rps_boost);
 
 	spin_lock_init(&file_priv->mm.lock);
 	INIT_LIST_HEAD(&file_priv->mm.request_list);
-	INIT_DELAYED_WORK(&file_priv->mm.idle_work,
-			  i915_gem_file_idle_work_handler);
 
 	ret = i915_gem_context_open(dev, file);
 	if (ret)
