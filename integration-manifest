@@ -1,0 +1,20 @@
+origin/drm-intel-fixes 5df0582bf036bb5f9a8ad8db5884fe13a55347d1
+	drm/i915/vlv: remove wait for previous GFX clk disable request
+drm-upstream/drm-fixes f4274e23fb16721449d973ed607505f5dbdcd2df
+	Merge tag 'drm-intel-fixes-2015-04-08' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes af8fcb9c58f1b2f02ddc04ba64710aaa52da00db
+	drm/i915/chv: Remove DPIO force latency causing interpair skew issue
+origin/drm-intel-next-queued 3b7a5119b5d2def1161226a4c6a643db537dff7e
+	drm/i915/skl: Support for 90/270 rotation
+drm-upstream/drm-next 1d8ac08d498d579aae36221a80b4b724b2f52f39
+	Merge tag 'v4.0-rc7' into drm-next
+origin/topic/atomic-core 9469244d869623e8b54d9f3d4d00737e377af273
+	drm/atomic: Fix potential use of state after free
+sound-upstream/for-next f4d3129c2b580ad2b82aa3211a6216bbf7ad007c
+	ALSA: hda/realtek - Fix a typo
+origin/topic/drm-misc 0578be680c6623ad6515b60a0b41ec70ebc1f204
+	drm: Use kref_put_mutex in drm_gem_object_unreference_unlocked
+origin/topic/drm-fixes 6f67f0f928e25aca99796974834f60ffc309c5fd
+	drm: fix drm_mode_getconnector() locking imbalance regression
+origin/topic/bxt-stage1 1c046bc1db49e5a42e5c4167ac42cee4c1725a37
+	drm/i915/bxt: Support BXT in SSEU device status dump
