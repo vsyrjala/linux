@@ -1132,14 +1132,6 @@ static void intel_disable_hdmi(struct intel_encoder *encoder)
 	I915_WRITE(intel_hdmi->hdmi_reg, temp);
 	POSTING_READ(intel_hdmi->hdmi_reg);
 
-	/* HW workaround, need to write this twice for issue that may result
-	 * in first write getting masked.
-	 */
-	if (HAS_PCH_SPLIT(dev)) {
-		I915_WRITE(intel_hdmi->hdmi_reg, temp);
-		POSTING_READ(intel_hdmi->hdmi_reg);
-	}
-
 	if (IS_CHERRYVIEW(dev))
 		chv_powergate_phy_lanes(encoder, 0xf);
 
