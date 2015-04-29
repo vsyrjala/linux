@@ -807,22 +807,15 @@ static bool i9xx_always_on_power_well_enabled(struct drm_i915_private *dev_priv,
 	return true;
 }
 
-static void vlv_set_power_well(struct drm_i915_private *dev_priv,
-			       struct i915_power_well *power_well, bool enable)
+static void _vlv_set_power_well(struct drm_i915_private *dev_priv,
+				u32 state, u32 status, u32 mask)
 {
-	enum punit_power_well power_well_id = power_well->data;
-	u32 mask;
-	u32 state;
 	u32 ctrl;
-
-	mask = PUNIT_PWRGT_MASK(power_well_id);
-	state = enable ? PUNIT_PWRGT_PWR_ON(power_well_id) :
-			 PUNIT_PWRGT_PWR_GATE(power_well_id);
 
 	mutex_lock(&dev_priv->rps.hw_lock);
 
 #define COND \
-	((vlv_punit_read(dev_priv, PUNIT_REG_PWRGT_STATUS) & mask) == state)
+	((vlv_punit_read(dev_priv, PUNIT_REG_PWRGT_STATUS) & mask) == status)
 
 	if (COND)
 		goto out;
@@ -841,6 +834,18 @@ static void vlv_set_power_well(struct drm_i915_private *dev_priv,
 
 out:
 	mutex_unlock(&dev_priv->rps.hw_lock);
+}
+
+static void vlv_set_power_well(struct drm_i915_private *dev_priv,
+			       struct i915_power_well *power_well,
+			       bool enable)
+{
+	enum punit_power_well power_well_id = power_well->data;
+	u32 state = enable ? PUNIT_PWRGT_PWR_ON(power_well_id) :
+		PUNIT_PWRGT_PWR_GATE(power_well_id);
+	u32 mask = PUNIT_PWRGT_MASK(power_well_id);
+
+	_vlv_set_power_well(dev_priv, state, state, mask);
 }
 
 static void vlv_power_well_sync_hw(struct drm_i915_private *dev_priv,
@@ -957,9 +962,23 @@ static void vlv_display_power_well_enable(struct drm_i915_private *dev_priv,
 static void vlv_display_power_well_disable(struct drm_i915_private *dev_priv,
 					   struct i915_power_well *power_well)
 {
+	enum punit_power_well power_well_id = power_well->data;
+
 	WARN_ON_ONCE(power_well->data != PUNIT_POWER_WELL_DISP2D);
 
 	vlv_display_power_well_deinit(dev_priv);
+
+	/*
+	 * Punit forgets to trunk gate the display clocks at CCK
+	 * if we ask it to just power gate the well. If we instead
+	 * ask it to clock gate first and then power gate, the clocks
+	 * remain trunk gated at CCK. Also note that while the well
+	 * is clock gated the status will be reported as "reset".
+	 */
+	_vlv_set_power_well(dev_priv,
+			    PUNIT_PWRGT_CLK_GATE(power_well_id),
+			    PUNIT_PWRGT_RESET(power_well_id),
+			    PUNIT_PWRGT_MASK(power_well_id));
 
 	vlv_set_power_well(dev_priv, power_well, false);
 }
