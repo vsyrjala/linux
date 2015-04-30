@@ -1261,6 +1261,9 @@ struct i915_power_domains {
 	bool initializing;
 	int power_well_count;
 
+	/* Power gating mask for DPIO power wells on VLV */
+	u32 vlv_dpio_pwr_on;
+
 	struct mutex lock;
 	int domain_use_count[POWER_DOMAIN_NUM];
 	struct i915_power_well *power_wells;

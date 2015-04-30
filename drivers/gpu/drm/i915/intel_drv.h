@@ -1234,7 +1234,7 @@ void intel_csr_load_program(struct drm_i915_private *);
 void intel_csr_ucode_fini(struct drm_i915_private *);
 
 /* intel_dp.c */
-void intel_dp_init(struct drm_device *dev, i915_reg_t output_reg, enum port port);
+bool intel_dp_init(struct drm_device *dev, i915_reg_t output_reg, enum port port);
 bool intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 			     struct intel_connector *intel_connector);
 void intel_dp_set_link_params(struct intel_dp *intel_dp,
@@ -1349,7 +1349,7 @@ void intel_fbc_flush(struct drm_i915_private *dev_priv,
 void intel_fbc_cleanup_cfb(struct drm_i915_private *dev_priv);
 
 /* intel_hdmi.c */
-void intel_hdmi_init(struct drm_device *dev, i915_reg_t hdmi_reg, enum port port);
+bool intel_hdmi_init(struct drm_device *dev, i915_reg_t hdmi_reg, enum port port);
 void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 			       struct intel_connector *intel_connector);
 struct intel_hdmi *enc_to_intel_hdmi(struct drm_encoder *encoder);
@@ -1530,6 +1530,8 @@ void intel_runtime_pm_put(struct drm_i915_private *dev_priv);
 
 void intel_display_set_init_power(struct drm_i915_private *dev, bool enable);
 
+void vlv_dpio_power_well_disable(struct drm_i915_private *dev,
+				 int power_well_id);
 void chv_phy_powergate_lanes(struct intel_encoder *encoder,
 			     bool override, unsigned int mask);
 bool chv_phy_powergate_ch(struct drm_i915_private *dev_priv, enum dpio_phy phy,

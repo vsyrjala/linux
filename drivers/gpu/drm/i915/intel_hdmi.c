@@ -2148,7 +2148,7 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 	}
 }
 
-void intel_hdmi_init(struct drm_device *dev,
+bool intel_hdmi_init(struct drm_device *dev,
 		     i915_reg_t hdmi_reg, enum port port)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -2158,12 +2158,12 @@ void intel_hdmi_init(struct drm_device *dev,
 
 	intel_dig_port = kzalloc(sizeof(*intel_dig_port), GFP_KERNEL);
 	if (!intel_dig_port)
-		return;
+		return false;
 
 	intel_connector = intel_connector_alloc();
 	if (!intel_connector) {
 		kfree(intel_dig_port);
-		return;
+		return false;
 	}
 
 	intel_encoder = &intel_dig_port->base;
@@ -2226,4 +2226,6 @@ void intel_hdmi_init(struct drm_device *dev,
 	intel_dig_port->max_lanes = 4;
 
 	intel_hdmi_init_connector(intel_dig_port, intel_connector);
+
+	return true;
 }

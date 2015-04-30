@@ -851,19 +851,10 @@ static void vlv_set_power_well(struct drm_i915_private *dev_priv,
 static void vlv_power_well_sync_hw(struct drm_i915_private *dev_priv,
 				   struct i915_power_well *power_well)
 {
-	vlv_set_power_well(dev_priv, power_well, power_well->count > 0);
-}
-
-static void vlv_power_well_enable(struct drm_i915_private *dev_priv,
-				  struct i915_power_well *power_well)
-{
-	vlv_set_power_well(dev_priv, power_well, true);
-}
-
-static void vlv_power_well_disable(struct drm_i915_private *dev_priv,
-				   struct i915_power_well *power_well)
-{
-	vlv_set_power_well(dev_priv, power_well, false);
+	if (power_well->count > 0)
+		power_well->ops->enable(dev_priv, power_well);
+	else
+		power_well->ops->disable(dev_priv, power_well);
 }
 
 static bool vlv_power_well_enabled(struct drm_i915_private *dev_priv,
@@ -986,12 +977,22 @@ static void vlv_display_power_well_disable(struct drm_i915_private *dev_priv,
 static void vlv_dpio_cmn_power_well_enable(struct drm_i915_private *dev_priv,
 					   struct i915_power_well *power_well)
 {
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+	u32 mask = PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_CMN_BC) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_B_LANES_01) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_B_LANES_23) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_C_LANES_01) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_C_LANES_23) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_RX0) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_RX1);
+
 	WARN_ON_ONCE(power_well->data != PUNIT_POWER_WELL_DPIO_CMN_BC);
 
 	/* since ref/cri clock was enabled */
 	udelay(1); /* >10ns for cmnreset, >0ns for sidereset */
 
-	vlv_set_power_well(dev_priv, power_well, true);
+	_vlv_set_power_well(dev_priv, power_domains->vlv_dpio_pwr_on,
+			    power_domains->vlv_dpio_pwr_on, mask);
 
 	/*
 	 * From VLV2A0_DP_eDP_DPIO_driver_vbios_notes_10.docx -
@@ -1010,6 +1011,20 @@ static void vlv_dpio_cmn_power_well_enable(struct drm_i915_private *dev_priv,
 static void vlv_dpio_cmn_power_well_disable(struct drm_i915_private *dev_priv,
 					    struct i915_power_well *power_well)
 {
+	u32 state = PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_DPIO_CMN_BC) |
+		PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_DPIO_TX_B_LANES_01) |
+		PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_DPIO_TX_B_LANES_23) |
+		PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_DPIO_TX_C_LANES_01) |
+		PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_DPIO_TX_C_LANES_23) |
+		PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_DPIO_RX0) |
+		PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_DPIO_RX1);
+	u32 mask = PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_CMN_BC) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_B_LANES_01) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_B_LANES_23) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_C_LANES_01) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_C_LANES_23) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_RX0) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_RX1);
 	enum pipe pipe;
 
 	WARN_ON_ONCE(power_well->data != PUNIT_POWER_WELL_DPIO_CMN_BC);
@@ -1020,7 +1035,7 @@ static void vlv_dpio_cmn_power_well_disable(struct drm_i915_private *dev_priv,
 	/* Assert common reset */
 	I915_WRITE(DPIO_CTL, I915_READ(DPIO_CTL) & ~DPIO_CMNRST);
 
-	vlv_set_power_well(dev_priv, power_well, false);
+	_vlv_set_power_well(dev_priv, state, state, mask);
 }
 
 #define POWER_DOMAIN_MASK (BIT(POWER_DOMAIN_NUM) - 1)
@@ -1565,26 +1580,6 @@ void intel_display_power_put(struct drm_i915_private *dev_priv,
 	BIT(POWER_DOMAIN_AUX_C) |		\
 	BIT(POWER_DOMAIN_INIT))
 
-#define VLV_DPIO_TX_B_LANES_01_POWER_DOMAINS (	\
-	BIT(POWER_DOMAIN_PORT_DDI_B_LANES) |	\
-	BIT(POWER_DOMAIN_AUX_B) |		\
-	BIT(POWER_DOMAIN_INIT))
-
-#define VLV_DPIO_TX_B_LANES_23_POWER_DOMAINS (	\
-	BIT(POWER_DOMAIN_PORT_DDI_B_LANES) |	\
-	BIT(POWER_DOMAIN_AUX_B) |		\
-	BIT(POWER_DOMAIN_INIT))
-
-#define VLV_DPIO_TX_C_LANES_01_POWER_DOMAINS (	\
-	BIT(POWER_DOMAIN_PORT_DDI_C_LANES) |	\
-	BIT(POWER_DOMAIN_AUX_C) |		\
-	BIT(POWER_DOMAIN_INIT))
-
-#define VLV_DPIO_TX_C_LANES_23_POWER_DOMAINS (	\
-	BIT(POWER_DOMAIN_PORT_DDI_C_LANES) |	\
-	BIT(POWER_DOMAIN_AUX_C) |		\
-	BIT(POWER_DOMAIN_INIT))
-
 #define CHV_DPIO_CMN_BC_POWER_DOMAINS (		\
 	BIT(POWER_DOMAIN_PORT_DDI_B_LANES) |	\
 	BIT(POWER_DOMAIN_PORT_DDI_C_LANES) |	\
@@ -1690,13 +1685,6 @@ static const struct i915_power_well_ops vlv_dpio_cmn_power_well_ops = {
 	.is_enabled = vlv_power_well_enabled,
 };
 
-static const struct i915_power_well_ops vlv_dpio_power_well_ops = {
-	.sync_hw = vlv_power_well_sync_hw,
-	.enable = vlv_power_well_enable,
-	.disable = vlv_power_well_disable,
-	.is_enabled = vlv_power_well_enabled,
-};
-
 static struct i915_power_well vlv_power_wells[] = {
 	{
 		.name = "always-on",
@@ -1710,42 +1698,6 @@ static struct i915_power_well vlv_power_wells[] = {
 		.domains = VLV_DISPLAY_POWER_DOMAINS,
 		.data = PUNIT_POWER_WELL_DISP2D,
 		.ops = &vlv_display_power_well_ops,
-	},
-	{
-		.name = "dpio-tx-b-01",
-		.domains = VLV_DPIO_TX_B_LANES_01_POWER_DOMAINS |
-			   VLV_DPIO_TX_B_LANES_23_POWER_DOMAINS |
-			   VLV_DPIO_TX_C_LANES_01_POWER_DOMAINS |
-			   VLV_DPIO_TX_C_LANES_23_POWER_DOMAINS,
-		.ops = &vlv_dpio_power_well_ops,
-		.data = PUNIT_POWER_WELL_DPIO_TX_B_LANES_01,
-	},
-	{
-		.name = "dpio-tx-b-23",
-		.domains = VLV_DPIO_TX_B_LANES_01_POWER_DOMAINS |
-			   VLV_DPIO_TX_B_LANES_23_POWER_DOMAINS |
-			   VLV_DPIO_TX_C_LANES_01_POWER_DOMAINS |
-			   VLV_DPIO_TX_C_LANES_23_POWER_DOMAINS,
-		.ops = &vlv_dpio_power_well_ops,
-		.data = PUNIT_POWER_WELL_DPIO_TX_B_LANES_23,
-	},
-	{
-		.name = "dpio-tx-c-01",
-		.domains = VLV_DPIO_TX_B_LANES_01_POWER_DOMAINS |
-			   VLV_DPIO_TX_B_LANES_23_POWER_DOMAINS |
-			   VLV_DPIO_TX_C_LANES_01_POWER_DOMAINS |
-			   VLV_DPIO_TX_C_LANES_23_POWER_DOMAINS,
-		.ops = &vlv_dpio_power_well_ops,
-		.data = PUNIT_POWER_WELL_DPIO_TX_C_LANES_01,
-	},
-	{
-		.name = "dpio-tx-c-23",
-		.domains = VLV_DPIO_TX_B_LANES_01_POWER_DOMAINS |
-			   VLV_DPIO_TX_B_LANES_23_POWER_DOMAINS |
-			   VLV_DPIO_TX_C_LANES_01_POWER_DOMAINS |
-			   VLV_DPIO_TX_C_LANES_23_POWER_DOMAINS,
-		.ops = &vlv_dpio_power_well_ops,
-		.data = PUNIT_POWER_WELL_DPIO_TX_C_LANES_23,
 	},
 	{
 		.name = "dpio-common",
@@ -1934,6 +1886,67 @@ sanitize_disable_power_well_option(const struct drm_i915_private *dev_priv,
 	(power_domains)->power_well_count = ARRAY_SIZE(__power_wells);	\
 })
 
+/*
+ * Initialize the DPIO power gating mask on VLV.
+ * The initial assumption is that we need all TX wells,
+ * once we know better any usless well will be power gated
+ * permanently. The RX wells are never required.
+ */
+static void vlv_dpio_power_well_init(struct drm_i915_private *dev_priv)
+{
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+
+	power_domains->vlv_dpio_pwr_on =
+		PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_DPIO_RX0) |
+		PUNIT_PWRGT_PWR_GATE(PUNIT_POWER_WELL_DPIO_RX1);
+}
+
+/*
+ * Permanently power gate a single TX well on VLV. This can be
+ * done when the entire port is missing from the board, or when
+ * dealing with an eDP panel that uses only one or two lanes.
+ */
+void vlv_dpio_power_well_disable(struct drm_i915_private *dev_priv,
+				 int power_well_id)
+{
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+	u32 mask = PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_CMN_BC) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_B_LANES_01) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_B_LANES_23) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_C_LANES_01) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_TX_C_LANES_23) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_RX0) |
+		PUNIT_PWRGT_MASK(PUNIT_POWER_WELL_DPIO_RX1);
+	static const char * const tx_well_names[] = {
+		"tx-b-01", "tx-b-23", "tx-c-01", "tx-c-23",
+	};
+
+	WARN_ON(power_well_id != PUNIT_POWER_WELL_DPIO_TX_B_LANES_01 &&
+		power_well_id != PUNIT_POWER_WELL_DPIO_TX_B_LANES_23 &&
+		power_well_id != PUNIT_POWER_WELL_DPIO_TX_C_LANES_01 &&
+		power_well_id != PUNIT_POWER_WELL_DPIO_TX_C_LANES_23);
+
+	mutex_lock(&power_domains->lock);
+
+	/*
+	 * The below _vlv_set_power_well() call assumes DPIO is powered
+	 * on currently. As this function should only be called with
+	 * INIT power enabled that assumption is fine.
+	 */
+	WARN_ON(!dev_priv->power_domains.init_power_on);
+
+	DRM_DEBUG_KMS("Permanently disabling %s\n",
+		      tx_well_names[power_well_id -
+				    PUNIT_POWER_WELL_DPIO_TX_B_LANES_01]);
+
+	power_domains->vlv_dpio_pwr_on |= PUNIT_PWRGT_PWR_GATE(power_well_id);
+
+	_vlv_set_power_well(dev_priv, power_domains->vlv_dpio_pwr_on,
+			    power_domains->vlv_dpio_pwr_on, mask);
+
+	mutex_unlock(&power_domains->lock);
+}
+
 /**
  * intel_power_domains_init - initializes the power domain structures
  * @dev_priv: i915 device instance
@@ -1967,6 +1980,7 @@ int intel_power_domains_init(struct drm_i915_private *dev_priv)
 	} else if (IS_CHERRYVIEW(dev_priv->dev)) {
 		set_power_wells(power_domains, chv_power_wells);
 	} else if (IS_VALLEYVIEW(dev_priv->dev)) {
+		vlv_dpio_power_well_init(dev_priv);
 		set_power_wells(power_domains, vlv_power_wells);
 	} else {
 		set_power_wells(power_domains, i9xx_always_on_power_well);
