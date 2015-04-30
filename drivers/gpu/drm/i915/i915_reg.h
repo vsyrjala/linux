@@ -6963,8 +6963,10 @@ enum skl_disp_power_wells {
 #define GEN7_GT_SCRATCH_REG_NUM			8
 
 #define VLV_GTLC_SURVIVABILITY_REG              _MMIO(0x130098)
-#define VLV_GFX_CLK_STATUS_BIT			(1<<3)
-#define VLV_GFX_CLK_FORCE_ON_BIT		(1<<2)
+#define   VLV_GFX_CLK_STATUS_BIT		(1<<3)
+#define   VLV_GFX_CLK_FORCE_ON_BIT		(1<<2)
+#define   VLV_GFX_DFT_POWER_DOWN		(1<<1)
+#define   VLV_GFX_GANG_MEDIA_RENDER		(1<<0)
 
 #define GEN6_GT_GFX_RC6_LOCKED			_MMIO(0x138104)
 #define VLV_COUNTER_CONTROL			_MMIO(0x138104)

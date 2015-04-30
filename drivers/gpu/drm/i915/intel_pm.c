@@ -6832,6 +6832,8 @@ static void valleyview_init_clock_gating(struct drm_device *dev)
 	 * in the reporting of vblank events.
 	 */
 	I915_WRITE(VLV_GUNIT_CLOCK_GATE, GCFG_DIS);
+
+	I915_WRITE(VLV_GTLC_SURVIVABILITY_REG, VLV_GFX_DFT_POWER_DOWN);
 }
 
 static void cherryview_init_clock_gating(struct drm_device *dev)
