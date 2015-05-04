@@ -878,7 +878,8 @@ push-queued|pq [*git push arguments*]
 
 Updates the named branch, or drm-intel-fixes, drm-intel-next-fixes or the
 drm-intel-next-queued branch respectively. Complains if that's not the current
-branch, assuming that patches got merged to the wrong branch.
+branch, assuming that patches got merged to the wrong branch. After pushing also
+updates linux-next and drm-intel-nightly branches.
 
 co
 --
