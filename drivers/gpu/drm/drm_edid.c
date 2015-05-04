@@ -2690,6 +2690,16 @@ do_cea_modes(struct drm_connector *connector, const u8 *db, u8 len)
 			modes++;
 		}
 	}
+	{
+		const u8 _db[] = { 22 };
+		struct drm_display_mode *mode;
+
+		mode = drm_display_mode_from_vic_index(connector, _db, 1, 0);
+		if (mode) {
+			drm_mode_probed_add(connector, mode);
+			modes++;
+		}
+	}
 
 	return modes;
 }
