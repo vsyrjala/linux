@@ -1,0 +1,18 @@
+origin/drm-intel-fixes 5ebe6afaf0057ac3eaeb98defd5456894b446d22
+	Linux 4.1-rc2
+drm-upstream/drm-fixes 71aee81937963ccb07b3fa1b912e4cc6cd77dfa8
+	Merge tag 'drm-intel-fixes-2015-04-30' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes b5f1c97f944482e98e6e39208af356630389d1ea
+	drm/i915: vlv: fix save/restore of GFX_MAX_REQ_COUNT reg
+origin/drm-intel-next-queued dcdaab3ad1518eaf1ce31fd56d010c69a0754e06
+	drm/i915: Remove incorrect restriction on 32bit offsets in ppGTT backend
+drm-upstream/drm-next cec32a47010647e8b0603726ebb75b990a4057a4
+	media-bus: Fixup RGB444_1X12, RGB565_1X16, and YUV8_1X24 media bus format
+origin/topic/atomic-core 9469244d869623e8b54d9f3d4d00737e377af273
+	drm/atomic: Fix potential use of state after free
+origin/topic/drm-misc 337eb43c8d0000fef80b88e43fee7752a84afab2
+	drm/qxl: Fix qxl_noop_get_vblank_counter()
+origin/topic/drm-fixes 39a8804455fb23f09157341d3ba7db6d7ae6ee76
+	Linux 4.0
+origin/topic/bxt-stage1 1c046bc1db49e5a42e5c4167ac42cee4c1725a37
+	drm/i915/bxt: Support BXT in SSEU device status dump
