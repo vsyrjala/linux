@@ -1,0 +1,20 @@
+origin/drm-intel-fixes 9fcb1704d1d51b12e2f03c78bca013d0cbbb7c98
+	drm/i915/dp: there is no audio on port A
+drm-upstream/drm-fixes 71aee81937963ccb07b3fa1b912e4cc6cd77dfa8
+	Merge tag 'drm-intel-fixes-2015-04-30' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes b5f1c97f944482e98e6e39208af356630389d1ea
+	drm/i915: vlv: fix save/restore of GFX_MAX_REQ_COUNT reg
+origin/drm-intel-next-queued 8a308e5e6ec431324ef612797b336445514d3db7
+	drm/i915/bxt: BLC implementation
+drm-upstream/drm-next cec32a47010647e8b0603726ebb75b990a4057a4
+	media-bus: Fixup RGB444_1X12, RGB565_1X16, and YUV8_1X24 media bus format
+origin/topic/atomic-core 9469244d869623e8b54d9f3d4d00737e377af273
+	drm/atomic: Fix potential use of state after free
+sound-upstream/for-next 3b90f4072730c619809a0cbf597bf1b3bf76a2ec
+	ALSA: hda/tegra - Fix oops
+origin/topic/drm-misc 4a324d33bfe95a279d4c7370d84087d3e773e799
+	drm: simplify master cleanup
+origin/topic/drm-fixes 39a8804455fb23f09157341d3ba7db6d7ae6ee76
+	Linux 4.0
+origin/topic/bxt-stage1 1c046bc1db49e5a42e5c4167ac42cee4c1725a37
+	drm/i915/bxt: Support BXT in SSEU device status dump
