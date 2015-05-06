@@ -404,6 +404,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		break;
 	}
 
+	WARN_ON(src_w != crtc_w || src_h != crtc_h);
+
 	/*
 	 * Enable gamma to match primary/cursor plane behaviour.
 	 * FIXME should be user controllable via propertiesa.
@@ -412,10 +414,6 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 	if (obj->tiling_mode != I915_TILING_NONE)
 		sprctl |= SP_TILED;
-
-	intel_update_sprite_watermarks(dplane, crtc, src_w, src_h,
-				       pixel_size, true,
-				       src_w != crtc_w || src_h != crtc_h);
 
 	/* Sizes are 0 based */
 	src_w--;
@@ -488,8 +486,6 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	I915_WRITE(SPSURF(pipe, plane), 0);
 
 	intel_flush_primary_plane(dev_priv, intel_crtc->plane);
-
-	intel_update_sprite_watermarks(dplane, crtc, 0, 0, 0, false, false);
 }
 
 
@@ -1039,8 +1035,12 @@ finish:
 		if (!intel_crtc->primary_enabled && !state->hides_primary)
 			intel_crtc->atomic.post_enable_primary = true;
 
-		if (intel_wm_need_update(plane, &state->base))
-			intel_crtc->atomic.update_wm = true;
+		if (!to_intel_plane_state(plane->state)->visible && state->visible)
+			intel_crtc->atomic.update_wm_pre = true;
+		else if (to_intel_plane_state(plane->state)->visible && !state->visible)
+			intel_crtc->atomic.update_wm_post = true;
+		else if (intel_wm_need_update(plane, &state->base))
+			intel_crtc->atomic.update_wm_pre = true;
 
 		if (!state->visible) {
 			/*

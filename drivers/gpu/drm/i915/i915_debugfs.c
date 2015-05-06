@@ -4167,6 +4167,75 @@ static const struct file_operations i915_cur_wm_latency_fops = {
 	.write = cur_wm_latency_write
 };
 
+extern uint8_t chv_wm_latency[];
+
+static int chv_wm_latency_show(struct seq_file *m, void *data)
+{
+	struct drm_device *dev = m->private;
+	int level;
+
+	drm_modeset_lock_all(dev);
+
+	for (level = 0; level < 3; level++)
+		seq_printf(m, "WM%d %u usec\n", level, chv_wm_latency[level]);
+
+	drm_modeset_unlock_all(dev);
+
+	return 0;
+}
+
+static int chv_wm_latency_open(struct inode *inode, struct file *file)
+{
+	struct drm_device *dev = inode->i_private;
+
+	if (!IS_CHERRYVIEW(dev))
+		return -ENODEV;
+
+	return single_open(file, chv_wm_latency_show, dev);
+}
+
+static ssize_t chv_wm_latency_write(struct file *file, const char __user *ubuf,
+				    size_t len, loff_t *offp)
+{
+	struct seq_file *m = file->private_data;
+	struct drm_device *dev = m->private;
+	uint8_t new[3] = { 0 };
+	int level;
+	int ret;
+	char tmp[32];
+
+	if (len >= sizeof(tmp))
+		return -EINVAL;
+
+	if (copy_from_user(tmp, ubuf, len))
+		return -EFAULT;
+
+	tmp[len] = '\0';
+
+	ret = sscanf(tmp, "%hhu %hhu %hhu",
+		     &new[0], &new[1], &new[2]);
+	if (ret != 3)
+		return -EINVAL;
+
+	drm_modeset_lock_all(dev);
+
+	for (level = 0; level < 3; level++)
+		chv_wm_latency[level] = new[level];
+
+	drm_modeset_unlock_all(dev);
+
+	return len;
+}
+
+static const struct file_operations i915_chv_wm_latency_fops = {
+	.owner = THIS_MODULE,
+	.open = chv_wm_latency_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.write = chv_wm_latency_write,
+};
+
 static int
 i915_wedged_get(void *data, u64 *val)
 {
@@ -4845,6 +4914,7 @@ static const struct i915_debugfs_files {
 	{"i915_pri_wm_latency", &i915_pri_wm_latency_fops},
 	{"i915_spr_wm_latency", &i915_spr_wm_latency_fops},
 	{"i915_cur_wm_latency", &i915_cur_wm_latency_fops},
+	{"i915_chv_wm_latency", &i915_chv_wm_latency_fops},
 	{"i915_fbc_false_color", &i915_fbc_fc_fops},
 };
 

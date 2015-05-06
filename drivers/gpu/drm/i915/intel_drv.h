@@ -453,6 +453,15 @@ struct intel_crtc_state {
 	int pbn;
 
 	struct intel_crtc_scaler_state scaler_state;
+
+	struct {
+		struct vlv_pipe_wm wm[3];
+		struct vlv_sr_wm sr[3];
+		uint8_t num_active_planes;
+		uint8_t num_levels;
+		uint8_t level;
+		bool cxsr;
+	} wm;
 };
 
 struct intel_pipe_wm {
@@ -490,7 +499,7 @@ struct intel_crtc_atomic_commit {
 	bool wait_for_flips;
 	bool disable_fbc;
 	bool pre_disable_primary;
-	bool update_wm;
+	bool update_wm_pre, update_wm_post;
 	unsigned disabled_planes;
 
 	/* Sleepable operations to perform after commit */
@@ -557,6 +566,8 @@ struct intel_crtc {
 
 	/* scalers available on this crtc */
 	int num_scalers;
+
+	struct intel_crtc_state wm_state;
 };
 
 struct intel_plane_wm_parameters {
@@ -567,6 +578,7 @@ struct intel_plane_wm_parameters {
 	bool scaled;
 	u64 tiling;
 	unsigned int rotation;
+	uint16_t fifo_size;
 };
 
 struct intel_plane {

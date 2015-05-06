@@ -5888,6 +5888,7 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	for_each_encoder_on_crtc(dev, crtc, encoder)
 		encoder->enable(encoder);
 
+	intel_update_watermarks(crtc);
 	intel_crtc_enable_planes(crtc);
 
 	/* Underruns don't raise interrupts, so check manually. */
@@ -6010,6 +6011,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	 * wait-for-vblank between disabling the plane and the pipe.
 	 */
 	intel_set_memory_cxsr(dev_priv, false);
+	dev_priv->wm.vlv.cxsr = false;
 	intel_crtc_disable_planes(crtc);
 
 	/*
@@ -13322,8 +13324,12 @@ intel_check_primary_plane(struct drm_plane *plane,
 
 		intel_crtc->atomic.update_fbc = true;
 
-		if (intel_wm_need_update(plane, &state->base))
-			intel_crtc->atomic.update_wm = true;
+		if (!to_intel_plane_state(plane->state)->visible && state->visible)
+			intel_crtc->atomic.update_wm_pre = true;
+		else if (to_intel_plane_state(plane->state)->visible && !state->visible)
+			intel_crtc->atomic.update_wm_post = true;
+		else if (intel_wm_need_update(plane, &state->base))
+			intel_crtc->atomic.update_wm_pre = true;
 	}
 
 	if (INTEL_INFO(dev)->gen >= 9) {
@@ -13418,7 +13424,7 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc)
 	if (intel_crtc->atomic.pre_disable_primary)
 		intel_pre_disable_primary(crtc);
 
-	if (intel_crtc->atomic.update_wm)
+	if (intel_crtc->atomic.update_wm_pre)
 		intel_update_watermarks(crtc);
 
 	intel_runtime_pm_get(dev_priv);
@@ -13445,6 +13451,9 @@ static void intel_finish_crtc_commit(struct drm_crtc *crtc)
 
 	if (intel_crtc->atomic.wait_vblank)
 		intel_wait_for_vblank(dev, intel_crtc->pipe);
+
+	if (intel_crtc->atomic.update_wm_post)
+		intel_update_watermarks(crtc);
 
 	intel_frontbuffer_flip(dev, intel_crtc->atomic.fb_bits);
 
@@ -13614,8 +13623,10 @@ intel_check_cursor_plane(struct drm_plane *plane,
 
 finish:
 	if (intel_crtc->active) {
-		if (plane->state->crtc_w != state->base.crtc_w)
-			intel_crtc->atomic.update_wm = true;
+		if (plane->state->crtc_w && !state->base.crtc_w)
+			intel_crtc->atomic.update_wm_post = true;
+		else if (!plane->state->crtc_w && state->base.crtc_w)
+			intel_crtc->atomic.update_wm_pre = true;
 
 		intel_crtc->atomic.fb_bits |=
 			INTEL_FRONTBUFFER_CURSOR(intel_crtc->pipe);
@@ -15068,6 +15079,8 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 	}
 }
 
+void chv_wm_get_hw_state(struct drm_device *dev);
+
 /* Scan out the current hw modeset state, sanitizes it and maps it into the drm
  * and i915 state tracking structures. */
 void intel_modeset_setup_hw_state(struct drm_device *dev,
@@ -15122,7 +15135,9 @@ void intel_modeset_setup_hw_state(struct drm_device *dev,
 		pll->on = false;
 	}
 
-	if (IS_GEN9(dev))
+	if (IS_CHERRYVIEW(dev))
+		chv_wm_get_hw_state(dev);
+	else if (IS_GEN9(dev))
 		skl_wm_get_hw_state(dev);
 	else if (HAS_PCH_SPLIT(dev))
 		ilk_wm_get_hw_state(dev);
