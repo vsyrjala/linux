@@ -4809,8 +4809,10 @@ intel_pre_disable_primary(struct drm_crtc *crtc)
 	 * event which is after the vblank start event, so we need to have a
 	 * wait-for-vblank between disabling the plane and the pipe.
 	 */
-	if (HAS_GMCH_DISPLAY(dev))
+	if (HAS_GMCH_DISPLAY(dev)) {
 		intel_set_memory_cxsr(dev_priv, false);
+		dev_priv->wm.vlv.cxsr = false;
+	}
 
 	mutex_lock(&dev->struct_mutex);
 	if (dev_priv->fbc.crtc == intel_crtc)
@@ -6203,7 +6205,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	 * On gen2 planes are double buffered but the pipe isn't, so we must
 	 * wait for planes to fully turn off before disabling the pipe.
 	 * We also need to wait on all gmch platforms because of the
-	 * self-refresh mode constraint explained above.
+	 * self-refresh mode constraint explained in intel_pre_disable_primary().
 	 */
 	intel_wait_for_vblank(dev, pipe);
 
@@ -13303,8 +13305,12 @@ intel_check_primary_plane(struct drm_plane *plane,
 
 		intel_crtc->atomic.update_fbc = true;
 
-		if (intel_wm_need_update(plane, &state->base))
-			intel_crtc->atomic.update_wm = true;
+		if (!to_intel_plane_state(plane->state)->visible && state->visible)
+			intel_crtc->atomic.update_wm_pre = true;
+		else if (to_intel_plane_state(plane->state)->visible && !state->visible)
+			intel_crtc->atomic.update_wm_post = true;
+		else if (intel_wm_need_update(plane, &state->base))
+			intel_crtc->atomic.update_wm_pre = true;
 	}
 
 	if (INTEL_INFO(dev)->gen >= 9) {
@@ -13398,7 +13404,7 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc)
 	if (intel_crtc->atomic.pre_disable_primary)
 		intel_pre_disable_primary(crtc);
 
-	if (intel_crtc->atomic.update_wm)
+	if (intel_crtc->atomic.update_wm_pre)
 		intel_update_watermarks(crtc);
 
 	intel_runtime_pm_get(dev_priv);
@@ -13425,6 +13431,9 @@ static void intel_finish_crtc_commit(struct drm_crtc *crtc)
 
 	if (intel_crtc->atomic.wait_vblank)
 		intel_wait_for_vblank(dev, intel_crtc->pipe);
+
+	if (intel_crtc->atomic.update_wm_post)
+		intel_update_watermarks(crtc);
 
 	intel_frontbuffer_flip(dev, intel_crtc->atomic.fb_bits);
 
@@ -13598,8 +13607,10 @@ intel_check_cursor_plane(struct drm_plane *plane,
 
 finish:
 	if (intel_crtc->active) {
-		if (plane->state->crtc_w != state->base.crtc_w)
-			intel_crtc->atomic.update_wm = true;
+		if (plane->state->crtc_w > state->base.crtc_w)
+			intel_crtc->atomic.update_wm_post = true;
+		else if (plane->state->crtc_w < state->base.crtc_w)
+			intel_crtc->atomic.update_wm_pre = true;
 
 		intel_crtc->atomic.fb_bits |=
 			INTEL_FRONTBUFFER_CURSOR(intel_crtc->pipe);
@@ -15086,6 +15097,8 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 	}
 }
 
+void chv_wm_get_hw_state(struct drm_device *dev);
+
 /* Scan out the current hw modeset state, sanitizes it and maps it into the drm
  * and i915 state tracking structures. */
 void intel_modeset_setup_hw_state(struct drm_device *dev,
@@ -15140,7 +15153,9 @@ void intel_modeset_setup_hw_state(struct drm_device *dev,
 		pll->on = false;
 	}
 
-	if (IS_GEN9(dev))
+	if (IS_CHERRYVIEW(dev))
+		chv_wm_get_hw_state(dev);
+	else if (IS_GEN9(dev))
 		skl_wm_get_hw_state(dev);
 	else if (HAS_PCH_SPLIT(dev))
 		ilk_wm_get_hw_state(dev);
