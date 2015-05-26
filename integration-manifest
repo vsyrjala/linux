@@ -1,0 +1,20 @@
+origin/drm-intel-fixes ba155e2d21f6bf05de86a78dbe5bfd8757604a65
+	Linux 4.1-rc5
+drm-upstream/drm-fixes 990ed2720717173bbdea4cfb2bad37cc7aa91495
+	drm/vgem: drop DRIVER_PRIME (v2)
+origin/drm-intel-next-fixes b5f1c97f944482e98e6e39208af356630389d1ea
+	drm/i915: vlv: fix save/restore of GFX_MAX_REQ_COUNT reg
+origin/drm-intel-next-queued 21631f10ea08a9551eb32651448baad5ef64de6c
+	drm/i915: Fix the confusing comment about the ioctl limits
+drm-upstream/drm-next c6e7e4bb7ff988e7f915526a80ea866d84aac720
+	Merge branch 'drm/next/adv7511' of git://linuxtv.org/pinchartl/fbdev into drm-next
+origin/topic/atomic-core 9469244d869623e8b54d9f3d4d00737e377af273
+	drm/atomic: Fix potential use of state after free
+sound-upstream/for-next 0d769a523a90e3e5cf20c8bb15626f82aea04c90
+	sound: sound_firmware: Fix invalid use of vfs_read()
+origin/topic/drm-misc 60f207a5b6d8f23c2e8388b415e8d5c7311cc79d
+	drm/atomic: fix out of bounds read in for_each_*_in_state helpers
+origin/topic/drm-fixes 2e7f43c41c042d6fed4d67aceeaae32d8f102e98
+	drm/plane-helper: Adapt cursor hack to transitional helpers
+origin/topic/bxt-stage1 1c046bc1db49e5a42e5c4167ac42cee4c1725a37
+	drm/i915/bxt: Support BXT in SSEU device status dump
