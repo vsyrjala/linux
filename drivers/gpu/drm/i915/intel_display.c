@@ -13371,6 +13371,9 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc)
 	struct drm_plane *p;
 	unsigned fb_bits = 0;
 
+	if (!crtc->state->active)
+		return;
+
 	/* Track fb's for any planes being disabled */
 	list_for_each_entry(p, &dev->mode_config.plane_list, head) {
 		intel_plane = to_intel_plane(p);
@@ -13422,6 +13425,9 @@ static void intel_finish_crtc_commit(struct drm_crtc *crtc)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct drm_plane *p;
+
+	if (!crtc->state->active)
+		return;
 
 	if (intel_crtc->atomic.evade)
 		intel_pipe_update_end(intel_crtc,
