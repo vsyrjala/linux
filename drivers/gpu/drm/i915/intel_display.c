@@ -13312,6 +13312,11 @@ intel_check_primary_plane(struct drm_plane *plane,
 
 		intel_crtc->atomic.update_fbc = true;
 
+		if (to_intel_plane_state(plane->state)->visible && !state->visible)
+			intel_crtc->atomic.pre_disable_primary = true;
+		else if (to_intel_plane_state(plane->state)->visible && !state->visible)
+			intel_crtc->atomic.post_enable_primary = true;
+
 		if (!to_intel_plane_state(plane->state)->visible && state->visible)
 			intel_crtc->atomic.update_wm_pre = true;
 		else if (to_intel_plane_state(plane->state)->visible && !state->visible)
