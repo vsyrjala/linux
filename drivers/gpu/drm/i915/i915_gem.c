@@ -4688,7 +4688,7 @@ void i915_gem_free_object(struct drm_gem_object *gem_obj)
 	if (obj->stolen)
 		i915_gem_object_unpin_pages(obj);
 
-	WARN_ON(obj->frontbuffer_bits);
+	//WARN_ON(obj->frontbuffer_bits);
 
 	if (obj->pages && obj->madv == I915_MADV_WILLNEED &&
 	    dev_priv->quirks & QUIRK_PIN_SWIZZLED_PAGES &&
@@ -5267,13 +5267,13 @@ void i915_gem_track_fb(struct drm_i915_gem_object *old,
 {
 	if (old) {
 		WARN_ON(!mutex_is_locked(&old->base.dev->struct_mutex));
-		WARN_ON(!(old->frontbuffer_bits & frontbuffer_bits));
+		//WARN_ON(!(old->frontbuffer_bits & frontbuffer_bits));
 		old->frontbuffer_bits &= ~frontbuffer_bits;
 	}
 
 	if (new) {
 		WARN_ON(!mutex_is_locked(&new->base.dev->struct_mutex));
-		WARN_ON(new->frontbuffer_bits & frontbuffer_bits);
+		//WARN_ON(new->frontbuffer_bits & frontbuffer_bits);
 		new->frontbuffer_bits |= frontbuffer_bits;
 	}
 }
