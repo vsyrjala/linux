@@ -1004,6 +1004,37 @@ static void vlv_read_wm_values(struct drm_i915_private *dev_priv,
 	}
 }
 
+static void _chv_hack_wm_values(struct drm_i915_private *dev_priv)
+{
+	I915_WRITE(VLV_DDL(PIPE_A), 0x82828282);
+	I915_WRITE(VLV_DDL(PIPE_B), 0x82828282);
+	I915_WRITE(VLV_DDL(PIPE_C), 0x82828282);
+
+	I915_WRITE(DSPFW1, 0x4b809797);
+	I915_WRITE(DSPFW2, 0x00000000);
+	I915_WRITE(DSPFW3, 0x00000000);
+	I915_WRITE(DSPFW4, 0x00000000);
+	I915_WRITE(DSPFW5, 0x00000000);
+	I915_WRITE(DSPFW6, 0x00000000);
+	I915_WRITE(DSPFW7_CHV, 0x00000000);
+	I915_WRITE(DSPFW8_CHV, 0x00000000);
+	I915_WRITE(DSPFW9_CHV, 0x00970000);
+	I915_WRITE(DSPHOWM, 0x02000000);
+	I915_WRITE(DSPHOWM1, 0x00000000);
+
+	I915_WRITE(DSPARB, 0xffffffff);
+	I915_WRITE(DSPARB2, 0x00111111);
+	I915_WRITE(DSPARB3, 0x0000ffff);
+
+	POSTING_READ(DSPARB3);
+
+	//I915_WRITE(MI_ARB_VLV, 0x00000004);
+	//I915_WRITE(CBR1_VLV, 0x00000000);
+
+	//chv_set_memory_pm5(dev_priv, true);
+	//chv_set_memory_dvfs(dev_priv, true);
+}
+
 static uint8_t vlv_compute_drain_latency(struct drm_crtc *crtc,
 					 struct drm_plane *plane)
 {
@@ -1644,6 +1675,12 @@ static void chv_update_wm(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	enum pipe pipe = intel_crtc->pipe;
 	struct vlv_wm_values wm = {};
+
+	if (dev_priv->wm_dirty) {
+		_chv_hack_wm_values(dev_priv);
+		dev_priv->wm_dirty = false;
+	}
+	return;
 
 	chv_compute_wm(intel_crtc);
 	chv_merge_wm(dev, &wm);
@@ -7050,8 +7087,8 @@ static void vlv_init_display_clock_gating(struct drm_i915_private *dev_priv)
 	/*
 	 * Disable trickle feed and enable pnd deadline calculation
 	 */
-	I915_WRITE(MI_ARB_VLV, MI_ARB_DISPLAY_TRICKLE_FEED_DISABLE);
-	I915_WRITE(CBR1_VLV, 0);
+	//I915_WRITE(MI_ARB_VLV, MI_ARB_DISPLAY_TRICKLE_FEED_DISABLE);
+	//I915_WRITE(CBR1_VLV, 0);
 }
 
 static void valleyview_init_clock_gating(struct drm_device *dev)

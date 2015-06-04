@@ -2649,6 +2649,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	int pixel_size;
 
 	if (!visible || !fb) {
+		WARN_ON(I915_READ(FW_BLC_SELF_VLV) != 0);
 		I915_WRITE(reg, 0);
 		if (INTEL_INFO(dev)->gen >= 4)
 			I915_WRITE(DSPSURF(plane), 0);
@@ -4738,6 +4739,11 @@ intel_post_enable_primary(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int pipe = intel_crtc->pipe;
 
+	if (HAS_GMCH_DISPLAY(dev)) {
+		intel_set_memory_cxsr(dev_priv, true);
+		dev_priv->wm.vlv.cxsr = true;
+	}
+
 	/*
 	 * BDW signals flip done immediately if the plane
 	 * is disabled, even if the plane enable is already
@@ -4811,6 +4817,7 @@ intel_pre_disable_primary(struct drm_crtc *crtc)
 	 */
 	if (HAS_GMCH_DISPLAY(dev)) {
 		intel_set_memory_cxsr(dev_priv, false);
+		intel_wait_for_vblank(dev, pipe);
 		dev_priv->wm.vlv.cxsr = false;
 	}
 

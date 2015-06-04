@@ -1059,6 +1059,8 @@ static void chv_pipe_power_well_enable(struct drm_i915_private *dev_priv,
 		valleyview_enable_display_irqs(dev_priv);
 		spin_unlock_irq(&dev_priv->irq_lock);
 
+		dev_priv->wm_dirty = true;
+
 		/*
 		 * During driver initialization/resume we can avoid restoring the
 		 * part of the HW/SW state that will be inited anyway explicitly.
