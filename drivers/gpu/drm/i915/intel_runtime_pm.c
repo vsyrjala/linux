@@ -842,6 +842,8 @@ static void vlv_display_power_well_enable(struct drm_i915_private *dev_priv,
 
 	vlv_set_power_well(dev_priv, power_well, true);
 
+	dev_priv->wm_dirty = true;
+
 	spin_lock_irq(&dev_priv->irq_lock);
 	valleyview_enable_display_irqs(dev_priv);
 	spin_unlock_irq(&dev_priv->irq_lock);

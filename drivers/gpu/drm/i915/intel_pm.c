@@ -1035,6 +1035,30 @@ static void _chv_hack_wm_values(struct drm_i915_private *dev_priv)
 	//chv_set_memory_dvfs(dev_priv, true);
 }
 
+static void _vlv_hack_wm_values(struct drm_i915_private *dev_priv)
+{
+	I915_WRITE(VLV_DDL(PIPE_A), 0x82828282);
+	I915_WRITE(VLV_DDL(PIPE_B), 0x82828282);
+
+	I915_WRITE(DSPFW1, 0x4b809797);
+	I915_WRITE(DSPFW2, 0x00000000);
+	I915_WRITE(DSPFW3, 0x00000000);
+	I915_WRITE(DSPFW4, 0x00000000);
+	I915_WRITE(DSPFW5, 0x00000000);
+	I915_WRITE(DSPFW6, 0x00000000);
+	I915_WRITE(DSPFW7, 0x00000000);
+	I915_WRITE(DSPHOWM, 0x01000000);
+	I915_WRITE(DSPHOWM1, 0x00000000);
+
+	I915_WRITE(DSPARB, 0xffffffff);
+	I915_WRITE(DSPARB2, 0x00001111);
+
+	POSTING_READ(DSPARB2);
+
+	//I915_WRITE(MI_ARB_VLV, 0x00000004);
+	//I915_WRITE(CBR1_VLV, 0x00000000);
+}
+
 static uint8_t vlv_compute_drain_latency(struct drm_crtc *crtc,
 					 struct drm_plane *plane)
 {
@@ -1255,6 +1279,12 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 	enum pipe pipe = intel_crtc->pipe;
 	bool cxsr_enabled;
 	struct vlv_wm_values wm = dev_priv->wm.vlv;
+
+	if (dev_priv->wm_dirty) {
+		_vlv_hack_wm_values(dev_priv);
+		dev_priv->wm_dirty = false;
+	}
+	return;
 
 	wm.ddl[pipe].primary = vlv_compute_drain_latency(crtc, crtc->primary);
 	wm.pipe[pipe].primary = vlv_compute_wm(intel_crtc,
@@ -1759,6 +1789,12 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 	int sprite = to_intel_plane(plane)->plane;
 	bool cxsr_enabled;
 	struct vlv_wm_values wm = dev_priv->wm.vlv;
+
+	if (dev_priv->wm_dirty) {
+		_vlv_hack_wm_values(dev_priv);
+		dev_priv->wm_dirty = false;
+	}
+	return;
 
 	if (enabled) {
 		wm.ddl[pipe].sprite[sprite] =
