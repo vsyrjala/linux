@@ -3267,7 +3267,7 @@ intel_finish_fb(struct drm_framebuffer *old_fb)
 	ret = i915_gem_object_wait_rendering(obj, true);
 	dev_priv->mm.interruptible = was_interruptible;
 
-	WARN_ON(ret);
+	WARN_ON(ret != 0 && ret != -EIO);
 }
 
 static bool intel_crtc_has_pending_flip(struct drm_crtc *crtc)
@@ -11202,11 +11202,13 @@ static void intel_mmio_flip_work_func(struct work_struct *work)
 	struct intel_mmio_flip *mmio_flip =
 		container_of(work, struct intel_mmio_flip, work);
 
-	if (mmio_flip->req)
-		WARN_ON(__i915_wait_request(mmio_flip->req,
-					    mmio_flip->crtc->reset_counter,
-					    false, NULL,
-					    &mmio_flip->i915->rps.mmioflips));
+	if (mmio_flip->req) {
+		int ret = __i915_wait_request(mmio_flip->req,
+					      mmio_flip->crtc->reset_counter,
+					      false, NULL,
+					      &mmio_flip->i915->rps.mmioflips);
+		WARN_ON(ret != 0 && ret != -EIO);
+	}
 
 	intel_do_mmio_flip(mmio_flip->crtc);
 
