@@ -293,7 +293,7 @@ static const struct bxt_ddi_buf_trans bxt_ddi_translations_hdmi[] = {
 static void bxt_ddi_vswing_sequence(struct drm_device *dev, u32 level,
 				    enum port port, int type);
 
-static void ddi_get_encoder_port(struct intel_encoder *intel_encoder,
+static bool ddi_get_encoder_port(struct intel_encoder *intel_encoder,
 				 struct intel_digital_port **dig_port,
 				 enum port *port)
 {
@@ -311,9 +311,10 @@ static void ddi_get_encoder_port(struct intel_encoder *intel_encoder,
 		*dig_port = NULL;
 		*port = PORT_E;
 	} else {
-		DRM_ERROR("Invalid DDI encoder type %d\n", type);
-		BUG();
+		return false;
 	}
+
+	return true;
 }
 
 enum port intel_ddi_get_encoder_port(struct intel_encoder *intel_encoder)
@@ -321,7 +322,8 @@ enum port intel_ddi_get_encoder_port(struct intel_encoder *intel_encoder)
 	struct intel_digital_port *dig_port;
 	enum port port;
 
-	ddi_get_encoder_port(intel_encoder, &dig_port, &port);
+	if (WARN_ON(!ddi_get_encoder_port(intel_encoder, &dig_port, &port)))
+		return PORT_A;
 
 	return port;
 }
@@ -568,7 +570,8 @@ void intel_prepare_ddi(struct drm_device *dev)
 		enum port port;
 		bool supports_hdmi;
 
-		ddi_get_encoder_port(intel_encoder, &intel_dig_port, &port);
+		if (!ddi_get_encoder_port(intel_encoder, &intel_dig_port, &port))
+			continue;
 
 		if (visited[port])
 			continue;
