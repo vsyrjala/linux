@@ -991,6 +991,118 @@ static const struct drm_connector_funcs intel_dsi_connector_funcs = {
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 };
 
+#define BXT_DSI_PLL_ENABLE                            0x46080
+#define BXT_DSI_PLL_LOCKED                            (1 << 30)
+#define BXT_DSI_PLL_DO_ENABLE                         (1 << 31)
+#define _BXT_MIPIA_PORT_CTRL			0x6b0c0
+#define _BXT_MIPIC_PORT_CTRL			0x6b8c0
+#define BXT_MIPI_PORT_CTRL(port)	_MIPI_PORT(port, _BXT_MIPIA_PORT_CTRL, \
+						_BXT_MIPIC_PORT_CTRL)
+#define  BXT_MIPI_PORT_CTRL_EN			(1 << 31)
+
+#define BXT_PIPE_SELECT(x)                             (((x) >> 7) & 7)
+
+static bool broxton_get_dsi_port_state(struct drm_i915_private *dev_priv,
+				       enum port port, enum pipe *pipe_ret)
+{
+	uint32_t val;
+	enum pipe pipe;
+
+	val = I915_READ(BXT_DSI_PLL_ENABLE);
+	if (!(val & BXT_DSI_PLL_DO_ENABLE))
+		return false;
+
+	if (WARN_ON(!(val & BXT_DSI_PLL_LOCKED)))
+		return false;
+
+	val = I915_READ(MIPI_CTRL(port));
+	pipe = BXT_PIPE_SELECT(val);
+	if (WARN_ON(pipe > PIPE_C))
+		return false;
+
+	*pipe_ret = pipe;
+
+	return true;
+}
+
+static void broxton_dsi_disable_pll(struct drm_i915_private *dev_priv)
+{
+	uint32_t val;
+
+	val = I915_READ(BXT_DSI_PLL_ENABLE);
+	val &= ~BXT_DSI_PLL_DO_ENABLE;
+	I915_WRITE(BXT_DSI_PLL_ENABLE, val);
+	POSTING_READ(BXT_DSI_PLL_ENABLE);
+
+	if (wait_for(!(I915_READ(BXT_DSI_PLL_ENABLE) & BXT_DSI_PLL_LOCKED),
+		     100))
+		DRM_ERROR("DSI PLL doesn't unlock\n");
+}
+
+static void broxton_dsi_disable_plane(struct drm_i915_private *dev_priv,
+				       enum pipe pipe, int plane)
+{
+	I915_WRITE(PLANE_CTL(pipe, plane), 0);
+	I915_WRITE(PLANE_SURF(pipe, plane), 0);
+	POSTING_READ(PLANE_SURF(pipe, plane));
+}
+
+static void broxton_dsi_disable_planes(struct drm_i915_private *dev_priv,
+					enum pipe pipe)
+{
+	int plane;
+
+	for (plane = 0; plane < I915_MAX_PLANES; plane++)
+		broxton_dsi_disable_plane(dev_priv, pipe, plane);
+}
+
+static bool broxton_dsi_disable_ports(struct drm_i915_private *dev_priv)
+{
+	enum port port;
+	bool disable_pll;
+
+	disable_pll = false;
+	for (port = PORT_A; port <= PORT_C; port++) {
+		enum pipe port_pipe;
+		uint32_t val;
+
+		if (port == PORT_B)
+			continue;
+
+		if (!broxton_get_dsi_port_state(dev_priv, port, &port_pipe)) {
+			DRM_DEBUG_DRIVER("DSI port %c disabled\n",
+					 port_name(port));
+			continue;
+		}
+
+		DRM_DEBUG_DRIVER("disabling DSI port %c on pipe %c\n",
+				 port_name(port), pipe_name(port_pipe));
+
+		broxton_dsi_disable_planes(dev_priv, port_pipe);
+
+		val = I915_READ(PIPECONF(port_pipe));
+		val &= ~PIPECONF_ENABLE;
+		I915_WRITE(PIPECONF(port_pipe), val);
+		POSTING_READ(PIPECONF(port_pipe));
+
+		val = I915_READ(BXT_MIPI_PORT_CTRL(port));
+		val &= ~BXT_MIPI_PORT_CTRL_EN;
+		I915_WRITE(BXT_MIPI_PORT_CTRL(port), val);
+
+		val = I915_READ(BXT_P_CR_GT_DISP_PWRON);
+		val &= ~GT_DISPLAY_MIPIO_RESET;
+		I915_WRITE(BXT_P_CR_GT_DISP_PWRON, val);
+
+		disable_pll = true;
+	}
+
+	if (disable_pll)
+		broxton_dsi_disable_pll(dev_priv);
+
+	return false;
+}
+
+
 void intel_dsi_init(struct drm_device *dev)
 {
 	struct intel_dsi *intel_dsi;
@@ -1004,6 +1116,13 @@ void intel_dsi_init(struct drm_device *dev)
 	unsigned int i;
 
 	DRM_DEBUG_KMS("\n");
+
+	if (IS_BROXTON(dev)) {
+		dev_priv->mipi_mmio_base = BXT_MIPI_BASE;
+		broxton_dsi_disable_ports(dev_priv);
+
+		return;
+	}
 
 	/* There is no detection method for MIPI so rely on VBT */
 	if (!dev_priv->vbt.has_mipi)

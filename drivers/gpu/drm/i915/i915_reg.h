@@ -1164,6 +1164,7 @@ enum skl_disp_power_wells {
 #define _BXT_PHY(phy, a, b)		_PIPE((phy), (a), (b))
 
 #define BXT_P_CR_GT_DISP_PWRON		0x138090
+#define   GT_DISPLAY_MIPIO_RESET	(1 << 31)
 #define   GT_DISPLAY_POWER_ON(phy)	(1 << (phy))
 
 #define _PHY_CTL_FAMILY_EDP		0x64C80
@@ -1689,6 +1690,7 @@ enum skl_disp_power_wells {
 
 #define VLV_DISPLAY_BASE 0x180000
 #define VLV_MIPI_BASE VLV_DISPLAY_BASE
+#define BXT_MIPI_BASE 0x60000
 
 #define VLV_GU_CTL0	(VLV_DISPLAY_BASE + 0x2030)
 #define VLV_GU_CTL1	(VLV_DISPLAY_BASE + 0x2034)
