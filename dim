@@ -27,7 +27,6 @@
 # drm-intel-next maintainer script
 
 # TODO
-# - Add functions to setup/update all the branches/trees
 # - Improve docs/workflow for topic branches
 # - extract the integration tree logic and make it generally useful, maybe for a
 #   drm-integration tree ...
@@ -35,6 +34,7 @@
 #   patches
 # - Improve nightly-forget to forget a specific merge instead of just the first
 #   dinq/dif merge.
+# - add option to check-patch to check stdin
 
 # fail on any goof-up
 set -e
@@ -92,7 +92,7 @@ addr_intel_gfx_maintainer2="Jani Nikula <jani.nikula@linux.intel.com>"
 addr_intel_gfx="intel-gfx@lists.freedesktop.org"
 addr_dri_devel="dri-devel@lists.freedesktop.org"
 addr_intel_qa1="\"Sun, Yi\" <yi.sun@intel.com>"
-addr_intel_qa2="\"Jeff Zheng\" <jeff.zheng@intel.com>"
+addr_intel_qa2="\"Christophe Prigent\" <christophe.prigent@intel.com>"
 
 #
 # Command line options.
