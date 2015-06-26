@@ -412,17 +412,11 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 
 	/* Disable DPOunit clock gating, can stall pipe
 	 * and we need DPLL REFA always enabled */
-	tmp = I915_READ(DPLL(pipe));
-	tmp |= DPLL_REF_CLK_ENABLE_VLV;
-	I915_WRITE(DPLL(pipe), tmp);
-
-	/* update the hw state for DPLL */
-	intel_crtc->config->dpll_hw_state.dpll = DPLL_INTEGRATED_REF_CLK_VLV |
-		DPLL_REF_CLK_ENABLE_VLV | DPLL_VGA_MODE_DIS;
-
 	tmp = I915_READ(DSPCLK_GATE_D);
 	tmp |= DPOUNIT_CLOCK_GATE_DISABLE;
 	I915_WRITE(DSPCLK_GATE_D, tmp);
+
+	WARN_ON((I915_READ(DPLL(pipe)) & DPLL_REF_CLK_ENABLE_VLV) == 0);
 
 	/* put device in ready state */
 	intel_dsi_device_ready(encoder);
@@ -622,9 +616,10 @@ static void intel_dsi_get_config(struct intel_encoder *encoder,
 	DRM_DEBUG_KMS("\n");
 
 	/*
-	 * DPLL_MD is not used in case of DSI, reading will get some default value
-	 * set dpll_md = 0
+	 * DPLL is not used in case of DSI, reading will getsome default value.
+	 * Clear the state to keep the state checker happy.
 	 */
+	pipe_config->dpll_hw_state.dpll = 0;
 	pipe_config->dpll_hw_state.dpll_md = 0;
 
 	pclk = vlv_get_dsi_pclk(encoder, pipe_config->pipe_bpp);
