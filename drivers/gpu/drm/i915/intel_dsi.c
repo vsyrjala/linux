@@ -894,6 +894,7 @@ static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
 
 	intel_dsi_prepare(encoder);
 
+	vlv_disable_dsi_pll(encoder);
 	vlv_enable_dsi_pll(encoder);
 }
 
