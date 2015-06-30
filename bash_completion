@@ -11,7 +11,7 @@ _dim ()
 	cmds="$cmds rebuild-nightly cat-to-fixup"
 	cmds="$cmds push-queued pq push-fixes push-next-fixes pnf push-branch"
 	cmds="$cmds co cof conf"
-	cmds="$cmds apply-branch apply-queued aq apply-fixes af apply-next-fixes anf"
+	cmds="$cmds apply-branch ab sob apply-queued aq apply-fixes af apply-next-fixes anf"
 	cmds="$cmds magic-patch mp"
 	cmds="$cmds magic-rebase-resolve mrr"
 	cmds="$cmds apply-igt ai"
@@ -30,50 +30,45 @@ _dim ()
 	fi
 
 	case "${COMP_WORDS[1]}" in
-		nightly-forget)
-			;;
-		update-branches|ub)
-			;;
 		push-branch)
 			COMPREPLY=( $( compgen -W "-f $nightly_branches" -- $cur ) )
 			;;
 		push-queued|pq|push-fixes|pf|push-next-fixes|pnf)
 			COMPREPLY=( $( compgen -W "-f" -- $cur ) )
 			;;
-		co|cof|conf)
-			;;
 		apply-branch|ab|sob)
-			COMPREPLY=( $( compgen -W "-f $nightly_branches" -- $cur ) )
+			COMPREPLY=( $( compgen -W "-s $nightly_branches" -- $cur ) )
 			;;
 		apply-queued|aq|apply-fixes|af|apply-next-fixes|anf)
 			COMPREPLY=( $( compgen -W "-s" -- $cur ) )
 			;;
-		apply-resolved|ar)
-			;;
-		magic-patch|mp)
-			;;
 		tc)
-			# needs a git sha1
+			# FIXME needs a git sha1
 			;;
 		check-patch|cp)
-			# needs a git sha1
+			# FIXME needs a git sha1
 			;;
 		pull-request)
 			if [[ $COMP_CWORD == "2" ]] ; then
 				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
-			else # branch already given
-				COMPREPLY=( $( compgen -W $upstream_branches -- $cur ) )
+			elif [[ $COMP_CWORD == "3" ]] ; then
+				COMPREPLY=( $( compgen -W "$upstream_branches" -- $cur ) )
 			fi
 			;;
 		pull-request-next|pull-request-fixes|pull-request-next-fixes)
-			COMPREPLY=( $( compgen -W $upstream_branches -- $cur ) )
+			if [[ $COMP_CWORD == "2" ]] ; then
+				COMPREPLY=( $( compgen -W "$upstream_branches" -- $cur ) )
+			fi
+			;;
+		create-branch)
+			if [[ $COMP_CWORD == "2" ]] ; then
+				COMPREPLY=( $( compgen -o nospace -W "drm- topic/" -- $cur ) )
+			fi
 			;;
 		remove-branch)
-			COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
-			;;
-		update-next)
-			;;
-		checker)
+			if [[ $COMP_CWORD == "2" ]] ; then
+				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
+			fi
 			;;
 	esac
 
