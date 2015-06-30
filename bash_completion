@@ -3,6 +3,9 @@
 _dim ()
 {
 	local cur cmds
+	local nightly_branches=`(source ~/linux/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
+		xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
+	local upstream_branches="origin/master airlied/drm-next airlied/drm-fixes"
 
 	cmds="setup nightly-forget update-branches"
 	cmds="$cmds rebuild-nightly cat-to-fixup"
@@ -27,23 +30,22 @@ _dim ()
 	fi
 
 	case "${COMP_WORDS[1]}" in
-		prep-branch|pb)
-			# needs a git sha1
-			;;
-		prep-nightly|pn)
-			;;
 		nightly-forget)
 			;;
 		update-branches|ub)
 			;;
-		push-queued|pq|push-fixes|pf)
+		push-branch)
+			COMPREPLY=( $( compgen -W "-f $nightly_branches" -- $cur ) )
+			;;
+		push-queued|pq|push-fixes|pf|push-next-fixes|pnf)
 			COMPREPLY=( $( compgen -W "-f" -- $cur ) )
 			;;
-		co)
+		co|cof|conf)
 			;;
-		cof)
+		apply-branch|ab|sob)
+			COMPREPLY=( $( compgen -W "-f $nightly_branches" -- $cur ) )
 			;;
-		apply-queued|aq|apply-fixes|af)
+		apply-queued|aq|apply-fixes|af|apply-next-fixes|anf)
 			COMPREPLY=( $( compgen -W "-s" -- $cur ) )
 			;;
 		apply-resolved|ar)
@@ -56,14 +58,22 @@ _dim ()
 		check-patch|cp)
 			# needs a git sha1
 			;;
-		pull-request|pull-request-fixes)
-			COMPREPLY=( $( compgen -W "origin/master airlied/drm-next airlied/drm-fixes" -- $cur ) )
+		pull-request)
+			if [[ $COMP_CWORD == "2" ]] ; then
+				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
+			else # branch already given
+				COMPREPLY=( $( compgen -W $upstream_branches -- $cur ) )
+			fi
+			;;
+		pull-request-next|pull-request-fixes|pull-request-next-fixes)
+			COMPREPLY=( $( compgen -W $upstream_branches -- $cur ) )
+			;;
+		remove-branch)
+			COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
 			;;
 		update-next)
 			;;
 		checker)
-			;;
-		maintainer-stats|ms)
 			;;
 	esac
 
