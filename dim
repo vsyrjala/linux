@@ -94,6 +94,9 @@ addr_dri_devel="dri-devel@lists.freedesktop.org"
 addr_intel_qa1="\"Sun, Yi\" <yi.sun@intel.com>"
 addr_intel_qa2="\"Christophe Prigent\" <christophe.prigent@intel.com>"
 
+dim_branches=`(source $DIM_PREFIX/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
+	xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
+
 #
 # Command line options.
 #
@@ -564,12 +567,11 @@ case "$subcommand" in
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		git fetch $DIM_DRM_INTEL_REMOTE
 		check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
-		dim co
-		git rebase -i
-		dim cof
-		git rebase -i
-		dim conf
-		git rebase -i
+
+		for branch in $dim_branches ; do
+			dim_co $branch
+			git rebase -i
+		done
 		dim_co drm-intel-next
 		git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
 		# TODO: Restore -nightly merge state from the rerere-cache
