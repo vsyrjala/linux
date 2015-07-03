@@ -328,6 +328,8 @@ function dim_apply
 
 function dim_co
 {
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
+
 	git checkout $1
 }
 
@@ -530,6 +532,9 @@ function setup_dim
 function assert_branch
 {
 	local branch=$1
+
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
+
 	if git branch | grep $branch | grep '\*' ; then
 		return 0
 	else
@@ -544,8 +549,6 @@ if [ ! -d $DIM_PREFIX/$DIM_DRM_INTEL ]; then
 	exit 1
 fi
 
-cd $DIM_PREFIX/$DIM_DRM_INTEL
-
 case "$subcommand" in
 	setup)
 		setup_dim
@@ -558,6 +561,7 @@ case "$subcommand" in
 		git rerere forget
 		;;
 	update-branches|ub)
+		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		git fetch $DIM_DRM_INTEL_REMOTE
 		check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
 		dim co
@@ -647,6 +651,7 @@ case "$subcommand" in
 		git rebase --continue
 		;;
 	tc)
+		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		git tag --contains $1 | grep ^v | sort -V | head -n 1
 		;;
 	check-patch|cp)
@@ -770,6 +775,9 @@ case "$subcommand" in
 		else
 			start=$2
 		fi
+
+		cd $DIM_PREFIX/$DIM_DRM_INTEL
+
 		git branch $branch $start
 		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$branch --set-upstream
 		cd $DIM_PREFIX/drm-intel-rerere
@@ -784,6 +792,9 @@ case "$subcommand" in
 			exit 1
 		fi
 		branch=$1
+
+		cd $DIM_PREFIX/$DIM_DRM_INTEL
+
 		if ! git branch -d $branch ; then
 			warn_or_fail "Can't remove $branch in working repo"
 		fi
