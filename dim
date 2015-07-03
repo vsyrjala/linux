@@ -326,6 +326,11 @@ function dim_apply
 	git commit --amend &
 }
 
+function dim_co
+{
+	git checkout $1
+}
+
 function check_repo_clean
 {
 	cd $1
@@ -559,7 +564,7 @@ case "$subcommand" in
 		git rebase -i
 		dim conf
 		git rebase -i
-		git checkout drm-intel-next
+		dim_co drm-intel-next
 		git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
 		# TODO: Restore -nightly merge state from the rerere-cache
 		# branch
@@ -589,13 +594,13 @@ case "$subcommand" in
 		dim_push drm-intel-fixes "$@"
 		;;
 	co)
-		git checkout drm-intel-next-queued
+		dim_co drm-intel-next-queued
 		;;
 	cof)
-		git checkout drm-intel-fixes
+		dim_co drm-intel-fixes
 		;;
 	conf)
-		git checkout drm-intel-next-fixes
+		dim_co drm-intel-next-fixes
 		;;
 	apply-branch|ab|sob)
 		dim_apply "$@"
