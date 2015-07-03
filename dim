@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright © 2012-2014 Intel Corporation
+# Copyright © 2012-2015 Intel Corporation
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -27,7 +27,6 @@
 # drm-intel-next maintainer script
 
 # TODO
-# - Improve docs/workflow for topic branches
 # - extract the integration tree logic and make it generally useful, maybe for a
 #   drm-integration tree ...
 # - add a Link: tag referring to mid.mail-archive.com/<msg-id> to merged
@@ -329,10 +328,18 @@ function dim_apply
 	git commit --amend &
 }
 
+function dim_cd
+{
+	if [[ -d $DIM_PREFIX/$1 ]] ; then
+		cd $DIM_PREFIX/$1
+	else
+		cd $DIM_PREFIX/$DIM_DRM_INTEL
+	fi
+}
+
 function dim_co
 {
-	cd $DIM_PREFIX/$DIM_DRM_INTEL
-
+	dim_cd $1
 	git checkout $1
 }
 
@@ -426,6 +433,31 @@ function prep_pull_mail
 	prep_pull_mail_greetings > ~/tmp/dim-pull-request
 	prep_pull_mail_overview $@ >> ~/tmp/dim-pull-request
 	prep_pull_mail_signature >> ~/tmp/dim-pull-request
+}
+
+function create_workdir
+{
+	cd $DIM_PREFIX
+	local branches
+
+	if [[ "x$1" = "x" ]]; then
+		echo "usage: $0 $subcommand branch|all"
+		exit 1
+	elif [[ "$1" = "all" ]] ; then
+		branches=$dim_branches
+	else
+		branches=$1
+	fi
+
+	for branch in $branches ; do
+		if [[ -d $branch ]] ; then
+			continue;
+		fi
+
+		echo Creating separate workdir for $branch
+
+		git-new-workdir src $branch $branch
+	done
 }
 
 # dim_pull_request branch upstream
@@ -536,12 +568,12 @@ function assert_branch
 {
 	local branch=$1
 
-	cd $DIM_PREFIX/$DIM_DRM_INTEL
+	dim_cd $branch
 
 	if git branch | grep $branch | grep '\*' ; then
 		return 0
 	else
-		echo "You're on the wrong branch, expected $branch"
+		echo "You're on the wrong branch, expected $branch in $PWD"
 		return 1
 	fi
 }
@@ -577,6 +609,9 @@ case "$subcommand" in
 		# TODO: Restore -nightly merge state from the rerere-cache
 		# branch
 		update_rerere_cache
+		;;
+	create-workdir)
+		create_workdir $1
 		;;
 	rebuild-nightly)
 		update_nightly
@@ -800,6 +835,11 @@ case "$subcommand" in
 		if ! git branch -d $branch ; then
 			warn_or_fail "Can't remove $branch in working repo"
 		fi
+
+		if [[ -d $DIM_PREFIX/$branch ]] ; then
+			rm -R $DIM_PREFIX/$branch
+		fi
+
 		cd $DIM_PREFIX/drm-intel-nightly
 		git push $DRY_RUN origin --delete $branch
 		git fetch origin --prune
@@ -834,7 +874,7 @@ drm-intel maintainer script
 :Author: Daniel Vetter <daniel.vetter@ffwll.ch>
 :Author: Jani Nikula <jani.nikula@intel.com>
 :Date: 2014-05-15
-:Copyright: 2012-2014 Intel Corporation
+:Copyright: 2012-2015 Intel Corporation
 :Manual section: 1
 :Manual group: maintainer tools
 
@@ -1028,6 +1068,13 @@ remove-branch *branch*
 ----------------------
 
 Remove the given topic branch.
+
+create-workdir *branch*|all
+---------------------------
+
+Create a separate workdir for the branch with the given name (requires that
+git-new-workdir from git-core contrib is installed), or for all branches if
+"all" is given.
 
 help
 ----

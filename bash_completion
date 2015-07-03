@@ -18,7 +18,7 @@ _dim ()
 	cmds="$cmds apply-resolved ar tc check-patch cp cherry-pick"
 	cmds="$cmds pull-request pull-request-fixes pull-request-topic pull-request-next-fixes"
 	cmds="$cmds update-next"
-	cmds="$cmds create-branch remove-branch"
+	cmds="$cmds create-branch remove-branch create-workdir"
 	cmds="$cmds tag-next checker"
 
 	COMPREPLY=()   # Array variable storing the possible completions.
@@ -68,6 +68,11 @@ _dim ()
 		remove-branch)
 			if [[ $COMP_CWORD == "2" ]] ; then
 				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
+			fi
+			;;
+		create-workdir)
+			if [[ $COMP_CWORD == "2" ]] ; then
+				COMPREPLY=( $( compgen -W "$nightly_branches all" -- $cur ) )
 			fi
 			;;
 	esac
