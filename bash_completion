@@ -2,7 +2,7 @@
 
 _dim ()
 {
-	local cur cmds
+	local cur cmds opts i
 	local nightly_branches=`(source ~/linux/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
 		xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
 	local upstream_branches="origin/master airlied/drm-next airlied/drm-fixes"
@@ -21,15 +21,27 @@ _dim ()
 	cmds="$cmds create-branch remove-branch create-workdir"
 	cmds="$cmds tag-next checker"
 
+	opts="-d -f"
+
+	i=1
+
 	COMPREPLY=()   # Array variable storing the possible completions.
 	cur=${COMP_WORDS[COMP_CWORD]}
 
-	if [[ $COMP_CWORD == "1" ]] ; then
-		COMPREPLY=( $( compgen -W "$cmds" -- $cur ) )
+	for comp in "${COMP_WORDS[@]}" ; do
+		for opt in $opts ; do
+			if [[ $opt = $comp ]] ; then
+				i=$((i+1))
+			fi
+		done
+	done
+
+	if [[ $COMP_CWORD == "$i" ]] ; then
+		COMPREPLY=( $( compgen -W "$cmds $opts" -- $cur ) )
 		return 0
 	fi
 
-	case "${COMP_WORDS[1]}" in
+	case "${COMP_WORDS[i]}" in
 		push-branch)
 			COMPREPLY=( $( compgen -W "-f $nightly_branches" -- $cur ) )
 			;;
@@ -49,29 +61,29 @@ _dim ()
 			# FIXME needs a git sha1
 			;;
 		pull-request)
-			if [[ $COMP_CWORD == "2" ]] ; then
+			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
 				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
-			elif [[ $COMP_CWORD == "3" ]] ; then
+			elif [[ $COMP_CWORD == "$((i+2))" ]] ; then
 				COMPREPLY=( $( compgen -W "$upstream_branches" -- $cur ) )
 			fi
 			;;
 		pull-request-next|pull-request-fixes|pull-request-next-fixes)
-			if [[ $COMP_CWORD == "2" ]] ; then
+			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
 				COMPREPLY=( $( compgen -W "$upstream_branches" -- $cur ) )
 			fi
 			;;
 		create-branch)
-			if [[ $COMP_CWORD == "2" ]] ; then
+			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
 				COMPREPLY=( $( compgen -o nospace -W "drm- topic/" -- $cur ) )
 			fi
 			;;
 		remove-branch)
-			if [[ $COMP_CWORD == "2" ]] ; then
+			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
 				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
 			fi
 			;;
 		create-workdir)
-			if [[ $COMP_CWORD == "2" ]] ; then
+			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
 				COMPREPLY=( $( compgen -W "$nightly_branches all" -- $cur ) )
 			fi
 			;;
