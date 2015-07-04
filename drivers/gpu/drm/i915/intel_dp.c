@@ -2324,6 +2324,13 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 	}
 }
 
+static bool intel_dp_has_downstream_hpd(struct intel_dp *intel_dp)
+{
+	return intel_dp->dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT &&
+		intel_dp->dpcd[DP_DPCD_REV] >= 0x11 &&
+		intel_dp->downstream_ports[0] & DP_DS_PORT_HPD;
+}
+
 static void intel_disable_dp(struct intel_encoder *encoder)
 {
 	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
@@ -2340,7 +2347,9 @@ static void intel_disable_dp(struct intel_encoder *encoder)
 	 * ensure that we have vdd while we switch off the panel. */
 	intel_edp_panel_vdd_on(intel_dp);
 	intel_edp_backlight_off(intel_dp);
-	intel_dp_sink_dpms(intel_dp, DRM_MODE_DPMS_OFF);
+	/* Skip power down to keep downstream HPD working */
+	if (!intel_dp_has_downstream_hpd(intel_dp))
+		intel_dp_sink_dpms(intel_dp, DRM_MODE_DPMS_OFF);
 	intel_edp_panel_off(intel_dp);
 
 	/* disable the port before the pipe on g4x */
@@ -4944,6 +4953,13 @@ intel_dp_hpd_pulse(struct intel_digital_port *intel_dig_port, bool long_hpd)
 			drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
 			intel_dp_check_link_status(intel_dp);
 			drm_modeset_unlock(&dev->mode_config.connection_mutex);
+
+			/*
+			 * Downstream HPD will generate a short HPD,
+			 * so we want full hotplug processing here.
+			 */
+			if (intel_dp_has_downstream_hpd(intel_dp))
+				goto put_power;
 		}
 	}
 
