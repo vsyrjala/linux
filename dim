@@ -456,7 +456,7 @@ function create_workdir
 
 		echo Creating separate workdir for $branch
 
-		git-new-workdir src $branch $branch
+		$DRY git-new-workdir src $branch $branch
 	done
 }
 
@@ -484,7 +484,7 @@ function dim_pull_request
 	fi
 
 	git request-pull $upstream $drm_intel_git $tag >> ~/tmp/dim-pull-request
-	$DIM_MUA -s "[PULL] $branch" \
+	$DRY $DIM_MUA -s "[PULL] $branch" \
 		-i ~/tmp/dim-pull-request \
 		-c "$addr_intel_gfx" \
 		-c "$addr_dri_devel" \
@@ -602,10 +602,10 @@ case "$subcommand" in
 
 		for branch in $dim_branches ; do
 			dim_co $branch
-			git rebase -i
+			$DRY git rebase -i
 		done
 		dim_co drm-intel-next
-		git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
+		$DRY git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
 		# TODO: Restore -nightly merge state from the rerere-cache
 		# branch
 		update_rerere_cache
@@ -749,13 +749,13 @@ case "$subcommand" in
 
 		gitk drm-intel-next-queued ^$DIM_DRM_UPSTREAM_REMOTE/drm-next &
 
-		$DRY git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
+		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
 		tag=drm-intel-next-$today
 		$DRY git tag -f -a $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
-		$DRY git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
+		git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
 
 		echo "Updating -testing to latest -nightly"
-		$DRY git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$DIM_DRM_INTEL_REMOTE/drm-intel-nightly:drm-intel-testing
+		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$DIM_DRM_INTEL_REMOTE/drm-intel-nightly:drm-intel-testing
 		$DRY git tag -f drm-intel-testing-$today $DIM_DRM_INTEL_REMOTE/drm-intel-testing
 		$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-testing-$today
 
@@ -777,7 +777,7 @@ case "$subcommand" in
 		Cheers, Daniel
 		HERE
 
-		$DIM_MUA -s "Updated drm-intel-testing" \
+		$DRY $DIM_MUA -s "Updated drm-intel-testing" \
 			-i ~/tmp/test-request \
 			-c "$addr_intel_gfx" \
 			-c "$addr_intel_gfx_maintainer1" \
@@ -794,7 +794,7 @@ case "$subcommand" in
 
 			tag=drm-intel-next-$today
 			$DRY git tag -f $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
-			$DRY git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
+			git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
 		else
 			echo "drm-intel-next not up-to-date, aborting"
 			exit
@@ -815,13 +815,13 @@ case "$subcommand" in
 
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 
-		git branch $branch $start
+		$DRY git branch $branch $start
 		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$branch --set-upstream
 		cd $DIM_PREFIX/drm-intel-rerere
-		echo "nightly_branches=\"\$nightly_branches origin/$branch\"" \
+		$DRY echo "nightly_branches=\"\$nightly_branches origin/$branch\"" \
 			>> nightly.conf
-		git add nightly.conf
-		git commit --quiet -m "Adding $branch to -nightly"
+		$DRY git add nightly.conf
+		$DRY git commit --quiet -m "Adding $branch to -nightly"
 		;;
 	remove-branch)
 		if [[ "x$1" = "x" ]]; then
@@ -832,7 +832,7 @@ case "$subcommand" in
 
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 
-		if ! git branch -d $branch ; then
+		if ! $DRY git branch -d $branch ; then
 			warn_or_fail "Can't remove $branch in working repo"
 		fi
 
@@ -842,12 +842,12 @@ case "$subcommand" in
 
 		cd $DIM_PREFIX/drm-intel-nightly
 		git push $DRY_RUN origin --delete $branch
-		git fetch origin --prune
+		$DRY git fetch origin --prune
 		cd $DIM_PREFIX/drm-intel-rerere
 		full_branch="origin/$branch"
-		sed -e "/${full_branch//\//\\\/}/d" -i nightly.conf
-		git add nightly.conf
-		git commit --quiet -m "Deleted $branch and removed from -nightly"
+		$DRY sed -e "/${full_branch//\//\\\/}/d" -i nightly.conf
+		$DRY git add nightly.conf
+		$DRY git commit --quiet -m "Deleted $branch and removed from -nightly"
 		;;
 	checker)
 		rm drivers/gpu/drm/i915/*.o &> /dev/null || true
