@@ -328,13 +328,38 @@ function dim_apply
 	git commit --amend &
 }
 
+function magic_patch
+{
+	if [[ "$1" = "-a" ]]; then
+		cd `cat ~/.dim-last-path`
+	fi
+
+	local conflict_files=`patch -p1 | grep "saving rejects" | sed -e "s/.*saving rejects to file \(.*\)/\1/"`
+
+	if [[ $conflict_files != "" ]] ; then
+		echo conflicts found!
+	fi
+
+	for file in $conflict_files ; do
+		echo wiggling in ${file%.rej}:
+		#cat $file
+		rm -f ${file%.rej}.porig
+		wiggle -r ${file%.rej} $file || true
+	done
+}
+
 function dim_cd
 {
+	local path
+
 	if [[ -d $DIM_PREFIX/$1 ]] ; then
-		cd $DIM_PREFIX/$1
+		path=$DIM_PREFIX/$1
 	else
-		cd $DIM_PREFIX/$DIM_DRM_INTEL
+		path=$DIM_PREFIX/$DIM_DRM_INTEL
 	fi
+
+	echo $path > ~/.dim-last-path
+	cd $path
 }
 
 function dim_co
@@ -667,18 +692,7 @@ case "$subcommand" in
 		git am -3 -s
 		;;
 	magic-patch|mp)
-		conflict_files=`patch -p1 | grep "saving rejects" | sed -e "s/.*saving rejects to file \(.*\)/\1/"`
-
-		if [[ $conflict_files != "" ]] ; then
-			echo conflicts found!
-		fi
-
-		for file in $conflict_files ; do
-			echo wiggling in ${file%.rej}:
-			#cat $file
-			rm -f ${file%.rej}.porig
-			wiggle -r ${file%.rej} $file || true
-		done
+		magic_patch "$@"
 		;;
 	magic-rebase-resolve|mrr)
 		git diff HEAD | patch -p1 -R
@@ -1003,15 +1017,25 @@ apply-queued|aq [*git am arguments*]
 Applies a patch to -fixes, -next-fixes or -next-queued respectively, complains
 if it's not the right branch. Additional arguments are passed to git am.
 
-magic-patch|mp
---------------
-Apply a patch using patch and then wiggle in any conflicts.
+magic-patch|mp [-a]
+-------------------
+Apply a patch using patch and then wiggle in any conflicts. When passing the
+option -a automatically changes the working directory into the git repository
+used by the last previous branch-specific command. This is useful with the
+per-branch workdir model.
 
 magic-rebase-resolve|mrr
 ------------------------
 Tries to resolve a rebase conflict by first resetting the tree
 and the using the magic patch tool. Then builds the tree, adds
 any changes with git add -u and continues the rebase.
+
+cd
+--
+Changes the working directory into the git repository used by the last previous
+branch-specific command. This is implemented as a bash-function to make it
+useful in interactive shells and scripts. Only available when the bash
+completion is sourced.
 
 apply-resolved|ar
 -----------------

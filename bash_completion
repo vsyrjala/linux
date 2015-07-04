@@ -1,5 +1,14 @@
 #! /bin/bash
 
+dim ()
+{
+	if [[ "x$1" = "xcd" ]]; then
+		cd `cat ~/.dim-last-path`
+	else
+		command dim "$@"
+	fi
+}
+
 _dim ()
 {
 	local cur cmds opts i
@@ -12,7 +21,7 @@ _dim ()
 	cmds="$cmds push-queued pq push-fixes push-next-fixes pnf push-branch"
 	cmds="$cmds co cof conf"
 	cmds="$cmds apply-branch ab sob apply-queued aq apply-fixes af apply-next-fixes anf"
-	cmds="$cmds magic-patch mp"
+	cmds="$cmds magic-patch mp cd"
 	cmds="$cmds magic-rebase-resolve mrr"
 	cmds="$cmds apply-igt ai"
 	cmds="$cmds apply-resolved ar tc check-patch cp cherry-pick"
@@ -53,6 +62,11 @@ _dim ()
 			;;
 		apply-queued|aq|apply-fixes|af|apply-next-fixes|anf)
 			COMPREPLY=( $( compgen -W "-s" -- $cur ) )
+			;;
+		magic-patch|mp)
+			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
+				COMPREPLY=( $( compgen -o nospace -W "-a" -- $cur ) )
+			fi
 			;;
 		tc)
 			# FIXME needs a git sha1
