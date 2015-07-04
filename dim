@@ -888,6 +888,41 @@ DESCRIPTION
 
 drm-intel maintainer script.
 
+Branch Model
+------------
+
+The dim flow has 3 main development branches:
+
+- drm-intel-next-queued for feature work. This branch gets regularly pushed to
+  drm-intel-next and tagged and then sent on to the upstream drm-next branch
+  using *update-next*.  The cut-off for the last pull request to drm-next is
+  around -rc5. After that point patches in drm-intel-next-queued already aim at
+  the next but one and not the next merge window.
+
+- drm-intel-next-fixes is to collect fixes for the current merge window after
+  the -rc5 feature cut-off in drm-next.
+
+- drm-intel-fixes is for fixes for the current -rc1 kernel. This is separate
+  from drm-intel-next-fixes since the merge window feature cutoff at -rc5 is a
+  few weeks ahead of the final release of the previous kernel.
+
+  There's separate tracking branches for inclusion into linux-next to make sure
+  that the feature work in drm-intel-next-queued aimed for the next but one
+  merge window doesn't cause unecassary conflicts in linux-next - in that case
+  only drm-intel-next-fixes is included in linux-next. The switchover happens
+  when drm-intel-fixes has caught up (in git terms: drm-intel-next-fixes is
+  direct ancestor of drm-intel-fixes). Therefore only roll drm-intel-fixes
+  forward once -rc1 is released
+
+In addition there's 2 permanent topic branches:
+
+- topic/drm-misc carries core drm patches aimed at the next merge window.
+
+- topic/drm-fixes carries core drm fixes for the current -rc kernels.
+
+Additional topic branches are created as needed using *create-branch* and
+*remove-branch*.
+
 OPTIONS
 =======
 
