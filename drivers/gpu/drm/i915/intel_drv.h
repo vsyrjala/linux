@@ -782,6 +782,7 @@ struct intel_digital_port {
 	struct intel_dp dp;
 	struct intel_hdmi hdmi;
 	enum irqreturn (*hpd_pulse)(struct intel_digital_port *, bool);
+	bool release_cl2_override;
 };
 
 struct intel_dp_mst_encoder {
@@ -1372,6 +1373,8 @@ void intel_display_set_init_power(struct drm_i915_private *dev, bool enable);
 
 void chv_phy_powergate_lanes(struct intel_encoder *encoder,
 			     bool override, unsigned int mask);
+bool chv_phy_powergate_ch(struct drm_i915_private *dev_priv, enum dpio_phy phy,
+			  enum dpio_channel ch, bool override);
 
 
 /* intel_pm.c */
