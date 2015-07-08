@@ -1,0 +1,18 @@
+origin/drm-intel-fixes dec4f799d0a4c9edae20512fa60b0a36f3299ca2
+	drm/i915: Use crtc_state->active in primary check_plane func
+drm-upstream/drm-fixes fcee3c73a2c51982057b93fe599b7c68e16d0636
+	Merge tag 'drm-intel-fixes-2015-06-18' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes ee46f3c7d79c334e8bdc9947503e329dc27c0b47
+	drm/i915: Clear pipe's pll hw state in hsw_dp_set_ddi_pll_sel()
+origin/drm-intel-next-queued de152b627eb3018de91ec5c5a50b38e17d80a88b
+	drm/i915: Add origin to frontbuffer tracking flush
+drm-upstream/drm-next c5fd936e992dd2829167d2adc63e151675ca6898
+	drm/nouveau: Pause between setting gpu to D3hot and cutting the power
+sound-upstream/for-next e828b23734bfebe30e95964302bbb801d02fddf6
+	ALSA: hda - add codec ID for Broxton display audio codec
+origin/topic/drm-misc ec9f932ed41622d120de52a5b525e4d77b9ef17e
+	drm/atomic: Cleanup on error properly in the atomic ioctl.
+origin/topic/drm-fixes d4acc1651588835b802a2049f4f3a2adcc1af750
+	Documentation: drm: Fix tablulation in KMS properties table
+origin/topic/kerneldoc 1ce161a842da5f90eeb98d529c542078cb91cccb
+	scripts/kernel-doc: Adding cross-reference links to html documentation.
