@@ -34,6 +34,10 @@
 # - Improve nightly-forget to forget a specific merge instead of just the first
 #   dinq/dif merge.
 # - add option to check-patch to check stdin
+# - fix up dim apply-patch to not apply the patch when checkpatch or the BUG_ON
+#   scan fails
+# - integrate ninja-check? Or too much checkers considered harmful?
+#   https://lists.linuxfoundation.org/pipermail/ksummit-discuss/2014-May/000554.html
 
 # fail on any goof-up
 set -e
