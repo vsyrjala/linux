@@ -642,6 +642,16 @@ case "$subcommand" in
 	create-workdir)
 		create_workdir $1
 		;;
+	for-each-workdirs|fw)
+		cd $DIM_PREFIX/$DIM_DRM_INTEL
+		$@
+		for branch in $dim_branches ; do
+			if [[ -d $DIM_PREFIX/$branch ]] ; then
+				cd $DIM_PREFIX/$branch
+				$@
+			fi
+		done
+		;;
 	rebuild-nightly)
 		update_nightly
 		;;
@@ -1138,6 +1148,12 @@ create-workdir *branch*|all
 Create a separate workdir for the branch with the given name (requires that
 git-new-workdir from git-core contrib is installed), or for all branches if
 "all" is given.
+
+for-each-workdir|fw *command*
+-----------------------------
+
+Run the given command in all active workdirs including the main repository under
+\$DIM_DRM_INTEL.
 
 help
 ----
