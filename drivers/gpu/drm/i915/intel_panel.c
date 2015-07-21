@@ -1314,8 +1314,8 @@ static u32 lpt_hz_to_pwm(struct intel_connector *connector, u32 pwm_freq_hz)
  */
 static u32 pch_hz_to_pwm(struct intel_connector *connector, u32 pwm_freq_hz)
 {
-	struct drm_device *dev = connector->base.dev;
-	int clock = MHz(intel_pch_rawclk(dev));
+	struct drm_i915_private *dev_priv = to_i915(connector->base.dev);
+	int clock = 1000 * dev_priv->rawclk_freq;
 
 	return clock / (pwm_freq_hz * 128);
 }
@@ -1330,12 +1330,11 @@ static u32 pch_hz_to_pwm(struct intel_connector *connector, u32 pwm_freq_hz)
  */
 static u32 i9xx_hz_to_pwm(struct intel_connector *connector, u32 pwm_freq_hz)
 {
-	struct drm_device *dev = connector->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv = to_i915(connector->base.dev);
 	int clock;
 
-	if (IS_PINEVIEW(dev))
-		clock = MHz(intel_hrawclk(dev));
+	if (IS_PINEVIEW(dev_priv))
+		clock = 1000 * dev_priv->rawclk_freq;
 	else
 		clock = 1000 * dev_priv->cdclk_freq;
 
@@ -1354,7 +1353,7 @@ static u32 i965_hz_to_pwm(struct intel_connector *connector, u32 pwm_freq_hz)
 	int clock;
 
 	if (IS_G4X(dev_priv))
-		clock = MHz(intel_hrawclk(dev));
+		clock = 1000 * dev_priv->rawclk_freq;
 	else
 		clock = 1000 * dev_priv->cdclk_freq;
 
@@ -1368,18 +1367,17 @@ static u32 i965_hz_to_pwm(struct intel_connector *connector, u32 pwm_freq_hz)
  */
 static u32 vlv_hz_to_pwm(struct intel_connector *connector, u32 pwm_freq_hz)
 {
-	struct drm_device *dev = connector->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	int clock;
+	struct drm_i915_private *dev_priv = to_i915(connector->base.dev);
 
 	if ((I915_READ(CBR1_VLV) & CBR_PWM_CLOCK_MUX_SELECT) == 0) {
-		if (IS_CHERRYVIEW(dev))
+		if (IS_CHERRYVIEW(dev_priv))
 			return KHz(19200) / (pwm_freq_hz * 16);
 		else
 			return MHz(25) / (pwm_freq_hz * 16);
 	} else {
-		clock = intel_hrawclk(dev);
-		return MHz(clock) / (pwm_freq_hz * 128);
+		int clock = 1000 * dev_priv->rawclk_freq;
+
+		return clock / (pwm_freq_hz * 128);
 	}
 }
 
