@@ -374,10 +374,10 @@ struct drm_master {
 	void *driver_priv;
 };
 
-/* Size of ringbuffer for vblank timestamps. Just double-buffer
+/* Size of ringbuffer for vblank counts/timestamps. Just double-buffer
  * in initial implementation.
  */
-#define DRM_VBLANKTIME_RBSIZE 2
+#define DRM_VBLANK_RBSIZE 2
 
 /* Flags and return codes for get_vblank_timestamp() driver function. */
 #define DRM_CALLED_FROM_VBLIRQ 1
@@ -692,10 +692,10 @@ struct drm_vblank_crtc {
 	wait_queue_head_t queue;	/**< VBLANK wait queue */
 	struct timer_list disable_timer;		/* delayed disable timer */
 
-	/* vblank counter, protected by dev->vblank_time_lock for writes */
-	u32 count;
-	/* vblank timestamps, protected by dev->vblank_time_lock for writes */
-	struct timeval time[DRM_VBLANKTIME_RBSIZE];
+	u32 slot;
+	/* vblank timestamps and counter, protected by dev->vblank_time_lock for writes */
+	struct timeval time[DRM_VBLANK_RBSIZE];
+	u32 count[DRM_VBLANK_RBSIZE];
 
 	atomic_t refcount;		/* number of users of vblank interruptsper crtc */
 	u32 last;			/* protected by dev->vbl_lock, used */

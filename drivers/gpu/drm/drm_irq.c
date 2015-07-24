@@ -43,8 +43,10 @@
 #include <linux/export.h>
 
 /* Access macro for slots in vblank timestamp ringbuffer. */
-#define vblanktimestamp(dev, pipe, count) \
-	((dev)->vblank[pipe].time[(count) % DRM_VBLANKTIME_RBSIZE])
+#define vblanktimestamp(dev, pipe, slot) \
+	((dev)->vblank[pipe].time[(slot) % DRM_VBLANK_RBSIZE])
+#define vblankcount(dev, pipe, slot) \
+	((dev)->vblank[pipe].count[(slot) % DRM_VBLANK_RBSIZE])
 
 /* Retry timestamp calculation up to 3 times to satisfy
  * drm_timestamp_precision before giving up.
@@ -76,20 +78,23 @@ module_param_named(timestamp_monotonic, drm_timestamp_monotonic, int, 0600);
 
 static void store_vblank(struct drm_device *dev, unsigned int pipe,
 			 u32 vblank_count_inc,
-			 struct timeval *t_vblank, u32 last)
+			 const struct timeval *t_vblank, u32 last)
 {
 	struct drm_vblank_crtc *vblank = &dev->vblank[pipe];
-	u32 tslot;
+	u32 slot;
 
 	assert_spin_locked(&dev->vblank_time_lock);
+
+	slot = vblank->slot + 1;
 
 	vblank->last = last;
 
 	/* All writers hold the spinlock, but readers are serialized by
-	 * the latching of vblank->count below.
+	 * the latching of vblank->slot below.
 	 */
-	tslot = vblank->count + vblank_count_inc;
-	vblanktimestamp(dev, pipe, tslot) = *t_vblank;
+	vblankcount(dev, pipe, slot) =
+		vblankcount(dev, pipe, vblank->slot) + vblank_count_inc;
+	vblanktimestamp(dev, pipe, slot) = *t_vblank;
 
 	/*
 	 * vblank timestamp updates are protected on the write side with
@@ -100,7 +105,7 @@ static void store_vblank(struct drm_device *dev, unsigned int pipe,
 	 * The read-side barriers for this are in drm_vblank_count_and_time.
 	 */
 	smp_wmb();
-	vblank->count += vblank_count_inc;
+	vblank->slot = slot;
 	smp_wmb();
 }
 
@@ -202,7 +207,7 @@ static void drm_update_vblank_count(struct drm_device *dev, unsigned int pipe,
 		const struct timeval *t_old;
 		u64 diff_ns;
 
-		t_old = &vblanktimestamp(dev, pipe, vblank->count);
+		t_old = &vblanktimestamp(dev, pipe, vblank->slot);
 		diff_ns = timeval_to_ns(&t_vblank) - timeval_to_ns(t_old);
 
 		/*
@@ -223,7 +228,8 @@ static void drm_update_vblank_count(struct drm_device *dev, unsigned int pipe,
 
 	DRM_DEBUG("updating vblank count on crtc %u:"
 		  " current=%u, diff=%u, hw=%u hw_last=%u\n",
-		  pipe, vblank->count, diff, cur_vblank, vblank->last);
+		  pipe, vblankcount(dev, pipe, vblank->slot),
+		  diff, cur_vblank, vblank->last);
 
 	if (diff == 0) {
 		WARN_ON_ONCE(cur_vblank != vblank->last);
@@ -883,7 +889,7 @@ u32 drm_vblank_count(struct drm_device *dev, int pipe)
 	if (WARN_ON(pipe >= dev->num_crtcs))
 		return 0;
 
-	return vblank->count;
+	return vblankcount(dev, pipe, vblank->slot);
 }
 EXPORT_SYMBOL(drm_vblank_count);
 
@@ -923,7 +929,8 @@ u32 drm_vblank_count_and_time(struct drm_device *dev, unsigned int pipe,
 {
 	struct drm_vblank_crtc *vblank = &dev->vblank[pipe];
 	int count = DRM_TIMESTAMP_MAXRETRIES;
-	u32 cur_vblank;
+	u32 vblankcount;
+	u32 slot;
 
 	if (WARN_ON(pipe >= dev->num_crtcs))
 		return 0;
@@ -934,13 +941,14 @@ u32 drm_vblank_count_and_time(struct drm_device *dev, unsigned int pipe,
 	 * This works like a seqlock. The write-side barriers are in store_vblank.
 	 */
 	do {
-		cur_vblank = vblank->count;
+		slot = vblank->slot;
 		smp_rmb();
-		*vblanktime = vblanktimestamp(dev, pipe, cur_vblank);
+		*vblanktime = vblanktimestamp(dev, pipe, slot);
+		vblankcount = vblankcount(dev, pipe, slot);
 		smp_rmb();
-	} while (cur_vblank != vblank->count && --count > 0);
+	} while (slot != vblank->slot && --count > 0);
 
-	return cur_vblank;
+	return vblankcount;
 }
 EXPORT_SYMBOL(drm_vblank_count_and_time);
 
