@@ -4302,7 +4302,7 @@ void intel_irq_init(struct drm_i915_private *dev_priv)
 
 	pm_qos_add_request(&dev_priv->pm_qos, PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 
-	if (IS_GEN2(dev_priv)) {
+	if (1||IS_GEN2(dev_priv)) {
 		dev->max_vblank_count = 0;
 		dev->driver->get_vblank_counter = i8xx_get_vblank_counter;
 	} else if (IS_G4X(dev_priv) || INTEL_INFO(dev_priv)->gen >= 5) {
