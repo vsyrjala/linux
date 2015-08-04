@@ -495,7 +495,11 @@ function dim_pull_request
 	branch=$1
 	upstream=$2
 
-	assert_branch $branch
+	if [ "$branch" != "drm-intel-next" ]; then
+		assert_branch $branch
+	else
+		cd $DIM_PREFIX/$DIM_DRM_INTEL
+	fi
 
 	git fetch ${upstream%%/*} >& /dev/null || true
 	echo "Using $upstream as the upstream"
