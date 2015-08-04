@@ -707,7 +707,7 @@ case "$subcommand" in
 		;;
 	apply-igt|ai)
 		cd ~/xorg/intel-gpu-tools/
-		git am -3 -s
+		git am --whitespace=fix -3 -s
 		;;
 	magic-patch|mp)
 		magic_patch "$@"
