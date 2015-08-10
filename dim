@@ -663,7 +663,11 @@ case "$subcommand" in
 
 		for branch in $dim_branches ; do
 			dim_co $branch
-			$DRY git rebase -i
+			if git diff --quiet $DIM_DRM_INTEL_REMOTE/$branch; then
+				$DRY git rebase
+			else
+				$DRY git rebase -i
+			fi
 		done
 		dim_co drm-intel-next
 		$DRY git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
