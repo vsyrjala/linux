@@ -142,6 +142,19 @@ else
     shift
 fi
 
+#
+# Sanity checks.
+#
+
+if [ "$subcommand" != "setup" ]; then
+	for d in $DIM_PREFIX $DIM_PREFIX/$DIM_DRM_INTEL $DIM_PREFIX/drm-intel-rerere $DIM_PREFIX/drm-intel-nightly; do
+		if [ ! -d $d ]; then
+			echo "$d is missing, please check your configuration and/or run dim setup"
+			exit 1
+		fi
+	done
+fi
+
 function update_linux_next
 {
 	cd $DIM_PREFIX/drm-intel-nightly
@@ -528,19 +541,36 @@ function dim_pull_request
 
 function setup_dim
 {
+	if [ ! -d $DIM_PREFIX ]; then
+		echo "please set up your repository directory with:"
+		echo "    mkdir -p $DIM_PREFIX"
+		echo "or update your configuration"
+		exit 1
+	fi
 	cd $DIM_PREFIX
 
+	if [ ! -d $DIM_PREFIX/$DIM_DRM_INTEL ]; then
+		echo "please set up your maintainer linux repository at $DIM_PREFIX/$DIM_DRM_INTEL with:"
+		echo "    cd $DIM_PREFIX"
+		echo "    git clone $linux_upstream_git $DIM_DRM_INTEL"
+		echo "or update your configuration."
+		exit 1
+	fi
 	cd $DIM_DRM_INTEL
 	if ! git remote -v | grep "^origin[[:space:]]" | grep $linux_upstream_git > /dev/null; then
 		echo "please set up remote origin for $linux_upstream_git"
 		exit 1
 	fi
 	if ! git remote -v | grep "^$DIM_DRM_INTEL_REMOTE[[:space:]]" | grep $drm_intel_ssh > /dev/null; then
-		echo "please set up remote $DIM_DRM_INTEL_REMOTE for $drm_intel_ssh (or update config)"
+		echo "please set up remote $DIM_DRM_INTEL_REMOTE for $drm_intel_ssh with:"
+		echo "    git remote add $DIM_DRM_INTEL_REMOTE $drm_intel_ssh"
+		echo "or update your configuration."
 		exit 1
 	fi
 	if ! git remote -v | grep "^$DIM_DRM_UPSTREAM_REMOTE[[:space:]]" | grep $drm_upstream_git > /dev/null; then
-		echo "please set up remote $DIM_DRM_UPSTREAM_REMOTE for $drm_upstream_git (or update config)"
+		echo "please set up remote $DIM_DRM_UPSTREAM_REMOTE for $drm_upstream_git with:"
+		echo "    git remote add $DIM_DRM_UPSTREAM_REMOTE $drm_upstream_git"
+		echo "or update your configuration."
 		exit 1
 	fi
 	cd ..
@@ -610,12 +640,6 @@ function assert_branch
 		return 1
 	fi
 }
-
-if [ ! -d $DIM_PREFIX/$DIM_DRM_INTEL ]; then
-	echo "please set up your maintainer linux repository at"
-	echo "$DIM_PREFIX/$DIM_DRM_INTEL (or check your config)"
-	exit 1
-fi
 
 case "$subcommand" in
 	setup)
