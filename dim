@@ -97,9 +97,6 @@ addr_dri_devel="dri-devel@lists.freedesktop.org"
 addr_intel_qa1="\"Sun, Yi\" <yi.sun@intel.com>"
 addr_intel_qa2="\"Christophe Prigent\" <christophe.prigent@intel.com>"
 
-dim_branches=`(source $DIM_PREFIX/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
-	xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
-
 #
 # Command line options.
 #
@@ -154,6 +151,13 @@ if [ "$subcommand" != "setup" ]; then
 		fi
 	done
 fi
+
+#
+# Internal configuration that depends on a sane setup.
+#
+
+dim_branches=`(source $DIM_PREFIX/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
+	xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
 
 function update_linux_next
 {
