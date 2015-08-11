@@ -717,6 +717,13 @@ case "$subcommand" in
 	push-fixes|pf)
 		dim_push drm-intel-fixes "$@"
 		;;
+	checkout)
+		if [[ "x$1" = "x" ]]; then
+			echo "usage: $0 $subcommand branch"
+			exit 1
+		fi
+		dim_co "$@"
+		;;
 	co)
 		dim_co drm-intel-next-queued
 		;;
@@ -1046,6 +1053,10 @@ Updates the named branch, or drm-intel-fixes, drm-intel-next-fixes or the
 drm-intel-next-queued branch respectively. Complains if that's not the current
 branch, assuming that patches got merged to the wrong branch. After pushing also
 updates linux-next and drm-intel-nightly branches.
+
+checkout *branch*
+-----------------
+Checks out the named branch.
 
 co
 --
