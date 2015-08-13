@@ -84,6 +84,8 @@ struct intel_sdvo {
 	 */
 	struct intel_sdvo_caps caps;
 
+	uint8_t colorimetry_cap;
+
 	/* Pixel clock limitations reported by the SDVO device, in kHz */
 	int pixel_clock_min, pixel_clock_max;
 
@@ -1180,19 +1182,16 @@ static bool intel_sdvo_compute_config(struct intel_encoder *encoder,
 	}
 
 	if (intel_sdvo_state->base.broadcast_rgb == INTEL_BROADCAST_RGB_AUTO) {
-		/*
-		 * See CEA-861-E - 5.1 Default Encoding Parameters
-		 *
-		 * FIXME: This bit is only valid when using TMDS encoding and 8
-		 * bit per color mode.
-		 */
-		if (pipe_config->has_hdmi_sink &&
-		    drm_match_cea_mode(adjusted_mode) > 1)
-			pipe_config->limited_color_range = true;
+		/* See CEA-861-E - 5.1 Default Encoding Parameters */
+		pipe_config->limited_color_range =
+			pipe_config->has_hdmi_sink &&
+			intel_sdvo->colorimetry_cap & SDVO_COLORIMETRY_RGB220 &&
+			drm_match_cea_mode(adjusted_mode) > 1;
 	} else {
-		if (pipe_config->has_hdmi_sink &&
-		    intel_sdvo_state->base.broadcast_rgb == INTEL_BROADCAST_RGB_LIMITED)
-			pipe_config->limited_color_range = true;
+		pipe_config->limited_color_range =
+			pipe_config->has_hdmi_sink &&
+			intel_sdvo->colorimetry_cap & SDVO_COLORIMETRY_RGB220 &&
+			intel_sdvo_state->base.broadcast_rgb == INTEL_BROADCAST_RGB_LIMITED;
 	}
 
 	/* Clock computation needs to happen after pixel multiplier. */
@@ -1324,6 +1323,8 @@ static void intel_sdvo_pre_enable(struct intel_encoder *intel_encoder,
 	if (crtc_state->has_hdmi_sink) {
 		intel_sdvo_set_encode(intel_sdvo, SDVO_ENCODE_HDMI);
 		intel_sdvo_set_colorimetry(intel_sdvo,
+					   crtc_state->limited_color_range ?
+					   SDVO_COLORIMETRY_RGB220 :
 					   SDVO_COLORIMETRY_RGB256);
 		intel_sdvo_set_avi_infoframe(intel_sdvo,
 					     crtc_state, conn_state);
@@ -1358,8 +1359,6 @@ static void intel_sdvo_pre_enable(struct intel_encoder *intel_encoder,
 		/* The real mode polarity is set by the SDVO commands, using
 		 * struct intel_sdvo_dtd. */
 		sdvox = SDVO_VSYNC_ACTIVE_HIGH | SDVO_HSYNC_ACTIVE_HIGH;
-		if (!HAS_PCH_SPLIT(dev_priv) && crtc_state->limited_color_range)
-			sdvox |= HDMI_COLOR_RANGE_16_235;
 		if (INTEL_GEN(dev_priv) < 5)
 			sdvox |= SDVO_BORDER_ENABLE;
 	} else {
@@ -1517,8 +1516,11 @@ static void intel_sdvo_get_config(struct intel_encoder *encoder,
 		}
 	}
 
-	if (sdvox & HDMI_COLOR_RANGE_16_235)
-		pipe_config->limited_color_range = true;
+	if (intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_COLORIMETRY,
+				 &val, 1)) {
+		if (val == SDVO_COLORIMETRY_RGB220)
+			pipe_config->limited_color_range = true;
+	}
 
 	if (sdvox & HDMI_AUDIO_ENABLE)
 		pipe_config->has_audio = true;
@@ -1700,6 +1702,17 @@ static bool intel_sdvo_get_capabilities(struct intel_sdvo *intel_sdvo, struct in
 		      caps->output_flags);
 
 	return true;
+}
+
+static uint8_t intel_sdvo_get_colorimetry_cap(struct intel_sdvo *intel_sdvo)
+{
+	uint8_t cap;
+
+	if (!intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_COLORIMETRY_CAP,
+				  &cap, sizeof(cap)))
+		return SDVO_COLORIMETRY_RGB256;
+
+	return cap;
 }
 
 static uint16_t intel_sdvo_get_hotplug_support(struct intel_sdvo *intel_sdvo)
@@ -2455,12 +2468,9 @@ static void
 intel_sdvo_add_hdmi_properties(struct intel_sdvo *intel_sdvo,
 			       struct intel_sdvo_connector *connector)
 {
-	struct drm_i915_private *dev_priv = to_i915(connector->base.base.dev);
-
 	intel_attach_force_audio_property(&connector->base.base);
-	if (INTEL_GEN(dev_priv) >= 4 && IS_MOBILE(dev_priv)) {
+	if (intel_sdvo->colorimetry_cap & SDVO_COLORIMETRY_RGB220)
 		intel_attach_broadcast_rgb_property(&connector->base.base);
-	}
 	intel_attach_aspect_ratio_property(&connector->base.base);
 	connector->base.base.state->picture_aspect_ratio = HDMI_PICTURE_ASPECT_NONE;
 }
@@ -3102,6 +3112,9 @@ bool intel_sdvo_init(struct drm_i915_private *dev_priv,
 	/* In default case sdvo lvds is false */
 	if (!intel_sdvo_get_capabilities(intel_sdvo, &intel_sdvo->caps))
 		goto err;
+
+	intel_sdvo->colorimetry_cap =
+		intel_sdvo_get_colorimetry_cap(intel_sdvo);
 
 	if (intel_sdvo_output_setup(intel_sdvo,
 				    intel_sdvo->caps.output_flags) != true) {
