@@ -911,6 +911,12 @@ static bool intel_sdvo_set_colorimetry(struct intel_sdvo *intel_sdvo,
 	return intel_sdvo_set_value(intel_sdvo, SDVO_CMD_SET_COLORIMETRY, &mode, 1);
 }
 
+static bool intel_sdvo_set_pixel_replication(struct intel_sdvo *intel_sdvo,
+					     uint8_t pixel_repeat)
+{
+	return intel_sdvo_set_value(intel_sdvo, SDVO_CMD_SET_PIXEL_REPLI, &pixel_repeat, 1);
+}
+
 #if 0
 static void intel_sdvo_dump_hdmi_buf(struct intel_sdvo *intel_sdvo)
 {
@@ -1328,6 +1334,9 @@ static void intel_sdvo_pre_enable(struct intel_encoder *intel_encoder,
 					   SDVO_COLORIMETRY_RGB256);
 		intel_sdvo_set_avi_infoframe(intel_sdvo,
 					     crtc_state, conn_state);
+		intel_sdvo_set_pixel_replication(intel_sdvo,
+						 !!(adjusted_mode->flags &
+						    DRM_MODE_FLAG_DBLCLK));
 	} else
 		intel_sdvo_set_encode(intel_sdvo, SDVO_ENCODE_DVI);
 
@@ -1640,6 +1649,7 @@ intel_sdvo_mode_valid(struct drm_connector *connector,
 	struct intel_sdvo_connector *intel_sdvo_connector =
 		to_intel_sdvo_connector(connector);
 	int max_dotclk = to_i915(connector->dev)->max_dotclk_freq;
+	bool has_hdmi_sink = intel_has_hdmi_sink(intel_sdvo, connector->state);
 
 	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return MODE_NO_DBLESCAN;
@@ -1652,6 +1662,15 @@ intel_sdvo_mode_valid(struct drm_connector *connector,
 
 	if (mode->clock > max_dotclk)
 		return MODE_CLOCK_HIGH;
+
+	/*
+	 * FIXME should perhaps query the output pixel clock range
+	 * which we could check against the doubled mode->clock.
+	 */
+	if (mode->flags & DRM_MODE_FLAG_DBLCLK) {
+		if (!has_hdmi_sink)
+			return MODE_CLOCK_LOW;
+	}
 
 	if (IS_LVDS(intel_sdvo_connector)) {
 		const struct drm_display_mode *fixed_mode =
