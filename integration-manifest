@@ -1,0 +1,24 @@
+origin/drm-intel-fixes ed63baaf849e91c84ac3e042b1fd6a0af07c16f3
+	drm/i915: Avoid TP3 on CHV
+drm-upstream/drm-fixes 7945dc5885c51d05d9368fd0066755adca73f009
+	Merge tag 'topic/drm-fixes-2015-08-14' of git://anongit.freedesktop.org/drm-intel into drm-next
+origin/drm-intel-next-fixes 187474a69175f6a0f3a740dad63fe139d6a550d1
+	drm/i915: fix VBT parsing for SDVO child device mapping
+origin/drm-intel-next-queued 66e2806656b12bbb98ff36b7beb1538b87cb2f2f
+	drm/i915: remove excessive scaler debugging messages
+drm-upstream/drm-next 294947a5c7f6d228b70fcc51a89527e74a38a2c5
+	Merge branch 'vmwgfx-next' of git://people.freedesktop.org/~thomash/linux into drm-next
+sound-upstream/for-next d5cf00c7ac2bf6b9d10c393b1e3b7551176c7f40
+	ALSA: hda/eld - Add const to possible places
+origin/topic/drm-misc e8b4855b5dd3e285d0ec18ed15468025abc1be9a
+	drm: WARN_ON if a modeset driver uses legacy suspend/resume helpers
+origin/topic/drm-fixes 4772ff03df8094fd99d28de5fcf5df3a3e9c68bb
+	drm/dp/mst: Remove port after removing connector.
+origin/topic/kerneldoc 86fea2bafc9b25f0915dd46039305ec3bfb0aaf4
+	scripts/kernel-doc Allow struct arguments documentation in struct body
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/mst-fixes 6ea76f3cade4734e73e3da842005820558b8b828
+	drm/atomic-helpers: Make encoder picking more robust
