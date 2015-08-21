@@ -1058,7 +1058,7 @@ parse_device_mapping(struct drm_i915_private *dev_priv,
 		DRM_DEBUG_KMS("No general definition block is found, no devices defined.\n");
 		return;
 	}
-	if (p_defs->child_dev_size < sizeof(*p_child)) {
+	if (p_defs->child_dev_size < 33) {
 		DRM_ERROR("General definiton block child device size is too small.\n");
 		return;
 	}
@@ -1106,7 +1106,7 @@ parse_device_mapping(struct drm_i915_private *dev_priv,
 
 		child_dev_ptr = dev_priv->vbt.child_dev + count;
 		count++;
-		memcpy(child_dev_ptr, p_child, sizeof(*p_child));
+		memcpy(child_dev_ptr, p_child, min(p_defs->child_dev_size, sizeof(*p_child)));
 	}
 	return;
 }
