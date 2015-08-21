@@ -222,7 +222,7 @@ static void imx_drm_output_poll_changed(struct drm_device *drm)
 #endif
 }
 
-static struct drm_mode_config_funcs imx_drm_mode_config_funcs = {
+static const struct drm_mode_config_funcs imx_drm_mode_config_funcs = {
 	.fb_create = drm_fb_cma_create,
 	.output_poll_changed = imx_drm_output_poll_changed,
 };
