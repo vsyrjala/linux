@@ -423,6 +423,8 @@ struct intel_crtc_state {
 	/* Used by SDVO (and if we ever fix it, HDMI). */
 	unsigned pixel_multiplier;
 
+	uint8_t lane_count;
+
 	/* Panel fitter controls for gen2-gen4 + VLV */
 	struct {
 		u32 control;
@@ -657,7 +659,7 @@ struct cxsr_latency {
 struct intel_hdmi {
 	u32 hdmi_reg;
 	int ddc_bus;
-	uint32_t color_range;
+	bool limited_color_range;
 	bool color_range_auto;
 	bool has_hdmi_sink;
 	bool has_audio;
@@ -696,23 +698,27 @@ enum link_m_n_set {
 	M2_N2
 };
 
+struct sink_crc {
+	bool started;
+	u8 last_crc[6];
+	int last_count;
+};
+
 struct intel_dp {
 	uint32_t output_reg;
 	uint32_t aux_ch_ctl_reg;
 	uint32_t DP;
 	bool has_audio;
 	enum hdmi_force_audio force_audio;
-	uint32_t color_range;
+	bool limited_color_range;
 	bool color_range_auto;
-	uint8_t link_bw;
-	uint8_t rate_select;
-	uint8_t lane_count;
 	uint8_t dpcd[DP_RECEIVER_CAP_SIZE];
 	uint8_t psr_dpcd[EDP_PSR_RECEIVER_CAP_SIZE];
 	uint8_t downstream_ports[DP_MAX_DOWNSTREAM_PORTS];
 	/* sink rates as reported by DP_SUPPORTED_LINK_RATES */
 	uint8_t num_sink_rates;
 	int sink_rates[DP_MAX_SUPPORTED_RATES];
+	struct sink_crc sink_crc;
 	struct drm_dp_aux aux;
 	uint8_t train_set[4];
 	int panel_power_up_delay;

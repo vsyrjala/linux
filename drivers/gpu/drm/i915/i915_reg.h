@@ -1674,11 +1674,18 @@ enum skl_disp_power_wells {
 #define GFX_MODE_GEN7	0x0229c
 #define RING_MODE_GEN7(ring)	((ring)->mmio_base+0x29c)
 #define   GFX_RUN_LIST_ENABLE		(1<<15)
+#define   GFX_INTERRUPT_STEERING	(1<<14)
 #define   GFX_TLB_INVALIDATE_EXPLICIT	(1<<13)
 #define   GFX_SURFACE_FAULT_ENABLE	(1<<12)
 #define   GFX_REPLAY_MODE		(1<<11)
 #define   GFX_PSMI_GRANULARITY		(1<<10)
 #define   GFX_PPGTT_ENABLE		(1<<9)
+#define   GEN8_GFX_PPGTT_48B		(1<<7)
+
+#define   GFX_FORWARD_VBLANK_MASK	(3<<5)
+#define   GFX_FORWARD_VBLANK_NEVER	(0<<5)
+#define   GFX_FORWARD_VBLANK_ALWAYS	(1<<5)
+#define   GFX_FORWARD_VBLANK_COND	(2<<5)
 
 #define VLV_DISPLAY_BASE 0x180000
 #define VLV_MIPI_BASE VLV_DISPLAY_BASE
@@ -4107,6 +4114,7 @@ enum skl_disp_power_wells {
 /* How many wires to use. I guess 3 was too hard */
 #define   DP_PORT_WIDTH(width)		(((width) - 1) << 19)
 #define   DP_PORT_WIDTH_MASK		(7 << 19)
+#define   DP_PORT_WIDTH_SHIFT		19
 
 /* Mystic DPCD version 1.1 special mode */
 #define   DP_ENHANCED_FRAMING		(1 << 18)
@@ -5693,11 +5701,12 @@ enum skl_disp_power_wells {
 #define GEN8_GT_IIR(which) (0x44308 + (0x10 * (which)))
 #define GEN8_GT_IER(which) (0x4430c + (0x10 * (which)))
 
-#define GEN8_BCS_IRQ_SHIFT 16
 #define GEN8_RCS_IRQ_SHIFT 0
-#define GEN8_VCS2_IRQ_SHIFT 16
+#define GEN8_BCS_IRQ_SHIFT 16
 #define GEN8_VCS1_IRQ_SHIFT 0
+#define GEN8_VCS2_IRQ_SHIFT 16
 #define GEN8_VECS_IRQ_SHIFT 0
+#define GEN8_WD_IRQ_SHIFT 16
 
 #define GEN8_DE_PIPE_ISR(pipe) (0x44400 + (0x10 * (pipe)))
 #define GEN8_DE_PIPE_IMR(pipe) (0x44404 + (0x10 * (pipe)))
@@ -6858,7 +6867,9 @@ enum skl_disp_power_wells {
 #define   GEN9_PGCTL_SSB_EU311_ACK	(1 << 14)
 
 #define GEN7_MISCCPCTL			(0x9424)
-#define   GEN7_DOP_CLOCK_GATE_ENABLE	(1<<0)
+#define   GEN7_DOP_CLOCK_GATE_ENABLE		(1<<0)
+#define   GEN8_DOP_CLOCK_GATE_CFCLK_ENABLE	(1<<2)
+#define   GEN8_DOP_CLOCK_GATE_GUC_ENABLE	(1<<4)
 
 #define GEN8_GARBCNTL                   0xB004
 #define   GEN9_GAPS_TSV_CREDIT_DISABLE  (1<<7)
@@ -7147,6 +7158,8 @@ enum skl_disp_power_wells {
 #define  DDI_BUF_IS_IDLE			(1<<7)
 #define  DDI_A_4_LANES				(1<<4)
 #define  DDI_PORT_WIDTH(width)			(((width) - 1) << 1)
+#define  DDI_PORT_WIDTH_MASK			(7 << 1)
+#define  DDI_PORT_WIDTH_SHIFT			1
 #define  DDI_INIT_DISPLAY_DETECTED		(1<<0)
 
 /* DDI Buffer Translations */

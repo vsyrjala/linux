@@ -48,28 +48,28 @@
 #define INTEL_DP_RESOLUTION_FAILSAFE	(3 << INTEL_DP_RESOLUTION_SHIFT_MASK)
 
 struct dp_link_dpll {
-	int link_bw;
+	int clock;
 	struct dpll dpll;
 };
 
 static const struct dp_link_dpll gen4_dpll[] = {
-	{ DP_LINK_BW_1_62,
+	{ 162000,
 		{ .p1 = 2, .p2 = 10, .n = 2, .m1 = 23, .m2 = 8 } },
-	{ DP_LINK_BW_2_7,
+	{ 270000,
 		{ .p1 = 1, .p2 = 10, .n = 1, .m1 = 14, .m2 = 2 } }
 };
 
 static const struct dp_link_dpll pch_dpll[] = {
-	{ DP_LINK_BW_1_62,
+	{ 162000,
 		{ .p1 = 2, .p2 = 10, .n = 1, .m1 = 12, .m2 = 9 } },
-	{ DP_LINK_BW_2_7,
+	{ 270000,
 		{ .p1 = 1, .p2 = 10, .n = 2, .m1 = 14, .m2 = 8 } }
 };
 
 static const struct dp_link_dpll vlv_dpll[] = {
-	{ DP_LINK_BW_1_62,
+	{ 162000,
 		{ .p1 = 3, .p2 = 2, .n = 5, .m1 = 3, .m2 = 81 } },
-	{ DP_LINK_BW_2_7,
+	{ 270000,
 		{ .p1 = 2, .p2 = 2, .n = 1, .m1 = 2, .m2 = 27 } }
 };
 
@@ -83,11 +83,11 @@ static const struct dp_link_dpll chv_dpll[] = {
 	 * m2 is stored in fixed point format using formula below
 	 * (m2_int << 22) | m2_fraction
 	 */
-	{ DP_LINK_BW_1_62,	/* m2_int = 32, m2_fraction = 1677722 */
+	{ 162000,	/* m2_int = 32, m2_fraction = 1677722 */
 		{ .p1 = 4, .p2 = 2, .n = 1, .m1 = 2, .m2 = 0x819999a } },
-	{ DP_LINK_BW_2_7,	/* m2_int = 27, m2_fraction = 0 */
+	{ 270000,	/* m2_int = 27, m2_fraction = 0 */
 		{ .p1 = 4, .p2 = 1, .n = 1, .m1 = 2, .m2 = 0x6c00000 } },
-	{ DP_LINK_BW_5_4,	/* m2_int = 27, m2_fraction = 0 */
+	{ 540000,	/* m2_int = 27, m2_fraction = 0 */
 		{ .p1 = 2, .p2 = 1, .n = 1, .m1 = 2, .m2 = 0x6c00000 } }
 };
 
@@ -1130,7 +1130,7 @@ intel_dp_connector_unregister(struct intel_connector *intel_connector)
 }
 
 static void
-skl_edp_set_pll_config(struct intel_crtc_state *pipe_config, int link_clock)
+skl_edp_set_pll_config(struct intel_crtc_state *pipe_config)
 {
 	u32 ctrl1;
 
@@ -1142,7 +1142,7 @@ skl_edp_set_pll_config(struct intel_crtc_state *pipe_config, int link_clock)
 	pipe_config->dpll_hw_state.cfgcr2 = 0;
 
 	ctrl1 = DPLL_CTRL1_OVERRIDE(SKL_DPLL0);
-	switch (link_clock / 2) {
+	switch (pipe_config->port_clock / 2) {
 	case 81000:
 		ctrl1 |= DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_810,
 					      SKL_DPLL0);
@@ -1176,19 +1176,19 @@ skl_edp_set_pll_config(struct intel_crtc_state *pipe_config, int link_clock)
 }
 
 static void
-hsw_dp_set_ddi_pll_sel(struct intel_crtc_state *pipe_config, int link_bw)
+hsw_dp_set_ddi_pll_sel(struct intel_crtc_state *pipe_config)
 {
 	memset(&pipe_config->dpll_hw_state, 0,
 	       sizeof(pipe_config->dpll_hw_state));
 
-	switch (link_bw) {
-	case DP_LINK_BW_1_62:
+	switch (pipe_config->port_clock / 2) {
+	case 81000:
 		pipe_config->ddi_pll_sel = PORT_CLK_SEL_LCPLL_810;
 		break;
-	case DP_LINK_BW_2_7:
+	case 135000:
 		pipe_config->ddi_pll_sel = PORT_CLK_SEL_LCPLL_1350;
 		break;
-	case DP_LINK_BW_5_4:
+	case 270000:
 		pipe_config->ddi_pll_sel = PORT_CLK_SEL_LCPLL_2700;
 		break;
 	}
@@ -1245,7 +1245,7 @@ intel_dp_source_rates(struct drm_device *dev, const int **source_rates)
 
 static void
 intel_dp_set_clock(struct intel_encoder *encoder,
-		   struct intel_crtc_state *pipe_config, int link_bw)
+		   struct intel_crtc_state *pipe_config)
 {
 	struct drm_device *dev = encoder->base.dev;
 	const struct dp_link_dpll *divisor = NULL;
@@ -1267,7 +1267,7 @@ intel_dp_set_clock(struct intel_encoder *encoder,
 
 	if (divisor && count) {
 		for (i = 0; i < count; i++) {
-			if (link_bw == divisor[i].link_bw) {
+			if (pipe_config->port_clock == divisor[i].clock) {
 				pipe_config->dpll = divisor[i].dpll;
 				pipe_config->clock_set = true;
 				break;
@@ -1383,6 +1383,19 @@ int intel_dp_rate_select(struct intel_dp *intel_dp, int rate)
 	return rate_to_index(rate, intel_dp->sink_rates);
 }
 
+static void intel_dp_compute_rate(struct intel_dp *intel_dp, int port_clock,
+				  uint8_t *link_bw, uint8_t *rate_select)
+{
+	if (intel_dp->num_sink_rates) {
+		*link_bw = 0;
+		*rate_select =
+			intel_dp_rate_select(intel_dp, port_clock);
+	} else {
+		*link_bw = drm_dp_link_rate_to_bw_code(port_clock);
+		*rate_select = 0;
+	}
+}
+
 bool
 intel_dp_compute_config(struct intel_encoder *encoder,
 			struct intel_crtc_state *pipe_config)
@@ -1404,6 +1417,7 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	int link_avail, link_clock;
 	int common_rates[DP_MAX_SUPPORTED_RATES] = {};
 	int common_len;
+	uint8_t link_bw, rate_select;
 
 	common_len = intel_dp_common_rates(intel_dp, common_rates);
 
@@ -1499,32 +1513,23 @@ found:
 		 * CEA-861-E - 5.1 Default Encoding Parameters
 		 * VESA DisplayPort Ver.1.2a - 5.1.1.1 Video Colorimetry
 		 */
-		if (bpp != 18 && drm_match_cea_mode(adjusted_mode) > 1)
-			intel_dp->color_range = DP_COLOR_RANGE_16_235;
-		else
-			intel_dp->color_range = 0;
-	}
-
-	if (intel_dp->color_range)
-		pipe_config->limited_color_range = true;
-
-	intel_dp->lane_count = lane_count;
-
-	if (intel_dp->num_sink_rates) {
-		intel_dp->link_bw = 0;
-		intel_dp->rate_select =
-			intel_dp_rate_select(intel_dp, common_rates[clock]);
+		pipe_config->limited_color_range =
+			bpp != 18 && drm_match_cea_mode(adjusted_mode) > 1;
 	} else {
-		intel_dp->link_bw =
-			drm_dp_link_rate_to_bw_code(common_rates[clock]);
-		intel_dp->rate_select = 0;
+		pipe_config->limited_color_range =
+			intel_dp->limited_color_range;
 	}
+
+	pipe_config->lane_count = lane_count;
 
 	pipe_config->pipe_bpp = bpp;
 	pipe_config->port_clock = common_rates[clock];
 
-	DRM_DEBUG_KMS("DP link bw %02x lane count %d clock %d bpp %d\n",
-		      intel_dp->link_bw, intel_dp->lane_count,
+	intel_dp_compute_rate(intel_dp, pipe_config->port_clock,
+			      &link_bw, &rate_select);
+
+	DRM_DEBUG_KMS("DP link bw %02x rate select %02x lane count %d clock %d bpp %d\n",
+		      link_bw, rate_select, pipe_config->lane_count,
 		      pipe_config->port_clock, bpp);
 	DRM_DEBUG_KMS("DP link bw required %i available %i\n",
 		      mode_rate, link_avail);
@@ -1544,13 +1549,13 @@ found:
 	}
 
 	if (IS_SKYLAKE(dev) && is_edp(intel_dp))
-		skl_edp_set_pll_config(pipe_config, common_rates[clock]);
+		skl_edp_set_pll_config(pipe_config);
 	else if (IS_BROXTON(dev))
 		/* handled in ddi */;
 	else if (IS_HASWELL(dev) || IS_BROADWELL(dev))
-		hsw_dp_set_ddi_pll_sel(pipe_config, intel_dp->link_bw);
+		hsw_dp_set_ddi_pll_sel(pipe_config);
 	else
-		intel_dp_set_clock(encoder, pipe_config, intel_dp->link_bw);
+		intel_dp_set_clock(encoder, pipe_config);
 
 	return true;
 }
@@ -1619,7 +1624,7 @@ static void intel_dp_prepare(struct intel_encoder *encoder)
 
 	/* Handle DP bits in common between all three register formats */
 	intel_dp->DP |= DP_VOLTAGE_0_4 | DP_PRE_EMPHASIS_0;
-	intel_dp->DP |= DP_PORT_WIDTH(intel_dp->lane_count);
+	intel_dp->DP |= DP_PORT_WIDTH(crtc->config->lane_count);
 
 	if (crtc->config->has_audio)
 		intel_dp->DP |= DP_AUDIO_OUTPUT_ENABLE;
@@ -1649,8 +1654,9 @@ static void intel_dp_prepare(struct intel_encoder *encoder)
 			trans_dp &= ~TRANS_DP_ENH_FRAMING;
 		I915_WRITE(TRANS_DP_CTL(crtc->pipe), trans_dp);
 	} else {
-		if (!HAS_PCH_SPLIT(dev) && !IS_VALLEYVIEW(dev))
-			intel_dp->DP |= intel_dp->color_range;
+		if (!HAS_PCH_SPLIT(dev) && !IS_VALLEYVIEW(dev) &&
+		    crtc->config->limited_color_range)
+			intel_dp->DP |= DP_COLOR_RANGE_16_235;
 
 		if (adjusted_mode->flags & DRM_MODE_FLAG_PHSYNC)
 			intel_dp->DP |= DP_SYNC_HS_HIGH;
@@ -2290,13 +2296,14 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 	pipe_config->has_audio = tmp & DP_AUDIO_OUTPUT_ENABLE && port != PORT_A;
 
 	if (HAS_PCH_CPT(dev) && port != PORT_A) {
-		tmp = I915_READ(TRANS_DP_CTL(crtc->pipe));
-		if (tmp & TRANS_DP_HSYNC_ACTIVE_HIGH)
+		u32 trans_dp = I915_READ(TRANS_DP_CTL(crtc->pipe));
+
+		if (trans_dp & TRANS_DP_HSYNC_ACTIVE_HIGH)
 			flags |= DRM_MODE_FLAG_PHSYNC;
 		else
 			flags |= DRM_MODE_FLAG_NHSYNC;
 
-		if (tmp & TRANS_DP_VSYNC_ACTIVE_HIGH)
+		if (trans_dp & TRANS_DP_VSYNC_ACTIVE_HIGH)
 			flags |= DRM_MODE_FLAG_PVSYNC;
 		else
 			flags |= DRM_MODE_FLAG_NVSYNC;
@@ -2319,6 +2326,9 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 		pipe_config->limited_color_range = true;
 
 	pipe_config->has_dp_encoder = true;
+
+	pipe_config->lane_count =
+		((tmp & DP_PORT_WIDTH_MASK) >> DP_PORT_WIDTH_SHIFT) + 1;
 
 	intel_dp_get_m_n(crtc, pipe_config);
 
@@ -3345,13 +3355,15 @@ static void
 intel_get_adjust_train(struct intel_dp *intel_dp,
 		       const uint8_t link_status[DP_LINK_STATUS_SIZE])
 {
+	struct intel_crtc *crtc =
+		to_intel_crtc(dp_to_dig_port(intel_dp)->base.base.crtc);
 	uint8_t v = 0;
 	uint8_t p = 0;
 	int lane;
 	uint8_t voltage_max;
 	uint8_t preemph_max;
 
-	for (lane = 0; lane < intel_dp->lane_count; lane++) {
+	for (lane = 0; lane < crtc->config->lane_count; lane++) {
 		uint8_t this_v = drm_dp_get_adjust_request_voltage(link_status, lane);
 		uint8_t this_p = drm_dp_get_adjust_request_pre_emphasis(link_status, lane);
 
@@ -3520,8 +3532,10 @@ intel_dp_set_link_train(struct intel_dp *intel_dp,
 			uint8_t dp_train_pat)
 {
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
-	struct drm_device *dev = intel_dig_port->base.base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv =
+		to_i915(intel_dig_port->base.base.dev);
+	struct intel_crtc *crtc =
+		to_intel_crtc(intel_dig_port->base.base.crtc);
 	uint8_t buf[sizeof(intel_dp->train_set) + 1];
 	int ret, len;
 
@@ -3537,8 +3551,8 @@ intel_dp_set_link_train(struct intel_dp *intel_dp,
 		len = 1;
 	} else {
 		/* DP_TRAINING_LANEx_SET follow DP_TRAINING_PATTERN_SET */
-		memcpy(buf + 1, intel_dp->train_set, intel_dp->lane_count);
-		len = intel_dp->lane_count + 1;
+		memcpy(buf + 1, intel_dp->train_set, crtc->config->lane_count);
+		len = crtc->config->lane_count + 1;
 	}
 
 	ret = drm_dp_dpcd_write(&intel_dp->aux, DP_TRAINING_PATTERN_SET,
@@ -3562,8 +3576,10 @@ intel_dp_update_link_train(struct intel_dp *intel_dp, uint32_t *DP,
 			   const uint8_t link_status[DP_LINK_STATUS_SIZE])
 {
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
-	struct drm_device *dev = intel_dig_port->base.base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv =
+		to_i915(intel_dig_port->base.base.dev);
+	struct intel_crtc *crtc =
+		to_intel_crtc(intel_dig_port->base.base.crtc);
 	int ret;
 
 	intel_get_adjust_train(intel_dp, link_status);
@@ -3573,9 +3589,9 @@ intel_dp_update_link_train(struct intel_dp *intel_dp, uint32_t *DP,
 	POSTING_READ(intel_dp->output_reg);
 
 	ret = drm_dp_dpcd_write(&intel_dp->aux, DP_TRAINING_LANE0_SET,
-				intel_dp->train_set, intel_dp->lane_count);
+				intel_dp->train_set, crtc->config->lane_count);
 
-	return ret == intel_dp->lane_count;
+	return ret == crtc->config->lane_count;
 }
 
 static void intel_dp_set_idle_link_train(struct intel_dp *intel_dp)
@@ -3614,25 +3630,31 @@ void
 intel_dp_start_link_train(struct intel_dp *intel_dp)
 {
 	struct drm_encoder *encoder = &dp_to_dig_port(intel_dp)->base.base;
+	struct intel_crtc *crtc =
+		to_intel_crtc(dp_to_dig_port(intel_dp)->base.base.crtc);
 	struct drm_device *dev = encoder->dev;
 	int i;
 	uint8_t voltage;
 	int voltage_tries, loop_tries;
 	uint32_t DP = intel_dp->DP;
 	uint8_t link_config[2];
+	uint8_t link_bw, rate_select;
 
 	if (HAS_DDI(dev))
 		intel_ddi_prepare_link_retrain(encoder);
 
+	intel_dp_compute_rate(intel_dp, crtc->config->port_clock,
+			      &link_bw, &rate_select);
+
 	/* Write the link configuration data */
-	link_config[0] = intel_dp->link_bw;
-	link_config[1] = intel_dp->lane_count;
+	link_config[0] = link_bw;
+	link_config[1] = crtc->config->lane_count;
 	if (drm_dp_enhanced_frame_cap(intel_dp->dpcd))
 		link_config[1] |= DP_LANE_COUNT_ENHANCED_FRAME_EN;
 	drm_dp_dpcd_write(&intel_dp->aux, DP_LINK_BW_SET, link_config, 2);
 	if (intel_dp->num_sink_rates)
 		drm_dp_dpcd_write(&intel_dp->aux, DP_LINK_RATE_SET,
-				&intel_dp->rate_select, 1);
+				  &rate_select, 1);
 
 	link_config[0] = 0;
 	link_config[1] = DP_SET_ANSI_8B10B;
@@ -3660,7 +3682,7 @@ intel_dp_start_link_train(struct intel_dp *intel_dp)
 			break;
 		}
 
-		if (drm_dp_clock_recovery_ok(link_status, intel_dp->lane_count)) {
+		if (drm_dp_clock_recovery_ok(link_status, crtc->config->lane_count)) {
 			DRM_DEBUG_KMS("clock recovery OK\n");
 			break;
 		}
@@ -3683,10 +3705,10 @@ intel_dp_start_link_train(struct intel_dp *intel_dp)
 		}
 
 		/* Check to see if we've tried the max voltage */
-		for (i = 0; i < intel_dp->lane_count; i++)
+		for (i = 0; i < crtc->config->lane_count; i++)
 			if ((intel_dp->train_set[i] & DP_TRAIN_MAX_SWING_REACHED) == 0)
 				break;
-		if (i == intel_dp->lane_count) {
+		if (i == crtc->config->lane_count) {
 			++loop_tries;
 			if (loop_tries == 5) {
 				DRM_ERROR("too many full retries, give up\n");
@@ -3723,13 +3745,15 @@ intel_dp_start_link_train(struct intel_dp *intel_dp)
 void
 intel_dp_complete_link_train(struct intel_dp *intel_dp)
 {
+	struct intel_crtc *crtc =
+		to_intel_crtc(dp_to_dig_port(intel_dp)->base.base.crtc);
 	bool channel_eq = false;
 	int tries, cr_tries;
 	uint32_t DP = intel_dp->DP;
 	uint32_t training_pattern = DP_TRAINING_PATTERN_2;
 
-	/* Training Pattern 3 for HBR2 ot 1.2 devices that support it*/
-	if (intel_dp->link_bw == DP_LINK_BW_5_4 || intel_dp->use_tps3)
+	/* Training Pattern 3 for HBR2 or 1.2 devices that support it*/
+	if (crtc->config->port_clock == 540000 || intel_dp->use_tps3)
 		training_pattern = DP_TRAINING_PATTERN_3;
 
 	/* channel equalization */
@@ -3758,7 +3782,8 @@ intel_dp_complete_link_train(struct intel_dp *intel_dp)
 		}
 
 		/* Make sure clock is still ok */
-		if (!drm_dp_clock_recovery_ok(link_status, intel_dp->lane_count)) {
+		if (!drm_dp_clock_recovery_ok(link_status,
+					      crtc->config->lane_count)) {
 			intel_dp->train_set_valid = false;
 			intel_dp_start_link_train(intel_dp);
 			intel_dp_set_link_train(intel_dp, &DP,
@@ -3768,7 +3793,8 @@ intel_dp_complete_link_train(struct intel_dp *intel_dp)
 			continue;
 		}
 
-		if (drm_dp_channel_eq_ok(link_status, intel_dp->lane_count)) {
+		if (drm_dp_channel_eq_ok(link_status,
+					 crtc->config->lane_count)) {
 			channel_eq = true;
 			break;
 		}
@@ -4007,22 +4033,30 @@ intel_dp_probe_mst(struct intel_dp *intel_dp)
 	return intel_dp->is_mst;
 }
 
-static void intel_dp_sink_crc_stop(struct intel_dp *intel_dp)
+static int intel_dp_sink_crc_stop(struct intel_dp *intel_dp)
 {
 	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
 	struct intel_crtc *intel_crtc = to_intel_crtc(dig_port->base.base.crtc);
 	u8 buf;
+	int ret = 0;
 
 	if (drm_dp_dpcd_readb(&intel_dp->aux, DP_TEST_SINK, &buf) < 0) {
 		DRM_DEBUG_KMS("Sink CRC couldn't be stopped properly\n");
-		return;
+		ret = -EIO;
+		goto out;
 	}
 
 	if (drm_dp_dpcd_writeb(&intel_dp->aux, DP_TEST_SINK,
-			       buf & ~DP_TEST_SINK_START) < 0)
+			       buf & ~DP_TEST_SINK_START) < 0) {
 		DRM_DEBUG_KMS("Sink CRC couldn't be stopped properly\n");
+		ret = -EIO;
+		goto out;
+	}
 
+	intel_dp->sink_crc.started = false;
+ out:
 	hsw_enable_ips(intel_crtc);
+	return ret;
 }
 
 static int intel_dp_sink_crc_start(struct intel_dp *intel_dp)
@@ -4030,12 +4064,21 @@ static int intel_dp_sink_crc_start(struct intel_dp *intel_dp)
 	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
 	struct intel_crtc *intel_crtc = to_intel_crtc(dig_port->base.base.crtc);
 	u8 buf;
+	int ret;
+
+	if (intel_dp->sink_crc.started) {
+		ret = intel_dp_sink_crc_stop(intel_dp);
+		if (ret)
+			return ret;
+	}
 
 	if (drm_dp_dpcd_readb(&intel_dp->aux, DP_TEST_SINK_MISC, &buf) < 0)
 		return -EIO;
 
 	if (!(buf & DP_TEST_CRC_SUPPORTED))
 		return -ENOTTY;
+
+	intel_dp->sink_crc.last_count = buf & DP_TEST_COUNT_MASK;
 
 	if (drm_dp_dpcd_readb(&intel_dp->aux, DP_TEST_SINK, &buf) < 0)
 		return -EIO;
@@ -4048,6 +4091,7 @@ static int intel_dp_sink_crc_start(struct intel_dp *intel_dp)
 		return -EIO;
 	}
 
+	intel_dp->sink_crc.started = true;
 	return 0;
 }
 
@@ -4057,38 +4101,55 @@ int intel_dp_sink_crc(struct intel_dp *intel_dp, u8 *crc)
 	struct drm_device *dev = dig_port->base.base.dev;
 	struct intel_crtc *intel_crtc = to_intel_crtc(dig_port->base.base.crtc);
 	u8 buf;
-	int test_crc_count;
+	int count, ret;
 	int attempts = 6;
-	int ret;
+	bool old_equal_new;
 
 	ret = intel_dp_sink_crc_start(intel_dp);
 	if (ret)
 		return ret;
 
-	if (drm_dp_dpcd_readb(&intel_dp->aux, DP_TEST_SINK_MISC, &buf) < 0) {
-		ret = -EIO;
-		goto stop;
-	}
-
-	test_crc_count = buf & DP_TEST_COUNT_MASK;
-
 	do {
+		intel_wait_for_vblank(dev, intel_crtc->pipe);
+
 		if (drm_dp_dpcd_readb(&intel_dp->aux,
 				      DP_TEST_SINK_MISC, &buf) < 0) {
 			ret = -EIO;
 			goto stop;
 		}
-		intel_wait_for_vblank(dev, intel_crtc->pipe);
-	} while (--attempts && (buf & DP_TEST_COUNT_MASK) == test_crc_count);
+		count = buf & DP_TEST_COUNT_MASK;
+
+		/*
+		 * Count might be reset during the loop. In this case
+		 * last known count needs to be reset as well.
+		 */
+		if (count == 0)
+			intel_dp->sink_crc.last_count = 0;
+
+		if (drm_dp_dpcd_read(&intel_dp->aux, DP_TEST_CRC_R_CR, crc, 6) < 0) {
+			ret = -EIO;
+			goto stop;
+		}
+
+		old_equal_new = (count == intel_dp->sink_crc.last_count &&
+				 !memcmp(intel_dp->sink_crc.last_crc, crc,
+					 6 * sizeof(u8)));
+
+	} while (--attempts && (count == 0 || old_equal_new));
+
+	intel_dp->sink_crc.last_count = buf & DP_TEST_COUNT_MASK;
+	memcpy(intel_dp->sink_crc.last_crc, crc, 6 * sizeof(u8));
 
 	if (attempts == 0) {
-		DRM_DEBUG_KMS("Panel is unable to calculate CRC after 6 vblanks\n");
-		ret = -ETIMEDOUT;
-		goto stop;
+		if (old_equal_new) {
+			DRM_DEBUG_KMS("Unreliable Sink CRC counter: Current returned CRC is identical to the previous one\n");
+		} else {
+			DRM_ERROR("Panel is unable to calculate any CRC after 6 vblanks\n");
+			ret = -ETIMEDOUT;
+			goto stop;
+		}
 	}
 
-	if (drm_dp_dpcd_read(&intel_dp->aux, DP_TEST_CRC_R_CR, crc, 6) < 0)
-		ret = -EIO;
 stop:
 	intel_dp_sink_crc_stop(intel_dp);
 	return ret;
@@ -4236,6 +4297,8 @@ update_status:
 static int
 intel_dp_check_mst_status(struct intel_dp *intel_dp)
 {
+	struct intel_crtc *crtc =
+		to_intel_crtc(dp_to_dig_port(intel_dp)->base.base.crtc);
 	bool bret;
 
 	if (intel_dp->is_mst) {
@@ -4248,7 +4311,8 @@ go_again:
 		if (bret == true) {
 
 			/* check link status - esi[10] = 0x200c */
-			if (intel_dp->active_mst_links && !drm_dp_channel_eq_ok(&esi[10], intel_dp->lane_count)) {
+			if (intel_dp->active_mst_links &&
+			    !drm_dp_channel_eq_ok(&esi[10], crtc->config->lane_count)) {
 				DRM_DEBUG_KMS("channel EQ not ok, retraining\n");
 				intel_dp_start_link_train(intel_dp);
 				intel_dp_complete_link_train(intel_dp);
@@ -4303,6 +4367,8 @@ intel_dp_check_link_status(struct intel_dp *intel_dp)
 {
 	struct drm_device *dev = intel_dp_to_dev(intel_dp);
 	struct intel_encoder *intel_encoder = &dp_to_dig_port(intel_dp)->base;
+	struct intel_crtc *crtc =
+		to_intel_crtc(dp_to_dig_port(intel_dp)->base.base.crtc);
 	u8 sink_irq_vector;
 	u8 link_status[DP_LINK_STATUS_SIZE];
 
@@ -4338,7 +4404,7 @@ intel_dp_check_link_status(struct intel_dp *intel_dp)
 			DRM_DEBUG_DRIVER("CP or sink specific irq unhandled\n");
 	}
 
-	if (!drm_dp_channel_eq_ok(link_status, intel_dp->lane_count)) {
+	if (!drm_dp_channel_eq_ok(link_status, crtc->config->lane_count)) {
 		DRM_DEBUG_KMS("%s: channel EQ not ok, retraining\n",
 			      intel_encoder->base.name);
 		intel_dp_start_link_train(intel_dp);
@@ -4728,7 +4794,7 @@ intel_dp_set_property(struct drm_connector *connector,
 
 	if (property == dev_priv->broadcast_rgb_property) {
 		bool old_auto = intel_dp->color_range_auto;
-		uint32_t old_range = intel_dp->color_range;
+		bool old_range = intel_dp->limited_color_range;
 
 		switch (val) {
 		case INTEL_BROADCAST_RGB_AUTO:
@@ -4736,18 +4802,18 @@ intel_dp_set_property(struct drm_connector *connector,
 			break;
 		case INTEL_BROADCAST_RGB_FULL:
 			intel_dp->color_range_auto = false;
-			intel_dp->color_range = 0;
+			intel_dp->limited_color_range = false;
 			break;
 		case INTEL_BROADCAST_RGB_LIMITED:
 			intel_dp->color_range_auto = false;
-			intel_dp->color_range = DP_COLOR_RANGE_16_235;
+			intel_dp->limited_color_range = true;
 			break;
 		default:
 			return -EINVAL;
 		}
 
 		if (old_auto == intel_dp->color_range_auto &&
-		    old_range == intel_dp->color_range)
+		    old_range == intel_dp->limited_color_range)
 			return 0;
 
 		goto done;
@@ -5853,6 +5919,8 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 		break;
 	case PORT_B:
 		intel_encoder->hpd_pin = HPD_PORT_B;
+		if (IS_BROXTON(dev_priv) && (INTEL_REVID(dev) < BXT_REVID_B0))
+			intel_encoder->hpd_pin = HPD_PORT_A;
 		break;
 	case PORT_C:
 		intel_encoder->hpd_pin = HPD_PORT_C;
