@@ -4391,6 +4391,7 @@ update_status:
 static int
 intel_dp_check_mst_status(struct intel_dp *intel_dp)
 {
+	struct drm_device *dev = dp_to_dig_port(intel_dp)->base.base.dev;
 	bool bret;
 
 	if (intel_dp->is_mst) {
@@ -4402,6 +4403,8 @@ intel_dp_check_mst_status(struct intel_dp *intel_dp)
 go_again:
 		if (bret == true) {
 
+			drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
+
 			/* check link status - esi[10] = 0x200c */
 			if (intel_dp->active_mst_links &&
 			    !drm_dp_channel_eq_ok(&esi[10], intel_dp->lane_count)) {
@@ -4410,6 +4413,8 @@ go_again:
 				intel_dp_complete_link_train(intel_dp);
 				intel_dp_stop_link_train(intel_dp);
 			}
+
+			drm_modeset_unlock(&dev->mode_config.connection_mutex);
 
 			DRM_DEBUG_KMS("got esi %3ph\n", esi);
 			ret = drm_dp_mst_hpd_irq(&intel_dp->mst_mgr, esi, &handled);
