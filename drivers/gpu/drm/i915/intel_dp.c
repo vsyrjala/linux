@@ -4392,62 +4392,64 @@ static int
 intel_dp_check_mst_status(struct intel_dp *intel_dp)
 {
 	struct drm_device *dev = dp_to_dig_port(intel_dp)->base.base.dev;
+	u8 esi[16];
 	bool bret;
 
-	if (intel_dp->is_mst) {
-		u8 esi[16] = { 0 };
-		int ret = 0;
-		int retry;
-		bool handled;
-		bret = intel_dp_get_sink_irq_esi(intel_dp, esi);
-go_again:
-		if (bret == true) {
+	if (!intel_dp->is_mst)
+		return -EINVAL;
 
-			drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
+	bret = intel_dp_get_sink_irq_esi(intel_dp, esi);
 
-			/* check link status - esi[10] = 0x200c */
-			if (intel_dp->active_mst_links &&
-			    !drm_dp_channel_eq_ok(&esi[10], intel_dp->lane_count)) {
-				DRM_DEBUG_KMS("channel EQ not ok, retraining\n");
-				intel_dp_start_link_train(intel_dp);
-				intel_dp_complete_link_train(intel_dp);
-				intel_dp_stop_link_train(intel_dp);
-			}
+	if (!bret) {
+		DRM_DEBUG_KMS("failed to get ESI - device may have failed\n");
+		intel_dp->is_mst = false;
+		drm_dp_mst_topology_mgr_set_mst(&intel_dp->mst_mgr, intel_dp->is_mst);
+		/* send a hotplug event */
+		drm_kms_helper_hotplug_event(dev);
 
-			drm_modeset_unlock(&dev->mode_config.connection_mutex);
-
-			DRM_DEBUG_KMS("got esi %3ph\n", esi);
-			ret = drm_dp_mst_hpd_irq(&intel_dp->mst_mgr, esi, &handled);
-
-			if (handled) {
-				for (retry = 0; retry < 3; retry++) {
-					int wret;
-					wret = drm_dp_dpcd_write(&intel_dp->aux,
-								 DP_SINK_COUNT_ESI+1,
-								 &esi[1], 3);
-					if (wret == 3) {
-						break;
-					}
-				}
-
-				bret = intel_dp_get_sink_irq_esi(intel_dp, esi);
-				if (bret == true) {
-					DRM_DEBUG_KMS("got esi2 %3ph\n", esi);
-					goto go_again;
-				}
-			} else
-				ret = 0;
-
-			return ret;
-		} else {
-			struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
-			DRM_DEBUG_KMS("failed to get ESI - device may have failed\n");
-			intel_dp->is_mst = false;
-			drm_dp_mst_topology_mgr_set_mst(&intel_dp->mst_mgr, intel_dp->is_mst);
-			/* send a hotplug event */
-			drm_kms_helper_hotplug_event(intel_dig_port->base.base.dev);
-		}
+		return -EINVAL;
 	}
+
+	for (;;) {
+		bool handled;
+		int retry;
+		int ret;
+
+		drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
+
+		/* check link status - esi[10] = 0x200c */
+		if (intel_dp->active_mst_links &&
+		    !drm_dp_channel_eq_ok(&esi[10], intel_dp->lane_count)) {
+			DRM_DEBUG_KMS("channel EQ not ok, retraining\n");
+			intel_dp_start_link_train(intel_dp);
+			intel_dp_complete_link_train(intel_dp);
+			intel_dp_stop_link_train(intel_dp);
+		}
+
+
+		drm_modeset_unlock(&dev->mode_config.connection_mutex);
+
+		DRM_DEBUG_KMS("got esi %3ph\n", esi);
+		ret = drm_dp_mst_hpd_irq(&intel_dp->mst_mgr, esi, &handled);
+
+		if (!handled)
+			return 0;
+
+		for (retry = 0; retry < 3; retry++) {
+			int wret = drm_dp_dpcd_write(&intel_dp->aux,
+						     DP_SINK_COUNT_ESI+1,
+						     &esi[1], 3);
+			if (wret == 3)
+				break;
+		}
+
+		bret = intel_dp_get_sink_irq_esi(intel_dp, esi);
+		if (!bret)
+			return ret;
+
+		DRM_DEBUG_KMS("got esi2 %3ph\n", esi);
+	}
+
 	return -EINVAL;
 }
 
