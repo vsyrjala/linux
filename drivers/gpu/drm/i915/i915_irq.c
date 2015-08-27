@@ -1301,9 +1301,6 @@ static void intel_get_hpd_pins(u32 *pin_mask, u32 *long_mask,
 	enum port port;
 	int i;
 
-	*pin_mask = 0;
-	*long_mask = 0;
-
 	for_each_hpd_pin(i) {
 		if ((hpd[i] & hotplug_trigger) == 0)
 			continue;
@@ -1544,7 +1541,7 @@ static void i9xx_hpd_irq_handler(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 hotplug_status = I915_READ(PORT_HOTPLUG_STAT);
-	u32 pin_mask, long_mask;
+	u32 pin_mask = 0, long_mask = 0;
 
 	if (!hotplug_status)
 		return;
@@ -1673,7 +1670,7 @@ static void ibx_irq_handler(struct drm_device *dev, u32 pch_iir)
 	u32 hotplug_trigger = pch_iir & SDE_HOTPLUG_MASK;
 
 	if (hotplug_trigger) {
-		u32 dig_hotplug_reg, pin_mask, long_mask;
+		u32 dig_hotplug_reg, pin_mask = 0, long_mask = 0;
 
 		dig_hotplug_reg = I915_READ(PCH_PORT_HOTPLUG);
 		I915_WRITE(PCH_PORT_HOTPLUG, dig_hotplug_reg);
@@ -1781,7 +1778,7 @@ static void cpt_irq_handler(struct drm_device *dev, u32 pch_iir)
 		hotplug_trigger = pch_iir & SDE_HOTPLUG_MASK_CPT;
 
 	if (hotplug_trigger) {
-		u32 dig_hotplug_reg, pin_mask, long_mask;
+		u32 dig_hotplug_reg, pin_mask = 0, long_mask = 0;
 
 		dig_hotplug_reg = I915_READ(PCH_PORT_HOTPLUG);
 		I915_WRITE(PCH_PORT_HOTPLUG, dig_hotplug_reg);
@@ -2004,7 +2001,7 @@ static void bxt_hpd_handler(struct drm_device *dev, uint32_t iir_status)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 hp_control, hp_trigger;
-	u32 pin_mask, long_mask;
+	u32 pin_mask = 0, long_mask = 0;
 
 	/* Get the status */
 	hp_trigger = iir_status & BXT_DE_PORT_HOTPLUG_MASK;
