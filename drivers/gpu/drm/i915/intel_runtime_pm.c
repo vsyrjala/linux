@@ -949,6 +949,15 @@ static void chv_dpio_cmn_power_well_enable(struct drm_i915_private *dev_priv,
 	if (wait_for(I915_READ(DISPLAY_PHY_STATUS) & PHY_POWERGOOD(phy), 1))
 		DRM_ERROR("Display PHY %d is not power up\n", phy);
 
+	/*
+	 * The BIOS may have already enabled dynamic power down mode, so
+	 * in order to guarantee that the lanes stay powered on, always enable
+	 * the power overrides.
+	 */
+	dev_priv->chv_phy_control |= PHY_CH_POWER_DOWN_OVRD_EN(phy, DPIO_CH0);
+	if (phy == DPIO_PHY0)
+		dev_priv->chv_phy_control |= PHY_CH_POWER_DOWN_OVRD_EN(phy, DPIO_CH1);
+
 	dev_priv->chv_phy_control |= PHY_COM_LANE_RESET_DEASSERT(phy);
 	I915_WRITE(DISPLAY_PHY_CONTROL, dev_priv->chv_phy_control);
 }
@@ -969,6 +978,10 @@ static void chv_dpio_cmn_power_well_disable(struct drm_i915_private *dev_priv,
 		phy = DPIO_PHY1;
 		assert_pll_disabled(dev_priv, PIPE_C);
 	}
+
+	dev_priv->chv_phy_control &= ~PHY_CH_POWER_DOWN_OVRD_EN(phy, DPIO_CH0);
+	if (phy == DPIO_PHY0)
+		dev_priv->chv_phy_control &= ~PHY_CH_POWER_DOWN_OVRD_EN(phy, DPIO_CH1);
 
 	dev_priv->chv_phy_control &= ~PHY_COM_LANE_RESET_DEASSERT(phy);
 	I915_WRITE(DISPLAY_PHY_CONTROL, dev_priv->chv_phy_control);
@@ -1639,10 +1652,15 @@ static void chv_phy_control_init(struct drm_i915_private *dev_priv)
 		PHY_CH_POWER_MODE(PHY_CH_SU_PSR, DPIO_PHY0, DPIO_CH0) |
 		PHY_CH_POWER_MODE(PHY_CH_SU_PSR, DPIO_PHY0, DPIO_CH1) |
 		PHY_CH_POWER_MODE(PHY_CH_SU_PSR, DPIO_PHY1, DPIO_CH0);
-	if (cmn_bc->ops->is_enabled(dev_priv, cmn_bc))
+	if (cmn_bc->ops->is_enabled(dev_priv, cmn_bc)) {
+		dev_priv->chv_phy_control |= PHY_CH_POWER_DOWN_OVRD_EN(DPIO_PHY0, DPIO_CH0);
+		dev_priv->chv_phy_control |= PHY_CH_POWER_DOWN_OVRD_EN(DPIO_PHY0, DPIO_CH1);
 		dev_priv->chv_phy_control |= PHY_COM_LANE_RESET_DEASSERT(DPIO_PHY0);
-	if (cmn_d->ops->is_enabled(dev_priv, cmn_d))
+	}
+	if (cmn_d->ops->is_enabled(dev_priv, cmn_d)) {
+		dev_priv->chv_phy_control |= PHY_CH_POWER_DOWN_OVRD_EN(DPIO_PHY1, DPIO_CH0);
 		dev_priv->chv_phy_control |= PHY_COM_LANE_RESET_DEASSERT(DPIO_PHY1);
+	}
 }
 
 static void vlv_cmnlane_wa(struct drm_i915_private *dev_priv)
