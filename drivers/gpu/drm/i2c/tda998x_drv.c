@@ -1213,7 +1213,7 @@ tda998x_encoder_slave_create_resources(struct drm_encoder *encoder,
 	return 0;
 }
 
-static struct drm_encoder_slave_funcs tda998x_encoder_slave_funcs = {
+static const struct drm_encoder_slave_funcs tda998x_encoder_slave_funcs = {
 	.set_config = tda998x_encoder_slave_set_config,
 	.destroy = tda998x_encoder_slave_destroy,
 	.dpms = tda998x_encoder_slave_dpms,
@@ -1467,8 +1467,7 @@ tda998x_connector_best_encoder(struct drm_connector *connector)
 	return &priv->encoder;
 }
 
-static
-const struct drm_connector_helper_funcs tda998x_connector_helper_funcs = {
+static const struct drm_connector_helper_funcs tda998x_connector_helper_funcs = {
 	.get_modes = tda998x_connector_get_modes,
 	.mode_valid = tda998x_connector_mode_valid,
 	.best_encoder = tda998x_connector_best_encoder,
