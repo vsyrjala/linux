@@ -1585,8 +1585,7 @@ static void vlv_enable_pll(struct intel_crtc *crtc,
 	BUG_ON(!IS_VALLEYVIEW(dev_priv->dev));
 
 	/* PLL is protected by panel, make sure we can write it */
-	if (IS_MOBILE(dev_priv->dev))
-		assert_panel_unlocked(dev_priv, pipe);
+	assert_panel_unlocked(dev_priv, pipe);
 
 	I915_WRITE(reg, dpll);
 	POSTING_READ(reg);
@@ -1622,6 +1621,9 @@ static void chv_enable_pll(struct intel_crtc *crtc,
 	assert_pipe_disabled(dev_priv, crtc->pipe);
 
 	BUG_ON(!IS_CHERRYVIEW(dev_priv->dev));
+
+	/* PLL is protected by panel, make sure we can write it */
+	assert_panel_unlocked(dev_priv, pipe);
 
 	mutex_lock(&dev_priv->sb_lock);
 
