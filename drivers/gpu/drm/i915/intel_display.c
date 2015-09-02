@@ -1570,14 +1570,25 @@ static void assert_pch_ports_disabled(struct drm_i915_private *dev_priv,
 	assert_pch_hdmi_disabled(dev_priv, pipe, PCH_HDMID);
 }
 
+static void _vlv_enable_pll(struct intel_crtc *crtc,
+			    const struct intel_crtc_state *pipe_config)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+
+	I915_WRITE(DPLL(pipe), pipe_config->dpll_hw_state.dpll);
+	POSTING_READ(DPLL(pipe));
+	udelay(150);
+
+	if (wait_for(((I915_READ(DPLL(pipe)) & DPLL_LOCK_VLV) == DPLL_LOCK_VLV), 1))
+		DRM_ERROR("DPLL %d failed to lock\n", pipe);
+}
+
 static void vlv_enable_pll(struct intel_crtc *crtc,
 			   const struct intel_crtc_state *pipe_config)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum pipe pipe = crtc->pipe;
-	int reg = DPLL(pipe);
-	u32 dpll = pipe_config->dpll_hw_state.dpll;
 
 	assert_pipe_disabled(dev_priv, pipe);
 
@@ -1587,32 +1598,21 @@ static void vlv_enable_pll(struct intel_crtc *crtc,
 	/* PLL is protected by panel, make sure we can write it */
 	assert_panel_unlocked(dev_priv, pipe);
 
-	I915_WRITE(reg, dpll);
-	POSTING_READ(reg);
-	udelay(150);
-
-	if (wait_for(((I915_READ(reg) & DPLL_LOCK_VLV) == DPLL_LOCK_VLV), 1))
-		DRM_ERROR("DPLL %d failed to lock\n", pipe);
+	if (pipe_config->dpll_hw_state.dpll & DPLL_VCO_ENABLE)
+		_vlv_enable_pll(crtc, pipe_config);
 
 	I915_WRITE(DPLL_MD(pipe), pipe_config->dpll_hw_state.dpll_md);
 	POSTING_READ(DPLL_MD(pipe));
 }
 
-static void chv_enable_pll(struct intel_crtc *crtc,
-			   const struct intel_crtc_state *pipe_config)
+
+static void _chv_enable_pll(struct intel_crtc *crtc,
+			    const struct intel_crtc_state *pipe_config)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum pipe pipe = crtc->pipe;
 	enum dpio_channel port = vlv_pipe_to_channel(pipe);
 	u32 tmp;
-
-	assert_pipe_disabled(dev_priv, crtc->pipe);
-
-	BUG_ON(!IS_CHERRYVIEW(dev_priv->dev));
-
-	/* PLL is protected by panel, make sure we can write it */
-	assert_panel_unlocked(dev_priv, pipe);
 
 	mutex_lock(&dev_priv->sb_lock);
 
@@ -1634,6 +1634,23 @@ static void chv_enable_pll(struct intel_crtc *crtc,
 	/* Check PLL is locked */
 	if (wait_for(((I915_READ(DPLL(pipe)) & DPLL_LOCK_VLV) == DPLL_LOCK_VLV), 1))
 		DRM_ERROR("PLL %d failed to lock\n", pipe);
+}
+
+static void chv_enable_pll(struct intel_crtc *crtc,
+			   const struct intel_crtc_state *pipe_config)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+
+	assert_pipe_disabled(dev_priv, pipe);
+
+	BUG_ON(!IS_CHERRYVIEW(dev_priv->dev));
+
+	/* PLL is protected by panel, make sure we can write it */
+	assert_panel_unlocked(dev_priv, pipe);
+
+	if (pipe_config->dpll_hw_state.dpll & DPLL_VCO_ENABLE)
+		_chv_enable_pll(crtc, pipe_config);
 
 	if (pipe != PIPE_A) {
 		/*
@@ -6006,13 +6023,10 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_encoder *encoder;
-	int pipe = intel_crtc->pipe;
-	bool is_dsi;
+	enum pipe pipe = intel_crtc->pipe;
 
 	if (WARN_ON(intel_crtc->active))
 		return;
-
-	is_dsi = intel_pipe_has_type(intel_crtc, INTEL_OUTPUT_DSI);
 
 	if (intel_crtc->config->has_dp_encoder)
 		intel_dp_set_m_n(intel_crtc, M1_N1);
@@ -6036,14 +6050,12 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 		if (encoder->pre_pll_enable)
 			encoder->pre_pll_enable(encoder);
 
-	if (!is_dsi) {
-		if (IS_CHERRYVIEW(dev)) {
-			chv_prepare_pll(intel_crtc, intel_crtc->config);
-			chv_enable_pll(intel_crtc, intel_crtc->config);
-		} else {
-			vlv_prepare_pll(intel_crtc, intel_crtc->config);
-			vlv_enable_pll(intel_crtc, intel_crtc->config);
-		}
+	if (IS_CHERRYVIEW(dev)) {
+		chv_prepare_pll(intel_crtc, intel_crtc->config);
+		chv_enable_pll(intel_crtc, intel_crtc->config);
+	} else {
+		vlv_prepare_pll(intel_crtc, intel_crtc->config);
+		vlv_enable_pll(intel_crtc, intel_crtc->config);
 	}
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
@@ -7186,10 +7198,14 @@ static void vlv_compute_dpll(struct intel_crtc *crtc,
 			     struct intel_crtc_state *pipe_config)
 {
 	pipe_config->dpll_hw_state.dpll = DPLL_INTEGRATED_REF_CLK_VLV |
-		DPLL_REF_CLK_ENABLE_VLV | DPLL_VGA_MODE_DIS |
-		DPLL_VCO_ENABLE | DPLL_EXT_BUFFER_ENABLE_VLV;
+		DPLL_REF_CLK_ENABLE_VLV | DPLL_VGA_MODE_DIS;
 	if (crtc->pipe != PIPE_A)
 		pipe_config->dpll_hw_state.dpll |= DPLL_INTEGRATED_CRI_CLK_VLV;
+
+	/* DPLL not used with DSI, but still need the rest set up */
+	if (!intel_pipe_will_have_type(pipe_config, INTEL_OUTPUT_DSI))
+		pipe_config->dpll_hw_state.dpll |= DPLL_VCO_ENABLE |
+			DPLL_EXT_BUFFER_ENABLE_VLV;
 
 	pipe_config->dpll_hw_state.dpll_md =
 		(pipe_config->pixel_multiplier - 1) << DPLL_MD_UDI_MULTIPLIER_SHIFT;
@@ -7199,10 +7215,13 @@ static void chv_compute_dpll(struct intel_crtc *crtc,
 			     struct intel_crtc_state *pipe_config)
 {
 	pipe_config->dpll_hw_state.dpll = DPLL_SSC_REF_CLK_CHV |
-		DPLL_REF_CLK_ENABLE_VLV | DPLL_VGA_MODE_DIS |
-		DPLL_VCO_ENABLE;
+		DPLL_REF_CLK_ENABLE_VLV | DPLL_VGA_MODE_DIS;
 	if (crtc->pipe != PIPE_A)
 		pipe_config->dpll_hw_state.dpll |= DPLL_INTEGRATED_CRI_CLK_VLV;
+
+	/* DPLL not used with DSI, but still need the rest set up */
+	if (!intel_pipe_will_have_type(pipe_config, INTEL_OUTPUT_DSI))
+		pipe_config->dpll_hw_state.dpll |= DPLL_VCO_ENABLE;
 
 	pipe_config->dpll_hw_state.dpll_md =
 		(pipe_config->pixel_multiplier - 1) << DPLL_MD_UDI_MULTIPLIER_SHIFT;
@@ -7213,10 +7232,19 @@ static void vlv_prepare_pll(struct intel_crtc *crtc,
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int pipe = crtc->pipe;
+	enum pipe pipe = crtc->pipe;
 	u32 mdiv;
 	u32 bestn, bestm1, bestm2, bestp1, bestp2;
 	u32 coreclk, reg_val;
+
+	/* Enable Refclk */
+	I915_WRITE(DPLL(pipe),
+		   pipe_config->dpll_hw_state.dpll &
+		   ~(DPLL_VCO_ENABLE | DPLL_EXT_BUFFER_ENABLE_VLV));
+
+	/* No need to actually set up the DPLL with DSI */
+	if ((pipe_config->dpll_hw_state.dpll & DPLL_VCO_ENABLE) == 0)
+		return;
 
 	mutex_lock(&dev_priv->sb_lock);
 
@@ -7304,13 +7332,20 @@ static void chv_prepare_pll(struct intel_crtc *crtc,
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int pipe = crtc->pipe;
-	int dpll_reg = DPLL(crtc->pipe);
+	enum pipe pipe = crtc->pipe;
 	enum dpio_channel port = vlv_pipe_to_channel(pipe);
 	u32 loopfilter, tribuf_calcntr;
 	u32 bestn, bestm1, bestm2, bestp1, bestp2, bestm2_frac;
 	u32 dpio_val;
 	int vco;
+
+	/* Enable Refclk and SSC */
+	I915_WRITE(DPLL(pipe),
+		   pipe_config->dpll_hw_state.dpll & ~DPLL_VCO_ENABLE);
+
+	/* No need to actually set up the DPLL with DSI */
+	if ((pipe_config->dpll_hw_state.dpll & DPLL_VCO_ENABLE) == 0)
+		return;
 
 	bestn = pipe_config->dpll.n;
 	bestm2_frac = pipe_config->dpll.m2 & 0x3fffff;
@@ -7321,12 +7356,6 @@ static void chv_prepare_pll(struct intel_crtc *crtc,
 	vco = pipe_config->dpll.vco;
 	dpio_val = 0;
 	loopfilter = 0;
-
-	/*
-	 * Enable Refclk and SSC
-	 */
-	I915_WRITE(dpll_reg,
-		   pipe_config->dpll_hw_state.dpll & ~DPLL_VCO_ENABLE);
 
 	mutex_lock(&dev_priv->sb_lock);
 
@@ -7772,8 +7801,6 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 	int refclk, num_connectors = 0;
 	intel_clock_t clock;
 	bool ok;
-	bool is_dsi = false;
-	struct intel_encoder *encoder;
 	const intel_limit_t *limit;
 	struct drm_atomic_state *state = crtc_state->base.state;
 	struct drm_connector *connector;
@@ -7787,21 +7814,8 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 		if (connector_state->crtc != &crtc->base)
 			continue;
 
-		encoder = to_intel_encoder(connector_state->best_encoder);
-
-		switch (encoder->type) {
-		case INTEL_OUTPUT_DSI:
-			is_dsi = true;
-			break;
-		default:
-			break;
-		}
-
 		num_connectors++;
 	}
-
-	if (is_dsi)
-		return 0;
 
 	if (!crtc_state->clock_set) {
 		refclk = i9xx_get_refclk(crtc_state, num_connectors);
