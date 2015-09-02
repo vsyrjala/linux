@@ -270,6 +270,7 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 	struct intel_connector *intel_connector = intel_dsi->attached_connector;
 	struct drm_display_mode *fixed_mode = intel_connector->panel.fixed_mode;
 	struct drm_display_mode *adjusted_mode = &config->base.adjusted_mode;
+	int ret;
 
 	DRM_DEBUG_KMS("\n");
 
@@ -279,10 +280,10 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 	/* DSI uses short packets for sync events, so clear mode flags for DSI */
 	adjusted_mode->flags = 0;
 
-	/*
-	 * FIXME move the DSI PLL calc from vlv_enable_dsi_pll()
-	 * to .compute_config().
-	 */
+	ret = vlv_compute_dsi_pll(encoder, config);
+	if (ret)
+		return false;
+
 	config->clock_set = true;
 
 	return true;
@@ -629,7 +630,8 @@ static void intel_dsi_get_config(struct intel_encoder *encoder,
 	u32 pclk;
 	DRM_DEBUG_KMS("\n");
 
-	pclk = vlv_get_dsi_pclk(encoder, pipe_config->pipe_bpp);
+	pclk = vlv_get_dsi_pclk(encoder, pipe_config->pipe_bpp,
+				pipe_config);
 	if (!pclk)
 		return;
 
@@ -900,6 +902,8 @@ static void intel_dsi_prepare(struct intel_encoder *intel_encoder)
 
 static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
 {
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+
 	DRM_DEBUG_KMS("\n");
 
 	intel_dsi_prepare(encoder);
@@ -909,7 +913,7 @@ static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
 	 * lock. It needs to be fully powered down to fix it.
 	 */
 	vlv_disable_dsi_pll(encoder);
-	vlv_enable_dsi_pll(encoder);
+	vlv_enable_dsi_pll(encoder, intel_crtc->config);
 }
 
 static enum drm_connector_status

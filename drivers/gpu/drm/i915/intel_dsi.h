@@ -124,9 +124,13 @@ static inline struct intel_dsi *enc_to_intel_dsi(struct drm_encoder *encoder)
 	return container_of(encoder, struct intel_dsi, base.base);
 }
 
-extern void vlv_enable_dsi_pll(struct intel_encoder *encoder);
+extern int vlv_compute_dsi_pll(struct intel_encoder *encoder,
+			       struct intel_crtc_state *config);
+extern void vlv_enable_dsi_pll(struct intel_encoder *encoder,
+			       const struct intel_crtc_state *config);
 extern void vlv_disable_dsi_pll(struct intel_encoder *encoder);
-extern u32 vlv_get_dsi_pclk(struct intel_encoder *encoder, int pipe_bpp);
+extern u32 vlv_get_dsi_pclk(struct intel_encoder *encoder, int pipe_bpp,
+			    struct intel_crtc_state *config);
 
 struct drm_panel *vbt_panel_init(struct intel_dsi *intel_dsi, u16 panel_id);
 
