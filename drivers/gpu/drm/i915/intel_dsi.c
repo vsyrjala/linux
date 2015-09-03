@@ -268,14 +268,19 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 	struct intel_dsi *intel_dsi = container_of(encoder, struct intel_dsi,
 						   base);
 	struct intel_connector *intel_connector = intel_dsi->attached_connector;
-	struct drm_display_mode *fixed_mode = intel_connector->panel.fixed_mode;
+	struct intel_crtc *crtc = to_intel_crtc(config->base.crtc);
+	const struct drm_display_mode *fixed_mode = intel_connector->panel.fixed_mode;
 	struct drm_display_mode *adjusted_mode = &config->base.adjusted_mode;
 	int ret;
 
 	DRM_DEBUG_KMS("\n");
 
-	if (fixed_mode)
+	if (fixed_mode) {
 		intel_fixed_panel_mode(fixed_mode, adjusted_mode);
+
+		intel_gmch_panel_fitting(crtc, config,
+					 intel_connector->panel.fitting_mode);
+	}
 
 	/* DSI uses short packets for sync events, so clear mode flags for DSI */
 	adjusted_mode->flags = 0;
@@ -644,7 +649,7 @@ intel_dsi_mode_valid(struct drm_connector *connector,
 		     struct drm_display_mode *mode)
 {
 	struct intel_connector *intel_connector = to_intel_connector(connector);
-	struct drm_display_mode *fixed_mode = intel_connector->panel.fixed_mode;
+	const struct drm_display_mode *fixed_mode = intel_connector->panel.fixed_mode;
 	int max_dotclk = to_i915(connector->dev)->max_dotclk_freq;
 
 	DRM_DEBUG_KMS("\n");
@@ -945,6 +950,43 @@ static int intel_dsi_get_modes(struct drm_connector *connector)
 	return 1;
 }
 
+static int intel_dsi_set_property(struct drm_connector *connector,
+				  struct drm_property *property,
+				  uint64_t val)
+{
+	struct drm_device *dev = connector->dev;
+	struct intel_connector *intel_connector = to_intel_connector(connector);
+	struct drm_crtc *crtc;
+	int ret;
+
+	ret = drm_object_property_set_value(&connector->base, property, val);
+	if (ret)
+		return ret;
+
+	if (property == dev->mode_config.scaling_mode_property) {
+		if (val == DRM_MODE_SCALE_NONE) {
+			DRM_DEBUG_KMS("no scaling not supported\n");
+			return -EINVAL;
+		}
+
+		if (intel_connector->panel.fitting_mode == val)
+			return 0;
+
+		intel_connector->panel.fitting_mode = val;
+	}
+
+	crtc = intel_attached_encoder(connector)->base.crtc;
+	if (crtc && crtc->state->enable) {
+		/*
+		 * If the CRTC is enabled, the display will be changed
+		 * according to the new panel fitting mode.
+		 */
+		intel_crtc_restore_mode(crtc);
+	}
+
+	return 0;
+}
+
 static void intel_dsi_connector_destroy(struct drm_connector *connector)
 {
 	struct intel_connector *intel_connector = to_intel_connector(connector);
@@ -987,10 +1029,24 @@ static const struct drm_connector_funcs intel_dsi_connector_funcs = {
 	.detect = intel_dsi_detect,
 	.destroy = intel_dsi_connector_destroy,
 	.fill_modes = drm_helper_probe_single_connector_modes,
+	.set_property = intel_dsi_set_property,
 	.atomic_get_property = intel_connector_atomic_get_property,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 };
+
+static void intel_dsi_add_properties(struct intel_connector *connector)
+{
+	struct drm_device *dev = connector->base.dev;
+
+	if (connector->panel.fixed_mode) {
+		drm_mode_create_scaling_mode_property(dev);
+		drm_object_attach_property(&connector->base.base,
+					   dev->mode_config.scaling_mode_property,
+					   DRM_MODE_SCALE_ASPECT);
+		connector->panel.fitting_mode = DRM_MODE_SCALE_ASPECT;
+	}
+}
 
 void intel_dsi_init(struct drm_device *dev)
 {
@@ -1111,8 +1167,6 @@ void intel_dsi_init(struct drm_device *dev)
 
 	intel_connector_attach_encoder(intel_connector, intel_encoder);
 
-	drm_connector_register(connector);
-
 	drm_panel_attach(intel_dsi->panel, connector);
 
 	mutex_lock(&dev->mode_config.mutex);
@@ -1131,6 +1185,11 @@ void intel_dsi_init(struct drm_device *dev)
 	}
 
 	intel_panel_init(&intel_connector->panel, fixed_mode, NULL);
+
+	intel_dsi_add_properties(intel_connector);
+
+	drm_connector_register(connector);
+
 	intel_panel_setup_backlight(connector, INVALID_PIPE);
 
 	return;
