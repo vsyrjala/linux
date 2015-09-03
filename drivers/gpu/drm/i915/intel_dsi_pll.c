@@ -316,7 +316,7 @@ u32 vlv_get_dsi_pclk(struct intel_encoder *encoder, int pipe_bpp,
 	u32 dsi_clock, pclk;
 	u32 pll_ctl, pll_div;
 	u32 m = 0, p = 0, n;
-	int refclk = 25000;
+	int refclk = IS_CHERRYVIEW(dev_priv) ? 100000 : 25000;
 	int i;
 
 	DRM_DEBUG_KMS("\n");
