@@ -154,7 +154,9 @@ int amdgpu_uvd_sw_init(struct amdgpu_device *adev)
 	bo_size = AMDGPU_GPU_PAGE_ALIGN(le32_to_cpu(hdr->ucode_size_bytes) + 8)
 		 +  AMDGPU_UVD_STACK_SIZE + AMDGPU_UVD_HEAP_SIZE;
 	r = amdgpu_bo_create(adev, bo_size, PAGE_SIZE, true,
-			     AMDGPU_GEM_DOMAIN_VRAM, 0, NULL, &adev->uvd.vcpu_bo);
+			     AMDGPU_GEM_DOMAIN_VRAM,
+			     AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED,
+			     NULL, &adev->uvd.vcpu_bo);
 	if (r) {
 		dev_err(adev->dev, "(%d) failed to allocate UVD bo\n", r);
 		return r;
@@ -221,31 +223,32 @@ int amdgpu_uvd_sw_fini(struct amdgpu_device *adev)
 
 int amdgpu_uvd_suspend(struct amdgpu_device *adev)
 {
-	unsigned size;
-	void *ptr;
-	const struct common_firmware_header *hdr;
-	int i;
+	struct amdgpu_ring *ring = &adev->uvd.ring;
+	int i, r;
 
 	if (adev->uvd.vcpu_bo == NULL)
 		return 0;
 
-	for (i = 0; i < AMDGPU_MAX_UVD_HANDLES; ++i)
-		if (atomic_read(&adev->uvd.handles[i]))
-			break;
+	for (i = 0; i < AMDGPU_MAX_UVD_HANDLES; ++i) {
+		uint32_t handle = atomic_read(&adev->uvd.handles[i]);
+		if (handle != 0) {
+			struct fence *fence;
 
-	if (i == AMDGPU_MAX_UVD_HANDLES)
-		return 0;
+			amdgpu_uvd_note_usage(adev);
 
-	hdr = (const struct common_firmware_header *)adev->uvd.fw->data;
+			r = amdgpu_uvd_get_destroy_msg(ring, handle, &fence);
+			if (r) {
+				DRM_ERROR("Error destroying UVD (%d)!\n", r);
+				continue;
+			}
 
-	size = amdgpu_bo_size(adev->uvd.vcpu_bo);
-	size -= le32_to_cpu(hdr->ucode_size_bytes);
+			fence_wait(fence, false);
+			fence_put(fence);
 
-	ptr = adev->uvd.cpu_addr;
-	ptr += le32_to_cpu(hdr->ucode_size_bytes);
-
-	adev->uvd.saved_bo = kmalloc(size, GFP_KERNEL);
-	memcpy(adev->uvd.saved_bo, ptr, size);
+			adev->uvd.filp[i] = NULL;
+			atomic_set(&adev->uvd.handles[i], 0);
+		}
+	}
 
 	return 0;
 }
@@ -270,12 +273,7 @@ int amdgpu_uvd_resume(struct amdgpu_device *adev)
 	ptr = adev->uvd.cpu_addr;
 	ptr += le32_to_cpu(hdr->ucode_size_bytes);
 
-	if (adev->uvd.saved_bo != NULL) {
-		memcpy(ptr, adev->uvd.saved_bo, size);
-		kfree(adev->uvd.saved_bo);
-		adev->uvd.saved_bo = NULL;
-	} else
-		memset(ptr, 0, size);
+	memset(ptr, 0, size);
 
 	return 0;
 }
@@ -807,7 +805,7 @@ int amdgpu_uvd_ring_parse_cs(struct amdgpu_cs_parser *parser, uint32_t ib_idx)
 }
 
 static int amdgpu_uvd_free_job(
-	struct amdgpu_cs_parser *sched_job)
+	struct amdgpu_job *sched_job)
 {
 	amdgpu_ib_free(sched_job->adev, sched_job->ibs);
 	kfree(sched_job->ibs);
@@ -905,7 +903,9 @@ int amdgpu_uvd_get_create_msg(struct amdgpu_ring *ring, uint32_t handle,
 	int r, i;
 
 	r = amdgpu_bo_create(adev, 1024, PAGE_SIZE, true,
-			     AMDGPU_GEM_DOMAIN_VRAM, 0, NULL, &bo);
+			     AMDGPU_GEM_DOMAIN_VRAM,
+			     AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED,
+			     NULL, &bo);
 	if (r)
 		return r;
 
@@ -952,7 +952,9 @@ int amdgpu_uvd_get_destroy_msg(struct amdgpu_ring *ring, uint32_t handle,
 	int r, i;
 
 	r = amdgpu_bo_create(adev, 1024, PAGE_SIZE, true,
-			     AMDGPU_GEM_DOMAIN_VRAM, 0, NULL, &bo);
+			     AMDGPU_GEM_DOMAIN_VRAM,
+			     AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED,
+			     NULL, &bo);
 	if (r)
 		return r;
 

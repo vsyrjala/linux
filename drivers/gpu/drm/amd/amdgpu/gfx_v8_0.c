@@ -622,6 +622,7 @@ static int gfx_v8_0_ring_test_ib(struct amdgpu_ring *ring)
 		return r;
 	}
 	WREG32(scratch, 0xCAFEDEAD);
+	memset(&ib, 0, sizeof(ib));
 	r = amdgpu_ib_get(ring, NULL, 256, &ib);
 	if (r) {
 		DRM_ERROR("amdgpu: failed to get ib (%d).\n", r);
@@ -2004,7 +2005,7 @@ static void gfx_v8_0_setup_rb(struct amdgpu_device *adev,
 }
 
 /**
- * gmc_v8_0_init_compute_vmid - gart enable
+ * gfx_v8_0_init_compute_vmid - gart enable
  *
  * @rdev: amdgpu_device pointer
  *
@@ -2014,7 +2015,7 @@ static void gfx_v8_0_setup_rb(struct amdgpu_device *adev,
 #define DEFAULT_SH_MEM_BASES	(0x6000)
 #define FIRST_COMPUTE_VMID	(8)
 #define LAST_COMPUTE_VMID	(16)
-static void gmc_v8_0_init_compute_vmid(struct amdgpu_device *adev)
+static void gfx_v8_0_init_compute_vmid(struct amdgpu_device *adev)
 {
 	int i;
 	uint32_t sh_mem_config;
@@ -2281,7 +2282,7 @@ static void gfx_v8_0_gpu_init(struct amdgpu_device *adev)
 	vi_srbm_select(adev, 0, 0, 0, 0);
 	mutex_unlock(&adev->srbm_mutex);
 
-	gmc_v8_0_init_compute_vmid(adev);
+	gfx_v8_0_init_compute_vmid(adev);
 
 	mutex_lock(&adev->grbm_idx_mutex);
 	/*
@@ -3239,7 +3240,8 @@ static int gfx_v8_0_cp_compute_resume(struct amdgpu_device *adev)
 
 		/* enable the doorbell if requested */
 		if (use_doorbell) {
-			if (adev->asic_type == CHIP_CARRIZO) {
+			if ((adev->asic_type == CHIP_CARRIZO) ||
+			    (adev->asic_type == CHIP_FIJI)) {
 				WREG32(mmCP_MEC_DOORBELL_RANGE_LOWER,
 				       AMDGPU_DOORBELL_KIQ << 2);
 				WREG32(mmCP_MEC_DOORBELL_RANGE_UPPER,
@@ -4377,6 +4379,7 @@ static const struct amdgpu_ring_funcs gfx_v8_0_ring_funcs_gfx = {
 	.test_ring = gfx_v8_0_ring_test_ring,
 	.test_ib = gfx_v8_0_ring_test_ib,
 	.is_lockup = gfx_v8_0_ring_is_lockup,
+	.insert_nop = amdgpu_ring_insert_nop,
 };
 
 static const struct amdgpu_ring_funcs gfx_v8_0_ring_funcs_compute = {
@@ -4393,6 +4396,7 @@ static const struct amdgpu_ring_funcs gfx_v8_0_ring_funcs_compute = {
 	.test_ring = gfx_v8_0_ring_test_ring,
 	.test_ib = gfx_v8_0_ring_test_ib,
 	.is_lockup = gfx_v8_0_ring_is_lockup,
+	.insert_nop = amdgpu_ring_insert_nop,
 };
 
 static void gfx_v8_0_set_ring_funcs(struct amdgpu_device *adev)
