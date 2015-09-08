@@ -965,7 +965,6 @@ static int vmw_driver_unload(struct drm_device *dev)
 	ttm_object_device_release(&dev_priv->tdev);
 	iounmap(dev_priv->mmio_virt);
 	arch_phys_wc_del(dev_priv->mmio_mtrr);
-	(void)ttm_bo_device_release(&dev_priv->bdev);
 	if (dev_priv->ctx.staged_bindings)
 		vmw_binding_state_free(dev_priv->ctx.staged_bindings);
 	vmw_ttm_global_release(dev_priv);
@@ -1053,10 +1052,15 @@ static struct vmw_master *vmw_master_check(struct drm_device *dev,
 	}
 
 	/*
-	 * Check if we were previously master, but now dropped.
+	 * Check if we were previously master, but now dropped. In that
+	 * case, allow at least render node functionality.
 	 */
 	if (vmw_fp->locked_master) {
 		mutex_unlock(&dev->master_mutex);
+
+		if (flags & DRM_RENDER_ALLOW)
+			return NULL;
+
 		DRM_ERROR("Dropped master trying to access ioctl that "
 			  "requires authentication.\n");
 		return ERR_PTR(-EACCES);

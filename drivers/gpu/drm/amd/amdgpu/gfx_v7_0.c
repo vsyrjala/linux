@@ -2660,6 +2660,7 @@ static int gfx_v7_0_ring_test_ib(struct amdgpu_ring *ring)
 		return r;
 	}
 	WREG32(scratch, 0xCAFEDEAD);
+	memset(&ib, 0, sizeof(ib));
 	r = amdgpu_ib_get(ring, NULL, 256, &ib);
 	if (r) {
 		DRM_ERROR("amdgpu: failed to get ib (%d).\n", r);
@@ -3785,7 +3786,9 @@ static int gfx_v7_0_rlc_init(struct amdgpu_device *adev)
 		/* save restore block */
 		if (adev->gfx.rlc.save_restore_obj == NULL) {
 			r = amdgpu_bo_create(adev, dws * 4, PAGE_SIZE, true,
-					     AMDGPU_GEM_DOMAIN_VRAM, 0, NULL, &adev->gfx.rlc.save_restore_obj);
+					     AMDGPU_GEM_DOMAIN_VRAM,
+					     AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED,
+					     NULL, &adev->gfx.rlc.save_restore_obj);
 			if (r) {
 				dev_warn(adev->dev, "(%d) create RLC sr bo failed\n", r);
 				return r;
@@ -3826,7 +3829,9 @@ static int gfx_v7_0_rlc_init(struct amdgpu_device *adev)
 
 		if (adev->gfx.rlc.clear_state_obj == NULL) {
 			r = amdgpu_bo_create(adev, dws * 4, PAGE_SIZE, true,
-					     AMDGPU_GEM_DOMAIN_VRAM, 0, NULL, &adev->gfx.rlc.clear_state_obj);
+					     AMDGPU_GEM_DOMAIN_VRAM,
+					     AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED,
+					     NULL, &adev->gfx.rlc.clear_state_obj);
 			if (r) {
 				dev_warn(adev->dev, "(%d) create RLC c bo failed\n", r);
 				gfx_v7_0_rlc_fini(adev);
@@ -3863,7 +3868,9 @@ static int gfx_v7_0_rlc_init(struct amdgpu_device *adev)
 	if (adev->gfx.rlc.cp_table_size) {
 		if (adev->gfx.rlc.cp_table_obj == NULL) {
 			r = amdgpu_bo_create(adev, adev->gfx.rlc.cp_table_size, PAGE_SIZE, true,
-					     AMDGPU_GEM_DOMAIN_VRAM, 0, NULL, &adev->gfx.rlc.cp_table_obj);
+					     AMDGPU_GEM_DOMAIN_VRAM,
+					     AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED,
+					     NULL, &adev->gfx.rlc.cp_table_obj);
 			if (r) {
 				dev_warn(adev->dev, "(%d) create RLC cp table bo failed\n", r);
 				gfx_v7_0_rlc_fini(adev);
@@ -5597,6 +5604,7 @@ static const struct amdgpu_ring_funcs gfx_v7_0_ring_funcs_gfx = {
 	.test_ring = gfx_v7_0_ring_test_ring,
 	.test_ib = gfx_v7_0_ring_test_ib,
 	.is_lockup = gfx_v7_0_ring_is_lockup,
+	.insert_nop = amdgpu_ring_insert_nop,
 };
 
 static const struct amdgpu_ring_funcs gfx_v7_0_ring_funcs_compute = {
@@ -5613,6 +5621,7 @@ static const struct amdgpu_ring_funcs gfx_v7_0_ring_funcs_compute = {
 	.test_ring = gfx_v7_0_ring_test_ring,
 	.test_ib = gfx_v7_0_ring_test_ib,
 	.is_lockup = gfx_v7_0_ring_is_lockup,
+	.insert_nop = amdgpu_ring_insert_nop,
 };
 
 static void gfx_v7_0_set_ring_funcs(struct amdgpu_device *adev)
