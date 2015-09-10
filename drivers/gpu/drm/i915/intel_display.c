@@ -2251,7 +2251,7 @@ intel_fill_fb_ggtt_view(struct i915_ggtt_view *view, struct drm_framebuffer *fb,
 {
 	struct drm_i915_private *dev_priv = to_i915(fb->dev);
 	struct intel_rotation_info *info = &view->rotation_info;
-	unsigned int tile_height, tile_pitch;
+	unsigned int tile_size, tile_width, tile_height;
 	unsigned int cpp = drm_format_plane_cpp(fb->pixel_format, 0);
 
 	*view = i915_ggtt_view_normal;
@@ -2269,11 +2269,13 @@ intel_fill_fb_ggtt_view(struct i915_ggtt_view *view, struct drm_framebuffer *fb,
 	info->pitch = fb->pitches[0];
 	info->fb_modifier = fb->modifier[0];
 
-	tile_height = intel_tile_height(dev_priv, cpp, fb->modifier[0]);
-	tile_pitch = PAGE_SIZE / tile_height;
-	info->width_pages = DIV_ROUND_UP(fb->pitches[0], tile_pitch);
+	tile_size = intel_tile_size(dev_priv);
+	tile_width = intel_tile_width(dev_priv, cpp, fb->modifier[0]);
+	tile_height = tile_size / tile_width;
+
+	info->width_pages = DIV_ROUND_UP(fb->pitches[0], tile_width);
 	info->height_pages = DIV_ROUND_UP(fb->height, tile_height);
-	info->size = info->width_pages * info->height_pages * PAGE_SIZE;
+	info->size = info->width_pages * info->height_pages * tile_size;
 
 	return 0;
 }
