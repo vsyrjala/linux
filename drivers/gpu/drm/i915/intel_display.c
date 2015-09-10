@@ -2841,6 +2841,13 @@ static void ironlake_update_primary_plane(struct drm_crtc *crtc,
 	POSTING_READ(reg);
 }
 
+static bool i9xx_primary_get_hw_state(struct intel_plane *plane)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+
+	return I915_READ(DSPSURF(plane->plane)) & DISPLAY_PLANE_ENABLE;
+}
+
 u32 intel_fb_stride_alignment(struct drm_device *dev, uint64_t fb_modifier,
 			      uint32_t pixel_format)
 {
@@ -3102,6 +3109,13 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 	I915_WRITE(PLANE_SURF(pipe, 0), surf_addr);
 
 	POSTING_READ(PLANE_SURF(pipe, 0));
+}
+
+static bool skylake_primary_get_hw_state(struct intel_plane *plane)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+
+	return I915_READ(PLANE_CTL(plane->pipe, 0)) & PLANE_CTL_ENABLE;
 }
 
 /* Assume fb object is pinned & idle & fenced and just update base pointers */
@@ -9862,6 +9876,13 @@ static void i845_update_cursor(struct drm_crtc *crtc, u32 base)
 	}
 }
 
+static bool i845_cursor_get_hw_state(struct intel_plane *plane)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+
+	return I915_READ(_CURACNTR) & CURSOR_ENABLE;
+}
+
 static void i9xx_update_cursor(struct drm_crtc *crtc, u32 base)
 {
 	struct drm_device *dev = crtc->dev;
@@ -9907,6 +9928,13 @@ static void i9xx_update_cursor(struct drm_crtc *crtc, u32 base)
 	POSTING_READ(CURBASE(pipe));
 
 	intel_crtc->cursor_base = base;
+}
+
+static bool i9xx_cursor_get_hw_state(struct intel_plane *plane)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+
+	return I915_READ(CURCNTR(plane->pipe)) & CURSOR_MODE;
 }
 
 /* If no-part of the cursor is visible on the framebuffer, then the GPU may hang... */
@@ -13518,12 +13546,17 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 	}
 	primary->pipe = pipe;
 	primary->plane = pipe;
+	if (HAS_FBC(dev) && INTEL_INFO(dev)->gen < 4)
+		primary->plane = !pipe;
 	primary->frontbuffer_bit = INTEL_FRONTBUFFER_PRIMARY(pipe);
 	primary->check_plane = intel_check_primary_plane;
 	primary->commit_plane = intel_commit_primary_plane;
 	primary->disable_plane = intel_disable_primary_plane;
-	if (HAS_FBC(dev) && INTEL_INFO(dev)->gen < 4)
-		primary->plane = !pipe;
+
+	if (INTEL_INFO(dev)->gen >= 9)
+		primary->get_hw_state = skylake_primary_get_hw_state;
+	else
+		primary->get_hw_state = i9xx_primary_get_hw_state;
 
 	if (INTEL_INFO(dev)->gen >= 9) {
 		intel_primary_formats = skl_primary_formats;
@@ -13678,6 +13711,11 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 	cursor->check_plane = intel_check_cursor_plane;
 	cursor->commit_plane = intel_commit_cursor_plane;
 	cursor->disable_plane = intel_disable_cursor_plane;
+
+	if (IS_845G(dev) || IS_I865G(dev))
+		cursor->get_hw_state = i845_cursor_get_hw_state;
+	else
+		cursor->get_hw_state = i9xx_cursor_get_hw_state;
 
 	drm_universal_plane_init(dev, &cursor->base, 0,
 				 &intel_plane_funcs,
@@ -14886,7 +14924,11 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc)
 
 		/* Disable everything but the primary plane */
 		for_each_intel_plane_on_crtc(dev, crtc, plane) {
-			if (plane->base.type == DRM_PLANE_TYPE_PRIMARY)
+			struct intel_plane_state *state =
+				to_intel_plane_state(plane->base.state);
+
+			if (plane->base.type == DRM_PLANE_TYPE_PRIMARY ||
+			    !state->visible)
 				continue;
 
 			plane->disable_plane(&plane->base, &crtc->base);
@@ -15053,21 +15095,18 @@ void i915_redisable_vga(struct drm_device *dev)
 	i915_redisable_vga_power_on(dev);
 }
 
-static bool primary_get_hw_state(struct intel_plane *plane)
-{
-	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
-
-	return I915_READ(DSPCNTR(plane->plane)) & DISPLAY_PLANE_ENABLE;
-}
-
 /* FIXME read out full plane state for all planes */
 static void readout_plane_state(struct intel_crtc *crtc)
 {
-	struct intel_plane_state *plane_state =
-		to_intel_plane_state(crtc->base.primary->state);
+	struct drm_device *dev = crtc->base.dev;
+	struct intel_plane *plane;
 
-	plane_state->visible =
-		primary_get_hw_state(to_intel_plane(crtc->base.primary));
+	for_each_intel_plane_on_crtc(dev, crtc, plane) {
+		struct intel_plane_state *state =
+			to_intel_plane_state(plane->base.state);
+
+		state->visible = plane->get_hw_state(plane);
+	}
 }
 
 static void intel_modeset_readout_hw_state(struct drm_device *dev)

@@ -628,6 +628,7 @@ struct intel_plane {
 			   struct intel_plane_state *state);
 	void (*commit_plane)(struct drm_plane *plane,
 			     struct intel_plane_state *state);
+	bool (*get_hw_state)(struct intel_plane *plane);
 };
 
 struct intel_watermark_params {

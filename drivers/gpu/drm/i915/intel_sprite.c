@@ -290,6 +290,15 @@ skl_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	intel_update_sprite_watermarks(dplane, crtc, 0, 0, 0, false, false);
 }
 
+static bool
+skl_plane_get_hw_state(struct intel_plane *plane)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+
+	return I915_READ(PLANE_CTL(plane->pipe,
+				   plane->plane + 1)) & PLANE_CTL_ENABLE;
+}
+
 static void
 chv_update_csc(struct intel_plane *intel_plane, uint32_t format)
 {
@@ -469,6 +478,14 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	POSTING_READ(SPSURF(pipe, plane));
 }
 
+static bool
+vlv_plane_get_hw_state(struct intel_plane *plane)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+
+	return I915_READ(SPCNTR(plane->pipe, plane->plane)) & SP_ENABLE;
+}
+
 static void
 ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		 struct drm_framebuffer *fb,
@@ -611,6 +628,14 @@ ivb_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 	POSTING_READ(SPRSURF(pipe));
 }
 
+static bool
+ivb_plane_get_hw_state(struct intel_plane *plane)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+
+	return I915_READ(SPRCTL(plane->pipe)) & SPRITE_ENABLE;
+}
+
 static void
 ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		 struct drm_framebuffer *fb,
@@ -737,6 +762,14 @@ ilk_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 
 	I915_WRITE(DVSSURF(pipe), 0);
 	POSTING_READ(DVSSURF(pipe));
+}
+
+static bool
+ilk_plane_get_hw_state(struct intel_plane *plane)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+
+	return I915_READ(DVSCNTR(plane->pipe)) & DVS_ENABLE;
 }
 
 static int
@@ -1075,6 +1108,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 		intel_plane->max_downscale = 16;
 		intel_plane->update_plane = ilk_update_plane;
 		intel_plane->disable_plane = ilk_disable_plane;
+		intel_plane->get_hw_state = ilk_plane_get_hw_state;
 
 		if (IS_GEN6(dev)) {
 			plane_formats = snb_plane_formats;
@@ -1098,12 +1132,14 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 		if (IS_VALLEYVIEW(dev)) {
 			intel_plane->update_plane = vlv_update_plane;
 			intel_plane->disable_plane = vlv_disable_plane;
+			intel_plane->get_hw_state = vlv_plane_get_hw_state;
 
 			plane_formats = vlv_plane_formats;
 			num_plane_formats = ARRAY_SIZE(vlv_plane_formats);
 		} else {
 			intel_plane->update_plane = ivb_update_plane;
 			intel_plane->disable_plane = ivb_disable_plane;
+			intel_plane->get_hw_state = ivb_plane_get_hw_state;
 
 			plane_formats = snb_plane_formats;
 			num_plane_formats = ARRAY_SIZE(snb_plane_formats);
@@ -1113,6 +1149,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 		intel_plane->can_scale = true;
 		intel_plane->update_plane = skl_update_plane;
 		intel_plane->disable_plane = skl_disable_plane;
+		intel_plane->get_hw_state = skl_plane_get_hw_state;
 		state->scaler_id = -1;
 
 		plane_formats = skl_plane_formats;
