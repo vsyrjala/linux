@@ -231,7 +231,7 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 
 	if (intel_rotation_90_or_270(rotation)) {
 		/* stride: Surface height in tiles */
-		tile_height = intel_tile_height(dev, fb->pixel_format,
+		tile_height = intel_tile_height(dev_priv, pixel_size,
 						fb->modifier[0]);
 		stride = DIV_ROUND_UP(fb->height, tile_height);
 		plane_size = (src_w << 16) | src_h;

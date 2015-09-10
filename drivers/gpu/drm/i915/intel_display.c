@@ -2185,6 +2185,11 @@ static bool need_vtd_wa(struct drm_device *dev)
 	return false;
 }
 
+static unsigned int intel_tile_size(struct drm_i915_private *dev_priv)
+{
+	return IS_GEN2(dev_priv) ? 2048 : 4096;
+}
+
 static unsigned int intel_tile_width(struct drm_i915_private *dev_priv,
 				     unsigned int cpp, uint64_t fb_modifier)
 {
@@ -2220,58 +2225,23 @@ static unsigned int intel_tile_width(struct drm_i915_private *dev_priv,
 	}
 }
 
-unsigned int
-intel_tile_height(struct drm_device *dev, uint32_t pixel_format,
-		  uint64_t fb_format_modifier)
+unsigned int intel_tile_height(struct drm_i915_private *dev_priv,
+			       unsigned int cpp, uint64_t fb_modifier)
 {
-	unsigned int tile_height;
-	uint32_t pixel_bytes;
-
-	switch (fb_format_modifier) {
-	case DRM_FORMAT_MOD_NONE:
-		tile_height = 1;
-		break;
-	case I915_FORMAT_MOD_X_TILED:
-		tile_height = IS_GEN2(dev) ? 16 : 8;
-		break;
-	case I915_FORMAT_MOD_Y_TILED:
-		tile_height = 32;
-		break;
-	case I915_FORMAT_MOD_Yf_TILED:
-		pixel_bytes = drm_format_plane_cpp(pixel_format, 0);
-		switch (pixel_bytes) {
-		default:
-		case 1:
-			tile_height = 64;
-			break;
-		case 2:
-		case 4:
-			tile_height = 32;
-			break;
-		case 8:
-			tile_height = 16;
-			break;
-		case 16:
-			WARN_ONCE(1,
-				  "128-bit pixels are not supported for display!");
-			tile_height = 16;
-			break;
-		}
-		break;
-	default:
-		MISSING_CASE(fb_format_modifier);
-		tile_height = 1;
-		break;
-	}
-
-	return tile_height;
+	if (fb_modifier == DRM_FORMAT_MOD_NONE)
+		return 1;
+	else
+		return intel_tile_size(dev_priv) /
+			intel_tile_width(dev_priv, cpp, fb_modifier);
 }
 
 unsigned int
 intel_fb_align_height(struct drm_device *dev, unsigned int height,
 		      uint32_t pixel_format, uint64_t fb_format_modifier)
 {
-	return ALIGN(height, intel_tile_height(dev, pixel_format,
+	unsigned int cpp = drm_format_plane_cpp(pixel_format, 0);
+
+	return ALIGN(height, intel_tile_height(to_i915(dev), cpp,
 					       fb_format_modifier));
 }
 
@@ -2279,8 +2249,10 @@ static int
 intel_fill_fb_ggtt_view(struct i915_ggtt_view *view, struct drm_framebuffer *fb,
 			const struct drm_plane_state *plane_state)
 {
+	struct drm_i915_private *dev_priv = to_i915(fb->dev);
 	struct intel_rotation_info *info = &view->rotation_info;
 	unsigned int tile_height, tile_pitch;
+	unsigned int cpp = drm_format_plane_cpp(fb->pixel_format, 0);
 
 	*view = i915_ggtt_view_normal;
 
@@ -2297,8 +2269,7 @@ intel_fill_fb_ggtt_view(struct i915_ggtt_view *view, struct drm_framebuffer *fb,
 	info->pitch = fb->pitches[0];
 	info->fb_modifier = fb->modifier[0];
 
-	tile_height = intel_tile_height(fb->dev, fb->pixel_format,
-					fb->modifier[0]);
+	tile_height = intel_tile_height(dev_priv, cpp, fb->modifier[0]);
 	tile_pitch = PAGE_SIZE / tile_height;
 	info->width_pages = DIV_ROUND_UP(fb->pitches[0], tile_pitch);
 	info->height_pages = DIV_ROUND_UP(fb->height, tile_height);
@@ -3039,6 +3010,7 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 	int src_x = 0, src_y = 0, src_w = 0, src_h = 0;
 	int dst_x = 0, dst_y = 0, dst_w = 0, dst_h = 0;
 	int scaler_id = -1;
+	int pixel_size;
 
 	plane_state = to_intel_plane_state(plane->state);
 
@@ -3048,6 +3020,8 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 		POSTING_READ(PLANE_CTL(pipe, 0));
 		return;
 	}
+
+	pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 
 	plane_ctl = PLANE_CTL_ENABLE |
 		    PLANE_CTL_PIPE_GAMMA_ENABLE |
@@ -3089,7 +3063,7 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 
 	if (intel_rotation_90_or_270(rotation)) {
 		/* stride = Surface height in tiles */
-		tile_height = intel_tile_height(dev, fb->pixel_format,
+		tile_height = intel_tile_height(dev_priv, pixel_size,
 						fb->modifier[0]);
 		stride = DIV_ROUND_UP(fb->height, tile_height);
 		x_offset = stride * tile_height - y - src_h;
