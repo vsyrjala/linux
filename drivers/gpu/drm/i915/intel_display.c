@@ -2185,6 +2185,41 @@ static bool need_vtd_wa(struct drm_device *dev)
 	return false;
 }
 
+static unsigned int intel_tile_width(struct drm_i915_private *dev_priv,
+				     unsigned int cpp, uint64_t fb_modifier)
+{
+	switch (fb_modifier) {
+	case DRM_FORMAT_MOD_NONE:
+		return cpp;
+	case I915_FORMAT_MOD_X_TILED:
+		return IS_GEN2(dev_priv) ? 128 : 512;
+	case I915_FORMAT_MOD_Y_TILED:
+		/* No need to check for old gens and Y tiling since this is
+		 * about the display engine and those will be blocked before
+		 * we get here.
+		 */
+		return 128;
+	case I915_FORMAT_MOD_Yf_TILED:
+		switch (cpp) {
+		case 1:
+			return 64;
+		case 2:
+		case 4:
+			return 128;
+		case 8:
+		case 16:
+			return 256;
+		default:
+			MISSING_CASE(cpp);
+			return cpp;
+		}
+		break;
+	default:
+		MISSING_CASE(fb_modifier);
+		return cpp;
+	}
+}
+
 unsigned int
 intel_tile_height(struct drm_device *dev, uint32_t pixel_format,
 		  uint64_t fb_format_modifier)
@@ -2851,35 +2886,17 @@ static bool i9xx_primary_get_hw_state(struct intel_plane *plane)
 u32 intel_fb_stride_alignment(struct drm_device *dev, uint64_t fb_modifier,
 			      uint32_t pixel_format)
 {
-	u32 bits_per_pixel = drm_format_plane_cpp(pixel_format, 0) * 8;
+	unsigned int cpp = drm_format_plane_cpp(pixel_format, 0);
 
 	/*
 	 * The stride is either expressed as a multiple of 64 bytes
 	 * chunks for linear buffers or in number of tiles for tiled
 	 * buffers.
 	 */
-	switch (fb_modifier) {
-	case DRM_FORMAT_MOD_NONE:
+	if (fb_modifier == DRM_FORMAT_MOD_NONE)
 		return 64;
-	case I915_FORMAT_MOD_X_TILED:
-		if (INTEL_INFO(dev)->gen == 2)
-			return 128;
-		return 512;
-	case I915_FORMAT_MOD_Y_TILED:
-		/* No need to check for old gens and Y tiling since this is
-		 * about the display engine and those will be blocked before
-		 * we get here.
-		 */
-		return 128;
-	case I915_FORMAT_MOD_Yf_TILED:
-		if (bits_per_pixel == 8)
-			return 64;
-		else
-			return 128;
-	default:
-		MISSING_CASE(fb_modifier);
-		return 64;
-	}
+	else
+		return intel_tile_width(to_i915(dev), cpp, fb_modifier);
 }
 
 unsigned long intel_plane_obj_offset(struct intel_plane *intel_plane,
