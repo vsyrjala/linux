@@ -215,7 +215,7 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 				       pixel_size, true,
 				       src_w != crtc_w || src_h != crtc_h);
 
-	stride_div = intel_fb_stride_alignment(dev, fb->modifier[0],
+	stride_div = intel_fb_stride_alignment(dev_priv, fb->modifier[0],
 					       fb->pixel_format);
 
 	scaler_id = to_intel_plane_state(drm_plane->state)->scaler_id;
