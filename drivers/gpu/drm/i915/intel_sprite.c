@@ -186,11 +186,10 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 	const struct drm_intel_sprite_colorkey *key =
 		&to_intel_plane_state(drm_plane->state)->ckey;
 	unsigned long surf_addr;
-	u32 tile_height, plane_offset, plane_size;
 	unsigned int rotation;
-	int x_offset, y_offset;
 	struct intel_crtc_state *crtc_state = to_intel_crtc(crtc)->config;
 	int scaler_id;
+	struct drm_rect r;
 
 	plane_ctl = PLANE_CTL_ENABLE |
 		PLANE_CTL_PIPE_CSC_ENABLE;
@@ -201,20 +200,11 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 	rotation = drm_plane->state->rotation;
 	plane_ctl |= skl_plane_ctl_rotation(rotation);
 
+	scaler_id = to_intel_plane_state(drm_plane->state)->scaler_id;
+
 	intel_update_sprite_watermarks(drm_plane, crtc, src_w, src_h,
 				       pixel_size, true,
 				       src_w != crtc_w || src_h != crtc_h);
-
-	stride_div = intel_fb_stride_alignment(dev, fb->modifier[0],
-					       fb->pixel_format);
-
-	scaler_id = to_intel_plane_state(drm_plane->state)->scaler_id;
-
-	/* Sizes are 0 based */
-	src_w--;
-	src_h--;
-	crtc_w--;
-	crtc_h--;
 
 	if (key->flags) {
 		I915_WRITE(PLANE_KEYVAL(pipe, plane), key->min_value);
@@ -227,27 +217,44 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 	else if (key->flags & I915_SET_COLORKEY_SOURCE)
 		plane_ctl |= PLANE_CTL_KEY_ENABLE_SOURCE;
 
-	surf_addr = intel_plane_obj_offset(intel_plane, obj);
+	r.x1 = x;
+	r.x2 = x + src_w;
+	r.y1 = y;
+	r.y2 = y + src_h;
 
 	if (intel_rotation_90_or_270(rotation)) {
-		/* stride: Surface height in tiles */
-		tile_height = intel_tile_height(dev_priv, pixel_size,
-						fb->modifier[0]);
-		stride = DIV_ROUND_UP(fb->height, tile_height);
-		plane_size = (src_w << 16) | src_h;
-		x_offset = stride * tile_height - y - (src_h + 1);
-		y_offset = x;
-	} else {
-		stride = fb->pitches[0] / stride_div;
-		plane_size = (src_h << 16) | src_w;
-		x_offset = x;
-		y_offset = y;
-	}
-	plane_offset = y_offset << 16 | x_offset;
+		stride_div = intel_tile_height(dev_priv, pixel_size,
+					       fb->modifier[0]);
+		stride = roundup(fb->height, stride_div);
 
-	I915_WRITE(PLANE_OFFSET(pipe, plane), plane_offset);
-	I915_WRITE(PLANE_STRIDE(pipe, plane), stride);
-	I915_WRITE(PLANE_SIZE(pipe, plane), plane_size);
+		/* Rotate src coordinates to match rotated GTT view */
+		drm_rect_rotate(&r, fb->width, stride, DRM_ROTATE_270);
+	} else {
+		stride_div = intel_fb_stride_alignment(dev, fb->modifier[0],
+						       fb->pixel_format);
+		stride = fb->pitches[0];
+	}
+
+	x = r.x1;
+	y = r.y1;
+	src_w = drm_rect_width(&r);
+	src_h = drm_rect_height(&r);
+
+	surf_addr = intel_plane_obj_offset(intel_plane, obj) +
+		intel_compute_page_offset(dev_priv, &x, &y,
+					  fb->modifier[0], pixel_size,
+					  stride,
+					  intel_rotation_90_or_270(rotation));
+
+	/* Sizes are 0 based */
+	src_w--;
+	src_h--;
+	crtc_w--;
+	crtc_h--;
+
+	I915_WRITE(PLANE_OFFSET(pipe, plane), (y << 16) | x);
+	I915_WRITE(PLANE_STRIDE(pipe, plane), stride / stride_div);
+	I915_WRITE(PLANE_SIZE(pipe, plane), (src_h << 16) | src_w);
 
 	/* program plane scaler */
 	if (scaler_id >= 0) {

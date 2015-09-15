@@ -3025,9 +3025,7 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 	struct drm_i915_gem_object *obj;
 	int pipe = intel_crtc->pipe;
 	u32 plane_ctl, stride_div, stride;
-	u32 tile_height, plane_offset, plane_size;
 	unsigned int rotation;
-	int x_offset, y_offset;
 	unsigned long surf_addr;
 	struct intel_crtc_state *crtc_state = intel_crtc->config;
 	struct intel_plane_state *plane_state;
@@ -3035,6 +3033,7 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 	int dst_x = 0, dst_y = 0, dst_w = 0, dst_h = 0;
 	int scaler_id = -1;
 	int pixel_size;
+	struct drm_rect r;
 
 	plane_state = to_intel_plane_state(plane->state);
 
@@ -3085,26 +3084,45 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 		src_h = intel_crtc->config->pipe_src_h;
 	}
 
+	r.x1 = x;
+	r.x2 = x + src_w;
+	r.y1 = y;
+	r.y2 = y + src_h;
+
 	if (intel_rotation_90_or_270(rotation)) {
-		/* stride = Surface height in tiles */
-		tile_height = intel_tile_height(dev_priv, pixel_size,
-						fb->modifier[0]);
-		stride = DIV_ROUND_UP(fb->height, tile_height);
-		x_offset = stride * tile_height - y - src_h;
-		y_offset = x;
-		plane_size = (src_w - 1) << 16 | (src_h - 1);
+		stride_div = intel_tile_height(dev_priv, pixel_size,
+					       fb->modifier[0]);
+		stride = roundup(fb->height, stride_div);
+
+		/* Rotate src coordinates to match rotated GTT view */
+		drm_rect_rotate(&r, fb->width, stride, DRM_ROTATE_270);
 	} else {
-		stride = fb->pitches[0] / stride_div;
-		x_offset = x;
-		y_offset = y;
-		plane_size = (src_h - 1) << 16 | (src_w - 1);
+		stride_div = intel_fb_stride_alignment(dev, fb->modifier[0],
+						       fb->pixel_format);
+		stride = fb->pitches[0];
 	}
-	plane_offset = y_offset << 16 | x_offset;
+
+	x = r.x1;
+	y = r.y1;
+	src_w = drm_rect_width(&r);
+	src_h = drm_rect_height(&r);
+
+	surf_addr = intel_plane_obj_offset(to_intel_plane(plane), obj) +
+		intel_compute_page_offset(dev_priv, &x, &y,
+					  fb->modifier[0], pixel_size,
+					  stride,
+					  intel_rotation_90_or_270(rotation));
+
+	/* Sizes are 0 based */
+	src_w--;
+	src_h--;
+	dst_w--;
+	dst_h--;
 
 	I915_WRITE(PLANE_CTL(pipe, 0), plane_ctl);
-	I915_WRITE(PLANE_OFFSET(pipe, 0), plane_offset);
-	I915_WRITE(PLANE_SIZE(pipe, 0), plane_size);
-	I915_WRITE(PLANE_STRIDE(pipe, 0), stride);
+	I915_WRITE(PLANE_OFFSET(pipe, 0), (y << 16) | x);
+	I915_WRITE(PLANE_STRIDE(pipe, 0), stride / stride_div);
+	I915_WRITE(PLANE_SIZE(pipe, 0), (src_h << 16) | src_w);
 
 	if (scaler_id >= 0) {
 		uint32_t ps_ctrl = 0;
