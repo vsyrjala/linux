@@ -118,6 +118,19 @@ enum intel_output_type {
 struct intel_framebuffer {
 	struct drm_framebuffer base;
 	struct drm_i915_gem_object *obj;
+	struct intel_rotation_info info;
+
+	struct {
+		struct {
+			/* pixels */
+			unsigned int x, y;
+		} normal;
+		struct {
+			/* pixels */
+			unsigned int x, y;
+			unsigned int pitch;
+		} rotated;
+	} plane[2];
 };
 
 struct intel_fbdev {
@@ -1028,6 +1041,12 @@ void i915_audio_component_init(struct drm_i915_private *dev_priv);
 void i915_audio_component_cleanup(struct drm_i915_private *dev_priv);
 
 /* intel_display.c */
+unsigned int intel_rotation_info_size(const struct intel_rotation_info *info);
+unsigned int intel_fb_xy_to_linear(int x, int y,
+				   const struct drm_framebuffer *fb, int plane);
+void intel_add_fb_offsets(int *x, int *y,
+			  const struct drm_framebuffer *fb, int plane,
+			  unsigned int rotation);
 extern const struct drm_plane_funcs intel_plane_funcs;
 bool intel_has_pending_fb_unpin(struct drm_device *dev);
 int intel_pch_rawclk(struct drm_device *dev);
@@ -1134,10 +1153,10 @@ void assert_fdi_rx_pll(struct drm_i915_private *dev_priv,
 void assert_pipe(struct drm_i915_private *dev_priv, enum pipe pipe, bool state);
 #define assert_pipe_enabled(d, p) assert_pipe(d, p, true)
 #define assert_pipe_disabled(d, p) assert_pipe(d, p, false)
-unsigned long intel_compute_page_offset(int *x, int *y,
-					const struct drm_framebuffer *fb, int plane,
-					unsigned int pitch,
-					unsigned int rotation);
+unsigned int intel_compute_page_offset(int *x, int *y,
+				       const struct drm_framebuffer *fb, int plane,
+				       unsigned int pitch,
+				       unsigned int rotation);
 void intel_prepare_reset(struct drm_device *dev);
 void intel_finish_reset(struct drm_device *dev);
 void hsw_enable_pc8(struct drm_i915_private *dev_priv);
@@ -1174,9 +1193,8 @@ void intel_modeset_preclose(struct drm_device *dev, struct drm_file *file);
 int skl_update_scaler_crtc(struct intel_crtc_state *crtc_state);
 int skl_max_scale(struct intel_crtc *crtc, struct intel_crtc_state *crtc_state);
 
-unsigned long intel_plane_obj_offset(struct intel_plane *intel_plane,
-				     struct drm_i915_gem_object *obj,
-				     unsigned int plane);
+unsigned int intel_surf_gtt_offset(struct drm_framebuffer *fb, int plane,
+				   unsigned int rotation);
 
 u32 skl_plane_ctl_format(uint32_t pixel_format);
 u32 skl_plane_ctl_tiling(uint64_t fb_modifier);

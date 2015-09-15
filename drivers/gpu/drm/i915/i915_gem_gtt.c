@@ -3255,11 +3255,6 @@ rotate_pages(const dma_addr_t *in, unsigned int offset,
 	unsigned int column, row;
 	unsigned int src_idx;
 
-	if (!sg) {
-		st->nents = 0;
-		sg = st->sgl;
-	}
-
 	for (column = 0; column < width; column++) {
 		src_idx = stride * (height - 1) + column;
 		for (row = 0; row < height; row++) {
@@ -3280,16 +3275,14 @@ rotate_pages(const dma_addr_t *in, unsigned int offset,
 }
 
 static struct sg_table *
-intel_rotate_fb_obj_pages(struct intel_rotation_info *rot_info,
+intel_rotate_fb_obj_pages(const struct intel_rotation_info *info,
 			  struct drm_i915_gem_object *obj)
 {
-	unsigned int size_pages = rot_info->size >> PAGE_SHIFT;
-	unsigned int size_pages_uv;
+	unsigned int size = intel_rotation_info_size(info);
 	struct sg_page_iter sg_iter;
 	unsigned long i;
 	dma_addr_t *page_addr_list;
 	struct sg_table *st;
-	unsigned int uv_start_page;
 	struct scatterlist *sg;
 	int ret = -ENOMEM;
 
@@ -3299,57 +3292,32 @@ intel_rotate_fb_obj_pages(struct intel_rotation_info *rot_info,
 	if (!page_addr_list)
 		return ERR_PTR(ret);
 
-	/* Account for UV plane with NV12. */
-	if (rot_info->pixel_format == DRM_FORMAT_NV12)
-		size_pages_uv = rot_info->size_uv >> PAGE_SHIFT;
-	else
-		size_pages_uv = 0;
-
 	/* Allocate target SG list. */
 	st = kmalloc(sizeof(*st), GFP_KERNEL);
 	if (!st)
 		goto err_st_alloc;
 
-	ret = sg_alloc_table(st, size_pages + size_pages_uv, GFP_KERNEL);
+	ret = sg_alloc_table(st, size, GFP_KERNEL);
 	if (ret)
 		goto err_sg_alloc;
 
 	/* Populate source page list from the object. */
 	i = 0;
 	for_each_sg_page(obj->pages->sgl, &sg_iter, obj->pages->nents, 0) {
-		page_addr_list[i] = sg_page_iter_dma_address(&sg_iter);
-		i++;
+		page_addr_list[i++] = sg_page_iter_dma_address(&sg_iter);
 	}
 
-	/* Rotate the pages. */
-	sg = rotate_pages(page_addr_list, 0,
-		     rot_info->width_pages, rot_info->height_pages,
-		     rot_info->width_pages,
-		     st, NULL);
+	st->nents = 0;
+	sg = st->sgl;
 
-	/* Append the UV plane if NV12. */
-	if (rot_info->pixel_format == DRM_FORMAT_NV12) {
-		uv_start_page = size_pages;
-
-		/* Check for tile-row un-alignment. */
-		if (offset_in_page(rot_info->uv_offset))
-			uv_start_page--;
-
-		rot_info->uv_start_page = uv_start_page;
-
-		rotate_pages(page_addr_list, uv_start_page,
-			     rot_info->width_pages_uv,
-			     rot_info->height_pages_uv,
-			     rot_info->width_pages_uv,
-			     st, sg);
+	for (i = 0 ; i < ARRAY_SIZE(info->plane); i++) {
+		sg = rotate_pages(page_addr_list, info->plane[i].offset,
+				  info->plane[i].width, info->plane[i].height,
+				  info->plane[i].stride, st, sg);
 	}
 
-	DRM_DEBUG_KMS(
-		      "Created rotated page mapping for object size %zu (pitch=%u, height=%u, pixel_format=0x%x, %ux%u tiles, %u pages (%u plane 0)).\n",
-		      obj->base.size, rot_info->pitch, rot_info->height,
-		      rot_info->pixel_format, rot_info->width_pages,
-		      rot_info->height_pages, size_pages + size_pages_uv,
-		      size_pages);
+	DRM_DEBUG_KMS("Created rotated page mapping for object size %zu (%ux%u tiles, %u pages)\n",
+		      obj->base.size, info->plane[0].width, info->plane[0].height, size);
 
 	drm_free_large(page_addr_list);
 
@@ -3360,12 +3328,8 @@ err_sg_alloc:
 err_st_alloc:
 	drm_free_large(page_addr_list);
 
-	DRM_DEBUG_KMS(
-		      "Failed to create rotated mapping for object size %zu! (%d) (pitch=%u, height=%u, pixel_format=0x%x, %ux%u tiles, %u pages (%u plane 0))\n",
-		      obj->base.size, ret, rot_info->pitch, rot_info->height,
-		      rot_info->pixel_format, rot_info->width_pages,
-		      rot_info->height_pages, size_pages + size_pages_uv,
-		      size_pages);
+	DRM_DEBUG_KMS("Failed to create rotated mapping for object size %zu! (%ux%u tiles, %u pages)\n",
+		      obj->base.size, info->plane[0].width, info->plane[0].height, size);
 	return ERR_PTR(ret);
 }
 
@@ -3516,7 +3480,7 @@ i915_ggtt_view_size(struct drm_i915_gem_object *obj,
 	if (view->type == I915_GGTT_VIEW_NORMAL) {
 		return obj->base.size;
 	} else if (view->type == I915_GGTT_VIEW_ROTATED) {
-		return view->rotated.size;
+		return intel_rotation_info_size(&view->rotated) << PAGE_SHIFT;
 	} else if (view->type == I915_GGTT_VIEW_PARTIAL) {
 		return view->partial.size << PAGE_SHIFT;
 	} else {

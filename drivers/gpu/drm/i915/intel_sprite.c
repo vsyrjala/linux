@@ -188,17 +188,15 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 	struct drm_device *dev = drm_plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane = to_intel_plane(drm_plane);
-	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
+	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
 	const int pipe = intel_plane->pipe;
 	const int plane = intel_plane->plane + 1;
 	u32 plane_ctl, stride_div, stride;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 	const struct drm_intel_sprite_colorkey *key =
 		&to_intel_plane_state(drm_plane->state)->ckey;
-	unsigned long surf_addr;
-	u32 tile_height, plane_offset, plane_size;
+	unsigned int surf_addr;
 	unsigned int rotation;
-	int x_offset, y_offset;
 	struct intel_crtc_state *crtc_state = to_intel_crtc(crtc)->config;
 	int scaler_id;
 
@@ -215,16 +213,7 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 				       pixel_size, true,
 				       src_w != crtc_w || src_h != crtc_h);
 
-	stride_div = intel_fb_stride_alignment(dev_priv, fb->modifier[0],
-					       fb->pixel_format);
-
 	scaler_id = to_intel_plane_state(drm_plane->state)->scaler_id;
-
-	/* Sizes are 0 based */
-	src_w--;
-	src_h--;
-	crtc_w--;
-	crtc_h--;
 
 	if (key->flags) {
 		I915_WRITE(PLANE_KEYVAL(pipe, plane), key->min_value);
@@ -237,27 +226,43 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 	else if (key->flags & I915_SET_COLORKEY_SOURCE)
 		plane_ctl |= PLANE_CTL_KEY_ENABLE_SOURCE;
 
-	surf_addr = intel_plane_obj_offset(intel_plane, obj, 0);
-
 	if (intel_rotation_90_or_270(rotation)) {
-		/* stride: Surface height in tiles */
-		tile_height = intel_tile_height(dev_priv, fb->modifier[0],
-						pixel_size);
-		stride = DIV_ROUND_UP(fb->height, tile_height);
-		plane_size = (src_w << 16) | src_h;
-		x_offset = stride * tile_height - y - (src_h + 1);
-		y_offset = x;
-	} else {
-		stride = fb->pitches[0] / stride_div;
-		plane_size = (src_h << 16) | src_w;
-		x_offset = x;
-		y_offset = y;
-	}
-	plane_offset = y_offset << 16 | x_offset;
+		struct drm_rect r = {
+			.x1 = x,
+			.x2 = x + src_w,
+			.y1 = y,
+			.y2 = y + src_h,
+		};
 
-	I915_WRITE(PLANE_OFFSET(pipe, plane), plane_offset);
-	I915_WRITE(PLANE_STRIDE(pipe, plane), stride);
-	I915_WRITE(PLANE_SIZE(pipe, plane), plane_size);
+		/* Rotate src coordinates to match rotated GTT view */
+		drm_rect_rotate(&r, fb->width, fb->height, DRM_ROTATE_270);
+
+		x = r.x1;
+		y = r.y1;
+		src_w = drm_rect_width(&r);
+		src_h = drm_rect_height(&r);
+
+		stride_div = intel_tile_height(dev_priv, fb->modifier[0], pixel_size);
+		stride = intel_fb->plane[0].rotated.pitch;
+	} else {
+		stride_div = intel_fb_stride_alignment(dev_priv, fb->modifier[0],
+						       fb->pixel_format);
+		stride = fb->pitches[0];
+	}
+
+	intel_add_fb_offsets(&x, &y, fb, 0, rotation);
+	surf_addr = intel_compute_page_offset(&x, &y, fb, 0,
+					      stride, rotation);
+
+	/* Sizes are 0 based */
+	src_w--;
+	src_h--;
+	crtc_w--;
+	crtc_h--;
+
+	I915_WRITE(PLANE_OFFSET(pipe, plane), (y << 16) | x);
+	I915_WRITE(PLANE_STRIDE(pipe, plane), stride / stride_div);
+	I915_WRITE(PLANE_SIZE(pipe, plane), (src_h << 16) | src_w);
 
 	/* program plane scaler */
 	if (scaler_id >= 0) {
@@ -279,7 +284,8 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 	}
 
 	I915_WRITE(PLANE_CTL(pipe, plane), plane_ctl);
-	I915_WRITE(PLANE_SURF(pipe, plane), surf_addr);
+	I915_WRITE(PLANE_SURF(pipe, plane),
+		   intel_surf_gtt_offset(fb, 0, rotation) + surf_addr);
 	POSTING_READ(PLANE_SURF(pipe, plane));
 }
 
@@ -355,8 +361,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	int plane = intel_plane->plane;
 	u32 sprctl;
 	unsigned int rotation = dplane->state->rotation;
-	unsigned long sprsurf_offset, linear_offset;
-	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
+	unsigned int sprsurf_offset, linear_offset;
 	const struct drm_intel_sprite_colorkey *key =
 		&to_intel_plane_state(dplane->state)->ckey;
 
@@ -420,18 +425,18 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	crtc_w--;
 	crtc_h--;
 
-	linear_offset = y * fb->pitches[0] + x * pixel_size;
+	intel_add_fb_offsets(&x, &y, fb, 0, rotation);
 	sprsurf_offset = intel_compute_page_offset(&x, &y, fb, 0,
 						   fb->pitches[0], rotation);
-	linear_offset -= sprsurf_offset;
 
 	if (rotation == BIT(DRM_ROTATE_180)) {
 		sprctl |= SP_ROTATE_180;
 
 		x += src_w;
 		y += src_h;
-		linear_offset += src_h * fb->pitches[0] + src_w * pixel_size;
 	}
+
+	linear_offset = intel_fb_xy_to_linear(x, y, fb, 0);
 
 	if (key->flags) {
 		I915_WRITE(SPKEYMINVAL(pipe, plane), key->min_value);
@@ -457,8 +462,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 	I915_WRITE(SPSIZE(pipe, plane), (crtc_h << 16) | crtc_w);
 	I915_WRITE(SPCNTR(pipe, plane), sprctl);
-	I915_WRITE(SPSURF(pipe, plane), i915_gem_obj_ggtt_offset(obj) +
-		   sprsurf_offset);
+	I915_WRITE(SPSURF(pipe, plane),
+		   intel_surf_gtt_offset(fb, 0, rotation) + sprsurf_offset);
 	POSTING_READ(SPSURF(pipe, plane));
 }
 
@@ -492,8 +497,8 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	enum pipe pipe = intel_plane->pipe;
 	u32 sprctl, sprscale = 0;
 	unsigned int rotation = plane->state->rotation;
-	unsigned long sprsurf_offset, linear_offset;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
+	unsigned int sprsurf_offset, linear_offset;
 	const struct drm_intel_sprite_colorkey *key =
 		&to_intel_plane_state(plane->state)->ckey;
 
@@ -552,10 +557,9 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	if (crtc_w != src_w || crtc_h != src_h)
 		sprscale = SPRITE_SCALE_ENABLE | (src_w << 16) | src_h;
 
-	linear_offset = y * fb->pitches[0] + x * pixel_size;
+	intel_add_fb_offsets(&x, &y, fb, 0, rotation);
 	sprsurf_offset = intel_compute_page_offset(&x, &y, fb, 0,
 						   fb->pitches[0], rotation);
-	linear_offset -= sprsurf_offset;
 
 	if (rotation == BIT(DRM_ROTATE_180)) {
 		sprctl |= SPRITE_ROTATE_180;
@@ -564,10 +568,10 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		if (!IS_HASWELL(dev) && !IS_BROADWELL(dev)) {
 			x += src_w;
 			y += src_h;
-			linear_offset += src_h * fb->pitches[0] +
-				src_w * pixel_size;
 		}
 	}
+
+	linear_offset = intel_fb_xy_to_linear(x, y, fb, 0);
 
 	if (key->flags) {
 		I915_WRITE(SPRKEYVAL(pipe), key->min_value);
@@ -597,7 +601,7 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		I915_WRITE(SPRSCALE(pipe), sprscale);
 	I915_WRITE(SPRCTL(pipe), sprctl);
 	I915_WRITE(SPRSURF(pipe),
-		   i915_gem_obj_ggtt_offset(obj) + sprsurf_offset);
+		   intel_surf_gtt_offset(fb, 0, rotation) + sprsurf_offset);
 	POSTING_READ(SPRSURF(pipe));
 }
 
@@ -632,9 +636,9 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
 	int pipe = intel_plane->pipe;
 	unsigned int rotation = plane->state->rotation;
-	unsigned long dvssurf_offset, linear_offset;
-	u32 dvscntr, dvsscale;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
+	unsigned int dvssurf_offset, linear_offset;
+	u32 dvscntr, dvsscale;
 	const struct drm_intel_sprite_colorkey *key =
 		&to_intel_plane_state(plane->state)->ckey;
 
@@ -689,18 +693,18 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	if (crtc_w != src_w || crtc_h != src_h)
 		dvsscale = DVS_SCALE_ENABLE | (src_w << 16) | src_h;
 
-	linear_offset = y * fb->pitches[0] + x * pixel_size;
+	intel_add_fb_offsets(&x, &y, fb, 0, rotation);
 	dvssurf_offset = intel_compute_page_offset(&x, &y, fb, 0,
 						   fb->pitches[0], rotation);
-	linear_offset -= dvssurf_offset;
 
 	if (rotation == BIT(DRM_ROTATE_180)) {
 		dvscntr |= DVS_ROTATE_180;
 
 		x += src_w;
 		y += src_h;
-		linear_offset += src_h * fb->pitches[0] + src_w * pixel_size;
 	}
+
+	linear_offset = intel_fb_xy_to_linear(x, y, fb, 0);
 
 	if (key->flags) {
 		I915_WRITE(DVSKEYVAL(pipe), key->min_value);
@@ -725,7 +729,7 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	I915_WRITE(DVSSCALE(pipe), dvsscale);
 	I915_WRITE(DVSCNTR(pipe), dvscntr);
 	I915_WRITE(DVSSURF(pipe),
-		   i915_gem_obj_ggtt_offset(obj) + dvssurf_offset);
+		   intel_surf_gtt_offset(fb, 0, rotation) + dvssurf_offset);
 	POSTING_READ(DVSSURF(pipe));
 }
 
