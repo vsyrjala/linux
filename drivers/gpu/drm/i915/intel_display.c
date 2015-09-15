@@ -2410,13 +2410,20 @@ static void intel_unpin_fb_obj(struct drm_framebuffer *fb,
 	i915_gem_object_unpin_from_display_plane(obj, &view);
 }
 
-/* Computes the linear offset to the base tile and adjusts x, y. bytes per pixel
- * is assumed to be a power-of-two. */
+/*
+ * Computes the linear offset to the base tile and adjusts
+ * x, y. bytes per pixel is assumed to be a power-of-two.
+ *
+ * In the 90/270 rotated case, x and y are assumed
+ * to be already rotated to match the rotated GTT view, and
+ * pitch is the tile_height aligned framebuffer height.
+ */
 unsigned long intel_compute_page_offset(struct drm_i915_private *dev_priv,
 					int *x, int *y,
 					uint64_t fb_modifier,
 					unsigned int cpp,
-					unsigned int pitch)
+					unsigned int pitch,
+					bool rotation_90_or_270)
 {
 	if (fb_modifier != DRM_FORMAT_MOD_NONE) {
 		unsigned int tile_rows, tiles;
@@ -2426,11 +2433,23 @@ unsigned long intel_compute_page_offset(struct drm_i915_private *dev_priv,
 		tile_width = intel_tile_width(dev_priv, cpp, fb_modifier);
 		tile_height = tile_size / tile_width;
 
-		tile_rows = *y / tile_height;
-		*y %= tile_height;
+		if (rotation_90_or_270) {
+			WARN_ON(pitch % tile_height);
 
-		tiles = *x / (tile_width/cpp);
-		*x %= tile_width/cpp;
+			tile_rows = *y / (tile_width/cpp);
+			*y %= tile_width/cpp;
+
+			tiles = *x / tile_height;
+			*x %= tile_height;
+		} else {
+			WARN_ON(pitch % tile_width);
+
+			tile_rows = *y / tile_height;
+			*y %= tile_height;
+
+			tiles = *x / (tile_width/cpp);
+			*x %= tile_width/cpp;
+		}
 
 		return tile_rows * pitch * tile_height + tiles * tile_size;
 	} else {
@@ -2720,7 +2739,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		intel_crtc->dspaddr_offset =
 			intel_compute_page_offset(dev_priv, &x, &y,
 						  fb->modifier[0], pixel_size,
-						  fb->pitches[0]);
+						  fb->pitches[0], false);
 		linear_offset -= intel_crtc->dspaddr_offset;
 	} else {
 		intel_crtc->dspaddr_offset = linear_offset;
@@ -2821,7 +2840,7 @@ static void ironlake_update_primary_plane(struct drm_crtc *crtc,
 	intel_crtc->dspaddr_offset =
 		intel_compute_page_offset(dev_priv, &x, &y,
 					  fb->modifier[0], pixel_size,
-					  fb->pitches[0]);
+					  fb->pitches[0], false);
 	linear_offset -= intel_crtc->dspaddr_offset;
 	if (crtc->primary->state->rotation == BIT(DRM_ROTATE_180)) {
 		dspcntr |= DISPPLANE_ROTATE_180;

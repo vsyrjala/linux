@@ -421,7 +421,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	sprsurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
 						   fb->modifier[0], pixel_size,
-						   fb->pitches[0]);
+						   fb->pitches[0], false);
 	linear_offset -= sprsurf_offset;
 
 	if (dplane->state->rotation == BIT(DRM_ROTATE_180)) {
@@ -561,7 +561,7 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	sprsurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
 						   fb->modifier[0], pixel_size,
-						   fb->pitches[0]);
+						   fb->pitches[0], false);
 	linear_offset -= sprsurf_offset;
 
 	if (plane->state->rotation == BIT(DRM_ROTATE_180)) {
@@ -706,7 +706,7 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	dvssurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
 						   fb->modifier[0], pixel_size,
-						   fb->pitches[0]);
+						   fb->pitches[0], false);
 	linear_offset -= dvssurf_offset;
 
 	if (plane->state->rotation == BIT(DRM_ROTATE_180)) {
