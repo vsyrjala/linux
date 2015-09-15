@@ -354,6 +354,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	int pipe = intel_plane->pipe;
 	int plane = intel_plane->plane;
 	u32 sprctl;
+	unsigned int rotation = dplane->state->rotation;
 	unsigned long sprsurf_offset, linear_offset;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 	const struct drm_intel_sprite_colorkey *key =
@@ -422,10 +423,10 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	sprsurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
 						   fb->modifier[0], pixel_size,
-						   fb->pitches[0]);
+						   fb->pitches[0], rotation);
 	linear_offset -= sprsurf_offset;
 
-	if (dplane->state->rotation == BIT(DRM_ROTATE_180)) {
+	if (rotation == BIT(DRM_ROTATE_180)) {
 		sprctl |= SP_ROTATE_180;
 
 		x += src_w;
@@ -491,6 +492,7 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
 	enum pipe pipe = intel_plane->pipe;
 	u32 sprctl, sprscale = 0;
+	unsigned int rotation = plane->state->rotation;
 	unsigned long sprsurf_offset, linear_offset;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 	const struct drm_intel_sprite_colorkey *key =
@@ -554,10 +556,10 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	sprsurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
 						   fb->modifier[0], pixel_size,
-						   fb->pitches[0]);
+						   fb->pitches[0], rotation);
 	linear_offset -= sprsurf_offset;
 
-	if (plane->state->rotation == BIT(DRM_ROTATE_180)) {
+	if (rotation == BIT(DRM_ROTATE_180)) {
 		sprctl |= SPRITE_ROTATE_180;
 
 		/* HSW and BDW does this automagically in hardware */
@@ -631,6 +633,7 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
 	int pipe = intel_plane->pipe;
+	unsigned int rotation = plane->state->rotation;
 	unsigned long dvssurf_offset, linear_offset;
 	u32 dvscntr, dvsscale;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
@@ -691,10 +694,10 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	dvssurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
 						   fb->modifier[0], pixel_size,
-						   fb->pitches[0]);
+						   fb->pitches[0], rotation);
 	linear_offset -= dvssurf_offset;
 
-	if (plane->state->rotation == BIT(DRM_ROTATE_180)) {
+	if (rotation == BIT(DRM_ROTATE_180)) {
 		dvscntr |= DVS_ROTATE_180;
 
 		x += src_w;
