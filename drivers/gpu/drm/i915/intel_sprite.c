@@ -204,7 +204,9 @@ skl_update_plane(struct drm_plane *drm_plane, struct drm_crtc *crtc,
 
 	intel_update_sprite_watermarks(drm_plane, crtc, src_w, src_h,
 				       pixel_size, true,
-				       src_w != crtc_w || src_h != crtc_h);
+				       intel_rotation_90_or_270(rotation) ?
+				       (src_w != crtc_h || src_h != crtc_w) :
+				       (src_w != crtc_w || src_h != crtc_h));
 
 	if (key->flags) {
 		I915_WRITE(PLANE_KEYVAL(pipe, plane), key->min_value);
