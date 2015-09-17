@@ -1437,8 +1437,8 @@ enum skl_disp_power_wells {
 /*
  * Fence registers
  */
-#define FENCE_REG_830_0			0x2000
-#define FENCE_REG_945_8			0x3000
+#define FENCE_REG_830(i)		(0x2000 + (i) * 4) /* 8 registers */
+#define FENCE_REG_945_8(i)		(0x3000 + ((i) - 8) * 4) /* 8 registers */
 #define   I830_FENCE_START_MASK		0x07f80000
 #define   I830_FENCE_TILING_Y_SHIFT	12
 #define   I830_FENCE_SIZE_BITS(size)	((ffs((size) >> 19) - 1) << 8)
@@ -1451,14 +1451,16 @@ enum skl_disp_power_wells {
 #define   I915_FENCE_START_MASK		0x0ff00000
 #define   I915_FENCE_SIZE_BITS(size)	((ffs((size) >> 20) - 1) << 8)
 
-#define FENCE_REG_965_0			0x03000
+#define FENCE_REG_965_LO(i)		(0x03000 + (i) * 8)
+#define FENCE_REG_965_HI(i)		(0x03000 + (i) * 8 + 4)
 #define   I965_FENCE_PITCH_SHIFT	2
 #define   I965_FENCE_TILING_Y_SHIFT	1
 #define   I965_FENCE_REG_VALID		(1<<0)
 #define   I965_FENCE_MAX_PITCH_VAL	0x0400
 
-#define FENCE_REG_SANDYBRIDGE_0		0x100000
-#define   SANDYBRIDGE_FENCE_PITCH_SHIFT	32
+#define FENCE_REG_GEN6_LO(i)	(0x100000 + (i) * 8)
+#define FENCE_REG_GEN6_HI(i)	(0x100000 + (i) * 8 + 4)
+#define   GEN6_FENCE_PITCH_SHIFT	32
 #define   GEN7_FENCE_MAX_PITCH_VAL	0x0800
 
 
