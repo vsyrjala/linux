@@ -58,7 +58,7 @@ assert_device_not_suspended(struct drm_i915_private *dev_priv)
 static inline void
 fw_domain_reset(const struct intel_uncore_forcewake_domain *d)
 {
-	WARN_ON(d->reg_set == 0);
+	WARN_ON(d->reg_set.reg == 0);
 	__raw_i915_write32(d->i915, d->reg_set, d->val_reset);
 }
 
@@ -104,7 +104,7 @@ static inline void
 fw_domain_posting_read(const struct intel_uncore_forcewake_domain *d)
 {
 	/* something from same cacheline, but not from the set register */
-	if (d->reg_post)
+	if (d->reg_post.reg)
 		__raw_posting_read(d->i915, d->reg_post);
 }
 
@@ -511,10 +511,11 @@ void assert_forcewakes_inactive(struct drm_i915_private *dev_priv)
 }
 
 /* We give fast paths for the really cool registers */
-#define NEEDS_FORCE_WAKE(reg) \
-	 ((reg) < 0x40000 && (reg) != FORCEWAKE)
+#define NEEDS_FORCE_WAKE(r) \
+	((r).reg < 0x40000 && (r).reg != FORCEWAKE.reg)
 
-#define REG_RANGE(reg, start, end) ((reg) >= (start) && (reg) < (end))
+#define REG_RANGE(r, start, end) \
+	((r).reg >= (start) && (r).reg < (end))
 
 #define FORCEWAKE_VLV_RENDER_RANGE_OFFSET(reg) \
 	(REG_RANGE((reg), 0x2000, 0x4000) || \
@@ -574,12 +575,12 @@ void assert_forcewakes_inactive(struct drm_i915_private *dev_priv)
 #define FORCEWAKE_GEN9_COMMON_RANGE_OFFSET(reg) \
 	REG_RANGE((reg), 0x9400, 0x9800)
 
-#define FORCEWAKE_GEN9_BLITTER_RANGE_OFFSET(reg) \
-	((reg) < 0x40000 &&\
-	 !FORCEWAKE_GEN9_UNCORE_RANGE_OFFSET(reg) && \
-	 !FORCEWAKE_GEN9_RENDER_RANGE_OFFSET(reg) && \
-	 !FORCEWAKE_GEN9_MEDIA_RANGE_OFFSET(reg) && \
-	 !FORCEWAKE_GEN9_COMMON_RANGE_OFFSET(reg))
+#define FORCEWAKE_GEN9_BLITTER_RANGE_OFFSET(r) \
+	((r).reg < 0x40000 && \
+	 !FORCEWAKE_GEN9_UNCORE_RANGE_OFFSET(r) && \
+	 !FORCEWAKE_GEN9_RENDER_RANGE_OFFSET(r) && \
+	 !FORCEWAKE_GEN9_MEDIA_RANGE_OFFSET(r) && \
+	 !FORCEWAKE_GEN9_COMMON_RANGE_OFFSET(r))
 
 static void
 ilk_dummy_write(struct drm_i915_private *dev_priv)
@@ -591,8 +592,8 @@ ilk_dummy_write(struct drm_i915_private *dev_priv)
 }
 
 static void
-hsw_unclaimed_reg_debug(struct drm_i915_private *dev_priv, u32 reg, bool read,
-			bool before)
+hsw_unclaimed_reg_debug(struct drm_i915_private *dev_priv,
+			struct i915_reg reg, bool read, bool before)
 {
 	const char *op = read ? "reading" : "writing to";
 	const char *when = before ? "before" : "after";
@@ -602,7 +603,7 @@ hsw_unclaimed_reg_debug(struct drm_i915_private *dev_priv, u32 reg, bool read,
 
 	if (__raw_i915_read32(dev_priv, FPGA_DBG) & FPGA_DBG_RM_NOCLAIM) {
 		WARN(1, "Unclaimed register detected %s %s register 0x%x\n",
-		     when, op, reg);
+		     when, op, reg.reg);
 		__raw_i915_write32(dev_priv, FPGA_DBG, FPGA_DBG_RM_NOCLAIM);
 		i915.mmio_debug--; /* Only report the first N failures */
 	}
@@ -635,7 +636,7 @@ hsw_unclaimed_reg_detect(struct drm_i915_private *dev_priv)
 
 #define __gen2_read(x) \
 static u##x \
-gen2_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
+gen2_read##x(struct drm_i915_private *dev_priv, struct i915_reg reg, bool trace) { \
 	GEN2_READ_HEADER(x); \
 	val = __raw_i915_read##x(dev_priv, reg); \
 	GEN2_READ_FOOTER; \
@@ -643,7 +644,7 @@ gen2_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
 
 #define __gen5_read(x) \
 static u##x \
-gen5_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
+gen5_read##x(struct drm_i915_private *dev_priv, struct i915_reg reg, bool trace) { \
 	GEN2_READ_HEADER(x); \
 	ilk_dummy_write(dev_priv); \
 	val = __raw_i915_read##x(dev_priv, reg); \
@@ -702,7 +703,7 @@ static inline void __force_wake_get(struct drm_i915_private *dev_priv,
 
 #define __vgpu_read(x) \
 static u##x \
-vgpu_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
+vgpu_read##x(struct drm_i915_private *dev_priv, struct i915_reg reg, bool trace) { \
 	GEN6_READ_HEADER(x); \
 	val = __raw_i915_read##x(dev_priv, reg); \
 	GEN6_READ_FOOTER; \
@@ -710,7 +711,7 @@ vgpu_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
 
 #define __gen6_read(x) \
 static u##x \
-gen6_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
+gen6_read##x(struct drm_i915_private *dev_priv, struct i915_reg reg, bool trace) { \
 	GEN6_READ_HEADER(x); \
 	hsw_unclaimed_reg_debug(dev_priv, reg, true, true); \
 	if (NEEDS_FORCE_WAKE(reg)) \
@@ -722,7 +723,7 @@ gen6_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
 
 #define __vlv_read(x) \
 static u##x \
-vlv_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
+vlv_read##x(struct drm_i915_private *dev_priv, struct i915_reg reg, bool trace) { \
 	GEN6_READ_HEADER(x); \
 	if (FORCEWAKE_VLV_RENDER_RANGE_OFFSET(reg)) \
 		__force_wake_get(dev_priv, FORCEWAKE_RENDER); \
@@ -734,7 +735,7 @@ vlv_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
 
 #define __chv_read(x) \
 static u##x \
-chv_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
+chv_read##x(struct drm_i915_private *dev_priv, struct i915_reg reg, bool trace) { \
 	GEN6_READ_HEADER(x); \
 	if (FORCEWAKE_CHV_RENDER_RANGE_OFFSET(reg)) \
 		__force_wake_get(dev_priv, FORCEWAKE_RENDER); \
@@ -747,12 +748,12 @@ chv_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
 	GEN6_READ_FOOTER; \
 }
 
-#define SKL_NEEDS_FORCE_WAKE(reg) \
-	 ((reg) < 0x40000 && !FORCEWAKE_GEN9_UNCORE_RANGE_OFFSET(reg))
+#define SKL_NEEDS_FORCE_WAKE(r) \
+	((r).reg < 0x40000 && !FORCEWAKE_GEN9_UNCORE_RANGE_OFFSET(r))
 
 #define __gen9_read(x) \
 static u##x \
-gen9_read##x(struct drm_i915_private *dev_priv, off_t reg, bool trace) { \
+gen9_read##x(struct drm_i915_private *dev_priv, struct i915_reg reg, bool trace) { \
 	enum forcewake_domains fw_engine; \
 	GEN6_READ_HEADER(x); \
 	hsw_unclaimed_reg_debug(dev_priv, reg, true, true); \
@@ -810,7 +811,7 @@ __gen6_read(64)
 
 #define __gen2_write(x) \
 static void \
-gen2_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace) { \
+gen2_write##x(struct drm_i915_private *dev_priv, struct i915_reg reg, u##x val, bool trace) { \
 	GEN2_WRITE_HEADER; \
 	__raw_i915_write##x(dev_priv, reg, val); \
 	GEN2_WRITE_FOOTER; \
@@ -818,7 +819,7 @@ gen2_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace
 
 #define __gen5_write(x) \
 static void \
-gen5_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace) { \
+gen5_write##x(struct drm_i915_private *dev_priv, struct i915_reg reg, u##x val, bool trace) { \
 	GEN2_WRITE_HEADER; \
 	ilk_dummy_write(dev_priv); \
 	__raw_i915_write##x(dev_priv, reg, val); \
@@ -851,7 +852,7 @@ __gen2_write(64)
 
 #define __gen6_write(x) \
 static void \
-gen6_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace) { \
+gen6_write##x(struct drm_i915_private *dev_priv, struct i915_reg reg, u##x val, bool trace) { \
 	u32 __fifo_ret = 0; \
 	GEN6_WRITE_HEADER; \
 	if (NEEDS_FORCE_WAKE(reg)) { \
@@ -866,7 +867,7 @@ gen6_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace
 
 #define __hsw_write(x) \
 static void \
-hsw_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace) { \
+hsw_write##x(struct drm_i915_private *dev_priv, struct i915_reg reg, u##x val, bool trace) { \
 	u32 __fifo_ret = 0; \
 	GEN6_WRITE_HEADER; \
 	if (NEEDS_FORCE_WAKE(reg)) { \
@@ -884,13 +885,13 @@ hsw_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace)
 
 #define __vgpu_write(x) \
 static void vgpu_write##x(struct drm_i915_private *dev_priv, \
-			  off_t reg, u##x val, bool trace) { \
+			  struct i915_reg reg, u##x val, bool trace) { \
 	GEN6_WRITE_HEADER; \
 	__raw_i915_write##x(dev_priv, reg, val); \
 	GEN6_WRITE_FOOTER; \
 }
 
-static const u32 gen8_shadowed_regs[] = {
+static const struct i915_reg gen8_shadowed_regs[] = {
 	FORCEWAKE_MT,
 	GEN6_RPNSWREQ,
 	GEN6_RC_VIDEO_FREQ,
@@ -901,11 +902,12 @@ static const u32 gen8_shadowed_regs[] = {
 	/* TODO: Other registers are not yet used */
 };
 
-static bool is_gen8_shadowed(struct drm_i915_private *dev_priv, u32 reg)
+static bool is_gen8_shadowed(struct drm_i915_private *dev_priv,
+			     struct i915_reg reg)
 {
 	int i;
 	for (i = 0; i < ARRAY_SIZE(gen8_shadowed_regs); i++)
-		if (reg == gen8_shadowed_regs[i])
+		if (reg.reg == gen8_shadowed_regs[i].reg)
 			return true;
 
 	return false;
@@ -913,10 +915,10 @@ static bool is_gen8_shadowed(struct drm_i915_private *dev_priv, u32 reg)
 
 #define __gen8_write(x) \
 static void \
-gen8_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace) { \
+gen8_write##x(struct drm_i915_private *dev_priv, struct i915_reg reg, u##x val, bool trace) { \
 	GEN6_WRITE_HEADER; \
 	hsw_unclaimed_reg_debug(dev_priv, reg, false, true); \
-	if (reg < 0x40000 && !is_gen8_shadowed(dev_priv, reg)) \
+	if (reg.reg < 0x40000 && !is_gen8_shadowed(dev_priv, reg)) \
 		__force_wake_get(dev_priv, FORCEWAKE_RENDER); \
 	__raw_i915_write##x(dev_priv, reg, val); \
 	hsw_unclaimed_reg_debug(dev_priv, reg, false, false); \
@@ -926,7 +928,7 @@ gen8_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace
 
 #define __chv_write(x) \
 static void \
-chv_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace) { \
+chv_write##x(struct drm_i915_private *dev_priv, struct i915_reg reg, u##x val, bool trace) { \
 	bool shadowed = is_gen8_shadowed(dev_priv, reg); \
 	GEN6_WRITE_HEADER; \
 	if (!shadowed) { \
@@ -941,7 +943,7 @@ chv_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace)
 	GEN6_WRITE_FOOTER; \
 }
 
-static const u32 gen9_shadowed_regs[] = {
+static const struct i915_reg gen9_shadowed_regs[] = {
 	RING_TAIL(RENDER_RING_BASE),
 	RING_TAIL(GEN6_BSD_RING_BASE),
 	RING_TAIL(VEBOX_RING_BASE),
@@ -954,11 +956,12 @@ static const u32 gen9_shadowed_regs[] = {
 	/* TODO: Other registers are not yet used */
 };
 
-static bool is_gen9_shadowed(struct drm_i915_private *dev_priv, u32 reg)
+static bool is_gen9_shadowed(struct drm_i915_private *dev_priv,
+			     struct i915_reg reg)
 {
 	int i;
 	for (i = 0; i < ARRAY_SIZE(gen9_shadowed_regs); i++)
-		if (reg == gen9_shadowed_regs[i])
+		if (reg.reg == gen9_shadowed_regs[i].reg)
 			return true;
 
 	return false;
@@ -966,7 +969,7 @@ static bool is_gen9_shadowed(struct drm_i915_private *dev_priv, u32 reg)
 
 #define __gen9_write(x) \
 static void \
-gen9_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, \
+gen9_write##x(struct drm_i915_private *dev_priv, struct i915_reg reg, u##x val, \
 		bool trace) { \
 	enum forcewake_domains fw_engine; \
 	GEN6_WRITE_HEADER; \
@@ -1043,7 +1046,8 @@ do { \
 
 static void fw_domain_init(struct drm_i915_private *dev_priv,
 			   enum forcewake_domain_id domain_id,
-			   u32 reg_set, u32 reg_ack)
+			   struct i915_reg reg_set,
+			   struct i915_reg reg_ack)
 {
 	struct intel_uncore_forcewake_domain *d;
 
@@ -1073,8 +1077,6 @@ static void fw_domain_init(struct drm_i915_private *dev_priv,
 		d->reg_post = FORCEWAKE_ACK_VLV;
 	else if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv) || IS_GEN8(dev_priv))
 		d->reg_post = ECOBUS;
-	else
-		d->reg_post = 0;
 
 	d->i915 = dev_priv;
 	d->id = domain_id;
@@ -1248,7 +1250,7 @@ void intel_uncore_fini(struct drm_device *dev)
 #define GEN_RANGE(l, h) GENMASK(h, l)
 
 static const struct register_whitelist {
-	uint64_t offset;
+	struct i915_reg offset;
 	uint32_t size;
 	/* supported gens, 0x10 for 4, 0x30 for 4 and 5, etc. */
 	uint32_t gen_bitmask;
@@ -1263,11 +1265,11 @@ int i915_reg_read_ioctl(struct drm_device *dev,
 	struct drm_i915_reg_read *reg = data;
 	struct register_whitelist const *entry = whitelist;
 	unsigned size;
-	u64 offset;
+	struct i915_reg offset, offset_hi;
 	int i, ret = 0;
 
 	for (i = 0; i < ARRAY_SIZE(whitelist); i++, entry++) {
-		if (entry->offset == (reg->offset & -entry->size) &&
+		if (entry->offset.reg == (reg->offset & -entry->size) &&
 		    (1 << INTEL_INFO(dev)->gen & entry->gen_bitmask))
 			break;
 	}
@@ -1280,14 +1282,15 @@ int i915_reg_read_ioctl(struct drm_device *dev,
 	 * limit the available flags for that register).
 	 */
 	offset = entry->offset;
+	offset_hi.reg = offset.reg + 4;
 	size = entry->size;
-	size |= reg->offset ^ offset;
+	size |= reg->offset ^ offset.reg;
 
 	intel_runtime_pm_get(dev_priv);
 
 	switch (size) {
 	case 8 | 1:
-		reg->val = I915_READ64_2x32(offset, offset+4);
+		reg->val = I915_READ64_2x32(offset, offset_hi);
 		break;
 	case 8:
 		reg->val = I915_READ64(offset);
@@ -1456,7 +1459,7 @@ static int gen6_do_reset(struct drm_device *dev)
 }
 
 static int wait_for_register(struct drm_i915_private *dev_priv,
-			     const u32 reg,
+			     struct i915_reg reg,
 			     const u32 mask,
 			     const u32 value,
 			     const unsigned long timeout_ms)

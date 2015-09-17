@@ -661,10 +661,10 @@ static int gen8_write_pdp(struct drm_i915_gem_request *req,
 		return ret;
 
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
-	intel_ring_emit(ring, GEN8_RING_PDP_UDW(ring, entry));
+	intel_ring_emit(ring, GEN8_RING_PDP_UDW(ring, entry).reg);
 	intel_ring_emit(ring, upper_32_bits(addr));
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
-	intel_ring_emit(ring, GEN8_RING_PDP_LDW(ring, entry));
+	intel_ring_emit(ring, GEN8_RING_PDP_LDW(ring, entry).reg);
 	intel_ring_emit(ring, lower_32_bits(addr));
 	intel_ring_advance(ring);
 
@@ -904,25 +904,26 @@ static int gen8_ppgtt_notify_vgt(struct i915_hw_ppgtt *ppgtt, bool create)
 	enum vgt_g2v_type msg;
 	struct drm_device *dev = ppgtt->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	unsigned int offset = vgtif_reg(pdp0_lo);
 	int i;
 
 	if (USES_FULL_48BIT_PPGTT(dev)) {
 		u64 daddr = px_dma(&ppgtt->pml4);
+		struct i915_reg offset_lo = vgtif_reg(pdp0_lo);
+		struct i915_reg offset_hi = vgtif_reg(pdp0_lo + 4);
 
-		I915_WRITE(offset, lower_32_bits(daddr));
-		I915_WRITE(offset + 4, upper_32_bits(daddr));
+		I915_WRITE(offset_lo, lower_32_bits(daddr));
+		I915_WRITE(offset_hi, upper_32_bits(daddr));
 
 		msg = (create ? VGT_G2V_PPGTT_L4_PAGE_TABLE_CREATE :
 				VGT_G2V_PPGTT_L4_PAGE_TABLE_DESTROY);
 	} else {
 		for (i = 0; i < GEN8_LEGACY_PDPES; i++) {
 			u64 daddr = i915_page_dir_dma_addr(ppgtt, i);
+			struct i915_reg offset_lo = vgtif_reg(pdp0_lo + i * 8);
+			struct i915_reg offset_hi = vgtif_reg(pdp0_lo + i * 8 + 4);
 
-			I915_WRITE(offset, lower_32_bits(daddr));
-			I915_WRITE(offset + 4, upper_32_bits(daddr));
-
-			offset += 8;
+			I915_WRITE(offset_lo, lower_32_bits(daddr));
+			I915_WRITE(offset_hi, upper_32_bits(daddr));
 		}
 
 		msg = (create ? VGT_G2V_PPGTT_L3_PAGE_TABLE_CREATE :
@@ -1662,9 +1663,9 @@ static int hsw_mm_switch(struct i915_hw_ppgtt *ppgtt,
 		return ret;
 
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(2));
-	intel_ring_emit(ring, RING_PP_DIR_DCLV(ring));
+	intel_ring_emit(ring, RING_PP_DIR_DCLV(ring).reg);
 	intel_ring_emit(ring, PP_DIR_DCLV_2G);
-	intel_ring_emit(ring, RING_PP_DIR_BASE(ring));
+	intel_ring_emit(ring, RING_PP_DIR_BASE(ring).reg);
 	intel_ring_emit(ring, get_pd_offset(ppgtt));
 	intel_ring_emit(ring, MI_NOOP);
 	intel_ring_advance(ring);
@@ -1699,9 +1700,9 @@ static int gen7_mm_switch(struct i915_hw_ppgtt *ppgtt,
 		return ret;
 
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(2));
-	intel_ring_emit(ring, RING_PP_DIR_DCLV(ring));
+	intel_ring_emit(ring, RING_PP_DIR_DCLV(ring).reg);
 	intel_ring_emit(ring, PP_DIR_DCLV_2G);
-	intel_ring_emit(ring, RING_PP_DIR_BASE(ring));
+	intel_ring_emit(ring, RING_PP_DIR_BASE(ring).reg);
 	intel_ring_emit(ring, get_pd_offset(ppgtt));
 	intel_ring_emit(ring, MI_NOOP);
 	intel_ring_advance(ring);

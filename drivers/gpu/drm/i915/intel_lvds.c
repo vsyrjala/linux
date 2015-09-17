@@ -51,7 +51,7 @@ struct intel_lvds_encoder {
 	struct intel_encoder base;
 
 	bool is_dual_link;
-	u32 reg;
+	struct i915_reg reg;
 	u32 a3_power;
 
 	struct intel_lvds_connector *attached_connector;
@@ -211,7 +211,7 @@ static void intel_enable_lvds(struct intel_encoder *encoder)
 	struct intel_connector *intel_connector =
 		&lvds_encoder->attached_connector->base;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 ctl_reg, stat_reg;
+	struct i915_reg ctl_reg, stat_reg;
 
 	if (HAS_PCH_SPLIT(dev)) {
 		ctl_reg = PCH_PP_CONTROL;
@@ -236,7 +236,7 @@ static void intel_disable_lvds(struct intel_encoder *encoder)
 	struct drm_device *dev = encoder->base.dev;
 	struct intel_lvds_encoder *lvds_encoder = to_lvds_encoder(&encoder->base);
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 ctl_reg, stat_reg;
+	struct i915_reg ctl_reg, stat_reg;
 
 	if (HAS_PCH_SPLIT(dev)) {
 		ctl_reg = PCH_PP_CONTROL;
@@ -940,7 +940,7 @@ void intel_lvds_init(struct drm_device *dev)
 	struct drm_display_mode *downclock_mode = NULL;
 	struct edid *edid;
 	struct drm_crtc *crtc;
-	u32 lvds_reg;
+	struct i915_reg lvds_reg;
 	u32 lvds;
 	int pipe;
 	u8 pin;

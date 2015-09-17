@@ -329,7 +329,7 @@ enum port intel_ddi_get_encoder_port(struct intel_encoder *intel_encoder)
 static bool
 intel_dig_port_supports_hdmi(const struct intel_digital_port *intel_dig_port)
 {
-	return intel_dig_port->hdmi.hdmi_reg;
+	return intel_dig_port->hdmi.hdmi_reg.reg;
 }
 
 static const struct ddi_buf_trans *skl_get_buf_trans_dp(struct drm_device *dev,
@@ -558,12 +558,11 @@ void intel_prepare_ddi(struct drm_device *dev)
 static void intel_wait_ddi_buf_idle(struct drm_i915_private *dev_priv,
 				    enum port port)
 {
-	uint32_t reg = DDI_BUF_CTL(port);
 	int i;
 
 	for (i = 0; i < 16; i++) {
 		udelay(1);
-		if (I915_READ(reg) & DDI_BUF_IS_IDLE)
+		if (I915_READ(DDI_BUF_CTL(port)) & DDI_BUF_IS_IDLE)
 			return;
 	}
 	DRM_ERROR("Timeout waiting for DDI BUF %c idle bit\n", port_name(port));
@@ -913,7 +912,8 @@ static void hsw_wrpll_update_rnp(uint64_t freq2k, unsigned budget,
 	/* Otherwise a < c && b >= d, do nothing */
 }
 
-static int hsw_ddi_calc_wrpll_link(struct drm_i915_private *dev_priv, int reg)
+static int hsw_ddi_calc_wrpll_link(struct drm_i915_private *dev_priv,
+				   struct i915_reg reg)
 {
 	int refclk = LC_FREQ;
 	int n, p, r;
@@ -949,7 +949,7 @@ static int hsw_ddi_calc_wrpll_link(struct drm_i915_private *dev_priv, int reg)
 static int skl_calc_wrpll_link(struct drm_i915_private *dev_priv,
 			       uint32_t dpll)
 {
-	uint32_t cfgcr1_reg, cfgcr2_reg;
+	struct i915_reg cfgcr1_reg, cfgcr2_reg;
 	uint32_t cfgcr1_val, cfgcr2_val;
 	uint32_t p0, p1, p2, dco_freq;
 
@@ -1912,7 +1912,7 @@ void intel_ddi_enable_transcoder_func(struct drm_crtc *crtc)
 void intel_ddi_disable_transcoder_func(struct drm_i915_private *dev_priv,
 				       enum transcoder cpu_transcoder)
 {
-	uint32_t reg = TRANS_DDI_FUNC_CTL(cpu_transcoder);
+	struct i915_reg reg = TRANS_DDI_FUNC_CTL(cpu_transcoder);
 	uint32_t val = I915_READ(reg);
 
 	val &= ~(TRANS_DDI_FUNC_ENABLE | TRANS_DDI_PORT_MASK | TRANS_DDI_DP_VC_PAYLOAD_ALLOC);
@@ -2055,7 +2055,7 @@ static void skl_ddi_set_iboost(struct drm_device *dev, u32 level,
 	uint8_t iboost;
 	uint8_t dp_iboost, hdmi_iboost;
 	int n_entries;
-	u32 reg;
+	u32 val;
 
 	/* VBT may override standard boost values */
 	dp_iboost = dev_priv->vbt.ddi_port_info[port].dp_boost_level;
@@ -2092,16 +2092,16 @@ static void skl_ddi_set_iboost(struct drm_device *dev, u32 level,
 		return;
 	}
 
-	reg = I915_READ(DISPIO_CR_TX_BMU_CR0);
-	reg &= ~BALANCE_LEG_MASK(port);
-	reg &= ~(1 << (BALANCE_LEG_DISABLE_SHIFT + port));
+	val = I915_READ(DISPIO_CR_TX_BMU_CR0);
+	val &= ~BALANCE_LEG_MASK(port);
+	val &= ~(1 << (BALANCE_LEG_DISABLE_SHIFT + port));
 
 	if (iboost)
-		reg |= iboost << BALANCE_LEG_SHIFT(port);
+		val |= iboost << BALANCE_LEG_SHIFT(port);
 	else
-		reg |= 1 << (BALANCE_LEG_DISABLE_SHIFT + port);
+		val |= 1 << (BALANCE_LEG_DISABLE_SHIFT + port);
 
-	I915_WRITE(DISPIO_CR_TX_BMU_CR0, reg);
+	I915_WRITE(DISPIO_CR_TX_BMU_CR0, val);
 }
 
 static void bxt_ddi_vswing_sequence(struct drm_device *dev, u32 level,
@@ -2472,7 +2472,7 @@ static const char * const skl_ddi_pll_names[] = {
 };
 
 struct skl_dpll_regs {
-	u32 ctl, cfgcr1, cfgcr2;
+	struct i915_reg ctl, cfgcr1, cfgcr2;
 };
 
 /* this array is indexed by the *shared* pll id */

@@ -59,7 +59,7 @@ static void i965_write_fence_reg(struct drm_device *dev, int reg,
 				 struct drm_i915_gem_object *obj)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int fence_reg_lo, fence_reg_hi;
+	struct i915_reg fence_reg_lo, fence_reg_hi;
 	int fence_pitch_shift;
 
 	if (INTEL_INFO(dev)->gen >= 6) {
@@ -118,7 +118,8 @@ static void i915_write_fence_reg(struct drm_device *dev, int reg,
 				 struct drm_i915_gem_object *obj)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 fence_reg, val;
+	struct i915_reg fence_reg;
+	u32 val;
 
 	if (obj) {
 		u32 size = i915_gem_obj_ggtt_size(obj);

@@ -1305,7 +1305,7 @@ i915_gem_ringbuffer_submission(struct i915_execbuffer_params *params,
 
 		intel_ring_emit(ring, MI_NOOP);
 		intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
-		intel_ring_emit(ring, INSTPM);
+		intel_ring_emit(ring, INSTPM.reg);
 		intel_ring_emit(ring, instp_mask << 16 | instp_mode);
 		intel_ring_advance(ring);
 

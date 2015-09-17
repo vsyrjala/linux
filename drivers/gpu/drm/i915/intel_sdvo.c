@@ -74,7 +74,7 @@ struct intel_sdvo {
 	struct i2c_adapter ddc;
 
 	/* Register for the SDVO device: SDVOB or SDVOC */
-	uint32_t sdvo_reg;
+	struct i915_reg sdvo_reg;
 
 	/* Active outputs controlled by this SDVO output */
 	uint16_t controlled_output;
@@ -240,7 +240,7 @@ static void intel_sdvo_write_sdvox(struct intel_sdvo *intel_sdvo, u32 val)
 	u32 bval = val, cval = val;
 	int i;
 
-	if (intel_sdvo->sdvo_reg == PCH_SDVOB) {
+	if (intel_sdvo->sdvo_reg.reg == PCH_SDVOB.reg) {
 		I915_WRITE(intel_sdvo->sdvo_reg, val);
 		POSTING_READ(intel_sdvo->sdvo_reg);
 		/*
@@ -254,7 +254,7 @@ static void intel_sdvo_write_sdvox(struct intel_sdvo *intel_sdvo, u32 val)
 		return;
 	}
 
-	if (intel_sdvo->sdvo_reg == GEN3_SDVOB)
+	if (intel_sdvo->sdvo_reg.reg == GEN3_SDVOB.reg)
 		cval = I915_READ(GEN3_SDVOC);
 	else
 		bval = I915_READ(GEN3_SDVOB);
@@ -1274,11 +1274,11 @@ static void intel_sdvo_pre_enable(struct intel_encoder *intel_encoder)
 			sdvox |= SDVO_BORDER_ENABLE;
 	} else {
 		sdvox = I915_READ(intel_sdvo->sdvo_reg);
-		switch (intel_sdvo->sdvo_reg) {
-		case GEN3_SDVOB:
+		switch (intel_sdvo->sdvo_reg.reg) {
+		case _GEN3_SDVOB:
 			sdvox &= SDVOB_PRESERVE_MASK;
 			break;
-		case GEN3_SDVOC:
+		case _GEN3_SDVOC:
 			sdvox &= SDVOC_PRESERVE_MASK;
 			break;
 		}
@@ -2912,7 +2912,8 @@ intel_sdvo_init_ddc_proxy(struct intel_sdvo *sdvo,
 	return i2c_add_adapter(&sdvo->ddc) == 0;
 }
 
-bool intel_sdvo_init(struct drm_device *dev, uint32_t sdvo_reg, bool is_sdvob)
+bool intel_sdvo_init(struct drm_device *dev,
+		     struct i915_reg sdvo_reg, bool is_sdvob)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_encoder *intel_encoder;

@@ -247,7 +247,7 @@ struct  intel_engine_cs {
 				/* our mbox written by others */
 				u32		wait[I915_NUM_RINGS];
 				/* mboxes this ring signals to */
-				u32		signal[I915_NUM_RINGS];
+				struct i915_reg	signal[I915_NUM_RINGS];
 			} mbox;
 			u64		signal_ggtt[I915_NUM_RINGS];
 		};

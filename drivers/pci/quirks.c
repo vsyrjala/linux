@@ -3414,14 +3414,14 @@ static int reset_ivb_igd(struct pci_dev *dev, int probe)
 	 * the bits have been set by i915 previously, so we clobber
 	 * SOUTH_CHICKEN2 register directly here.
 	 */
-	iowrite32(0x00000005, mmio_base + SOUTH_CHICKEN2);
+	iowrite32(0x00000005, mmio_base + SOUTH_CHICKEN2.reg);
 
-	val = ioread32(mmio_base + PCH_PP_CONTROL) & 0xfffffffe;
-	iowrite32(val, mmio_base + PCH_PP_CONTROL);
+	val = ioread32(mmio_base + PCH_PP_CONTROL.reg) & 0xfffffffe;
+	iowrite32(val, mmio_base + PCH_PP_CONTROL.reg);
 
 	timeout = jiffies + msecs_to_jiffies(IGD_OPERATION_TIMEOUT);
 	do {
-		val = ioread32(mmio_base + PCH_PP_STATUS);
+		val = ioread32(mmio_base + PCH_PP_STATUS.reg);
 		if ((val & 0xb0000000) == 0)
 			goto reset_complete;
 		msleep(10);

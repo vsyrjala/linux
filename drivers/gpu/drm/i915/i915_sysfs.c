@@ -35,7 +35,8 @@
 #define dev_to_drm_minor(d) dev_get_drvdata((d))
 
 #ifdef CONFIG_PM
-static u32 calc_residency(struct drm_device *dev, const u32 reg)
+static u32 calc_residency(struct drm_device *dev,
+			  struct i915_reg reg)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u64 raw_time; /* 32b value may overflow during fixed point math */
@@ -49,7 +50,8 @@ static u32 calc_residency(struct drm_device *dev, const u32 reg)
 
 	/* On VLV and CHV, residency time is in CZ units rather than 1.28us */
 	if (IS_VALLEYVIEW(dev)) {
-		u32 clk_reg, czcount_30ns;
+		struct i915_reg clk_reg;
+		u32 czcount_30ns;
 
 		if (IS_CHERRYVIEW(dev))
 			clk_reg = CHV_CLK_CTL1;

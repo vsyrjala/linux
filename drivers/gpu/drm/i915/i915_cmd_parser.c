@@ -414,7 +414,7 @@ struct drm_i915_reg_descriptor {
 
 /* Convenience macro for adding 32-bit registers. */
 #define REG32(address, ...)                             \
-	{ .addr = address, __VA_ARGS__ }
+	{ .addr = (address).reg, __VA_ARGS__ }
 
 /*
  * Convenience macro for adding 64-bit registers.
@@ -423,10 +423,12 @@ struct drm_i915_reg_descriptor {
  * access commands only allow 32-bit accesses. Hence, we have to include
  * entries for both halves of the 64-bit registers.
  */
-#define REG64(addr)                                     \
-	REG32(addr), REG32(addr + sizeof(u32))
+#define REG64(address)                                     \
+	{ .addr = (address).reg },			   \
+	{ .addr = (address).reg + sizeof(u32) }
 
 static const struct drm_i915_reg_descriptor gen7_render_regs[] = {
+#if 0
 	REG64(GPGPU_THREADS_DISPATCHED),
 	REG64(HS_INVOCATION_COUNT),
 	REG64(DS_INVOCATION_COUNT),
@@ -470,23 +472,30 @@ static const struct drm_i915_reg_descriptor gen7_render_regs[] = {
 	      .mask = ~(HSW_ROW_CHICKEN3_L3_GLOBAL_ATOMICS_DISABLE << 16 |
                         HSW_ROW_CHICKEN3_L3_GLOBAL_ATOMICS_DISABLE),
 	      .value = 0),
+#endif
 };
 
 static const struct drm_i915_reg_descriptor gen7_blt_regs[] = {
+#if 0
 	REG32(BCS_SWCTRL),
+#endif
 };
 
 static const struct drm_i915_reg_descriptor ivb_master_regs[] = {
+#if 0
 	REG32(FORCEWAKE_MT),
 	REG32(DERRMR),
 	REG32(GEN7_PIPE_DE_LOAD_SL(PIPE_A)),
 	REG32(GEN7_PIPE_DE_LOAD_SL(PIPE_B)),
 	REG32(GEN7_PIPE_DE_LOAD_SL(PIPE_C)),
+#endif
 };
 
 static const struct drm_i915_reg_descriptor hsw_master_regs[] = {
+#if 0
 	REG32(FORCEWAKE_MT),
 	REG32(DERRMR),
+#endif
 };
 
 #undef REG64
@@ -1020,7 +1029,7 @@ static bool check_cmd(const struct intel_engine_cs *ring,
 			 * to the register. Hence, limit OACONTROL writes to
 			 * only MI_LOAD_REGISTER_IMM commands.
 			 */
-			if (reg_addr == OACONTROL) {
+			if (reg_addr == OACONTROL.reg) {
 				if (desc->cmd.value == MI_LOAD_REGISTER_MEM) {
 					DRM_DEBUG_DRIVER("CMD: Rejected LRM to OACONTROL\n");
 					return false;

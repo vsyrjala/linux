@@ -698,18 +698,18 @@ struct intel_uncore_funcs {
 	void (*force_wake_put)(struct drm_i915_private *dev_priv,
 							enum forcewake_domains domains);
 
-	uint8_t  (*mmio_readb)(struct drm_i915_private *dev_priv, off_t offset, bool trace);
-	uint16_t (*mmio_readw)(struct drm_i915_private *dev_priv, off_t offset, bool trace);
-	uint32_t (*mmio_readl)(struct drm_i915_private *dev_priv, off_t offset, bool trace);
-	uint64_t (*mmio_readq)(struct drm_i915_private *dev_priv, off_t offset, bool trace);
+	uint8_t  (*mmio_readb)(struct drm_i915_private *dev_priv, struct i915_reg r, bool trace);
+	uint16_t (*mmio_readw)(struct drm_i915_private *dev_priv, struct i915_reg r, bool trace);
+	uint32_t (*mmio_readl)(struct drm_i915_private *dev_priv, struct i915_reg r, bool trace);
+	uint64_t (*mmio_readq)(struct drm_i915_private *dev_priv, struct i915_reg r, bool trace);
 
-	void (*mmio_writeb)(struct drm_i915_private *dev_priv, off_t offset,
+	void (*mmio_writeb)(struct drm_i915_private *dev_priv, struct i915_reg r,
 				uint8_t val, bool trace);
-	void (*mmio_writew)(struct drm_i915_private *dev_priv, off_t offset,
+	void (*mmio_writew)(struct drm_i915_private *dev_priv, struct i915_reg r,
 				uint16_t val, bool trace);
-	void (*mmio_writel)(struct drm_i915_private *dev_priv, off_t offset,
+	void (*mmio_writel)(struct drm_i915_private *dev_priv, struct i915_reg r,
 				uint32_t val, bool trace);
-	void (*mmio_writeq)(struct drm_i915_private *dev_priv, off_t offset,
+	void (*mmio_writeq)(struct drm_i915_private *dev_priv, struct i915_reg r,
 				uint64_t val, bool trace);
 };
 
@@ -726,11 +726,11 @@ struct intel_uncore {
 		enum forcewake_domain_id id;
 		unsigned wake_count;
 		struct timer_list timer;
-		u32 reg_set;
+		struct i915_reg reg_set;
 		u32 val_set;
 		u32 val_clear;
-		u32 reg_ack;
-		u32 reg_post;
+		struct i915_reg reg_ack;
+		struct i915_reg reg_post;
 		u32 val_reset;
 	} fw_domain[FW_DOMAIN_ID_COUNT];
 };
@@ -756,7 +756,7 @@ struct intel_csr {
 	uint32_t *dmc_payload;
 	uint32_t dmc_fw_size;
 	uint32_t mmio_count;
-	uint32_t mmioaddr[8];
+	struct i915_reg mmioaddr[8];
 	uint32_t mmiodata[8];
 	enum csr_state state;
 };
@@ -1022,7 +1022,7 @@ struct intel_gmbus {
 	struct i2c_adapter adapter;
 	u32 force_bit;
 	u32 reg0;
-	u32 gpio_reg;
+	struct i915_reg gpio_reg;
 	struct i2c_algo_bit_data bit_algo;
 	struct drm_i915_private *dev_priv;
 };
@@ -1678,7 +1678,7 @@ struct i915_frontbuffer_tracking {
 };
 
 struct i915_wa_reg {
-	u32 addr;
+	struct i915_reg addr;
 	u32 value;
 	/* bitmask representing WA bits */
 	u32 mask;
@@ -3426,8 +3426,8 @@ int intel_freq_opcode(struct drm_i915_private *dev_priv, int val);
  * Note: Should only be used between intel_uncore_forcewake_irqlock() and
  * intel_uncore_forcewake_irqunlock().
  */
-#define I915_READ_FW(reg__) readl(dev_priv->regs + (reg__))
-#define I915_WRITE_FW(reg__, val__) writel(val__, dev_priv->regs + (reg__))
+#define I915_READ_FW(reg__) readl(dev_priv->regs + (reg__).reg)
+#define I915_WRITE_FW(reg__, val__) writel(val__, dev_priv->regs + (reg__).reg)
 #define POSTING_READ_FW(reg__) (void)I915_READ_FW(reg__)
 
 /* "Broadcast RGB" property */
@@ -3435,7 +3435,7 @@ int intel_freq_opcode(struct drm_i915_private *dev_priv, int val);
 #define INTEL_BROADCAST_RGB_FULL 1
 #define INTEL_BROADCAST_RGB_LIMITED 2
 
-static inline uint32_t i915_vgacntrl_reg(struct drm_device *dev)
+static inline struct i915_reg i915_vgacntrl_reg(struct drm_device *dev)
 {
 	if (IS_VALLEYVIEW(dev))
 		return VLV_VGACNTRL;
@@ -3506,16 +3506,16 @@ static inline void i915_trace_irq_get(struct intel_engine_cs *ring,
 
 #define __raw_read(x, s) \
 static inline uint##x##_t __raw_i915_read##x(struct drm_i915_private *dev_priv, \
-					     uint32_t reg) \
+					     struct i915_reg reg) \
 { \
-	return read##s(dev_priv->regs + reg); \
+	return read##s(dev_priv->regs + reg.reg); \
 }
 
 #define __raw_write(x, s) \
 static inline void __raw_i915_write##x(struct drm_i915_private *dev_priv, \
-				       uint32_t reg, uint##x##_t val) \
+				       struct i915_reg reg, uint##x##_t val) \
 { \
-	write##s(val, dev_priv->regs + reg); \
+	write##s(val, dev_priv->regs + reg.reg); \
 }
 __raw_read(8, b)
 __raw_read(16, w)

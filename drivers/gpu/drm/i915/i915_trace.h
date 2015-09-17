@@ -644,7 +644,7 @@ TRACE_EVENT(i915_flip_complete,
 );
 
 TRACE_EVENT_CONDITION(i915_reg_rw,
-	TP_PROTO(bool write, u32 reg, u64 val, int len, bool trace),
+	TP_PROTO(bool write, struct i915_reg reg, u64 val, int len, bool trace),
 
 	TP_ARGS(write, reg, val, len, trace),
 
@@ -659,7 +659,7 @@ TRACE_EVENT_CONDITION(i915_reg_rw,
 
 	TP_fast_assign(
 		__entry->val = (u64)val;
-		__entry->reg = reg;
+		__entry->reg = reg.reg;
 		__entry->write = write;
 		__entry->len = len;
 		),

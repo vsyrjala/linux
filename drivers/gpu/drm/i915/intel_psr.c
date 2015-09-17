@@ -80,7 +80,7 @@ static void intel_psr_write_vsc(struct intel_dp *intel_dp,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *crtc = to_intel_crtc(dig_port->base.base.crtc);
 	enum transcoder cpu_transcoder = crtc->config->cpu_transcoder;
-	u32 ctl_reg = HSW_TVIDEO_DIP_CTL(cpu_transcoder);
+	struct i915_reg ctl_reg = HSW_TVIDEO_DIP_CTL(cpu_transcoder);
 	uint32_t *data = (uint32_t *) vsc_psr;
 	unsigned int i;
 
@@ -151,8 +151,8 @@ static void vlv_psr_enable_sink(struct intel_dp *intel_dp)
 			   DP_PSR_ENABLE | DP_PSR_MAIN_LINK_ACTIVE);
 }
 
-static uint32_t psr_aux_reg(struct drm_i915_private *dev_priv,
-			    enum port port, int index)
+static struct i915_reg psr_aux_reg(struct drm_i915_private *dev_priv,
+				   enum port port, int index)
 {
 	if (INTEL_INFO(dev_priv)->gen >= 9)
 		return index < 0 ? DP_AUX_CH_CTL(port) :
@@ -168,7 +168,7 @@ static void hsw_psr_enable_sink(struct intel_dp *intel_dp)
 	struct drm_device *dev = dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	uint32_t aux_clock_divider;
-	uint32_t aux_ctl_reg;
+	struct i915_reg aux_ctl_reg;
 	int precharge = 0x3;
 	static const uint8_t aux_msg[] = {
 		[0] = DP_AUX_NATIVE_WRITE << 4,

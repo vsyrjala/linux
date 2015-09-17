@@ -170,7 +170,7 @@ static void intel_disable_dvo(struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_dvo *intel_dvo = enc_to_dvo(encoder);
-	u32 dvo_reg = intel_dvo->dev.dvo_reg;
+	struct i915_reg dvo_reg = intel_dvo->dev.dvo_reg;
 	u32 temp = I915_READ(dvo_reg);
 
 	intel_dvo->dev.dev_ops->dpms(&intel_dvo->dev, false);
@@ -183,7 +183,7 @@ static void intel_enable_dvo(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_dvo *intel_dvo = enc_to_dvo(encoder);
 	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
-	u32 dvo_reg = intel_dvo->dev.dvo_reg;
+	struct i915_reg dvo_reg = intel_dvo->dev.dvo_reg;
 	u32 temp = I915_READ(dvo_reg);
 
 	intel_dvo->dev.dev_ops->mode_set(&intel_dvo->dev,
@@ -263,17 +263,17 @@ static void intel_dvo_pre_enable(struct intel_encoder *encoder)
 	struct intel_dvo *intel_dvo = enc_to_dvo(encoder);
 	int pipe = crtc->pipe;
 	u32 dvo_val;
-	u32 dvo_reg = intel_dvo->dev.dvo_reg, dvo_srcdim_reg;
+	struct i915_reg dvo_reg = intel_dvo->dev.dvo_reg, dvo_srcdim_reg;
 
-	switch (dvo_reg) {
-	case DVOA:
+	switch (dvo_reg.reg) {
+	case _DVOA:
 	default:
 		dvo_srcdim_reg = DVOA_SRCDIM;
 		break;
-	case DVOB:
+	case _DVOB:
 		dvo_srcdim_reg = DVOB_SRCDIM;
 		break;
-	case DVOC:
+	case _DVOC:
 		dvo_srcdim_reg = DVOC_SRCDIM;
 		break;
 	}

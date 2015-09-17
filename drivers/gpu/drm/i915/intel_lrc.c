@@ -934,7 +934,7 @@ int intel_execlists_submission(struct i915_execbuffer_params *params,
 
 		intel_logical_ring_emit(ringbuf, MI_NOOP);
 		intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
-		intel_logical_ring_emit(ringbuf, INSTPM);
+		intel_logical_ring_emit(ringbuf, INSTPM.reg);
 		intel_logical_ring_emit(ringbuf, instp_mask << 16 | instp_mode);
 		intel_logical_ring_advance(ringbuf);
 
@@ -1109,7 +1109,7 @@ static int intel_logical_ring_workarounds_emit(struct drm_i915_gem_request *req)
 
 	intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(w->count));
 	for (i = 0; i < w->count; i++) {
-		intel_logical_ring_emit(ringbuf, w->reg[i].addr);
+		intel_logical_ring_emit(ringbuf, w->reg[i].addr.reg);
 		intel_logical_ring_emit(ringbuf, w->reg[i].value);
 	}
 	intel_logical_ring_emit(ringbuf, MI_NOOP);
@@ -1167,12 +1167,12 @@ static inline int gen8_emit_flush_coherentl3_wa(struct intel_engine_cs *ring,
 
 	wa_ctx_emit(batch, index, (MI_STORE_REGISTER_MEM_GEN8 |
 				   MI_SRM_LRM_GLOBAL_GTT));
-	wa_ctx_emit(batch, index, GEN8_L3SQCREG4);
+	wa_ctx_emit(batch, index, GEN8_L3SQCREG4.reg);
 	wa_ctx_emit(batch, index, ring->scratch.gtt_offset + 256);
 	wa_ctx_emit(batch, index, 0);
 
 	wa_ctx_emit(batch, index, MI_LOAD_REGISTER_IMM(1));
-	wa_ctx_emit(batch, index, GEN8_L3SQCREG4);
+	wa_ctx_emit(batch, index, GEN8_L3SQCREG4.reg);
 	wa_ctx_emit(batch, index, l3sqc4_flush);
 
 	wa_ctx_emit(batch, index, GFX_OP_PIPE_CONTROL(6));
@@ -1185,7 +1185,7 @@ static inline int gen8_emit_flush_coherentl3_wa(struct intel_engine_cs *ring,
 
 	wa_ctx_emit(batch, index, (MI_LOAD_REGISTER_MEM_GEN8 |
 				   MI_SRM_LRM_GLOBAL_GTT));
-	wa_ctx_emit(batch, index, GEN8_L3SQCREG4);
+	wa_ctx_emit(batch, index, GEN8_L3SQCREG4.reg);
 	wa_ctx_emit(batch, index, ring->scratch.gtt_offset + 256);
 	wa_ctx_emit(batch, index, 0);
 
@@ -1355,7 +1355,7 @@ static int gen9_init_perctx_bb(struct intel_engine_cs *ring,
 	if ((IS_SKYLAKE(dev) && (INTEL_REVID(dev) <= SKL_REVID_B0)) ||
 	    (IS_BROXTON(dev) && (INTEL_REVID(dev) == BXT_REVID_A0))) {
 		wa_ctx_emit(batch, index, MI_LOAD_REGISTER_IMM(1));
-		wa_ctx_emit(batch, index, GEN9_SLICE_COMMON_ECO_CHICKEN0);
+		wa_ctx_emit(batch, index, GEN9_SLICE_COMMON_ECO_CHICKEN0.reg);
 		wa_ctx_emit(batch, index,
 			    _MASKED_BIT_ENABLE(DISABLE_PIXEL_MASK_CAMMING));
 		wa_ctx_emit(batch, index, MI_NOOP);
@@ -1551,9 +1551,9 @@ static int intel_logical_ring_emit_pdps(struct drm_i915_gem_request *req)
 	for (i = GEN8_LEGACY_PDPES - 1; i >= 0; i--) {
 		const dma_addr_t pd_daddr = i915_page_dir_dma_addr(ppgtt, i);
 
-		intel_logical_ring_emit(ringbuf, GEN8_RING_PDP_UDW(ring, i));
+		intel_logical_ring_emit(ringbuf, GEN8_RING_PDP_UDW(ring, i).reg);
 		intel_logical_ring_emit(ringbuf, upper_32_bits(pd_daddr));
-		intel_logical_ring_emit(ringbuf, GEN8_RING_PDP_LDW(ring, i));
+		intel_logical_ring_emit(ringbuf, GEN8_RING_PDP_LDW(ring, i).reg);
 		intel_logical_ring_emit(ringbuf, lower_32_bits(pd_daddr));
 	}
 
@@ -2256,20 +2256,20 @@ populate_lr_context(struct intel_context *ctx, struct drm_i915_gem_object *ctx_o
 	else
 		reg_state[CTX_LRI_HEADER_0] = MI_LOAD_REGISTER_IMM(11);
 	reg_state[CTX_LRI_HEADER_0] |= MI_LRI_FORCE_POSTED;
-	reg_state[CTX_CONTEXT_CONTROL] = RING_CONTEXT_CONTROL(ring);
+	reg_state[CTX_CONTEXT_CONTROL] = RING_CONTEXT_CONTROL(ring).reg;
 	reg_state[CTX_CONTEXT_CONTROL+1] =
 		_MASKED_BIT_ENABLE(CTX_CTRL_INHIBIT_SYN_CTX_SWITCH |
 				   CTX_CTRL_ENGINE_CTX_RESTORE_INHIBIT |
 				   CTX_CTRL_RS_CTX_ENABLE);
-	reg_state[CTX_RING_HEAD] = RING_HEAD(ring->mmio_base);
+	reg_state[CTX_RING_HEAD] = RING_HEAD(ring->mmio_base).reg;
 	reg_state[CTX_RING_HEAD+1] = 0;
-	reg_state[CTX_RING_TAIL] = RING_TAIL(ring->mmio_base);
+	reg_state[CTX_RING_TAIL] = RING_TAIL(ring->mmio_base).reg;
 	reg_state[CTX_RING_TAIL+1] = 0;
-	reg_state[CTX_RING_BUFFER_START] = RING_START(ring->mmio_base);
+	reg_state[CTX_RING_BUFFER_START] = RING_START(ring->mmio_base).reg;
 	/* Ring buffer start address is not known until the buffer is pinned.
 	 * It is written to the context image in execlists_update_context()
 	 */
-	reg_state[CTX_RING_BUFFER_CONTROL] = RING_CTL(ring->mmio_base);
+	reg_state[CTX_RING_BUFFER_CONTROL] = RING_CTL(ring->mmio_base).reg;
 	reg_state[CTX_RING_BUFFER_CONTROL+1] =
 			((ringbuf->size - PAGE_SIZE) & RING_NR_PAGES) | RING_VALID;
 	reg_state[CTX_BB_HEAD_U] = ring->mmio_base + 0x168;
@@ -2311,14 +2311,14 @@ populate_lr_context(struct intel_context *ctx, struct drm_i915_gem_object *ctx_o
 	reg_state[CTX_LRI_HEADER_1] |= MI_LRI_FORCE_POSTED;
 	reg_state[CTX_CTX_TIMESTAMP] = ring->mmio_base + 0x3a8;
 	reg_state[CTX_CTX_TIMESTAMP+1] = 0;
-	reg_state[CTX_PDP3_UDW] = GEN8_RING_PDP_UDW(ring, 3);
-	reg_state[CTX_PDP3_LDW] = GEN8_RING_PDP_LDW(ring, 3);
-	reg_state[CTX_PDP2_UDW] = GEN8_RING_PDP_UDW(ring, 2);
-	reg_state[CTX_PDP2_LDW] = GEN8_RING_PDP_LDW(ring, 2);
-	reg_state[CTX_PDP1_UDW] = GEN8_RING_PDP_UDW(ring, 1);
-	reg_state[CTX_PDP1_LDW] = GEN8_RING_PDP_LDW(ring, 1);
-	reg_state[CTX_PDP0_UDW] = GEN8_RING_PDP_UDW(ring, 0);
-	reg_state[CTX_PDP0_LDW] = GEN8_RING_PDP_LDW(ring, 0);
+	reg_state[CTX_PDP3_UDW] = GEN8_RING_PDP_UDW(ring, 3).reg;
+	reg_state[CTX_PDP3_LDW] = GEN8_RING_PDP_LDW(ring, 3).reg;
+	reg_state[CTX_PDP2_UDW] = GEN8_RING_PDP_UDW(ring, 2).reg;
+	reg_state[CTX_PDP2_LDW] = GEN8_RING_PDP_LDW(ring, 2).reg;
+	reg_state[CTX_PDP1_UDW] = GEN8_RING_PDP_UDW(ring, 1).reg;
+	reg_state[CTX_PDP1_LDW] = GEN8_RING_PDP_LDW(ring, 1).reg;
+	reg_state[CTX_PDP0_UDW] = GEN8_RING_PDP_UDW(ring, 0).reg;
+	reg_state[CTX_PDP0_LDW] = GEN8_RING_PDP_LDW(ring, 0).reg;
 
 	if (USES_FULL_48BIT_PPGTT(ppgtt->base.dev)) {
 		/* 64b PPGTT (48bit canonical)
@@ -2340,7 +2340,7 @@ populate_lr_context(struct intel_context *ctx, struct drm_i915_gem_object *ctx_o
 
 	if (ring->id == RCS) {
 		reg_state[CTX_LRI_HEADER_2] = MI_LOAD_REGISTER_IMM(1);
-		reg_state[CTX_R_PWR_CLK_STATE] = GEN8_R_PWR_CLK_STATE;
+		reg_state[CTX_R_PWR_CLK_STATE] = GEN8_R_PWR_CLK_STATE.reg;
 		reg_state[CTX_R_PWR_CLK_STATE+1] = make_rpcs(dev);
 	}
 
