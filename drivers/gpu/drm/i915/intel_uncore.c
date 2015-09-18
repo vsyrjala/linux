@@ -29,19 +29,33 @@
 
 #define FORCEWAKE_ACK_TIMEOUT_MS 2
 
-#define __raw_i915_read8(dev_priv__, reg__) readb((dev_priv__)->regs + (reg__))
-#define __raw_i915_write8(dev_priv__, reg__, val__) writeb(val__, (dev_priv__)->regs + (reg__))
+#define __raw_read(x, s) \
+static inline uint##x##_t __raw_i915_read##x(struct drm_i915_private *dev_priv, \
+					     uint32_t reg) \
+{ \
+	return read##s(dev_priv->regs + reg); \
+}
 
-#define __raw_i915_read16(dev_priv__, reg__) readw((dev_priv__)->regs + (reg__))
-#define __raw_i915_write16(dev_priv__, reg__, val__) writew(val__, (dev_priv__)->regs + (reg__))
+#define __raw_write(x, s) \
+static inline void __raw_i915_write##x(struct drm_i915_private *dev_priv, \
+				       uint32_t reg, uint##x##_t val) \
+{ \
+	write##s(val, dev_priv->regs + reg); \
+}
+__raw_read(8, b)
+__raw_read(16, w)
+__raw_read(32, l)
+__raw_read(64, q)
 
-#define __raw_i915_read32(dev_priv__, reg__) readl((dev_priv__)->regs + (reg__))
-#define __raw_i915_write32(dev_priv__, reg__, val__) writel(val__, (dev_priv__)->regs + (reg__))
+__raw_write(8, b)
+__raw_write(16, w)
+__raw_write(32, l)
+__raw_write(64, q)
 
-#define __raw_i915_read64(dev_priv__, reg__) readq((dev_priv__)->regs + (reg__))
-#define __raw_i915_write64(dev_priv__, reg__, val__) writeq(val__, (dev_priv__)->regs + (reg__))
+#undef __raw_read
+#undef __raw_write
 
-#define __raw_posting_read(dev_priv__, reg__) (void)__raw_i915_read32(dev_priv__, reg__)
+#define __raw_posting_read(dev_priv__, reg__) (void)__raw_i915_read32((dev_priv__), (reg__))
 
 static const char * const forcewake_domain_names[] = {
 	"render",
