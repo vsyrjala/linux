@@ -1095,28 +1095,14 @@ intel_dp_aux_init(struct intel_dp *intel_dp, struct intel_connector *connector)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	enum port port = intel_dig_port->port;
-	const char *name = NULL;
 	int ret;
-
-	switch (port) {
-	case PORT_A:
-		name = "DPDDC-A";
-		break;
-	case PORT_B:
-		name = "DPDDC-B";
-		break;
-	case PORT_C:
-		name = "DPDDC-C";
-		break;
-	case PORT_D:
-		name = "DPDDC-D";
-		break;
-	case PORT_E:
-		name = "DPDDC-E";
-		break;
-	default:
-		BUG();
-	}
+	static const char * const ddc_name[] = {
+		[PORT_A] = "DPDDC-A",
+		[PORT_B] = "DPDDC-B",
+		[PORT_C] = "DPDDC-C",
+		[PORT_D] = "DPDDC-D",
+		[PORT_E] = "DPDDC-E",
+	};
 
 	if (INTEL_INFO(dev_priv)->gen >= 9)
 		intel_dp->aux_ch_ctl_reg = skl_aux_ctl_reg(dev_priv, port);
@@ -1125,17 +1111,18 @@ intel_dp_aux_init(struct intel_dp *intel_dp, struct intel_connector *connector)
 	else
 		intel_dp->aux_ch_ctl_reg = g4x_aux_ctl_reg(dev_priv, port);
 
-	intel_dp->aux.name = name;
+	intel_dp->aux.name = ddc_name[port];
 	intel_dp->aux.dev = dev->dev;
 	intel_dp->aux.transfer = intel_dp_aux_transfer;
 
-	DRM_DEBUG_KMS("registering %s bus for %s\n", name,
+	DRM_DEBUG_KMS("registering %s bus for %s\n",
+		      intel_dp->aux.name,
 		      connector->base.kdev->kobj.name);
 
 	ret = drm_dp_aux_register(&intel_dp->aux);
 	if (ret < 0) {
 		DRM_ERROR("drm_dp_aux_register() for %s failed (%d)\n",
-			  name, ret);
+			  intel_dp->aux.name, ret);
 		return;
 	}
 
@@ -1143,7 +1130,8 @@ intel_dp_aux_init(struct intel_dp *intel_dp, struct intel_connector *connector)
 				&intel_dp->aux.ddc.dev.kobj,
 				intel_dp->aux.ddc.dev.kobj.name);
 	if (ret < 0) {
-		DRM_ERROR("sysfs_create_link() for %s failed (%d)\n", name, ret);
+		DRM_ERROR("sysfs_create_link() for %s failed (%d)\n",
+			  intel_dp->aux.name, ret);
 		drm_dp_aux_unregister(&intel_dp->aux);
 	}
 }
