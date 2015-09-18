@@ -151,13 +151,24 @@ static void vlv_psr_enable_sink(struct intel_dp *intel_dp)
 			   DP_PSR_ENABLE | DP_PSR_MAIN_LINK_ACTIVE);
 }
 
+static uint32_t psr_aux_reg(struct drm_i915_private *dev_priv,
+			    enum port port, int index)
+{
+	if (INTEL_INFO(dev_priv)->gen >= 9)
+		return index < 0 ? DP_AUX_CH_CTL(port) :
+			DP_AUX_CH_DATA(port, index);
+	else
+		return index < 0 ? EDP_PSR_AUX_CTL :
+			EDP_PSR_AUX_DATA(index);
+}
+
 static void hsw_psr_enable_sink(struct intel_dp *intel_dp)
 {
 	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
 	struct drm_device *dev = dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	uint32_t aux_clock_divider;
-	uint32_t aux_data_reg, aux_ctl_reg;
+	uint32_t aux_ctl_reg;
 	int precharge = 0x3;
 	static const uint8_t aux_msg[] = {
 		[0] = DP_AUX_NATIVE_WRITE << 4,
@@ -182,14 +193,11 @@ static void hsw_psr_enable_sink(struct intel_dp *intel_dp)
 				DP_SINK_DEVICE_AUX_FRAME_SYNC_CONF,
 				DP_AUX_FRAME_SYNC_ENABLE);
 
-	aux_data_reg = (INTEL_INFO(dev)->gen >= 9) ?
-		DP_AUX_CH_DATA(port, 0) : EDP_PSR_AUX_DATA(0);
-	aux_ctl_reg = (INTEL_INFO(dev)->gen >= 9) ?
-		DP_AUX_CH_CTL(port) : EDP_PSR_AUX_CTL;
+	aux_ctl_reg = psr_aux_reg(dev_priv, port, -1);
 
 	/* Setup AUX registers */
 	for (i = 0; i < sizeof(aux_msg); i += 4)
-		I915_WRITE(aux_data_reg + i,
+		I915_WRITE(psr_aux_reg(dev_priv, port, i >> 2),
 			   intel_dp_pack_aux(&aux_msg[i], sizeof(aux_msg) - i));
 
 	if (INTEL_INFO(dev)->gen >= 9) {
