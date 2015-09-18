@@ -751,7 +751,7 @@ static uint32_t i9xx_get_aux_send_ctl(struct intel_dp *intel_dp,
 	else
 		precharge = 5;
 
-	if (IS_BROADWELL(dev) && intel_dp->aux_ch_ctl_reg == DPA_AUX_CH_CTL)
+	if (IS_BROADWELL(dev) && intel_dp->aux_ch_ctl_reg == DP_AUX_CH_CTL(PORT_A))
 		timeout = DP_AUX_CH_CTL_TIME_OUT_600us;
 	else
 		timeout = DP_AUX_CH_CTL_TIME_OUT_400us;
@@ -1012,35 +1012,16 @@ intel_dp_aux_transfer(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg)
 static uint32_t g4x_aux_ctl_reg(struct drm_i915_private *dev_priv,
 				enum port port)
 {
-	switch (port) {
-	case PORT_B:
-		return DPB_AUX_CH_CTL;
-	case PORT_C:
-		return DPC_AUX_CH_CTL;
-	case PORT_D:
-		return DPD_AUX_CH_CTL;
-	default:
-		MISSING_CASE(port);
-		return DPB_AUX_CH_CTL;
-	}
+	return DP_AUX_CH_CTL(port);
 }
 
 static uint32_t ilk_aux_ctl_reg(struct drm_i915_private *dev_priv,
 				enum port port)
 {
-	switch (port) {
-	case PORT_A:
-		return DPA_AUX_CH_CTL;
-	case PORT_B:
-		return PCH_DPB_AUX_CH_CTL;
-	case PORT_C:
-		return PCH_DPC_AUX_CH_CTL;
-	case PORT_D:
-		return PCH_DPD_AUX_CH_CTL;
-	default:
-		MISSING_CASE(port);
-		return DPA_AUX_CH_CTL;
-	}
+	if (port == PORT_A)
+		return DP_AUX_CH_CTL(port);
+	else
+		return PCH_DP_AUX_CH_CTL(port);
 }
 
 /*
@@ -1073,19 +1054,7 @@ static uint32_t skl_aux_ctl_reg(struct drm_i915_private *dev_priv,
 	if (port == PORT_E)
 		port = skl_porte_aux_port(dev_priv);
 
-	switch (port) {
-	case PORT_A:
-		return DPA_AUX_CH_CTL;
-	case PORT_B:
-		return DPB_AUX_CH_CTL;
-	case PORT_C:
-		return DPC_AUX_CH_CTL;
-	case PORT_D:
-		return DPD_AUX_CH_CTL;
-	default:
-		MISSING_CASE(port);
-		return DPA_AUX_CH_CTL;
-	}
+	return DP_AUX_CH_CTL(port);
 }
 
 static void
