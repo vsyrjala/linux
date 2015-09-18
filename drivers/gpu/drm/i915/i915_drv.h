@@ -3502,4 +3502,32 @@ static inline void i915_trace_irq_get(struct intel_engine_cs *ring,
 		i915_gem_request_assign(&ring->trace_irq_req, req);
 }
 
+#define __raw_read(x, s) \
+static inline uint##x##_t __raw_i915_read##x(struct drm_i915_private *dev_priv, \
+					     uint32_t reg) \
+{ \
+	return read##s(dev_priv->regs + reg); \
+}
+
+#define __raw_write(x, s) \
+static inline void __raw_i915_write##x(struct drm_i915_private *dev_priv, \
+				       uint32_t reg, uint##x##_t val) \
+{ \
+	write##s(val, dev_priv->regs + reg); \
+}
+__raw_read(8, b)
+__raw_read(16, w)
+__raw_read(32, l)
+__raw_read(64, q)
+
+__raw_write(8, b)
+__raw_write(16, w)
+__raw_write(32, l)
+__raw_write(64, q)
+
+#undef __raw_read
+#undef __raw_write
+
+#define __raw_posting_read(dev_priv__, reg__) (void)__raw_i915_read32((dev_priv__), (reg__))
+
 #endif

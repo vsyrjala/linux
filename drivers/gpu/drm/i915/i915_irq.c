@@ -679,8 +679,6 @@ static u32 g4x_get_vblank_counter(struct drm_device *dev, int pipe)
 }
 
 /* raw reads, only for fast reads of display block, no need for forcewake etc. */
-#define __raw_i915_read32(dev_priv__, reg__) readl((dev_priv__)->regs + (reg__))
-
 static int __intel_get_crtc_scanline(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
