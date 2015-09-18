@@ -1,0 +1,24 @@
+origin/drm-intel-fixes cbbc9521e21950c03c60d4b93f7b726be903bab0
+	drm/i915: fix kernel-doc warnings in intel_audio.c
+drm-upstream/drm-fixes 9fbcc7c007ea200357e2453c6b2b153646fbc165
+	Merge branch 'linux-4.3' of git://anongit.freedesktop.org/git/nouveau/linux-2.6 into drm-next
+origin/drm-intel-next-fixes 824257857fd81f5e749831ff9cd63566b5a86abe
+	drm/i915: Allow DSI dual link to be configured on any pipe
+origin/drm-intel-next-queued b5dada82ad624b69a2229c819d6a30b664a5606f
+	drm/i915/bxt: Fix wrongly placed ')' in I915_READ()
+drm-upstream/drm-next 73bf1b7be7aab60d7c651402441dd0b0b4991098
+	Merge branch 'drm-next-4.3' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream/for-next 0052b7dcf9d9ec6be4fc3fe815a2ceda623bb9d1
+	ALSA: pcm: remove structure member of 'struct snd_pcm_hwptr_log *' type because this structure had been removed
+origin/topic/drm-misc 28cc504e8d52248962f5b485bdc65f539e3fe21d
+	drm/i915: enable atomic fb-helper
+origin/topic/drm-fixes f36203be608a38a5b5523a7aa52cc72f757b9679
+	drm/dp: Add dp_aux_i2c_speed_khz module param to set the assume i2c bus speed
+origin/topic/kerneldoc a6333fcc6ddce4533c280b288ed7c3f0d61b76b5
+	scripts/kernel-doc: Processing -nofunc for functions only
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/mst-fixes 6ea76f3cade4734e73e3da842005820558b8b828
+	drm/atomic-helpers: Make encoder picking more robust
