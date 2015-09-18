@@ -546,7 +546,7 @@ static u32 _pp_ctrl_reg(struct intel_dp *intel_dp)
 	struct drm_device *dev = intel_dp_to_dev(intel_dp);
 
 	if (IS_BROXTON(dev))
-		return BXT_PP_CONTROL(0);
+		return BXT_PP_CONTROL(1);
 	else if (HAS_PCH_SPLIT(dev))
 		return PCH_PP_CONTROL;
 	else
@@ -558,7 +558,7 @@ static u32 _pp_stat_reg(struct intel_dp *intel_dp)
 	struct drm_device *dev = intel_dp_to_dev(intel_dp);
 
 	if (IS_BROXTON(dev))
-		return BXT_PP_STATUS(0);
+		return BXT_PP_STATUS(1);
 	else if (HAS_PCH_SPLIT(dev))
 		return PCH_PP_STATUS;
 	else
@@ -5318,9 +5318,9 @@ intel_dp_init_panel_power_sequencer(struct drm_device *dev,
 		 * Correct Register for Broxton need to be identified
 		 * using VBT. hardcoding for now
 		 */
-		pp_ctrl_reg = BXT_PP_CONTROL(0);
-		pp_on_reg = BXT_PP_ON_DELAYS(0);
-		pp_off_reg = BXT_PP_OFF_DELAYS(0);
+		pp_ctrl_reg = BXT_PP_CONTROL(1);
+		pp_on_reg = BXT_PP_ON_DELAYS(1);
+		pp_off_reg = BXT_PP_OFF_DELAYS(1);
 	} else if (HAS_PCH_SPLIT(dev)) {
 		pp_ctrl_reg = PCH_PP_CONTROL;
 		pp_on_reg = PCH_PP_ON_DELAYS;
@@ -5438,10 +5438,9 @@ intel_dp_init_panel_power_sequencer_registers(struct drm_device *dev,
 		 * Correct Register for Broxton need to be identified
 		 * using VBT. hardcoding for now
 		 */
-		pp_ctrl_reg = BXT_PP_CONTROL(0);
-		pp_on_reg = BXT_PP_ON_DELAYS(0);
-		pp_off_reg = BXT_PP_OFF_DELAYS(0);
-
+		pp_ctrl_reg = BXT_PP_CONTROL(1);
+		pp_on_reg = BXT_PP_ON_DELAYS(1);
+		pp_off_reg = BXT_PP_OFF_DELAYS(1);
 	} else if (HAS_PCH_SPLIT(dev)) {
 		pp_on_reg = PCH_PP_ON_DELAYS;
 		pp_off_reg = PCH_PP_OFF_DELAYS;
