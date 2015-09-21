@@ -743,7 +743,6 @@ static uint32_t i9xx_get_aux_send_ctl(struct intel_dp *intel_dp,
 {
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct drm_device *dev = intel_dig_port->base.base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	uint32_t precharge, timeout;
 
 	if (IS_GEN6(dev))
@@ -751,7 +750,7 @@ static uint32_t i9xx_get_aux_send_ctl(struct intel_dp *intel_dp,
 	else
 		precharge = 5;
 
-	if (IS_BROADWELL(dev) && intel_dp->aux_ch_ctl_reg == DP_AUX_CH_CTL(PORT_A))
+	if (IS_BROADWELL(dev) && intel_dig_port->port == PORT_A)
 		timeout = DP_AUX_CH_CTL_TIME_OUT_600us;
 	else
 		timeout = DP_AUX_CH_CTL_TIME_OUT_400us;
