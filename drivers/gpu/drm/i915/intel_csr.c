@@ -50,13 +50,14 @@ MODULE_FIRMWARE(I915_CSR_BXT);
 /*
 * SKL CSR registers for DC5 and DC6
 */
-#define CSR_PROGRAM(i)			(0x80000 + (i) * 4)
+#define CSR_PROGRAM(i)			_MMIO(0x80000 + (i) * 4)
 #define CSR_SSP_BASE_ADDR_GEN9		0x00002FC0
 #define CSR_HTP_ADDR_SKL		0x00500034
-#define CSR_SSP_BASE			0x8F074
-#define CSR_HTP_SKL			0x8F004
-#define CSR_LAST_WRITE			0x8F034
+#define CSR_SSP_BASE			_MMIO(0x8F074)
+#define CSR_HTP_SKL			_MMIO(0x8F004)
+#define CSR_LAST_WRITE			_MMIO(0x8F034)
 #define CSR_LAST_WRITE_VALUE		0xc003b400
+
 /* MMIO address range for CSR program (0x80000 - 0x82FFF) */
 #define CSR_MAX_FW_SIZE			0x2FFF
 #define CSR_DEFAULT_FW_OFFSET		0xFFFFFFFF
@@ -377,7 +378,7 @@ static void finish_csr_load(const struct firmware *fw, void *context)
 						dmc_header->mmioaddr[i]);
 			goto out;
 		}
-		csr->mmioaddr[i] = dmc_header->mmioaddr[i];
+		csr->mmioaddr[i] = _MMIO(dmc_header->mmioaddr[i]);
 		csr->mmiodata[i] = dmc_header->mmiodata[i];
 	}
 

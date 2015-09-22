@@ -74,7 +74,7 @@ struct intel_sdvo {
 	struct i2c_adapter ddc;
 
 	/* Register for the SDVO device: SDVOB or SDVOC */
-	uint32_t sdvo_reg;
+	i915_mmio_reg_t sdvo_reg;
 
 	/* Active outputs controlled by this SDVO output */
 	uint16_t controlled_output;
@@ -2934,7 +2934,8 @@ intel_sdvo_init_ddc_proxy(struct intel_sdvo *sdvo,
 	return i2c_add_adapter(&sdvo->ddc) == 0;
 }
 
-bool intel_sdvo_init(struct drm_device *dev, uint32_t sdvo_reg, enum port port)
+bool intel_sdvo_init(struct drm_device *dev,
+		     i915_mmio_reg_t sdvo_reg, enum port port)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_encoder *intel_encoder;
