@@ -60,7 +60,8 @@ static void wait_for_dsi_fifo_empty(struct intel_dsi *intel_dsi, enum port port)
 		DRM_ERROR("DPI FIFOs are not empty\n");
 }
 
-static void write_data(struct drm_i915_private *dev_priv, u32 reg,
+static void write_data(struct drm_i915_private *dev_priv,
+		       i915_mmio_reg_t reg,
 		       const u8 *data, u32 len)
 {
 	u32 i, j;
@@ -75,7 +76,8 @@ static void write_data(struct drm_i915_private *dev_priv, u32 reg,
 	}
 }
 
-static void read_data(struct drm_i915_private *dev_priv, u32 reg,
+static void read_data(struct drm_i915_private *dev_priv,
+		      i915_mmio_reg_t reg,
 		      u8 *data, u32 len)
 {
 	u32 i, j;
@@ -98,7 +100,8 @@ static ssize_t intel_dsi_host_transfer(struct mipi_dsi_host *host,
 	struct mipi_dsi_packet packet;
 	ssize_t ret;
 	const u8 *header, *data;
-	u32 data_reg, data_mask, ctrl_reg, ctrl_mask;
+	i915_mmio_reg_t data_reg, ctrl_reg;
+	u32 data_mask, ctrl_mask;
 
 	ret = mipi_dsi_create_packet(&packet, msg);
 	if (ret < 0)
