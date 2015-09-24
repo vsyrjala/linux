@@ -1,0 +1,24 @@
+origin/drm-intel-fixes cd67d226ebd909d239d2c6e5a6abd6e2a338d1cd
+	drm/i915/bios: handle MIPI Sequence Block v3+ gracefully
+drm-upstream/drm-fixes 0a3579e39dd0412b3ff932e32ae7a22a604200f0
+	Merge tag 'vmwgfx-fixes-4.3-150924' of git://people.freedesktop.org/~thomash/linux into drm-fixes
+origin/drm-intel-next-fixes 824257857fd81f5e749831ff9cd63566b5a86abe
+	drm/i915: Allow DSI dual link to be configured on any pipe
+origin/drm-intel-next-queued 7c4a7d60bcda9449bca1ed2ee47392cd7acb8535
+	drm/i915: Defer adding preallocated stolen objects to the VM list
+drm-upstream/drm-next 73bf1b7be7aab60d7c651402441dd0b0b4991098
+	Merge branch 'drm-next-4.3' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream/for-next db25f440f42eca380fcdb339f51cf73633e32485
+	Merge branch 'for-linus' into for-next
+origin/topic/drm-misc 646db260b843d2f758559a5483174354c304acf8
+	Merge tag 'v4.3-rc2' into topic/drm-misc
+origin/topic/drm-fixes f36203be608a38a5b5523a7aa52cc72f757b9679
+	drm/dp: Add dp_aux_i2c_speed_khz module param to set the assume i2c bus speed
+origin/topic/kerneldoc a6333fcc6ddce4533c280b288ed7c3f0d61b76b5
+	scripts/kernel-doc: Processing -nofunc for functions only
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/mst-fixes 6ea76f3cade4734e73e3da842005820558b8b828
+	drm/atomic-helpers: Make encoder picking more robust
