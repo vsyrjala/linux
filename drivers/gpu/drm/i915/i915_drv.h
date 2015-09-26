@@ -1928,6 +1928,11 @@ struct drm_i915_private {
 		uint8_t max_level;
 	} wm;
 
+	struct {
+		void *map;
+		int map_count;
+	} bl;
+
 	struct i915_runtime_pm pm;
 
 	/* Abstract the submission mechanism (legacy ringbuffer or execlists) away */

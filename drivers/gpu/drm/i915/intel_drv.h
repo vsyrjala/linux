@@ -1508,4 +1508,7 @@ void intel_plane_destroy_state(struct drm_plane *plane,
 			       struct drm_plane_state *state);
 extern const struct drm_plane_helper_funcs intel_plane_helper_funcs;
 
+int intel_remap_backlight(struct drm_i915_private *dev_priv,
+			  int min, int max, int level);
+
 #endif /* __INTEL_DRV_H__ */

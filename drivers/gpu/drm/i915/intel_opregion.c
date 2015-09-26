@@ -26,6 +26,7 @@
  */
 
 #include <linux/acpi.h>
+#include <linux/sort.h>
 #include <acpi/video.h>
 
 #include <drm/drmP.h>
@@ -832,6 +833,10 @@ void intel_opregion_fini(struct drm_device *dev)
 	opregion->asle = NULL;
 	opregion->vbt = NULL;
 	opregion->lid_state = NULL;
+
+	kfree(dev_priv->bl.map);
+	dev_priv->bl.map = NULL;
+	dev_priv->bl.map_count = 0;
 }
 
 static void swsci_setup(struct drm_device *dev)
@@ -894,6 +899,126 @@ static void swsci_setup(struct drm_device *dev)
 static inline void swsci_setup(struct drm_device *dev) {}
 #endif  /* CONFIG_ACPI */
 
+
+#define BCLM_VALID      (1<<15)
+#define BCLM_PERCENTAGE_MASK (0x7f << 8)
+#define BCLM_PERCENTAGE_SHIFT 8
+#define BCLM_DUTY_CYCLE_MASK 0xff
+
+struct bl_entry {
+	uint8_t percent, value;
+};
+
+static int compare_bl_entry(const void *a, const void *b)
+{
+	const struct bl_entry *ea = a, *eb = b;
+
+	return (ea->percent > eb->percent) - (ea->percent < eb->percent);
+}
+
+static void *build_bl_map(struct drm_i915_private *dev_priv,
+			  int *ret_count)
+{
+	struct opregion_asle *asle = dev_priv->opregion.asle;
+	struct bl_entry *map;
+	bool found_min = false, found_max = false;
+	int count = 0, i;
+
+	if (!asle)
+		return NULL;
+
+	map = kcalloc(22, sizeof(map[0]), GFP_KERNEL);
+	if (!map)
+		return NULL;
+
+	for (i = 0; i < 20; i++) {
+		uint16_t bclm = asle->bclm[i];
+		int percent, value;
+
+		if ((bclm & BCLM_VALID) == 0)
+			continue;
+
+		percent = (bclm & BCLM_PERCENTAGE_MASK) >>
+			BCLM_PERCENTAGE_SHIFT;
+		value = bclm & BCLM_DUTY_CYCLE_MASK;
+
+		if (WARN_ON(percent > 100))
+			continue;
+
+		if (percent == 0)
+			found_min = true;
+		if (percent == 100)
+			found_max = true;
+
+		map[count].percent = percent;
+		map[count].value = value;
+		count++;
+	}
+
+	if (!found_min) {
+		map[count].percent = 0;
+		map[count].value = 0;
+		count++;
+	}
+	if (!found_max) {
+		map[count].percent = 100;
+		map[count].value = 255;
+		count++;
+	}
+
+	sort(map, count, sizeof(map[0]), compare_bl_entry, NULL);
+
+	*ret_count = count;
+
+	return map;
+}
+
+static void print_bl_map(const struct bl_entry *map,
+			 int map_count)
+{
+	int i, last = 0;
+
+	if (!map) {
+		DRM_ERROR("no bl table\n");
+		return;
+	}
+
+	for (i = 0; i < map_count; i++) {
+		DRM_ERROR("%3d%% : %3d (%+d)\n", map[i].percent, map[i].value,
+			  map[i].value - last);
+		last = map[i].value;
+	}
+}
+
+int intel_remap_backlight(struct drm_i915_private *dev_priv,
+			  int min, int max, int level)
+{
+	const struct bl_entry *map = dev_priv->bl.map;
+	int map_count = dev_priv->bl.map_count;
+	int map_value, map_min, map_max;
+	int percent;
+	int i;
+
+	if (!map)
+		return level;
+
+	percent = 100 * (level - min) / (max - min);
+
+	map_min = map[0].value;
+	map_max = map[map_count - 1].value;
+
+	for (i = 1; i < map_count; i++) {
+		if (percent <= map[i].percent)
+			break;
+	}
+
+	map_value = map[i-1].value + (map[i].value - map[i-1].value) *
+		(percent - map[i-1].percent) / (map[i].percent - map[i-1].percent);
+
+	return min + (max - min) *
+		(map_value - map_min) / (map_max - map_min);
+}
+
 int intel_opregion_setup(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -951,6 +1076,10 @@ int intel_opregion_setup(struct drm_device *dev)
 		opregion->asle = base + OPREGION_ASLE_OFFSET;
 
 		opregion->asle->ardy = ASLE_ARDY_NOT_READY;
+
+		dev_priv->bl.map = build_bl_map(dev_priv,
+						&dev_priv->bl.map_count);
+		print_bl_map(dev_priv->bl.map, dev_priv->bl.map_count);
 	}
 
 	return 0;
