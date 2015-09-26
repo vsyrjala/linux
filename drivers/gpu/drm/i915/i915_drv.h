@@ -2057,6 +2057,11 @@ struct drm_i915_private {
 		bool distrust_bios_wm;
 	} wm;
 
+	struct {
+		void *map;
+		int map_count;
+	} bl;
+
 	struct i915_runtime_pm pm;
 
 	/* Abstract the submission mechanism (legacy ringbuffer or execlists) away */
@@ -3650,6 +3655,8 @@ static inline int intel_opregion_get_panel_type(struct drm_i915_private *dev)
 	return -ENODEV;
 }
 #endif
+int intel_opregion_remap_backlight(const struct drm_i915_private *dev_priv,
+				   int min, int max, int level);
 
 /* intel_acpi.c */
 #ifdef CONFIG_ACPI
