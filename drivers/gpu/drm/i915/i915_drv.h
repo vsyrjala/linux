@@ -1016,9 +1016,16 @@ struct i915_suspend_saved_registers {
 	u32 saveFBC_CONTROL;
 	u32 saveCACHE_MODE_0;
 	u32 saveMI_ARB_STATE;
-	u32 saveSWF0[16];
-	u32 saveSWF1[16];
-	u32 saveSWF3[3];
+	union {
+		struct {
+			u32 saveSWF0[16];
+			u32 saveSWF1[16];
+			u32 saveSWF3[3];
+		};
+		struct {
+			u32 saveSWF_ILK[36];
+		};
+	};
 	uint64_t saveFENCE[I915_MAX_NUM_FENCES];
 	u32 savePCH_PORT_HOTPLUG;
 	u16 saveGCDGMBUS;

@@ -139,6 +139,9 @@ int i915_save_state(struct drm_device *dev)
 		}
 		for (i = 0; i < 3; i++)
 			dev_priv->regfile.saveSWF3[i] = I915_READ(SWF3(i));
+	} else {
+		for (i = 0; i < 36; i++)
+			dev_priv->regfile.saveSWF_ILK[i] = I915_READ(SWF_ILK(i));
 	}
 
 	mutex_unlock(&dev->struct_mutex);
@@ -186,6 +189,9 @@ int i915_restore_state(struct drm_device *dev)
 		}
 		for (i = 0; i < 3; i++)
 			I915_WRITE(SWF3(i), dev_priv->regfile.saveSWF3[i]);
+	} else {
+		for (i = 0; i < 36; i++)
+			I915_WRITE(SWF_ILK(i), dev_priv->regfile.saveSWF_ILK[i]);
 	}
 
 	mutex_unlock(&dev->struct_mutex);
