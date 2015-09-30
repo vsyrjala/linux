@@ -1497,6 +1497,18 @@ extern int drm_format_num_planes(uint32_t format);
 extern int drm_format_plane_cpp(uint32_t format, int plane);
 extern int drm_format_horz_chroma_subsampling(uint32_t format);
 extern int drm_format_vert_chroma_subsampling(uint32_t format);
+static inline int drm_format_plane_width(int width, uint32_t format, int plane)
+{
+	if (plane == 0)
+		return width;
+	return width / drm_format_horz_chroma_subsampling(format);
+}
+static inline int drm_format_plane_height(int height, uint32_t format, int plane)
+{
+	if (plane == 0)
+		return height;
+	return height / drm_format_vert_chroma_subsampling(format);
+}
 extern const char *drm_get_format_name(uint32_t format);
 extern struct drm_property *drm_mode_create_rotation_property(struct drm_device *dev,
 							      unsigned int supported_rotations);
