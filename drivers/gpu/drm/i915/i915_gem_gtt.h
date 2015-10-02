@@ -553,6 +553,8 @@ i915_ggtt_view_equal(const struct i915_ggtt_view *a,
 
 	if (a->type != b->type)
 		return false;
+	if (a->type == I915_GGTT_VIEW_ROTATED)
+		return !memcmp(&a->rotated, &b->rotated, sizeof(a->rotated));
 	if (a->type == I915_GGTT_VIEW_PARTIAL)
 		return !memcmp(&a->partial, &b->partial, sizeof(a->partial));
 	return true;
