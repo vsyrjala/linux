@@ -1772,12 +1772,12 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 		memset(&view, 0, sizeof(view));
 		view.type = I915_GGTT_VIEW_PARTIAL;
-		view.params.partial.offset = rounddown(page_offset, chunk_size);
-		view.params.partial.size =
+		view.partial.offset = rounddown(page_offset, chunk_size);
+		view.partial.size =
 			min_t(unsigned int,
 			      chunk_size,
 			      (vma->vm_end - vma->vm_start)/PAGE_SIZE -
-			      view.params.partial.offset);
+			      view.partial.offset);
 	}
 
 	/* Now pin it into the GTT if needed */
@@ -1805,10 +1805,10 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		 * having accessed it before (at this partials' range).
 		 */
 		unsigned long base = vma->vm_start +
-				     (view.params.partial.offset << PAGE_SHIFT);
+				     (view.partial.offset << PAGE_SHIFT);
 		unsigned int i;
 
-		for (i = 0; i < view.params.partial.size; i++) {
+		for (i = 0; i < view.partial.size; i++) {
 			ret = vm_insert_pfn(vma, base + i * PAGE_SIZE, pfn + i);
 			if (ret)
 				break;

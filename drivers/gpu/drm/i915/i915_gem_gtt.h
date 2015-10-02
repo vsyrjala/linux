@@ -151,17 +151,14 @@ struct intel_rotation_info {
 struct i915_ggtt_view {
 	enum i915_ggtt_view_type type;
 
+	struct sg_table *pages;
+
 	union {
+		struct intel_rotation_info rotated;
 		struct {
 			u64 offset;
 			unsigned int size;
 		} partial;
-	} params;
-
-	struct sg_table *pages;
-
-	union {
-		struct intel_rotation_info rotation_info;
 	};
 };
 
@@ -557,7 +554,7 @@ i915_ggtt_view_equal(const struct i915_ggtt_view *a,
 	if (a->type != b->type)
 		return false;
 	if (a->type == I915_GGTT_VIEW_PARTIAL)
-		return !memcmp(&a->params, &b->params, sizeof(a->params));
+		return !memcmp(&a->partial, &b->partial, sizeof(a->partial));
 	return true;
 }
 

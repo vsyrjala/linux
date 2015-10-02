@@ -3282,7 +3282,7 @@ static struct sg_table *
 intel_rotate_fb_obj_pages(struct i915_ggtt_view *ggtt_view,
 			  struct drm_i915_gem_object *obj)
 {
-	struct intel_rotation_info *rot_info = &ggtt_view->rotation_info;
+	struct intel_rotation_info *rot_info = &ggtt_view->rotated;
 	unsigned int size_pages = rot_info->size >> PAGE_SHIFT;
 	unsigned int size_pages_uv;
 	struct sg_page_iter sg_iter;
@@ -3380,16 +3380,16 @@ intel_partial_pages(const struct i915_ggtt_view *view,
 	if (!st)
 		goto err_st_alloc;
 
-	ret = sg_alloc_table(st, view->params.partial.size, GFP_KERNEL);
+	ret = sg_alloc_table(st, view->partial.size, GFP_KERNEL);
 	if (ret)
 		goto err_sg_alloc;
 
 	sg = st->sgl;
 	st->nents = 0;
 	for_each_sg_page(obj->pages->sgl, &obj_sg_iter, obj->pages->nents,
-		view->params.partial.offset)
+		view->partial.offset)
 	{
-		if (st->nents >= view->params.partial.size)
+		if (st->nents >= view->partial.size)
 			break;
 
 		sg_set_page(sg, NULL, PAGE_SIZE, 0);
@@ -3514,9 +3514,9 @@ i915_ggtt_view_size(struct drm_i915_gem_object *obj,
 	if (view->type == I915_GGTT_VIEW_NORMAL) {
 		return obj->base.size;
 	} else if (view->type == I915_GGTT_VIEW_ROTATED) {
-		return view->rotation_info.size;
+		return view->rotated.size;
 	} else if (view->type == I915_GGTT_VIEW_PARTIAL) {
-		return view->params.partial.size << PAGE_SHIFT;
+		return view->partial.size << PAGE_SHIFT;
 	} else {
 		WARN_ONCE(1, "GGTT view %u not implemented!\n", view->type);
 		return obj->base.size;

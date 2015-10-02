@@ -2280,7 +2280,7 @@ intel_fill_fb_ggtt_view(struct i915_ggtt_view *view,
 			unsigned int rotation)
 {
 	struct drm_i915_private *dev_priv = to_i915(fb->dev);
-	struct intel_rotation_info *info = &view->rotation_info;
+	struct intel_rotation_info *info = &view->rotated;
 	unsigned int tile_size, tile_width, tile_height, cpp;
 
 	*view = i915_ggtt_view_normal;
@@ -3020,7 +3020,7 @@ unsigned long intel_plane_obj_offset(struct intel_plane *intel_plane,
 	offset = (unsigned char *)vma->node.start;
 
 	if (plane == 1) {
-		offset += vma->ggtt_view.rotation_info.uv_start_page *
+		offset += vma->ggtt_view.rotated.uv_start_page *
 			  PAGE_SIZE;
 	}
 
