@@ -1067,9 +1067,8 @@ bool intel_get_load_detect_pipe(struct drm_connector *connector,
 void intel_release_load_detect_pipe(struct drm_connector *connector,
 				    struct intel_load_detect_pipe *old,
 				    struct drm_modeset_acquire_ctx *ctx);
-int intel_pin_and_fence_fb_obj(struct drm_plane *plane,
-			       struct drm_framebuffer *fb,
-			       const struct drm_plane_state *plane_state,
+int intel_pin_and_fence_fb_obj(struct drm_framebuffer *fb,
+			       unsigned int rotation,
 			       struct intel_engine_cs *pipelined,
 			       struct drm_i915_gem_request **pipelined_request);
 struct drm_framebuffer *
