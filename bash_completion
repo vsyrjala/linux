@@ -30,7 +30,7 @@ _dim ()
 	cmds="$cmds create-branch remove-branch create-workdir for-each-workdirs fw"
 	cmds="$cmds tag-next checker"
 
-	opts="-d -f"
+	opts="-d -f -i"
 
 	i=1
 

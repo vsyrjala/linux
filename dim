@@ -102,6 +102,7 @@ addr_intel_qa2="\"Christophe Prigent\" <christophe.prigent@intel.com>"
 #
 
 DRY_RUN=
+INTERACTIVE=
 DRY=
 FORCE=
 
@@ -115,7 +116,7 @@ function warn_or_fail
 	fi
 }
 
-while getopts df opt; do
+while getopts dfi opt; do
 	case "$opt" in
 		d)
 			DRY_RUN=--dry-run
@@ -124,8 +125,11 @@ while getopts df opt; do
 		f)
 			FORCE=1
 			;;
+		i)
+			INTERACTIVE='eval read -rsp "Press any key to continue..." -n1 key2; echo'
+			;;
 		*)
-			echo "Try 'dim help' for more information."
+			echo "Try 'dim help' for more information. $opt"
 			exit
 	esac
 done
@@ -284,6 +288,8 @@ function update_nightly
 		fi
 
 		echo -e "$branch `git rev-parse $sha1`\n\t`git log -1 $sha1 --pretty=format:%s`" >> $specfile
+
+		$INTERACTIVE
 	done
 
 	echo -n "Adding integration manifest $integration_branch: $time... "
@@ -992,6 +998,7 @@ OPTIONS
 
 -f		Ignore some error conditions.
 -d		Dry run.
+-i		Interactive mode.
 
 COMMANDS
 ========
