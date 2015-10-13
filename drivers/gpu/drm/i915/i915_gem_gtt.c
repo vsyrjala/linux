@@ -3249,6 +3249,7 @@ i915_gem_obj_lookup_or_create_ggtt_vma(struct drm_i915_gem_object *obj,
 static struct scatterlist *
 rotate_pages(const dma_addr_t *in, unsigned int offset,
 	     unsigned int width, unsigned int height,
+	     unsigned int stride,
 	     struct sg_table *st, struct scatterlist *sg)
 {
 	unsigned int column, row;
@@ -3260,7 +3261,7 @@ rotate_pages(const dma_addr_t *in, unsigned int offset,
 	}
 
 	for (column = 0; column < width; column++) {
-		src_idx = width * (height - 1) + column;
+		src_idx = stride * (height - 1) + column;
 		for (row = 0; row < height; row++) {
 			st->nents++;
 			/* We don't need the pages, but need to initialize
@@ -3271,7 +3272,7 @@ rotate_pages(const dma_addr_t *in, unsigned int offset,
 			sg_dma_address(sg) = in[offset + src_idx];
 			sg_dma_len(sg) = PAGE_SIZE;
 			sg = sg_next(sg);
-			src_idx -= width;
+			src_idx -= stride;
 		}
 	}
 
@@ -3324,6 +3325,7 @@ intel_rotate_fb_obj_pages(struct i915_ggtt_view *ggtt_view,
 	/* Rotate the pages. */
 	sg = rotate_pages(page_addr_list, 0,
 		     rot_info->width_pages, rot_info->height_pages,
+		     rot_info->width_pages,
 		     st, NULL);
 
 	/* Append the UV plane if NV12. */
@@ -3339,6 +3341,7 @@ intel_rotate_fb_obj_pages(struct i915_ggtt_view *ggtt_view,
 		rotate_pages(page_addr_list, uv_start_page,
 			     rot_info->width_pages_uv,
 			     rot_info->height_pages_uv,
+			     rot_info->width_pages_uv,
 			     st, sg);
 	}
 
