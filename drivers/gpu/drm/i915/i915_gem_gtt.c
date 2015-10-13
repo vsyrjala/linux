@@ -3280,10 +3280,9 @@ rotate_pages(const dma_addr_t *in, unsigned int offset,
 }
 
 static struct sg_table *
-intel_rotate_fb_obj_pages(struct i915_ggtt_view *ggtt_view,
+intel_rotate_fb_obj_pages(struct intel_rotation_info *rot_info,
 			  struct drm_i915_gem_object *obj)
 {
-	struct intel_rotation_info *rot_info = &ggtt_view->rotated;
 	unsigned int size_pages = rot_info->size >> PAGE_SHIFT;
 	unsigned int size_pages_uv;
 	struct sg_page_iter sg_iter;
@@ -3423,7 +3422,7 @@ i915_get_ggtt_vma_pages(struct i915_vma *vma)
 		vma->ggtt_view.pages = vma->obj->pages;
 	else if (vma->ggtt_view.type == I915_GGTT_VIEW_ROTATED)
 		vma->ggtt_view.pages =
-			intel_rotate_fb_obj_pages(&vma->ggtt_view, vma->obj);
+			intel_rotate_fb_obj_pages(&vma->ggtt_view.rotated, vma->obj);
 	else if (vma->ggtt_view.type == I915_GGTT_VIEW_PARTIAL)
 		vma->ggtt_view.pages =
 			intel_partial_pages(&vma->ggtt_view, vma->obj);
