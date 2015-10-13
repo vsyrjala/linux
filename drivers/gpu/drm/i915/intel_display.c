@@ -2562,11 +2562,16 @@ static u32 _intel_compute_tile_offset(const struct drm_i915_private *dev_priv,
 
 unsigned int intel_compute_tile_offset(int *x, int *y,
 				       const struct drm_framebuffer *fb, int plane,
-				       unsigned int pitch,
 				       unsigned int rotation)
 {
 	const struct drm_i915_private *dev_priv = to_i915(fb->dev);
 	unsigned int alignment = intel_surf_alignment(dev_priv, fb->modifier[plane]);
+	unsigned int pitch;
+
+	if (intel_rotation_90_or_270(rotation))
+		pitch = to_intel_framebuffer(fb)->rotated[plane].pitch;
+	else
+		pitch = fb->pitches[plane];
 
 	return _intel_compute_tile_offset(dev_priv, x, y, fb, plane, pitch,
 					  rotation, alignment ? (alignment - 1) : 0);
@@ -2988,8 +2993,7 @@ static void i9xx_update_primary_plane(struct drm_plane *primary,
 
 	if (INTEL_INFO(dev)->gen >= 4)
 		intel_crtc->dspaddr_offset =
-			intel_compute_tile_offset(&x, &y, fb, 0,
-						  fb->pitches[0], rotation);
+			intel_compute_tile_offset(&x, &y, fb, 0, rotation);
 
 	if (rotation == BIT(DRM_ROTATE_180)) {
 		dspcntr |= DISPPLANE_ROTATE_180;
@@ -3091,8 +3095,7 @@ static void ironlake_update_primary_plane(struct drm_plane *primary,
 	intel_add_fb_offsets(&x, &y, fb, 0, rotation);
 
 	intel_crtc->dspaddr_offset =
-		intel_compute_tile_offset(&x, &y, fb, 0,
-					  fb->pitches[0], rotation);
+		intel_compute_tile_offset(&x, &y, fb, 0, rotation);
 
 	if (rotation == BIT(DRM_ROTATE_180)) {
 		dspcntr |= DISPPLANE_ROTATE_180;
@@ -3263,7 +3266,7 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_framebuffer *fb = plane_state->base.fb;
 	int pipe = intel_crtc->pipe;
-	u32 plane_ctl, stride_div, stride;
+	u32 plane_ctl, stride;
 	unsigned int rotation = plane_state->base.rotation;
 	u32 surf_addr;
 	int scaler_id = plane_state->scaler_id;
@@ -3303,17 +3306,16 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 		src_w = drm_rect_width(&r);
 		src_h = drm_rect_height(&r);
 
-		stride_div = intel_tile_height(dev_priv, fb->modifier[0], cpp);
-		stride = intel_fb->rotated[0].pitch;
+		stride = intel_fb->rotated[0].pitch /
+			intel_tile_height(dev_priv, fb->modifier[0], cpp);
 	} else {
-		stride_div = intel_fb_stride_alignment(dev_priv, fb->modifier[0],
-						       fb->pixel_format);
-		stride = fb->pitches[0];
+		stride = fb->pitches[0] /
+			intel_fb_stride_alignment(dev_priv, fb->modifier[0],
+						  fb->pixel_format);
 	}
 
 	intel_add_fb_offsets(&src_x, &src_y, fb, 0, rotation);
-	surf_addr = intel_compute_tile_offset(&src_x, &src_y, fb, 0,
-					      stride, rotation);
+	surf_addr = intel_compute_tile_offset(&src_x, &src_y, fb, 0, rotation);
 
 	/* Sizes are 0 based */
 	src_w--;
@@ -3326,7 +3328,7 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 
 	I915_WRITE(PLANE_CTL(pipe, 0), plane_ctl);
 	I915_WRITE(PLANE_OFFSET(pipe, 0), (src_y << 16) | src_x);
-	I915_WRITE(PLANE_STRIDE(pipe, 0), stride / stride_div);
+	I915_WRITE(PLANE_STRIDE(pipe, 0), stride);
 	I915_WRITE(PLANE_SIZE(pipe, 0), (src_h << 16) | src_w);
 
 	if (scaler_id >= 0) {
