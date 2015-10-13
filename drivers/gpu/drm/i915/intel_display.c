@@ -14284,6 +14284,36 @@ u32 intel_fb_pitch_limit(struct drm_device *dev, uint64_t fb_modifier,
 	}
 }
 
+static int intel_fb_check_offsets(const struct drm_mode_fb_cmd2 *mode_cmd)
+{
+	uint32_t format = mode_cmd->pixel_format;
+	int i;
+
+	for (i = 0; i < drm_format_num_planes(format); i++) {
+		unsigned int cpp;
+
+		switch (format) {
+		case DRM_FORMAT_YUYV:
+		case DRM_FORMAT_UYVY:
+		case DRM_FORMAT_YVYU:
+		case DRM_FORMAT_VYUY:
+			cpp = 4;
+			break;
+		default:
+			cpp = drm_format_plane_cpp(format, i);
+			break;
+		}
+
+		if (mode_cmd->offsets[i] % cpp) {
+			DRM_DEBUG("fb plane %d offset 0x%08x not (macro)pixel aligned\n",
+				  i, mode_cmd->offsets[i]);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 static int intel_framebuffer_init(struct drm_device *dev,
 				  struct intel_framebuffer *intel_fb,
 				  struct drm_mode_fb_cmd2 *mode_cmd,
@@ -14410,9 +14440,9 @@ static int intel_framebuffer_init(struct drm_device *dev,
 		return -EINVAL;
 	}
 
-	/* FIXME need to adjust LINOFF/TILEOFF accordingly. */
-	if (mode_cmd->offsets[0] != 0)
-		return -EINVAL;
+	ret = intel_fb_check_offsets(mode_cmd);
+	if (ret)
+		return ret;
 
 	aligned_height = intel_fb_align_height(dev, mode_cmd->height,
 					       mode_cmd->pixel_format,
