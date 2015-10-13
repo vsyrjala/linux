@@ -421,8 +421,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	crtc_h--;
 
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
-	sprsurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
-						   fb->modifier[0], pixel_size,
+	sprsurf_offset = intel_compute_page_offset(&x, &y, fb, 0,
 						   fb->pitches[0], rotation);
 	linear_offset -= sprsurf_offset;
 
@@ -554,8 +553,7 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		sprscale = SPRITE_SCALE_ENABLE | (src_w << 16) | src_h;
 
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
-	sprsurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
-						   fb->modifier[0], pixel_size,
+	sprsurf_offset = intel_compute_page_offset(&x, &y, fb, 0,
 						   fb->pitches[0], rotation);
 	linear_offset -= sprsurf_offset;
 
@@ -692,8 +690,7 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		dvsscale = DVS_SCALE_ENABLE | (src_w << 16) | src_h;
 
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
-	dvssurf_offset = intel_compute_page_offset(dev_priv, &x, &y,
-						   fb->modifier[0], pixel_size,
+	dvssurf_offset = intel_compute_page_offset(&x, &y, fb, 0,
 						   fb->pitches[0], rotation);
 	linear_offset -= dvssurf_offset;
 
