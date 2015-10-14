@@ -1,0 +1,24 @@
+origin/drm-intel-fixes 18e9345b0db9fe7bd18c3c43967789fe0a2fdb52
+	drm/i915: Add primary plane to mask if it's visible
+drm-upstream/drm-fixes 7b98040a7718663903bb25c06c7aed9801abbd9d
+	Merge branch 'linux-4.3' of git://anongit.freedesktop.org/git/nouveau/linux-2.6 into drm-fixes
+origin/drm-intel-next-fixes 824257857fd81f5e749831ff9cd63566b5a86abe
+	drm/i915: Allow DSI dual link to be configured on any pipe
+origin/drm-intel-next-queued 7564fde3a13e000867729a291e77cdefa0854b8e
+	MAINTAINERS: add link to the Intel Graphics for Linux web site
+drm-upstream/drm-next d4070ff71363a2b6598633f23558f809600ebad2
+	Merge tag 'drm-intel-next-2015-09-11' of git://anongit.freedesktop.org/drm-intel into drm-next
+sound-upstream/for-next ab30965d9bfcd04931f9b70d00faa2ea614835a8
+	ALSA: usb-audio: Fix max packet size calculation for USB audio
+origin/topic/drm-misc c4354ad76a97a754d3450eb9c6db3576d93f3fd7
+	drm/<drivers>: Drop DRM_UNLOCKED from modeset drivers
+origin/topic/drm-fixes f36203be608a38a5b5523a7aa52cc72f757b9679
+	drm/dp: Add dp_aux_i2c_speed_khz module param to set the assume i2c bus speed
+origin/topic/kerneldoc a6333fcc6ddce4533c280b288ed7c3f0d61b76b5
+	scripts/kernel-doc: Processing -nofunc for functions only
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/mst-fixes 6ea76f3cade4734e73e3da842005820558b8b828
+	drm/atomic-helpers: Make encoder picking more robust
