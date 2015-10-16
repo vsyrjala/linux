@@ -1,0 +1,92 @@
+#
+# Copyright © 2014-2015 Intel Corporation
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice (including the next
+# paragraph) shall be included in all copies or substantial portions of the
+# Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+# IN THE SOFTWARE.
+#
+# Authors:
+#	Jani Nikula <jani.nikula@intel.com>
+#
+
+strict digraph "drm-intel" {
+       label="upstream, drm-core and drm-intel patch flow and process"
+
+       # upstream
+       mw1 [label="v4.X merge window" color=green]
+       rc1 [label="v4.X-rc1" color=green]
+       rcN [label="v4.X-rcN" color=green]
+       release [label="v4.X" color=green]
+       mw2 [label="v4.(X+1) merge window" color=green]
+       mw3 [label="v4.(X+2) merge window" color=green style=dashed]
+
+       mw1 -> rc1 [label="merge window close" color=green];
+       rc1 -> rcN -> rcN [label="release candidate cycles" color=green];
+       rcN -> release [label="release" color=green];
+       release -> mw2 [label="merge window open" color=green];
+       mw2 -> mw3 [label="another release cycle" color=green style=dashed];
+
+       # drm-core
+       "drm-next" [color=red]
+       "drm-fixes" [color=red]
+       "drm-next next" [color=red style=dashed]
+
+       "drm-fixes" -> rcN [label="fixes for current" color=red]
+       "drm-fixes" -> release [label="fixes for current" color=red]
+       "drm-next" -> mw2 [label="features for next" color=red]
+       "drm-next next" -> mw3 [color=red style=dashed]
+
+       # drm-intel
+       "drm-intel-fixes" [color=blue]
+       "drm-intel-next" [color=blue]
+       "drm-intel-next-fixes" [color=blue]
+       "drm-intel-next-queued" [label="drm-intel-next-queued\ntopic/* branches" color=blue]
+       "drm-intel-nightly" [color=blue]
+       "drm-intel-testing" [color=blue]
+       "drm-intel-internal" [color=blue]
+
+       "drm-intel-fixes" -> "drm-fixes" [label="weekly pulls\nrc1..release" color=blue]
+       "drm-intel-next" -> "drm-next next" [label="after ~rc5 of current" color=blue style=dashed]
+       "drm-intel-next" -> "drm-next" [label="up to ~rc5 of current" color=blue]
+       "drm-intel-next-fixes" -> "drm-next" [label="discretionary pulls\n~rc5..release" color=blue]
+       "drm-intel-next-queued" -> "drm-intel-next" [color=blue]
+       "drm-intel-next-queued" -> "drm-next" [label="special topic/* branches" color=blue]
+       "drm-intel-nightly" -> "drm-intel-testing" [label="snapshot for QA" color=blue]
+
+       # nightly rebuild
+       "drm-intel-fixes" -> "drm-intel-nightly" [label="rebuild" color=blue]
+       "drm-intel-next-fixes" -> "drm-intel-nightly" [label="rebuild" color=blue]
+       "drm-intel-next-queued" -> "drm-intel-nightly" [label="rebuild" color=blue]
+
+       # patch flow
+       "intel-gfx" [label="intel-gfx mailing list"]
+       "internal" [label="internal mailing list"]
+
+       "fixes for current" -> "intel-gfx"
+       "fixes for next" -> "intel-gfx"
+       "feature patches" -> "intel-gfx"
+
+       "embargoed patches" -> "internal"
+       "drm-intel-internal" -> "feature patches" [label="feature release"]
+
+       "internal" -> "drm-intel-internal" [label="maintainers pick\nalways open"]
+
+       "intel-gfx" -> "drm-intel-next-queued" [label="maintainers pick\nalways open"]
+       "intel-gfx" -> "drm-intel-fixes" [label="maintainers pick\nrc1..rcN of current"]
+       "intel-gfx" -> "drm-intel-next-fixes" [label="maintainers pick\n~rc5..release of current"]
+}

@@ -1,0 +1,31 @@
+{
+	head: {
+		text: 'drm/i915 upstream merge timeline',
+		tock: -2,
+	},
+
+	foot: {
+		text: 'time in weeks, releases/rc at the end of each week',
+		tock: -2,
+	},
+
+	signal: [
+		{ name: 'drm-intel-fixes',			wave: '0|...=.......0..|', data: ['drm/i915 fixes for release + 1'],																			node: '.....abc....d..' },
+		[ 'upstreams',
+		{ name: 'drm-fixes',				wave: '0|...=.......0..|', data: ['drm fixes for release + 1'],																					node: '...............' },
+		{ name: 'linus',					wave: 'x|==.=====|===.x|', data: ['release', 'merge window, -rc1', '-rc2', '-rc3', '-rc4', '-rc5', '', '-rcN', 'release + 1', 'merge window'],	node: '....m.234....90' },
+		{ name: 'drm-next',					wave: '=...0.=.......0.|', data: ['drm features for release + 1', 'drm features for release + 2'],												node: '...h...i.jk..l.' }
+		],
+		{ name: 'drm-intel-next-fixes',		wave: '=...0..=......0.|', data: ['drm/i915 fixes for release + 1', 'drm/i915 fixes for release + 2'],											node: '........n......' },
+		{ name: 'drm-intel-next-queued',	wave: '=........=......|', data: ['drm/i915 features for release + 2', 'drm/i915 features for release + 3'],									node: '......o..p.....' },
+	],
+
+	edge: [
+		'a~>2 weekly fixes', 'b~>3', 'c~>4', 'd~>9 final fixes',
+		'h~>m feature merge','l~>0 feature merge',
+		'n~>j fixes as needed',
+		'o~>i feature merges', 'p~>k final features',
+	],
+
+	config: { hscale:3 },
+}
