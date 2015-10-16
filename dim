@@ -143,7 +143,7 @@ fi
 # Sanity checks.
 #
 
-if [ "$subcommand" != "setup" ]; then
+if [ "$subcommand" != "setup" -a "$subcommand" != "help" ]; then
 	for d in $DIM_PREFIX $DIM_PREFIX/$DIM_DRM_INTEL $DIM_PREFIX/drm-intel-rerere $DIM_PREFIX/drm-intel-nightly; do
 		if [ ! -d $d ]; then
 			echo "$d is missing, please check your configuration and/or run dim setup"
