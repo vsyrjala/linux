@@ -369,9 +369,9 @@ function dim_apply
 
 	cat > $file
 
-	local message_id=$(message_get_id $1)
+	local message_id=$(message_get_id $file)
 	if [ -n $message_id ]; then
-		message_add_tag $1 "Link" "http://patchwork.freedesktop.org/patch/msgid/$message_id"
+		message_add_tag $file "Link" "http://patchwork.freedesktop.org/patch/msgid/$message_id"
 	fi
 
 	dim_shell_checkpatch "cat $file"
