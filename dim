@@ -618,6 +618,7 @@ function setup_dim
 	fi
 	cd ..
 
+	echo "Setting up maintainer-tools ..."
 	if [ ! -d maintainer-tools ]; then
 		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $drm_intel_ssh maintainer-tools
 	fi
@@ -630,6 +631,7 @@ function setup_dim
 	fi
 	cd ..
 
+	echo "Setting up drm-intel-rerere ..."
 	if [ ! -d drm-intel-rerere ]; then
 		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $drm_intel_ssh drm-intel-rerere
 	fi
@@ -642,6 +644,7 @@ function setup_dim
 	fi
 	cd ..
 
+	echo "Setting up drm-intel-nightly ..."
 	if [ ! -d drm-intel-nightly ]; then
 		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $drm_intel_ssh drm-intel-nightly
 	fi
@@ -668,6 +671,8 @@ function setup_dim
 	else
 		git remote add driver-core-upstream $driver_core_upstream_git
 	fi
+
+	echo "dim setup successfully completed!"
 }
 
 function assert_branch
