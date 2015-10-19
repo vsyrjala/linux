@@ -541,7 +541,7 @@ function create_workdir
 
 		echo Creating separate workdir for $branch
 
-		$DRY git-new-workdir src $branch $branch
+		$DRY git-new-workdir ${DIM_DRM_INTEL} $branch $branch
 	done
 }
 
