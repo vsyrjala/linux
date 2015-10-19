@@ -1229,8 +1229,8 @@ remove-branch *branch*
 
 Remove the given topic branch.
 
-create-workdir *branch*|all
----------------------------
+create-workdir (*branch* | all)
+-------------------------------
 
 Create a separate workdir for the branch with the given name (requires that
 git-new-workdir from git-core contrib is installed), or for all branches if
