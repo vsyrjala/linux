@@ -150,14 +150,14 @@ if [ "$subcommand" != "setup" -a "$subcommand" != "help" ]; then
 			exit 1
 		fi
 	done
+
+	#
+	# Internal configuration that depends on a sane setup.
+	#
+
+	dim_branches=`(source $DIM_PREFIX/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
+		xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
 fi
-
-#
-# Internal configuration that depends on a sane setup.
-#
-
-dim_branches=`(source $DIM_PREFIX/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
-	xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
 
 # get message id from file
 # $1 = file

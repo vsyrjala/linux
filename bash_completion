@@ -12,8 +12,13 @@ dim ()
 _dim ()
 {
 	local cur cmds opts i
-	local nightly_branches=`(source ~/linux/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
-		xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
+
+	if [ -f ~/linux/drm-intel-rerere/nightly.conf ] ; then
+		local nightly_branches=`(source ~/linux/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
+			xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
+	else
+		local nightly_branches=""
+	fi
 	local upstream_branches="origin/master airlied/drm-next airlied/drm-fixes"
 
 	cmds="setup nightly-forget update-branches"
