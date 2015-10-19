@@ -18,7 +18,7 @@ _dim ()
 
 	cmds="setup nightly-forget update-branches"
 	cmds="$cmds rebuild-nightly cat-to-fixup"
-	cmds="$cmds push-queued pq push-fixes push-next-fixes pnf push-branch"
+	cmds="$cmds push-queued pq push-fixes pf push-next-fixes pnf push-branch"
 	cmds="$cmds co cof conf"
 	cmds="$cmds apply-branch ab sob apply-queued aq apply-fixes af apply-next-fixes anf"
 	cmds="$cmds magic-patch mp cd"
