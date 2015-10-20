@@ -698,6 +698,17 @@ Any other subcommands are executed directly in the quilt patches
 directory as git commans. When using quilt flow in scripts it is
 import to use the explicit forwarding to avoid clashes with
 furture extensions.
+
+CONTRIBUTING
+============
+
+Submit patches for any of the maintainer tools to
+intel-gfx@lists.freedesktop.org with [maintainer-tools PATCH] prefix. Use
+
+$ git format-patch --subject-prefix="maintainer-tools PATCH"
+
+for that. Push them once you have
+an ack from maintainers (Jani/Daniel).
 HERE
 		;;
 	*)

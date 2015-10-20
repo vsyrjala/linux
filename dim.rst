@@ -307,3 +307,14 @@ Path to a file containing a greeting template for pull request mails.
 DIM_TEMPLATE_SIGNATURE
 ----------------------
 Path to a file containing a signature template for pull request mails.
+
+CONTRIBUTING
+============
+
+Submit patches for any of the maintainer tools to
+intel-gfx@lists.freedesktop.org with [maintainer-tools PATCH] prefix. Use
+
+$ git format-patch --subject-prefix="maintainer-tools PATCH"
+
+for that. Push them once you have
+an ack from maintainers (Jani/Daniel).
