@@ -113,7 +113,7 @@ branch, assuming that patches got merged to the wrong branch. After pushing also
 updates linux-next and drm-intel-nightly branches.
 
 checkout|co *branch*
------------------
+--------------------
 Checks out the named branch.
 
 conq
