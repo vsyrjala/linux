@@ -112,12 +112,12 @@ drm-intel-next-queued branch respectively. Complains if that's not the current
 branch, assuming that patches got merged to the wrong branch. After pushing also
 updates linux-next and drm-intel-nightly branches.
 
-checkout *branch*
+checkout|co *branch*
 -----------------
 Checks out the named branch.
 
-co
---
+conq
+----
 
 cof
 ---

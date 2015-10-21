@@ -24,7 +24,7 @@ _dim ()
 	cmds="setup nightly-forget update-branches"
 	cmds="$cmds rebuild-nightly cat-to-fixup"
 	cmds="$cmds push-queued pq push-fixes pf push-next-fixes pnf push-branch"
-	cmds="$cmds checkout co cof conf"
+	cmds="$cmds checkout co conq cof conf"
 	cmds="$cmds apply-branch ab sob apply-queued aq apply-fixes af apply-next-fixes anf"
 	cmds="$cmds magic-patch mp cd"
 	cmds="$cmds magic-rebase-resolve mrr"
@@ -96,7 +96,7 @@ _dim ()
 				COMPREPLY=( $( compgen -o nospace -W "drm- topic/" -- $cur ) )
 			fi
 			;;
-		checkout)
+		checkout|co)
 			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
 				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
 			fi

@@ -759,14 +759,14 @@ case "$subcommand" in
 	push-fixes|pf)
 		dim_push drm-intel-fixes "$@"
 		;;
-	checkout)
+	checkout|co)
 		if [[ "x$1" = "x" ]]; then
 			echo "usage: $0 $subcommand branch"
 			exit 1
 		fi
 		dim_co "$@"
 		;;
-	co)
+	conq)
 		dim_co drm-intel-next-queued
 		;;
 	cof)
