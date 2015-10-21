@@ -142,6 +142,12 @@ release. There are no fast paths.
 For predictions on the future merge windows and releases, see
 http://phb-crystal-ball.org/.
 
+Tooling
+=======
+
+drm-intel git repositories are managed with dim_:
+
+.. _dim: dim.html
 
 Copyright
 =========
