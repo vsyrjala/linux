@@ -417,7 +417,11 @@ function dim_cd
 function dim_co
 {
 	dim_cd $1
-	git checkout $1
+	if ! git branch | grep $1 > /dev/null ; then
+		git checkout -t $DIM_DRM_INTEL_REMOTE/$1
+	else
+		git checkout $1
+	fi
 }
 
 function check_repo_clean
