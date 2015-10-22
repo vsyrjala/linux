@@ -808,7 +808,17 @@ case "$subcommand" in
 		;;
 	tc)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
-		git tag --contains $1 | grep ^v | sort -V | head -n 1
+		tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
+		if [[ -n "$tag" ]]; then
+			echo "$tag"
+		else
+			# not in a tagged release, show upstream branches
+			git branch -r --contains $1 \
+			    $DIM_DRM_INTEL_REMOTE/* \
+			    $DIM_DRM_UPSTREAM_REMOTE/drm-next \
+			    $DIM_DRM_UPSTREAM_REMOTE/drm-fixes \
+			    origin/master | sed 's/^ *//'
+		fi
 		;;
 	check-patch|cp)
 		dim_checkrange $@

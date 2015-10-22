@@ -174,7 +174,8 @@ Apply a patch to the i-g-t repository.
 
 tc *commit-ish*
 ---------------
-Prints the linux kernel tag which contains the supplied commit-ish
+Print the oldest Linux kernel release or -rc tag that contains the supplied
+*commit-ish*, or, if none do, print the upstream branches that contain it.
 
 check-patch|cp [*commit-ish* [.. *commit-ish*]]
 -----------------------------------------------
