@@ -203,7 +203,7 @@
  */
 
 /* offset 0 */
-#define DP_DOWNSTREAM_PORT_0		    0x80
+#define DP_DOWNSTREAM_PORT(port)	    (0x80 + (port) * 4)
 # define DP_DS_PORT_TYPE_MASK		    (7 << 0)
 # define DP_DS_PORT_TYPE_DP		    0
 # define DP_DS_PORT_TYPE_VGA		    1
@@ -211,13 +211,25 @@
 # define DP_DS_PORT_TYPE_HDMI		    3
 # define DP_DS_PORT_TYPE_NON_EDID	    4
 # define DP_DS_PORT_HPD			    (1 << 3)
+# define DP_DS_NON_EDID_MASK		    (0xf << 4)
+# define DP_DS_NON_EDID_720x480i_60	    (1 << 4)
+# define DP_DS_NON_EDID_720x480i_50	    (2 << 4)
+# define DP_DS_NON_EDID_1920x1080i_60	    (3 << 4)
+# define DP_DS_NON_EDID_1920x1080i_50	    (4 << 4)
+# define DP_DS_NON_EDID_1280x720_60	    (5 << 4)
+# define DP_DS_NON_EDID_1280x720_50	    (7 << 4)
 /* offset 1 for VGA is maximum megapixels per second / 8 */
-/* offset 2 */
-# define DP_DS_VGA_MAX_BPC_MASK		    (3 << 0)
-# define DP_DS_VGA_8BPC			    0
-# define DP_DS_VGA_10BPC		    1
-# define DP_DS_VGA_12BPC		    2
-# define DP_DS_VGA_16BPC		    3
+/* offset 1 for DVI/HDMI is maximum TMDS clock in Mbps / 2.5 */
+/* offset 2 for VGA/DVI/HDMI */
+# define DP_DS_MAX_BPC_MASK		    (3 << 0)
+# define DP_DS_8BPC			    0
+# define DP_DS_10BPC			    1
+# define DP_DS_12BPC			    2
+# define DP_DS_16BPC		   	    3
+/* offset 3 for DVI/HDMI */
+# define DP_DS_HDMI_FRAME_SEQ_TO_FRAME_PACK (1 << 0)
+# define DP_DS_DVI_DUAL_LINK		    (1 << 1)
+# define DP_DS_DVI_HIGH_COLOR_DEPTH	    (1 << 2)
 
 /* link configuration */
 #define	DP_LINK_BW_SET		            0x100

@@ -5512,7 +5512,7 @@ struct dpcd_block {
 static const struct dpcd_block i915_dpcd_debug[] = {
 	{ .offset = DP_DPCD_REV, .size = DP_RECEIVER_CAP_SIZE },
 	{ .offset = DP_PSR_SUPPORT, .end = DP_PSR_CAPS },
-	{ .offset = DP_DOWNSTREAM_PORT_0, .size = 16 },
+	{ .offset = DP_DOWNSTREAM_PORT(0), .size = 16 },
 	{ .offset = DP_LINK_BW_SET, .end = DP_EDP_CONFIGURATION_SET },
 	{ .offset = DP_SINK_COUNT, .end = DP_ADJUST_REQUEST_LANE2_3 },
 	{ .offset = DP_SET_POWER },

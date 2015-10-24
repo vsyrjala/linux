@@ -2738,6 +2738,26 @@ drm_display_mode_from_vic_index(struct drm_connector *connector,
 	return newmode;
 }
 
+struct drm_display_mode *
+drm_display_mode_from_cea_vic(struct drm_device *dev,
+			      u8 video_code)
+{
+
+	struct drm_display_mode *newmode;
+
+	if (WARN_ON(video_code < 1 || video_code - 1 >= ARRAY_SIZE(edid_cea_modes)))
+		return NULL;
+
+	newmode = drm_mode_duplicate(dev, &edid_cea_modes[video_code - 1]);
+	if (!newmode)
+		return NULL;
+
+	newmode->vrefresh = 0;
+
+	return newmode;
+}
+EXPORT_SYMBOL(drm_display_mode_from_cea_vic);
+
 static int
 do_cea_modes(struct drm_connector *connector, const u8 *db, u8 len)
 {

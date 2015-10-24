@@ -1489,6 +1489,179 @@ void intel_dp_compute_rate(struct intel_dp *intel_dp, int port_clock,
 	}
 }
 
+int drm_dp_downstream_max_bpc(const uint8_t dpcd[DP_RECEIVER_CAP_SIZE],
+			      const uint8_t port_cap[4])
+{
+	if (dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT)
+		return 0;
+
+	if (dpcd[DP_DPCD_REV] < 0x11)
+		return 0;
+
+	switch (port_cap[0] & DP_DS_PORT_TYPE_MASK) {
+	case DP_DS_PORT_TYPE_DP:
+		return 0;
+	case DP_DS_PORT_TYPE_VGA:
+	case DP_DS_PORT_TYPE_DVI:
+	case DP_DS_PORT_TYPE_HDMI:
+		if ((dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DETAILED_CAP_INFO_AVAILABLE) == 0)
+			return 0;
+
+		switch (port_cap[2] & DP_DS_MAX_BPC_MASK) {
+		case DP_DS_8BPC:
+			return 8;
+		case DP_DS_10BPC:
+			return 10;
+		case DP_DS_12BPC:
+			return 12;
+		case DP_DS_16BPC:
+			return 16;
+		default:
+			MISSING_CASE(port_cap[2] & DP_DS_MAX_BPC_MASK);
+			return 0;
+		}
+		break;
+	case DP_DS_PORT_TYPE_NON_EDID:
+		return 0;
+	default:
+		MISSING_CASE(port_cap[0] & DP_DS_PORT_TYPE_MASK);
+		return 0;
+	}
+}
+
+struct drm_display_mode *
+drm_display_mode_from_cea_vic(struct drm_device *dev,
+			      u8 video_code);
+
+struct drm_display_mode *
+drm_dp_downstream_mode(struct drm_device *dev,
+		       const uint8_t dpcd[DP_RECEIVER_CAP_SIZE],
+		       const uint8_t port_cap[4])
+
+{
+	if (dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT)
+		return NULL;
+
+	if (dpcd[DP_DPCD_REV] < 0x11)
+		return NULL;
+
+	switch (port_cap[0] & DP_DS_PORT_TYPE_MASK) {
+		uint8_t vic;
+	case DP_DS_PORT_TYPE_DP:
+	case DP_DS_PORT_TYPE_VGA:
+	case DP_DS_PORT_TYPE_DVI:
+	case DP_DS_PORT_TYPE_HDMI:
+		return NULL;
+	case DP_DS_PORT_TYPE_NON_EDID:
+		switch (port_cap[0] & DP_DS_NON_EDID_MASK) {
+		case DP_DS_NON_EDID_720x480i_60:
+			vic = 6;
+			break;
+		case DP_DS_NON_EDID_720x480i_50:
+			vic = 21;
+			break;
+		case DP_DS_NON_EDID_1920x1080i_60:
+			vic = 5;
+			break;
+		case DP_DS_NON_EDID_1920x1080i_50:
+			vic = 20;
+			break;
+		case DP_DS_NON_EDID_1280x720_60:
+			vic = 4;
+			break;
+		case DP_DS_NON_EDID_1280x720_50:
+			vic = 19;
+			break;
+		default:
+			MISSING_CASE(port_cap[0] & DP_DS_NON_EDID_MASK);
+			return NULL;
+		}
+		return drm_display_mode_from_cea_vic(dev, vic);
+	default:
+		MISSING_CASE(port_cap[0] & DP_DS_PORT_TYPE_MASK);
+		return NULL;
+	}
+}
+
+static int
+drm_dp_downstream_max_clock_cap(const uint8_t dpcd[DP_RECEIVER_CAP_SIZE],
+				const uint8_t port_cap[4])
+{
+	switch (port_cap[0] & DP_DS_PORT_TYPE_MASK) {
+	case DP_DS_PORT_TYPE_DP:
+		return 0;
+	case DP_DS_PORT_TYPE_VGA:
+		if ((dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DETAILED_CAP_INFO_AVAILABLE) == 0)
+			return 0;
+		return port_cap[1] * 8000;
+	case DP_DS_PORT_TYPE_DVI:
+	case DP_DS_PORT_TYPE_HDMI:
+		if ((dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DETAILED_CAP_INFO_AVAILABLE) == 0)
+			return 165000;
+		return port_cap[1] * 2500;
+	case DP_DS_PORT_TYPE_NON_EDID:
+		switch (port_cap[0] & DP_DS_NON_EDID_MASK) {
+		case DP_DS_NON_EDID_720x480i_60:
+		case DP_DS_NON_EDID_720x480i_50:
+			return 13500;
+		case DP_DS_NON_EDID_1920x1080i_60:
+		case DP_DS_NON_EDID_1920x1080i_50:
+		case DP_DS_NON_EDID_1280x720_60:
+		case DP_DS_NON_EDID_1280x720_50:
+			return 74250;
+		default:
+			MISSING_CASE(port_cap[0] & DP_DS_NON_EDID_MASK);
+			return 0;
+		}
+		break;
+	default:
+		MISSING_CASE(port_cap[0] & DP_DS_PORT_TYPE_MASK);
+		return 0;
+	}
+}
+
+int drm_dp_downstream_max_clock(const uint8_t dpcd[DP_RECEIVER_CAP_SIZE],
+				const uint8_t port_cap[4])
+{
+	if (dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT)
+		return 0;
+
+	if (dpcd[DP_DPCD_REV] >= 0x11)
+		return drm_dp_downstream_max_clock_cap(dpcd, port_cap);
+
+	switch (dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_TYPE_MASK) {
+	case DP_DWN_STRM_PORT_TYPE_DP:
+		return 0;
+	case DP_DWN_STRM_PORT_TYPE_ANALOG:
+		return 0;
+	case DP_DWN_STRM_PORT_TYPE_TMDS:
+		return 165000;
+	case DP_DWN_STRM_PORT_TYPE_OTHER:
+		return 0;
+	default:
+		MISSING_CASE(dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_TYPE_MASK);
+		return 0;
+	}
+}
+
+int drm_dp_num_downstream_ports(const uint8_t dpcd[DP_RECEIVER_CAP_SIZE])
+{
+	int num;
+
+	if (dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT)
+		return 0;
+
+	if (dpcd[DP_DPCD_REV] < 0x11)
+		return 0;
+
+	num = dpcd[DP_DOWN_STREAM_PORT_COUNT];
+
+	if ((dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DETAILED_CAP_INFO_AVAILABLE) == 0)
+		return max(num, 1);
+
+	return num;
+}
+
 static bool
 intel_dp_sink_is_dp(const uint8_t dpcd[DP_RECEIVER_CAP_SIZE])
 {
@@ -3916,7 +4089,7 @@ intel_dp_get_dpcd(struct intel_dp *intel_dp)
 	if (intel_dp->dpcd[DP_DPCD_REV] == 0x10)
 		return true; /* no per-port downstream info */
 
-	if (intel_dp_dpcd_read_wake(&intel_dp->aux, DP_DOWNSTREAM_PORT_0,
+	if (intel_dp_dpcd_read_wake(&intel_dp->aux, DP_DOWNSTREAM_PORT(0),
 				    intel_dp->downstream_ports,
 				    DP_MAX_DOWNSTREAM_PORTS) < 0)
 		return false; /* downstream port status fetch failed */
