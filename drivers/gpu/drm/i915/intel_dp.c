@@ -1489,6 +1489,22 @@ void intel_dp_compute_rate(struct intel_dp *intel_dp, int port_clock,
 	}
 }
 
+static bool
+intel_dp_sink_is_dp(const uint8_t dpcd[DP_RECEIVER_CAP_SIZE])
+{
+	if ((dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT) == 0)
+		return true;
+
+	/*
+	 * FIXME not sure what the right thing is here. At least
+	 * some DP->VGA dongles don't expand back to full range.
+	 * For now assume only DP downstream ports can deal with
+	 * limited range correctly.
+	 */
+	return (dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_TYPE_MASK) ==
+		DP_DWN_STRM_PORT_TYPE_DP;
+}
+
 bool
 intel_dp_compute_config(struct intel_encoder *encoder,
 			struct intel_crtc_state *pipe_config)
@@ -1607,9 +1623,11 @@ found:
 		 * VESA DisplayPort Ver.1.2a - 5.1.1.1 Video Colorimetry
 		 */
 		pipe_config->limited_color_range =
+			intel_dp_sink_is_dp(intel_dp->dpcd) &&
 			bpp != 18 && drm_match_cea_mode(adjusted_mode) > 1;
 	} else {
 		pipe_config->limited_color_range =
+			intel_dp_sink_is_dp(intel_dp->dpcd) &&
 			intel_dp->limited_color_range;
 	}
 
