@@ -57,7 +57,7 @@
 
 #define DRIVER_NAME		"i915"
 #define DRIVER_DESC		"Intel Graphics"
-#define DRIVER_DATE		"20151010"
+#define DRIVER_DATE		"20151023"
 
 #undef WARN_ON
 /* Many gcc seem to no see through this and fall over :( */
@@ -627,11 +627,9 @@ struct drm_i915_display_funcs {
 			  int target, int refclk,
 			  struct dpll *match_clock,
 			  struct dpll *best_clock);
+	int (*compute_pipe_wm)(struct intel_crtc *crtc,
+			       struct drm_atomic_state *state);
 	void (*update_wm)(struct drm_crtc *crtc);
-	void (*update_sprite_wm)(struct drm_plane *plane,
-				 struct drm_crtc *crtc,
-				 uint32_t sprite_width, uint32_t sprite_height,
-				 int pixel_size, bool enable, bool scaled);
 	int (*modeset_calc_cdclk)(struct drm_atomic_state *state);
 	void (*modeset_commit_cdclk)(struct drm_atomic_state *state);
 	/* Returns the active state of the crtc, and if the crtc is active,
@@ -1694,6 +1692,13 @@ struct i915_execbuffer_params {
 	struct drm_i915_gem_request     *request;
 };
 
+/* used in computing the new watermarks state */
+struct intel_wm_config {
+	unsigned int num_pipes_active;
+	bool sprites_enabled;
+	bool sprites_scaled;
+};
+
 struct drm_i915_private {
 	struct drm_device *dev;
 	struct kmem_cache *objects;
@@ -1918,6 +1923,9 @@ struct drm_i915_private {
 		 * in 1us units.
 		 */
 		uint16_t skl_latency[8];
+
+		/* Committed wm config */
+		struct intel_wm_config config;
 
 		/*
 		 * The skl_wm_values structure is a bit too big for stack
@@ -2433,6 +2441,15 @@ struct drm_i915_cmd_table {
 #define INTEL_DEVID(p)	(INTEL_INFO(p)->device_id)
 #define INTEL_REVID(p)	(__I915__(p)->dev->pdev->revision)
 
+#define REVID_FOREVER		0xff
+/*
+ * Return true if revision is in range [since,until] inclusive.
+ *
+ * Use 0 for open-ended since, and REVID_FOREVER for open-ended until.
+ */
+#define IS_REVID(p, since, until) \
+	(INTEL_REVID(p) >= (since) && INTEL_REVID(p) <= (until))
+
 #define IS_I830(dev)		(INTEL_DEVID(dev) == 0x3577)
 #define IS_845G(dev)		(INTEL_DEVID(dev) == 0x2562)
 #define IS_I85X(dev)		(INTEL_INFO(dev)->is_i85x)
@@ -2494,16 +2511,21 @@ struct drm_i915_cmd_table {
 
 #define IS_PRELIMINARY_HW(intel_info) ((intel_info)->is_preliminary)
 
-#define SKL_REVID_A0		(0x0)
-#define SKL_REVID_B0		(0x1)
-#define SKL_REVID_C0		(0x2)
-#define SKL_REVID_D0		(0x3)
-#define SKL_REVID_E0		(0x4)
-#define SKL_REVID_F0		(0x5)
+#define SKL_REVID_A0		0x0
+#define SKL_REVID_B0		0x1
+#define SKL_REVID_C0		0x2
+#define SKL_REVID_D0		0x3
+#define SKL_REVID_E0		0x4
+#define SKL_REVID_F0		0x5
 
-#define BXT_REVID_A0		(0x0)
-#define BXT_REVID_B0		(0x3)
-#define BXT_REVID_C0		(0x9)
+#define IS_SKL_REVID(p, since, until) (IS_SKYLAKE(p) && IS_REVID(p, since, until))
+
+#define BXT_REVID_A0		0x0
+#define BXT_REVID_A1		0x1
+#define BXT_REVID_B0		0x3
+#define BXT_REVID_C0		0x9
+
+#define IS_BXT_REVID(p, since, until) (IS_BROXTON(p) && IS_REVID(p, since, until))
 
 /*
  * The genX designation typically refers to the render engine, so render
@@ -3431,6 +3453,32 @@ int intel_freq_opcode(struct drm_i915_private *dev_priv, int val);
 #define POSTING_READ(reg)	(void)I915_READ_NOTRACE(reg)
 #define POSTING_READ16(reg)	(void)I915_READ16_NOTRACE(reg)
 
+#define __raw_read(x, s) \
+static inline uint##x##_t __raw_i915_read##x(struct drm_i915_private *dev_priv, \
+					     uint32_t reg) \
+{ \
+	return read##s(dev_priv->regs + reg); \
+}
+
+#define __raw_write(x, s) \
+static inline void __raw_i915_write##x(struct drm_i915_private *dev_priv, \
+				       uint32_t reg, uint##x##_t val) \
+{ \
+	write##s(val, dev_priv->regs + reg); \
+}
+__raw_read(8, b)
+__raw_read(16, w)
+__raw_read(32, l)
+__raw_read(64, q)
+
+__raw_write(8, b)
+__raw_write(16, w)
+__raw_write(32, l)
+__raw_write(64, q)
+
+#undef __raw_read
+#undef __raw_write
+
 /* These are untraced mmio-accessors that are only valid to be used inside
  * criticial sections inside IRQ handlers where forcewake is explicitly
  * controlled.
@@ -3438,8 +3486,8 @@ int intel_freq_opcode(struct drm_i915_private *dev_priv, int val);
  * Note: Should only be used between intel_uncore_forcewake_irqlock() and
  * intel_uncore_forcewake_irqunlock().
  */
-#define I915_READ_FW(reg__) readl(dev_priv->regs + (reg__))
-#define I915_WRITE_FW(reg__, val__) writel(val__, dev_priv->regs + (reg__))
+#define I915_READ_FW(reg__) __raw_i915_read32(dev_priv, (reg__))
+#define I915_WRITE_FW(reg__, val__) __raw_i915_write32(dev_priv, (reg__), (val__))
 #define POSTING_READ_FW(reg__) (void)I915_READ_FW(reg__)
 
 /* "Broadcast RGB" property */
