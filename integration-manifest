@@ -1,0 +1,24 @@
+origin/drm-intel-fixes 1d337b286098c8e9057854ee59dff05f8ffa81e6
+	drm/i915/skl: Prevent unclaimed register writes on skylake.
+drm-upstream/drm-fixes 22ca7ca52e80524360b43944a0556b2a6dc1aa21
+	Merge branch 'vmwgfx-fixes-4.3' of git://people.freedesktop.org/~thomash/linux
+origin/drm-intel-next-fixes f9e3dc786a585e1ec371c446c62dcc77d0548629
+	drm/i915: add hotplug activation period to hotplug update mask
+origin/drm-intel-next-queued 01403de3c037932883b181f7f6b9962856064f9a
+	drm/i915: Use paramtrized WRPLL_CTL()
+drm-upstream/drm-next d7e1bc3f5e70c5a106606e33cfa4d413459611ba
+	Merge branch 'msm-next' of git://people.freedesktop.org/~robclark/linux into drm-next
+sound-upstream/for-next d82ad8e0c0ecc49e81bf7d57fdc09b7d76c1afc0
+	Merge tag 'asoc-v4.3-rc6' of git://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound into for-next
+origin/topic/drm-misc b110ae706c75458561c03526014f88821cda7f9b
+	drm/gem: Update/Polish docs
+origin/topic/drm-fixes f36203be608a38a5b5523a7aa52cc72f757b9679
+	drm/dp: Add dp_aux_i2c_speed_khz module param to set the assume i2c bus speed
+origin/topic/kerneldoc 85b45d356f0a954342a56ca0228748b532b52114
+	scripts/kernel-doc: Processing -nofunc for functions only
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/mst-fixes 6ea76f3cade4734e73e3da842005820558b8b828
+	drm/atomic-helpers: Make encoder picking more robust
