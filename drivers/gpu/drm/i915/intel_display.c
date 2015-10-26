@@ -5932,25 +5932,6 @@ static int valleyview_calc_cdclk(struct drm_i915_private *dev_priv,
 		return 200000;
 }
 
-static int broxton_calc_cdclk(struct drm_i915_private *dev_priv,
-			      int max_pixclk)
-{
-	/*
-	 * FIXME:
-	 * - set 19.2MHz bypass frequency if there are no active pipes
-	 */
-	if (max_pixclk > 576000)
-		return 624000;
-	else if (max_pixclk > 384000)
-		return 576000;
-	else if (max_pixclk > 288000)
-		return 384000;
-	else if (max_pixclk > 144000)
-		return 288000;
-	else
-		return 144000;
-}
-
 /* Compute the max pixel clock for new configuration. Uses atomic state if
  * that's non-NULL, look at current state otherwise. */
 static int intel_mode_max_pixclk(struct drm_device *dev,
@@ -5986,21 +5967,6 @@ static int valleyview_modeset_calc_cdclk(struct drm_atomic_state *state)
 
 	to_intel_atomic_state(state)->cdclk =
 		valleyview_calc_cdclk(dev_priv, max_pixclk);
-
-	return 0;
-}
-
-static int broxton_modeset_calc_cdclk(struct drm_atomic_state *state)
-{
-	struct drm_device *dev = state->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	int max_pixclk = intel_mode_max_pixclk(dev, state);
-
-	if (max_pixclk < 0)
-		return max_pixclk;
-
-	to_intel_atomic_state(state)->cdclk =
-		broxton_calc_cdclk(dev_priv, max_pixclk);
 
 	return 0;
 }
@@ -9497,14 +9463,6 @@ void hsw_disable_pc8(struct drm_i915_private *dev_priv)
 	intel_prepare_ddi(dev);
 }
 
-static void broxton_modeset_commit_cdclk(struct drm_atomic_state *old_state)
-{
-	struct drm_device *dev = old_state->dev;
-	unsigned int req_cdclk = to_intel_atomic_state(old_state)->cdclk;
-
-	broxton_set_cdclk(dev, req_cdclk);
-}
-
 /* compute the max rate for new configuration */
 static int ilk_max_pixel_rate(struct drm_atomic_state *state)
 {
@@ -9621,14 +9579,31 @@ static int broadwell_modeset_calc_cdclk(struct drm_atomic_state *state)
 	 * FIXME should also account for plane ratio
 	 * once 64bpp pixel formats are supported.
 	 */
-	if (max_pixclk > 540000)
-		cdclk = 675000;
-	else if (max_pixclk > 450000)
-		cdclk = 540000;
-	else if (max_pixclk > 337500)
-		cdclk = 450000;
-	else
-		cdclk = 337500;
+	if (IS_BROXTON(dev_priv)) {
+		/*
+		 * FIXME:
+		 * - set 19.2MHz bypass frequency if there are no active pipes
+		 */
+		if (max_pixclk > 576000)
+			cdclk = 624000;
+		else if (max_pixclk > 384000)
+			cdclk = 576000;
+		else if (max_pixclk > 288000)
+			cdclk = 384000;
+		else if (max_pixclk > 144000)
+			cdclk = 288000;
+		else
+			cdclk = 144000;
+	} else {
+		if (max_pixclk > 540000)
+			cdclk = 675000;
+		else if (max_pixclk > 450000)
+			cdclk = 540000;
+		else if (max_pixclk > 337500)
+			cdclk = 450000;
+		else
+			cdclk = 337500;
+	}
 
 	/*
 	 * FIXME move the cdclk caclulation to
@@ -9650,7 +9625,10 @@ static void broadwell_modeset_commit_cdclk(struct drm_atomic_state *old_state)
 	struct drm_device *dev = old_state->dev;
 	unsigned int req_cdclk = to_intel_atomic_state(old_state)->cdclk;
 
-	broadwell_set_cdclk(dev, req_cdclk);
+	if (IS_BROXTON(dev))
+		broxton_set_cdclk(dev, req_cdclk);
+	else
+		broadwell_set_cdclk(dev, req_cdclk);
 }
 
 static int haswell_crtc_compute_clock(struct intel_crtc *crtc,
@@ -14619,7 +14597,7 @@ static void intel_init_display(struct drm_device *dev)
 		dev_priv->display.fdi_link_train = hsw_fdi_link_train;
 	}
 
-	if (IS_BROADWELL(dev)) {
+	if (IS_BROADWELL(dev) || IS_BROXTON(dev)) {
 		dev_priv->display.modeset_commit_cdclk =
 			broadwell_modeset_commit_cdclk;
 		dev_priv->display.modeset_calc_cdclk =
@@ -14629,11 +14607,6 @@ static void intel_init_display(struct drm_device *dev)
 			valleyview_modeset_commit_cdclk;
 		dev_priv->display.modeset_calc_cdclk =
 			valleyview_modeset_calc_cdclk;
-	} else if (IS_BROXTON(dev)) {
-		dev_priv->display.modeset_commit_cdclk =
-			broxton_modeset_commit_cdclk;
-		dev_priv->display.modeset_calc_cdclk =
-			broxton_modeset_calc_cdclk;
 	}
 
 	switch (INTEL_INFO(dev)->gen) {
