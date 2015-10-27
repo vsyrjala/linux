@@ -1,10 +1,23 @@
-.. This is a wrapper intended to both keep the master document clean of the raw
-.. html script stuff and to keep the wavedrom source pure json.
+.. raw:: html
+
+	<script type="text/javascript">
+	/* Embedded WaveDrom skin from http://wavedrom.com/skins/default.js */
+
+.. raw:: html
+	:url: http://wavedrom.com/skins/default.js
 
 .. raw:: html
 
-	<script src="http://wavedrom.com/skins/default.js" type="text/javascript"></script>
-	<script src="http://wavedrom.com/WaveDrom.js" type="text/javascript"></script>
+	</script>
+	<script type="text/javascript">
+	/* Embedded WaveDrom engine from http://wavedrom.com/WaveDrom.js */
+
+.. raw:: html
+	:url: http://wavedrom.com/WaveDrom.js
+
+.. raw:: html
+
+	</script>
 	<script type="WaveDrom">
 
 .. raw:: html

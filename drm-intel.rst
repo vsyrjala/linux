@@ -136,7 +136,6 @@ kernel release cycle. Worth noting is that we're working on two or three kernel
 releases at the same time. Big features take a long time to hit a kernel
 release. There are no fast paths.
 
-.. Note: This requires JavaScript and will access http://wavedrom.com to render.
 .. include:: drm-intel-timeline.rst
 
 For predictions on the future merge windows and releases, see
