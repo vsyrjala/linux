@@ -172,11 +172,15 @@ if message_id is not None:
 EOF
 }
 
-# inject a new tag to a patch file
-# $1 = file, $2 = tag, $3 = value
-message_add_tag ()
+# append a new tag at the end of the commit message of HEAD
+# $1 = tag, $2 = value
+commit_add_tag ()
 {
-	sed -ie "/^---$/ i\\$2: $3" $1
+	# the first sed deletes all trailing blank lines at the end
+	git log -1 --pretty=%B | \
+		sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' | \
+		sed "\$a$1: $2" | \
+		git commit --amend -F-
 }
 
 function update_linux_next
@@ -370,13 +374,15 @@ function dim_apply
 	cat > $file
 
 	local message_id=$(message_get_id $file)
-	if [ -n $message_id ]; then
-		message_add_tag $file "Link" "http://patchwork.freedesktop.org/patch/msgid/$message_id"
-	fi
 
 	dim_shell_checkpatch "cat $file"
 
 	cat $file | git am -3 "$@"
+
+	if [ -n $message_id ]; then
+		commit_add_tag "Link" "http://patchwork.freedesktop.org/patch/msgid/$message_id"
+	fi
+
 	git commit --amend &
 }
 
