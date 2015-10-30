@@ -284,6 +284,28 @@ if message_id is not None:
 EOF
 }
 
+message_print_body ()
+{
+	python2 <<EOF
+import email
+
+def print_part(part):
+    mtype = part.get_content_maintype()
+    if mtype == 'text':
+        print(part.get_payload(decode=True))
+
+def print_msg(file):
+    msg = email.message_from_file(file)
+    if msg.is_multipart():
+        for part in msg.get_payload():
+            print_part(part)
+    else:
+        print_part(msg)
+
+print_msg(open('$1', 'r'))
+EOF
+}
+
 # append all arguments as tags at the end of the commit message of HEAD
 function dim_commit_add_tag
 {
@@ -883,6 +905,44 @@ function rangeish()
 	else
 		echo "$1..HEAD"
 	fi
+}
+
+dim_alias_xt=extract-tags
+function dim_extract_tags
+{
+	local branch=$1
+	shift
+	local range=$(rangeish "$1")
+	local file=`mktemp`
+
+	assert_branch $branch
+	assert_repo_clean
+
+	cat > $file
+
+	echo "message_print_body \"$file\""
+	local tags=$(message_print_body "$file" | grep -ai '^[^>]*[A-Za-z-]\+: [^ ]')
+	test -n "$tags" || return 0
+	local tags=$(printf -- "--- extracted tags ---\n%s" "$tags")
+	git filter-branch -f --msg-filter "cat ; echo \"$tags\"" $range
+}
+
+dim_alias_xq=extract-queued
+function dim_extract_queued
+{
+	dim_extract_tags drm-intel-next-queued "$@"
+}
+
+dim_alias_xf=extract-fixes
+function dim_extract_fixes
+{
+	dim_extract_tags drm-intel-fixes "$@"
+}
+
+dim_alias_xnf=extract-next-fixes
+function dim_extract_next_fixes
+{
+	dim_extract_tags drm-intel-next-fixes "$@"
 }
 
 dim_alias_check_patch=checkpatch
