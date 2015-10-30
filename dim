@@ -183,6 +183,28 @@ commit_add_tag ()
 		git commit --amend -F-
 }
 
+message_print_body ()
+{
+	python2 <<EOF
+import email
+
+def print_part(part):
+    mtype = part.get_content_maintype()
+    if mtype == 'text':
+        print(part.get_payload(decode=True))
+
+def print_msg(file):
+    msg = email.message_from_file(file)
+    if msg.is_multipart():
+        for part in msg.get_payload():
+            print_part(part)
+    else:
+        print_part(msg)
+
+print_msg(open('$1', 'r'))
+EOF
+}
+
 function update_linux_next
 {
 	cd $DIM_PREFIX/drm-intel-nightly
@@ -386,6 +408,43 @@ function dim_apply
 	#git commit --amend &
 }
 
+
+# $1 is the rev-list
+function dim_revlist
+{
+	if [ -z "$1" ]; then
+		echo "HEAD^..HEAD"
+	elif [ -n "`echo $1 | grep '\.\.'`" ]; then
+		echo "$1"
+	else
+		echo "$1..HEAD"
+	fi
+}
+
+# extract tags from the mail and append them
+# to the end of the commits in range $1
+function dim_extract_tags
+{
+	dim_cd drm-intel-next-queued
+
+	local file=`mktemp`
+
+	if [[ -n `git status --porcelain --untracked-files=no` ]] ; then
+		echo Repository not clean, aborting
+		exit 2
+	fi
+
+	range=`dim_revlist "$1"`
+
+	cat > $file
+
+	echo "message_print_body \"$file\""
+	local tags=`message_print_body "$file" | grep -ai '^[^>]*[A-Za-z-]\+: [^ ]'`
+	test -n "$tags" || return 0
+	tags=`printf -- "--- extracted tags ---\n%s" "$tags"`
+	git filter-branch -f --msg-filter "cat ; echo \"$tags\"" $range
+}
+
 function magic_patch
 {
 	if [[ "$1" = "-a" ]]; then
@@ -465,13 +524,7 @@ function dim_checkrange
 {
 	local range
 
-	if [ -z "$1" ]; then
-		range="HEAD^..HEAD"
-	elif [ -n "`echo $1 | grep '\.\.'`" ]; then
-		range="$1"
-	else
-		range="$1..HEAD"
-	fi
+	range=`dim_revlist "$1"`
 
 	for commit in $(git rev-list --reverse $range); do
 		dim_checkpatch $commit || true
@@ -780,6 +833,9 @@ case "$subcommand" in
 		;;
 	conf)
 		dim_co drm-intel-next-fixes
+		;;
+	extract-tags|xt)
+		dim_extract_tags "$@"
 		;;
 	apply-branch|ab|sob)
 		dim_apply "$@"
