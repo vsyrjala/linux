@@ -1,0 +1,24 @@
+origin/drm-intel-fixes 6a13feb9c82803e2b815eca72fa7a9f5561d7861
+	Linux 4.3
+drm-upstream/drm-fixes 8731b269f01e16193390c7276e70530366b8d626
+	drm: Correct arguments to list_tail_add in create blob ioctl
+origin/drm-intel-next-fixes 9be64eee3a87dc03218ca9a12834d1150a57b8a8
+	drm/i915: add quirk to enable backlight on Dell Chromebook 11 (2015)
+origin/drm-intel-next-queued b5667627963b51baa06868a550d2bc340e3d18a9
+	drm/i915/bxt: Fix eDP panel fitting (v2)
+drm-upstream/drm-next bf248ca1f5c7ba1e535ba4bd517a15a1ae965c69
+	drm/i915: Fix locking around GuC firmware load
+sound-upstream/for-next de1ab6af5c3d92c0a031083962a7ff270cf301b7
+	ALSA: hda - Fix lost 4k BDL boundary workaround
+origin/topic/drm-misc 364b19868ecd11b91d83c921b55022f70c6c64c6
+	drm/dp: add eDP DPCD backlight control bit definitions
+origin/topic/drm-fixes f36203be608a38a5b5523a7aa52cc72f757b9679
+	drm/dp: Add dp_aux_i2c_speed_khz module param to set the assume i2c bus speed
+origin/topic/kerneldoc 85b45d356f0a954342a56ca0228748b532b52114
+	scripts/kernel-doc: Processing -nofunc for functions only
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/mst-fixes 6ea76f3cade4734e73e3da842005820558b8b828
+	drm/atomic-helpers: Make encoder picking more robust
