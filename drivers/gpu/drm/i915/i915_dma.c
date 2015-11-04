@@ -367,7 +367,7 @@ static void i915_switcheroo_set_state(struct pci_dev *pdev, enum vga_switcheroo_
 		i915_resume_switcheroo(dev);
 		dev->switch_power_state = DRM_SWITCH_POWER_ON;
 	} else {
-		pr_err("switched off\n");
+		pr_info("switched off\n");
 		dev->switch_power_state = DRM_SWITCH_POWER_CHANGING;
 		i915_suspend_switcheroo(dev, pmm);
 		dev->switch_power_state = DRM_SWITCH_POWER_OFF;
@@ -697,7 +697,8 @@ static void gen9_sseu_info_init(struct drm_device *dev)
 	 * supports EU power gating on devices with more than one EU
 	 * pair per subslice.
 	*/
-	info->has_slice_pg = (IS_SKYLAKE(dev) && (info->slice_total > 1));
+	info->has_slice_pg = ((IS_SKYLAKE(dev) || IS_KABYLAKE(dev)) &&
+			       (info->slice_total > 1));
 	info->has_subslice_pg = (IS_BROXTON(dev) && (info->subslice_total > 1));
 	info->has_eu_pg = (info->eu_per_subslice > 2);
 }
