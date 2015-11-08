@@ -644,8 +644,9 @@ intel_panel_actually_set_backlight(struct intel_connector *connector, u32 level)
 	DRM_DEBUG_DRIVER("set backlight PWM = %d\n", level);
 
 	level = intel_panel_compute_brightness(connector, level);
-	level = intel_opregion_remap_backlight(dev_priv, panel->backlight.min,
-					       panel->backlight.max, level);
+	if (i915.enable_blcm)
+		level = intel_opregion_remap_backlight(dev_priv, panel->backlight.min,
+						       panel->backlight.max, level);
 	panel->backlight.set(connector, level);
 }
 
