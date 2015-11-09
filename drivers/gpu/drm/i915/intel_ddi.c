@@ -448,7 +448,7 @@ static void intel_prepare_ddi_buffers(struct drm_device *dev, enum port port,
 		bxt_ddi_vswing_sequence(dev, hdmi_level, port,
 					INTEL_OUTPUT_HDMI);
 		return;
-	} else if (IS_SKYLAKE(dev)) {
+	} else if (IS_SKYLAKE(dev) || IS_KABYLAKE(dev)) {
 		ddi_translations_fdi = NULL;
 		ddi_translations_dp =
 				skl_get_buf_trans_dp(dev, &n_dp_entries);
@@ -1112,10 +1112,10 @@ static void hsw_ddi_clock_get(struct intel_encoder *encoder,
 		link_clock = 270000;
 		break;
 	case PORT_CLK_SEL_WRPLL1:
-		link_clock = hsw_ddi_calc_wrpll_link(dev_priv, WRPLL_CTL1);
+		link_clock = hsw_ddi_calc_wrpll_link(dev_priv, WRPLL_CTL(0));
 		break;
 	case PORT_CLK_SEL_WRPLL2:
-		link_clock = hsw_ddi_calc_wrpll_link(dev_priv, WRPLL_CTL2);
+		link_clock = hsw_ddi_calc_wrpll_link(dev_priv, WRPLL_CTL(1));
 		break;
 	case PORT_CLK_SEL_SPLL:
 		pll = I915_READ(SPLL_CTL) & SPLL_PLL_FREQ_MASK;
@@ -1184,7 +1184,7 @@ void intel_ddi_clock_get(struct intel_encoder *encoder,
 
 	if (INTEL_INFO(dev)->gen <= 8)
 		hsw_ddi_clock_get(encoder, pipe_config);
-	else if (IS_SKYLAKE(dev))
+	else if (IS_SKYLAKE(dev) || IS_KABYLAKE(dev))
 		skl_ddi_clock_get(encoder, pipe_config);
 	else if (IS_BROXTON(dev))
 		bxt_ddi_clock_get(encoder, pipe_config);
@@ -1768,7 +1768,7 @@ bool intel_ddi_pll_select(struct intel_crtc *intel_crtc,
 	struct intel_encoder *intel_encoder =
 		intel_ddi_get_crtc_new_encoder(crtc_state);
 
-	if (IS_SKYLAKE(dev))
+	if (IS_SKYLAKE(dev) || IS_KABYLAKE(dev))
 		return skl_ddi_pll_select(intel_crtc, crtc_state,
 					  intel_encoder);
 	else if (IS_BROXTON(dev))
@@ -2251,7 +2251,7 @@ uint32_t ddi_signal_levels(struct intel_dp *intel_dp)
 
 	level = translate_signal_level(signal_levels);
 
-	if (IS_SKYLAKE(dev))
+	if (IS_SKYLAKE(dev) || IS_KABYLAKE(dev))
 		skl_ddi_set_iboost(dev, level, port, encoder->type);
 	else if (IS_BROXTON(dev))
 		bxt_ddi_vswing_sequence(dev, level, port, encoder->type);
@@ -2274,7 +2274,7 @@ static void intel_ddi_pre_enable(struct intel_encoder *intel_encoder)
 		intel_edp_panel_on(intel_dp);
 	}
 
-	if (IS_SKYLAKE(dev)) {
+	if (IS_SKYLAKE(dev) || IS_KABYLAKE(dev)) {
 		uint32_t dpll = crtc->config->ddi_pll_sel;
 		uint32_t val;
 
@@ -2369,7 +2369,7 @@ static void intel_ddi_post_disable(struct intel_encoder *intel_encoder)
 		intel_edp_panel_off(intel_dp);
 	}
 
-	if (IS_SKYLAKE(dev))
+	if (IS_SKYLAKE(dev) || IS_KABYLAKE(dev))
 		I915_WRITE(DPLL_CTRL2, (I915_READ(DPLL_CTRL2) |
 					DPLL_CTRL2_DDI_CLK_OFF(port)));
 	else if (INTEL_INFO(dev)->gen < 9)
@@ -2511,13 +2511,13 @@ static const struct skl_dpll_regs skl_dpll_regs[3] = {
 	},
 	{
 		/* DPLL 2 */
-		.ctl = WRPLL_CTL1,
+		.ctl = WRPLL_CTL(0),
 		.cfgcr1 = DPLL_CFGCR1(SKL_DPLL2),
 		.cfgcr2 = DPLL_CFGCR2(SKL_DPLL2),
 	},
 	{
 		/* DPLL 3 */
-		.ctl = WRPLL_CTL2,
+		.ctl = WRPLL_CTL(1),
 		.cfgcr1 = DPLL_CFGCR1(SKL_DPLL3),
 		.cfgcr2 = DPLL_CFGCR2(SKL_DPLL3),
 	},
@@ -2937,20 +2937,20 @@ void intel_ddi_pll_init(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	uint32_t val = I915_READ(LCPLL_CTL);
 
-	if (IS_SKYLAKE(dev))
+	if (IS_SKYLAKE(dev) || IS_KABYLAKE(dev))
 		skl_shared_dplls_init(dev_priv);
 	else if (IS_BROXTON(dev))
 		bxt_shared_dplls_init(dev_priv);
 	else
 		hsw_shared_dplls_init(dev_priv);
 
-	if (IS_SKYLAKE(dev)) {
+	if (IS_SKYLAKE(dev) || IS_KABYLAKE(dev)) {
 		int cdclk_freq;
 
 		cdclk_freq = dev_priv->display.get_display_clock_speed(dev);
 		dev_priv->skl_boot_cdclk = cdclk_freq;
-		if (!(I915_READ(LCPLL1_CTL) & LCPLL_PLL_ENABLE))
-			DRM_ERROR("LCPLL1 is disabled\n");
+		if (skl_sanitize_cdclk(dev_priv))
+			DRM_DEBUG_KMS("Sanitized cdclk programmed by pre-os\n");
 		else
 			intel_display_power_get(dev_priv, POWER_DOMAIN_PLLS);
 	} else if (IS_BROXTON(dev)) {
@@ -2971,11 +2971,11 @@ void intel_ddi_pll_init(struct drm_device *dev)
 	}
 }
 
-void intel_ddi_prepare_link_retrain(struct drm_encoder *encoder)
+void intel_ddi_prepare_link_retrain(struct intel_dp *intel_dp)
 {
-	struct intel_digital_port *intel_dig_port = enc_to_dig_port(encoder);
-	struct intel_dp *intel_dp = &intel_dig_port->dp;
-	struct drm_i915_private *dev_priv = encoder->dev->dev_private;
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct drm_i915_private *dev_priv =
+		to_i915(intel_dig_port->base.base.dev);
 	enum port port = intel_dig_port->port;
 	uint32_t val;
 	bool wait = false;
@@ -3247,8 +3247,7 @@ void intel_ddi_init(struct drm_device *dev, enum port port)
 		 * On BXT A0/A1, sw needs to activate DDIA HPD logic and
 		 * interrupts to check the external panel connection.
 		 */
-		if (IS_BROXTON(dev_priv) && (INTEL_REVID(dev) < BXT_REVID_B0)
-					 && port == PORT_B)
+		if (IS_BXT_REVID(dev, 0, BXT_REVID_A1) && port == PORT_B)
 			dev_priv->hotplug.irq_port[PORT_A] = intel_dig_port;
 		else
 			dev_priv->hotplug.irq_port[port] = intel_dig_port;

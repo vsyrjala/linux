@@ -1023,7 +1023,7 @@ intel_dp_aux_init(struct intel_dp *intel_dp, struct intel_connector *connector)
 	/* On SKL we don't have Aux for port E so we rely on VBT to set
 	 * a proper alternate aux channel.
 	 */
-	if (IS_SKYLAKE(dev) && port == PORT_E) {
+	if ((IS_SKYLAKE(dev) || IS_KABYLAKE(dev)) && port == PORT_E) {
 		switch (info->alternate_aux_channel) {
 		case DP_AUX_B:
 			porte_aux_ctl_reg = DPB_AUX_CH_CTL;
@@ -1189,10 +1189,13 @@ intel_dp_sink_rates(struct intel_dp *intel_dp, const int **sink_rates)
 	return (intel_dp_max_link_bw(intel_dp) >> 3) + 1;
 }
 
-static bool intel_dp_source_supports_hbr2(struct drm_device *dev)
+bool intel_dp_source_supports_hbr2(struct intel_dp *intel_dp)
 {
+	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
+	struct drm_device *dev = dig_port->base.base.dev;
+
 	/* WaDisableHBR2:skl */
-	if (IS_SKYLAKE(dev) && INTEL_REVID(dev) <= SKL_REVID_B0)
+	if (IS_SKL_REVID(dev, 0, SKL_REVID_B0))
 		return false;
 
 	if ((IS_HASWELL(dev) && !IS_HSW_ULX(dev)) || IS_BROADWELL(dev) ||
@@ -1203,14 +1206,16 @@ static bool intel_dp_source_supports_hbr2(struct drm_device *dev)
 }
 
 static int
-intel_dp_source_rates(struct drm_device *dev, const int **source_rates)
+intel_dp_source_rates(struct intel_dp *intel_dp, const int **source_rates)
 {
+	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
+	struct drm_device *dev = dig_port->base.base.dev;
 	int size;
 
 	if (IS_BROXTON(dev)) {
 		*source_rates = bxt_rates;
 		size = ARRAY_SIZE(bxt_rates);
-	} else if (IS_SKYLAKE(dev)) {
+	} else if (IS_SKYLAKE(dev) || IS_KABYLAKE(dev)) {
 		*source_rates = skl_rates;
 		size = ARRAY_SIZE(skl_rates);
 	} else {
@@ -1219,7 +1224,7 @@ intel_dp_source_rates(struct drm_device *dev, const int **source_rates)
 	}
 
 	/* This depends on the fact that 5.4 is last value in the array */
-	if (!intel_dp_source_supports_hbr2(dev))
+	if (!intel_dp_source_supports_hbr2(intel_dp))
 		size--;
 
 	return size;
@@ -1284,12 +1289,11 @@ static int intersect_rates(const int *source_rates, int source_len,
 static int intel_dp_common_rates(struct intel_dp *intel_dp,
 				 int *common_rates)
 {
-	struct drm_device *dev = intel_dp_to_dev(intel_dp);
 	const int *source_rates, *sink_rates;
 	int source_len, sink_len;
 
 	sink_len = intel_dp_sink_rates(intel_dp, &sink_rates);
-	source_len = intel_dp_source_rates(dev, &source_rates);
+	source_len = intel_dp_source_rates(intel_dp, &source_rates);
 
 	return intersect_rates(source_rates, source_len,
 			       sink_rates, sink_len,
@@ -1314,7 +1318,6 @@ static void snprintf_int_array(char *str, size_t len,
 
 static void intel_dp_print_rates(struct intel_dp *intel_dp)
 {
-	struct drm_device *dev = intel_dp_to_dev(intel_dp);
 	const int *source_rates, *sink_rates;
 	int source_len, sink_len, common_len;
 	int common_rates[DP_MAX_SUPPORTED_RATES];
@@ -1323,7 +1326,7 @@ static void intel_dp_print_rates(struct intel_dp *intel_dp)
 	if ((drm_debug & DRM_UT_KMS) == 0)
 		return;
 
-	source_len = intel_dp_source_rates(dev, &source_rates);
+	source_len = intel_dp_source_rates(intel_dp, &source_rates);
 	snprintf_int_array(str, sizeof(str), source_rates, source_len);
 	DRM_DEBUG_KMS("source rates: %s\n", str);
 
@@ -1365,8 +1368,8 @@ int intel_dp_rate_select(struct intel_dp *intel_dp, int rate)
 	return rate_to_index(rate, intel_dp->sink_rates);
 }
 
-static void intel_dp_compute_rate(struct intel_dp *intel_dp, int port_clock,
-				  uint8_t *link_bw, uint8_t *rate_select)
+void intel_dp_compute_rate(struct intel_dp *intel_dp, int port_clock,
+			   uint8_t *link_bw, uint8_t *rate_select)
 {
 	if (intel_dp->num_sink_rates) {
 		*link_bw = 0;
@@ -1426,7 +1429,7 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 				return ret;
 		}
 
-		if (!HAS_PCH_SPLIT(dev))
+		if (HAS_GMCH_DISPLAY(dev))
 			intel_gmch_panel_fitting(intel_crtc, pipe_config,
 						 intel_connector->panel.fitting_mode);
 		else
@@ -1530,7 +1533,7 @@ found:
 				&pipe_config->dp_m2_n2);
 	}
 
-	if (IS_SKYLAKE(dev) && is_edp(intel_dp))
+	if ((IS_SKYLAKE(dev)  || IS_KABYLAKE(dev)) && is_edp(intel_dp))
 		skl_edp_set_pll_config(pipe_config);
 	else if (IS_BROXTON(dev))
 		/* handled in ddi */;
@@ -3046,7 +3049,7 @@ intel_dp_dpcd_read_wake(struct drm_dp_aux *aux, unsigned int offset,
  * Fetch AUX CH registers 0x202 - 0x207 which contain
  * link status information
  */
-static bool
+bool
 intel_dp_get_link_status(struct intel_dp *intel_dp, uint8_t link_status[DP_LINK_STATUS_SIZE])
 {
 	return intel_dp_dpcd_read_wake(&intel_dp->aux,
@@ -3056,7 +3059,7 @@ intel_dp_get_link_status(struct intel_dp *intel_dp, uint8_t link_status[DP_LINK_
 }
 
 /* These are source-specific values. */
-static uint8_t
+uint8_t
 intel_dp_voltage_max(struct intel_dp *intel_dp)
 {
 	struct drm_device *dev = intel_dp_to_dev(intel_dp);
@@ -3079,7 +3082,7 @@ intel_dp_voltage_max(struct intel_dp *intel_dp)
 		return DP_TRAIN_VOLTAGE_SWING_LEVEL_2;
 }
 
-static uint8_t
+uint8_t
 intel_dp_pre_emphasis_max(struct intel_dp *intel_dp, uint8_t voltage_swing)
 {
 	struct drm_device *dev = intel_dp_to_dev(intel_dp);
@@ -3421,38 +3424,6 @@ static uint32_t chv_signal_levels(struct intel_dp *intel_dp)
 	return 0;
 }
 
-static void
-intel_get_adjust_train(struct intel_dp *intel_dp,
-		       const uint8_t link_status[DP_LINK_STATUS_SIZE])
-{
-	uint8_t v = 0;
-	uint8_t p = 0;
-	int lane;
-	uint8_t voltage_max;
-	uint8_t preemph_max;
-
-	for (lane = 0; lane < intel_dp->lane_count; lane++) {
-		uint8_t this_v = drm_dp_get_adjust_request_voltage(link_status, lane);
-		uint8_t this_p = drm_dp_get_adjust_request_pre_emphasis(link_status, lane);
-
-		if (this_v > v)
-			v = this_v;
-		if (this_p > p)
-			p = this_p;
-	}
-
-	voltage_max = intel_dp_voltage_max(intel_dp);
-	if (v >= voltage_max)
-		v = voltage_max | DP_TRAIN_MAX_SWING_REACHED;
-
-	preemph_max = intel_dp_pre_emphasis_max(intel_dp, v);
-	if (p >= preemph_max)
-		p = preemph_max | DP_TRAIN_MAX_PRE_EMPHASIS_REACHED;
-
-	for (lane = 0; lane < 4; lane++)
-		intel_dp->train_set[lane] = v | p;
-}
-
 static uint32_t
 gen4_signal_levels(uint8_t train_set)
 {
@@ -3550,13 +3521,13 @@ gen7_edp_signal_levels(uint8_t train_set)
 	}
 }
 
-/* Properly updates "DP" with the correct signal levels. */
-static void
-intel_dp_set_signal_levels(struct intel_dp *intel_dp, uint32_t *DP)
+void
+intel_dp_set_signal_levels(struct intel_dp *intel_dp)
 {
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	enum port port = intel_dig_port->port;
 	struct drm_device *dev = intel_dig_port->base.base.dev;
+	struct drm_i915_private *dev_priv = to_i915(dev);
 	uint32_t signal_levels, mask = 0;
 	uint8_t train_set = intel_dp->train_set[0];
 
@@ -3591,74 +3562,27 @@ intel_dp_set_signal_levels(struct intel_dp *intel_dp, uint32_t *DP)
 		(train_set & DP_TRAIN_PRE_EMPHASIS_MASK) >>
 			DP_TRAIN_PRE_EMPHASIS_SHIFT);
 
-	*DP = (*DP & ~mask) | signal_levels;
+	intel_dp->DP = (intel_dp->DP & ~mask) | signal_levels;
+
+	I915_WRITE(intel_dp->output_reg, intel_dp->DP);
+	POSTING_READ(intel_dp->output_reg);
 }
 
-static bool
-intel_dp_set_link_train(struct intel_dp *intel_dp,
-			uint32_t *DP,
-			uint8_t dp_train_pat)
+void
+intel_dp_program_link_training_pattern(struct intel_dp *intel_dp,
+				       uint8_t dp_train_pat)
 {
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct drm_i915_private *dev_priv =
 		to_i915(intel_dig_port->base.base.dev);
-	uint8_t buf[sizeof(intel_dp->train_set) + 1];
-	int ret, len;
 
-	_intel_dp_set_link_train(intel_dp, DP, dp_train_pat);
+	_intel_dp_set_link_train(intel_dp, &intel_dp->DP, dp_train_pat);
 
-	I915_WRITE(intel_dp->output_reg, *DP);
+	I915_WRITE(intel_dp->output_reg, intel_dp->DP);
 	POSTING_READ(intel_dp->output_reg);
-
-	buf[0] = dp_train_pat;
-	if ((dp_train_pat & DP_TRAINING_PATTERN_MASK) ==
-	    DP_TRAINING_PATTERN_DISABLE) {
-		/* don't write DP_TRAINING_LANEx_SET on disable */
-		len = 1;
-	} else {
-		/* DP_TRAINING_LANEx_SET follow DP_TRAINING_PATTERN_SET */
-		memcpy(buf + 1, intel_dp->train_set, intel_dp->lane_count);
-		len = intel_dp->lane_count + 1;
-	}
-
-	ret = drm_dp_dpcd_write(&intel_dp->aux, DP_TRAINING_PATTERN_SET,
-				buf, len);
-
-	return ret == len;
 }
 
-static bool
-intel_dp_reset_link_train(struct intel_dp *intel_dp, uint32_t *DP,
-			uint8_t dp_train_pat)
-{
-	if (!intel_dp->train_set_valid)
-		memset(intel_dp->train_set, 0, sizeof(intel_dp->train_set));
-	intel_dp_set_signal_levels(intel_dp, DP);
-	return intel_dp_set_link_train(intel_dp, DP, dp_train_pat);
-}
-
-static bool
-intel_dp_update_link_train(struct intel_dp *intel_dp, uint32_t *DP,
-			   const uint8_t link_status[DP_LINK_STATUS_SIZE])
-{
-	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
-	struct drm_i915_private *dev_priv =
-		to_i915(intel_dig_port->base.base.dev);
-	int ret;
-
-	intel_get_adjust_train(intel_dp, link_status);
-	intel_dp_set_signal_levels(intel_dp, DP);
-
-	I915_WRITE(intel_dp->output_reg, *DP);
-	POSTING_READ(intel_dp->output_reg);
-
-	ret = drm_dp_dpcd_write(&intel_dp->aux, DP_TRAINING_LANE0_SET,
-				intel_dp->train_set, intel_dp->lane_count);
-
-	return ret == intel_dp->lane_count;
-}
-
-static void intel_dp_set_idle_link_train(struct intel_dp *intel_dp)
+void intel_dp_set_idle_link_train(struct intel_dp *intel_dp)
 {
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct drm_device *dev = intel_dig_port->base.base.dev;
@@ -3687,232 +3611,6 @@ static void intel_dp_set_idle_link_train(struct intel_dp *intel_dp)
 	if (wait_for((I915_READ(DP_TP_STATUS(port)) & DP_TP_STATUS_IDLE_DONE),
 		     1))
 		DRM_ERROR("Timed out waiting for DP idle patterns\n");
-}
-
-/* Enable corresponding port and start training pattern 1 */
-static void
-intel_dp_link_training_clock_recovery(struct intel_dp *intel_dp)
-{
-	struct drm_encoder *encoder = &dp_to_dig_port(intel_dp)->base.base;
-	struct drm_device *dev = encoder->dev;
-	int i;
-	uint8_t voltage;
-	int voltage_tries, loop_tries;
-	uint32_t DP = intel_dp->DP;
-	uint8_t link_config[2];
-	uint8_t link_bw, rate_select;
-
-	if (HAS_DDI(dev))
-		intel_ddi_prepare_link_retrain(encoder);
-
-	intel_dp_compute_rate(intel_dp, intel_dp->link_rate,
-			      &link_bw, &rate_select);
-
-	/* Write the link configuration data */
-	link_config[0] = link_bw;
-	link_config[1] = intel_dp->lane_count;
-	if (drm_dp_enhanced_frame_cap(intel_dp->dpcd))
-		link_config[1] |= DP_LANE_COUNT_ENHANCED_FRAME_EN;
-	drm_dp_dpcd_write(&intel_dp->aux, DP_LINK_BW_SET, link_config, 2);
-	if (intel_dp->num_sink_rates)
-		drm_dp_dpcd_write(&intel_dp->aux, DP_LINK_RATE_SET,
-				  &rate_select, 1);
-
-	link_config[0] = 0;
-	link_config[1] = DP_SET_ANSI_8B10B;
-	drm_dp_dpcd_write(&intel_dp->aux, DP_DOWNSPREAD_CTRL, link_config, 2);
-
-	DP |= DP_PORT_EN;
-
-	/* clock recovery */
-	if (!intel_dp_reset_link_train(intel_dp, &DP,
-				       DP_TRAINING_PATTERN_1 |
-				       DP_LINK_SCRAMBLING_DISABLE)) {
-		DRM_ERROR("failed to enable link training\n");
-		return;
-	}
-
-	voltage = 0xff;
-	voltage_tries = 0;
-	loop_tries = 0;
-	for (;;) {
-		uint8_t link_status[DP_LINK_STATUS_SIZE];
-
-		drm_dp_link_train_clock_recovery_delay(intel_dp->dpcd);
-		if (!intel_dp_get_link_status(intel_dp, link_status)) {
-			DRM_ERROR("failed to get link status\n");
-			break;
-		}
-
-		if (drm_dp_clock_recovery_ok(link_status, intel_dp->lane_count)) {
-			DRM_DEBUG_KMS("clock recovery OK\n");
-			break;
-		}
-
-		/*
-		 * if we used previously trained voltage and pre-emphasis values
-		 * and we don't get clock recovery, reset link training values
-		 */
-		if (intel_dp->train_set_valid) {
-			DRM_DEBUG_KMS("clock recovery not ok, reset");
-			/* clear the flag as we are not reusing train set */
-			intel_dp->train_set_valid = false;
-			if (!intel_dp_reset_link_train(intel_dp, &DP,
-						       DP_TRAINING_PATTERN_1 |
-						       DP_LINK_SCRAMBLING_DISABLE)) {
-				DRM_ERROR("failed to enable link training\n");
-				return;
-			}
-			continue;
-		}
-
-		/* Check to see if we've tried the max voltage */
-		for (i = 0; i < intel_dp->lane_count; i++)
-			if ((intel_dp->train_set[i] & DP_TRAIN_MAX_SWING_REACHED) == 0)
-				break;
-		if (i == intel_dp->lane_count) {
-			++loop_tries;
-			if (loop_tries == 5) {
-				DRM_ERROR("too many full retries, give up\n");
-				break;
-			}
-			intel_dp_reset_link_train(intel_dp, &DP,
-						  DP_TRAINING_PATTERN_1 |
-						  DP_LINK_SCRAMBLING_DISABLE);
-			voltage_tries = 0;
-			continue;
-		}
-
-		/* Check to see if we've tried the same voltage 5 times */
-		if ((intel_dp->train_set[0] & DP_TRAIN_VOLTAGE_SWING_MASK) == voltage) {
-			++voltage_tries;
-			if (voltage_tries == 5) {
-				DRM_ERROR("too many voltage retries, give up\n");
-				break;
-			}
-		} else
-			voltage_tries = 0;
-		voltage = intel_dp->train_set[0] & DP_TRAIN_VOLTAGE_SWING_MASK;
-
-		/* Update training set as requested by target */
-		if (!intel_dp_update_link_train(intel_dp, &DP, link_status)) {
-			DRM_ERROR("failed to update link training\n");
-			break;
-		}
-	}
-
-	intel_dp->DP = DP;
-}
-
-static void
-intel_dp_link_training_channel_equalization(struct intel_dp *intel_dp)
-{
-	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
-	struct drm_device *dev = dig_port->base.base.dev;
-	bool channel_eq = false;
-	int tries, cr_tries;
-	uint32_t DP = intel_dp->DP;
-	uint32_t training_pattern = DP_TRAINING_PATTERN_2;
-
-	/*
-	 * Training Pattern 3 for HBR2 or 1.2 devices that support it.
-	 *
-	 * Intel platforms that support HBR2 also support TPS3. TPS3 support is
-	 * also mandatory for downstream devices that support HBR2.
-	 *
-	 * Due to WaDisableHBR2 SKL < B0 is the only exception where TPS3 is
-	 * supported but still not enabled.
-	 */
-	if (intel_dp_source_supports_hbr2(dev) &&
-	    drm_dp_tps3_supported(intel_dp->dpcd))
-		training_pattern = DP_TRAINING_PATTERN_3;
-	else if (intel_dp->link_rate == 540000)
-		DRM_ERROR("5.4 Gbps link rate without HBR2/TPS3 support\n");
-
-	/* channel equalization */
-	if (!intel_dp_set_link_train(intel_dp, &DP,
-				     training_pattern |
-				     DP_LINK_SCRAMBLING_DISABLE)) {
-		DRM_ERROR("failed to start channel equalization\n");
-		return;
-	}
-
-	tries = 0;
-	cr_tries = 0;
-	channel_eq = false;
-	for (;;) {
-		uint8_t link_status[DP_LINK_STATUS_SIZE];
-
-		if (cr_tries > 5) {
-			DRM_ERROR("failed to train DP, aborting\n");
-			break;
-		}
-
-		drm_dp_link_train_channel_eq_delay(intel_dp->dpcd);
-		if (!intel_dp_get_link_status(intel_dp, link_status)) {
-			DRM_ERROR("failed to get link status\n");
-			break;
-		}
-
-		/* Make sure clock is still ok */
-		if (!drm_dp_clock_recovery_ok(link_status,
-					      intel_dp->lane_count)) {
-			intel_dp->train_set_valid = false;
-			intel_dp_link_training_clock_recovery(intel_dp);
-			intel_dp_set_link_train(intel_dp, &DP,
-						training_pattern |
-						DP_LINK_SCRAMBLING_DISABLE);
-			cr_tries++;
-			continue;
-		}
-
-		if (drm_dp_channel_eq_ok(link_status,
-					 intel_dp->lane_count)) {
-			channel_eq = true;
-			break;
-		}
-
-		/* Try 5 times, then try clock recovery if that fails */
-		if (tries > 5) {
-			intel_dp->train_set_valid = false;
-			intel_dp_link_training_clock_recovery(intel_dp);
-			intel_dp_set_link_train(intel_dp, &DP,
-						training_pattern |
-						DP_LINK_SCRAMBLING_DISABLE);
-			tries = 0;
-			cr_tries++;
-			continue;
-		}
-
-		/* Update training set as requested by target */
-		if (!intel_dp_update_link_train(intel_dp, &DP, link_status)) {
-			DRM_ERROR("failed to update link training\n");
-			break;
-		}
-		++tries;
-	}
-
-	intel_dp_set_idle_link_train(intel_dp);
-
-	intel_dp->DP = DP;
-
-	if (channel_eq) {
-		intel_dp->train_set_valid = true;
-		DRM_DEBUG_KMS("Channel EQ done. DP Training successful\n");
-	}
-}
-
-void intel_dp_stop_link_train(struct intel_dp *intel_dp)
-{
-	intel_dp_set_link_train(intel_dp, &intel_dp->DP,
-				DP_TRAINING_PATTERN_DISABLE);
-}
-
-void
-intel_dp_start_link_train(struct intel_dp *intel_dp)
-{
-	intel_dp_link_training_clock_recovery(intel_dp);
-	intel_dp_link_training_channel_equalization(intel_dp);
 }
 
 static void
@@ -4016,7 +3714,7 @@ intel_dp_get_dpcd(struct intel_dp *intel_dp)
 	}
 
 	DRM_DEBUG_KMS("Display Port TPS3 support: source %s, sink %s\n",
-		      yesno(intel_dp_source_supports_hbr2(dev)),
+		      yesno(intel_dp_source_supports_hbr2(intel_dp)),
 		      yesno(drm_dp_tps3_supported(intel_dp->dpcd)));
 
 	/* Intermediate frequency support */
@@ -6036,6 +5734,9 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 	else
 		intel_dp->get_aux_send_ctl = i9xx_get_aux_send_ctl;
 
+	if (HAS_DDI(dev))
+		intel_dp->prepare_link_retrain = intel_ddi_prepare_link_retrain;
+
 	/* Preserve the current hw state. */
 	intel_dp->DP = I915_READ(intel_dp->output_reg);
 	intel_dp->attached_connector = intel_connector;
@@ -6087,7 +5788,7 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 		break;
 	case PORT_B:
 		intel_encoder->hpd_pin = HPD_PORT_B;
-		if (IS_BROXTON(dev_priv) && (INTEL_REVID(dev) < BXT_REVID_B0))
+		if (IS_BXT_REVID(dev, 0, BXT_REVID_A1))
 			intel_encoder->hpd_pin = HPD_PORT_A;
 		break;
 	case PORT_C:

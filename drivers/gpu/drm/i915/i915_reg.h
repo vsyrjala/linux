@@ -5005,6 +5005,7 @@ enum skl_disp_power_wells {
 #define SWF0(i)	(dev_priv->info.display_mmio_offset + 0x70410 + (i) * 4)
 #define SWF1(i)	(dev_priv->info.display_mmio_offset + 0x71410 + (i) * 4)
 #define SWF3(i)	(dev_priv->info.display_mmio_offset + 0x72414 + (i) * 4)
+#define SWF_ILK(i)	(0x4F000 + (i) * 4)
 
 /* Pipe B */
 #define _PIPEBDSL		(dev_priv->info.display_mmio_offset + 0x71000)
@@ -7312,7 +7313,7 @@ enum skl_disp_power_wells {
 /* WRPLL */
 #define WRPLL_CTL1			0x46040
 #define WRPLL_CTL2			0x46060
-#define WRPLL_CTL(pll)			(pll == 0 ? WRPLL_CTL1 : WRPLL_CTL2)
+#define WRPLL_CTL(pll)			_PIPE(pll, WRPLL_CTL1, WRPLL_CTL2)
 #define  WRPLL_PLL_ENABLE		(1<<31)
 #define  WRPLL_PLL_SSC			(1<<28)
 #define  WRPLL_PLL_NON_SSC		(2<<28)
