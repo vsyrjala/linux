@@ -13800,20 +13800,19 @@ const struct drm_plane_funcs intel_plane_funcs = {
 static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 						    int pipe)
 {
-	struct intel_plane *primary;
-	struct intel_plane_state *state;
+	struct intel_plane *primary = NULL;
+	struct intel_plane_state *state = NULL;
 	const uint32_t *intel_primary_formats;
 	unsigned int num_formats;
+	int ret;
 
 	primary = kzalloc(sizeof(*primary), GFP_KERNEL);
-	if (primary == NULL)
-		return NULL;
+	if (!primary)
+		goto fail;
 
 	state = intel_create_plane_state(&primary->base);
-	if (!state) {
-		kfree(primary);
-		return NULL;
-	}
+	if (!state)
+		goto fail;
 	primary->base.state = &state->base;
 
 	primary->can_scale = false;
@@ -13842,10 +13841,12 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 		num_formats = ARRAY_SIZE(i8xx_primary_formats);
 	}
 
-	drm_universal_plane_init(dev, &primary->base, 0,
-				 &intel_plane_funcs,
-				 intel_primary_formats, num_formats,
-				 DRM_PLANE_TYPE_PRIMARY, "");
+	ret = drm_universal_plane_init(dev, &primary->base, 0,
+				       &intel_plane_funcs,
+				       intel_primary_formats, num_formats,
+				       DRM_PLANE_TYPE_PRIMARY, "");
+	if (ret)
+		goto fail;
 
 	if (INTEL_INFO(dev)->gen >= 4)
 		intel_create_rotation_property(dev, primary);
@@ -13853,6 +13854,12 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 	drm_plane_helper_add(&primary->base, &intel_plane_helper_funcs);
 
 	return &primary->base;
+
+fail:
+	kfree(state);
+	kfree(primary);
+
+	return NULL;
 }
 
 void intel_create_rotation_property(struct drm_device *dev, struct intel_plane *plane)
@@ -13957,18 +13964,17 @@ update:
 static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 						   int pipe)
 {
-	struct intel_plane *cursor;
-	struct intel_plane_state *state;
+	struct intel_plane *cursor = NULL;
+	struct intel_plane_state *state = NULL;
+	int ret;
 
 	cursor = kzalloc(sizeof(*cursor), GFP_KERNEL);
-	if (cursor == NULL)
-		return NULL;
+	if (!cursor)
+		goto fail;
 
 	state = intel_create_plane_state(&cursor->base);
-	if (!state) {
-		kfree(cursor);
-		return NULL;
-	}
+	if (!state)
+		goto fail;
 	cursor->base.state = &state->base;
 
 	cursor->can_scale = false;
@@ -13980,11 +13986,13 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 	cursor->commit_plane = intel_commit_cursor_plane;
 	cursor->disable_plane = intel_disable_cursor_plane;
 
-	drm_universal_plane_init(dev, &cursor->base, 0,
-				 &intel_plane_funcs,
-				 intel_cursor_formats,
-				 ARRAY_SIZE(intel_cursor_formats),
-				 DRM_PLANE_TYPE_CURSOR, "");
+	ret = drm_universal_plane_init(dev, &cursor->base, 0,
+				       &intel_plane_funcs,
+				       intel_cursor_formats,
+				       ARRAY_SIZE(intel_cursor_formats),
+				       DRM_PLANE_TYPE_CURSOR, "");
+	if (ret)
+		goto fail;
 
 	if (INTEL_INFO(dev)->gen >= 4) {
 		if (!dev->mode_config.rotation_property)
@@ -14004,6 +14012,12 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 	drm_plane_helper_add(&cursor->base, &intel_plane_helper_funcs);
 
 	return &cursor->base;
+
+fail:
+	kfree(state);
+	kfree(cursor);
+
+	return NULL;
 }
 
 static void skl_init_scalers(struct drm_device *dev, struct intel_crtc *intel_crtc,
