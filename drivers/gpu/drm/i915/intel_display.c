@@ -13787,10 +13787,18 @@ static void intel_finish_crtc_commit(struct drm_crtc *crtc,
  */
 void intel_plane_destroy(struct drm_plane *plane)
 {
+	char *name;
+
 	if (!plane)
 		return;
 
+	/*
+	 * drm_plane_cleanup() zeroes the structure, so
+	 * need an extra dance to avoid leaking the name.
+	 */
+	name = plane->name;
 	drm_plane_cleanup(plane);
+	kfree(name);
 	kfree(to_intel_plane(plane));
 }
 
@@ -13811,6 +13819,7 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 {
 	struct intel_plane *primary = NULL;
 	struct intel_plane_state *state = NULL;
+	char *name = NULL;
 	const uint32_t *intel_primary_formats;
 	unsigned int num_formats;
 	int ret;
@@ -13839,6 +13848,19 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 	if (HAS_FBC(dev) && INTEL_INFO(dev)->gen < 4)
 		primary->plane = !pipe;
 
+	if (INTEL_INFO(dev)->gen >= 9)
+		name = kasprintf(GFP_KERNEL, "plane 1%c",
+				 pipe_name(pipe));
+	else if (INTEL_INFO(dev)->gen >= 5 || IS_G4X(dev))
+		name = kasprintf(GFP_KERNEL, "primary %c",
+				 pipe_name(pipe));
+	else
+		name = kasprintf(GFP_KERNEL, "plane %c",
+				 plane_name(primary->plane));
+	if (!name)
+		goto fail;
+	primary->base.name = name;
+
 	if (INTEL_INFO(dev)->gen >= 9) {
 		intel_primary_formats = skl_primary_formats;
 		num_formats = ARRAY_SIZE(skl_primary_formats);
@@ -13865,6 +13887,7 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 	return &primary->base;
 
 fail:
+	kfree(name);
 	kfree(state);
 	kfree(primary);
 
@@ -13975,6 +13998,7 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 {
 	struct intel_plane *cursor = NULL;
 	struct intel_plane_state *state = NULL;
+	char *name = NULL;
 	int ret;
 
 	cursor = kzalloc(sizeof(*cursor), GFP_KERNEL);
@@ -13994,6 +14018,11 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 	cursor->check_plane = intel_check_cursor_plane;
 	cursor->commit_plane = intel_commit_cursor_plane;
 	cursor->disable_plane = intel_disable_cursor_plane;
+
+	name = kasprintf(GFP_KERNEL, "cursor %c", pipe_name(pipe));
+	if (!name)
+		goto fail;
+	cursor->base.name = name;
 
 	ret = drm_universal_plane_init(dev, &cursor->base, 0,
 				       &intel_plane_funcs,
@@ -14023,6 +14052,7 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 	return &cursor->base;
 
 fail:
+	kfree(name);
 	kfree(state);
 	kfree(cursor);
 

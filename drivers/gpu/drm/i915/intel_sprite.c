@@ -1040,6 +1040,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 {
 	struct intel_plane *intel_plane = NULL;
 	struct intel_plane_state *state = NULL;
+	char *name = NULL;
 	unsigned long possible_crtcs;
 	const uint32_t *plane_formats;
 	int num_plane_formats;
@@ -1123,6 +1124,18 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 	intel_plane->check_plane = intel_check_sprite_plane;
 	intel_plane->commit_plane = intel_commit_sprite_plane;
 
+	if (INTEL_INFO(dev)->gen >= 9)
+		name = kasprintf(GFP_KERNEL, "plane %d%c",
+				 plane + 2, pipe_name(pipe));
+	else
+		name = kasprintf(GFP_KERNEL, "sprite %c",
+				 sprite_name(pipe, plane));
+	if (!name) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+	intel_plane->base.name = name;
+
 	possible_crtcs = (1 << pipe);
 
 	ret = drm_universal_plane_init(dev, &intel_plane->base, possible_crtcs,
@@ -1139,6 +1152,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 	return 0;
 
 fail:
+	kfree(name);
 	kfree(state);
 	kfree(intel_plane);
 
