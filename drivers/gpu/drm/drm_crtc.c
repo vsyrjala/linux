@@ -1174,6 +1174,9 @@ int drm_universal_plane_init(struct drm_device *dev, struct drm_plane *plane,
 
 	drm_modeset_lock_init(&plane->mutex);
 
+	if (!plane->name)
+		plane->name = "";
+
 	plane->base.properties = &plane->properties;
 	plane->dev = dev;
 	plane->funcs = funcs;
