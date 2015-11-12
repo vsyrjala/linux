@@ -4513,6 +4513,12 @@ enum {
 #define   DP_AUX_CH_CTL_FW_SYNC_PULSE_SKL(c) (((c) - 1) << 5)
 #define   DP_AUX_CH_CTL_SYNC_PULSE_SKL(c)   ((c) - 1)
 
+#define _DP_AUX_MUTEX_A			0x6402C
+#define _DP_AUX_MUTEX_B			0x6412C
+#define DP_AUX_MUTEX(port)		_MMIO_PORT(port, _DP_AUX_MUTEX_A, _DP_AUX_MUTEX_B)
+#define   DP_AUX_MUTEX_ENABLE		    (1 << 31)
+#define   DP_AUX_MUTEX_STATUS		    (1 << 30)
+
 /*
  * Computing GMCH M and N values for the Display Port link
  *

@@ -861,6 +861,69 @@ static uint32_t skl_get_aux_send_ctl(struct intel_dp *intel_dp,
 	       DP_AUX_CH_CTL_SYNC_PULSE_SKL(32);
 }
 
+static bool skl_has_aux_mutex(struct intel_dp *intel_dp)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct drm_i915_private *dev_priv = to_i915(intel_dig_port->base.base.dev);
+	enum port port = intel_dig_port->port;
+
+	if (!HAS_AUX_MUTEX(dev_priv))
+		return false;
+
+	/*
+	 * USing the mutex is only be necessary when PSR1, PSR2 or GTC
+	 * is active. For simplycity let's limit to eDP ports or now.
+	 */
+	if (!is_edp(intel_dp))
+		return false;
+
+	/* no mutex for DDI E */
+	if (WARN_ON(port == PORT_E))
+		return false;
+
+	return true;
+}
+
+static int skl_aux_mutex_get(struct intel_dp *intel_dp)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct drm_i915_private *dev_priv = to_i915(intel_dig_port->base.base.dev);
+	enum port port = intel_dig_port->port;
+	int ret;
+
+	if (!skl_has_aux_mutex(intel_dp))
+		return 0;
+
+	I915_WRITE(DP_AUX_MUTEX(port), DP_AUX_MUTEX_ENABLE);
+
+	/*
+	 * The Bspec maybe specifies waiting 500us between attempts to acquire the
+	 * mutex.  Ten retries should be adequate to balance successfully
+	 * acquirng the mutex and spending too much time trying.
+	 *
+	 * FIXME not actually sure this is what the spec is telling us. It says
+	 * "If MUTEX status is '1', wait for 500 us and poll for MUTEX status == '0'."
+	 * which can be interpreted in many ways. Clarification has been requested.
+	 */
+	ret = _wait_for((I915_READ(DP_AUX_MUTEX(port)) & DP_AUX_MUTEX_STATUS) == 0, 5000, 500);
+	if (ret)
+		DRM_ERROR("failed to acquire AUX mutex for port %c\n", port_name(port));
+
+	return ret;
+}
+
+static void skl_aux_mutex_put(struct intel_dp *intel_dp)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct drm_i915_private *dev_priv = to_i915(intel_dig_port->base.base.dev);
+	enum port port = intel_dig_port->port;
+
+	if (!skl_has_aux_mutex(intel_dp))
+		return;
+
+	I915_WRITE(DP_AUX_MUTEX(port), DP_AUX_MUTEX_ENABLE | DP_AUX_MUTEX_STATUS);
+}
+
 static int
 intel_dp_aux_ch(struct intel_dp *intel_dp,
 		const uint8_t *send, int send_bytes,
@@ -895,6 +958,10 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 
 	intel_dp_check_edp(intel_dp);
 
+	ret = skl_aux_mutex_get(intel_dp);
+	if (ret)
+		goto put_qos;
+
 	/* Try to wait for any previous AUX channel activity */
 	for (try = 0; try < 3; try++) {
 		status = I915_READ_NOTRACE(ch_ctl);
@@ -914,13 +981,13 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 		}
 
 		ret = -EBUSY;
-		goto out;
+		goto put_mutex;
 	}
 
 	/* Only 5 data registers! */
 	if (WARN_ON(send_bytes > 20 || recv_size > 20)) {
 		ret = -E2BIG;
-		goto out;
+		goto put_mutex;
 	}
 
 	while ((aux_clock_divider = intel_dp->get_aux_clock_divider(intel_dp, clock++))) {
@@ -969,7 +1036,7 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 	if ((status & DP_AUX_CH_CTL_DONE) == 0) {
 		DRM_ERROR("dp_aux_ch not done status 0x%08x\n", status);
 		ret = -EBUSY;
-		goto out;
+		goto put_mutex;
 	}
 
 done:
@@ -979,7 +1046,7 @@ done:
 	if (status & DP_AUX_CH_CTL_RECEIVE_ERROR) {
 		DRM_ERROR("dp_aux_ch receive error status 0x%08x\n", status);
 		ret = -EIO;
-		goto out;
+		goto put_mutex;
 	}
 
 	/* Timeouts occur when the device isn't connected, so they're
@@ -987,7 +1054,7 @@ done:
 	if (status & DP_AUX_CH_CTL_TIME_OUT_ERROR) {
 		DRM_DEBUG_KMS("dp_aux_ch timeout status 0x%08x\n", status);
 		ret = -ETIMEDOUT;
-		goto out;
+		goto put_mutex;
 	}
 
 	/* Unload any bytes sent back from the other side */
@@ -1011,7 +1078,7 @@ done:
 		 */
 		usleep_range(1000, 1500);
 		ret = -EBUSY;
-		goto out;
+		goto put_mutex;
 	}
 
 	if (recv_bytes > recv_size)
@@ -1022,7 +1089,9 @@ done:
 				    recv + i, recv_bytes - i);
 
 	ret = recv_bytes;
-out:
+put_mutex:
+	skl_aux_mutex_put(intel_dp);
+put_qos:
 	pm_qos_update_request(&dev_priv->pm_qos, PM_QOS_DEFAULT_VALUE);
 
 	if (vdd)
