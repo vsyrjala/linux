@@ -10862,7 +10862,6 @@ static void intel_crtc_destroy(struct drm_crtc *crtc)
 	}
 
 	drm_crtc_cleanup(crtc);
-
 	kfree(intel_crtc);
 }
 
@@ -14206,15 +14205,15 @@ static void skl_init_scalers(struct drm_device *dev, struct intel_crtc *intel_cr
 static void intel_crtc_init(struct drm_device *dev, int pipe)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc;
+	struct intel_crtc *intel_crtc = NULL;
 	struct intel_crtc_state *crtc_state = NULL;
 	struct drm_plane *primary = NULL;
 	struct drm_plane *cursor = NULL;
 	int i, ret;
 
 	intel_crtc = kzalloc(sizeof(*intel_crtc), GFP_KERNEL);
-	if (intel_crtc == NULL)
-		return;
+	if (!intel_crtc)
+		goto fail;
 
 	crtc_state = kzalloc(sizeof(*crtc_state), GFP_KERNEL);
 	if (!crtc_state)
@@ -14242,7 +14241,8 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 		goto fail;
 
 	ret = drm_crtc_init_with_planes(dev, &intel_crtc->base, primary,
-					cursor, &intel_crtc_funcs, NULL);
+					cursor, &intel_crtc_funcs,
+					"pipe %c", pipe_name(pipe));
 	if (ret)
 		goto fail;
 
