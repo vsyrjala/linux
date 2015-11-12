@@ -13804,6 +13804,7 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 {
 	struct intel_plane *primary = NULL;
 	struct intel_plane_state *state = NULL;
+	char name[16];
 	const uint32_t *intel_primary_formats;
 	unsigned int num_formats;
 	int ret;
@@ -13832,6 +13833,17 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 	if (HAS_FBC(dev) && INTEL_INFO(dev)->gen < 4)
 		primary->plane = !pipe;
 
+	if (INTEL_INFO(dev)->gen >= 9)
+		ret = snprintf(name, sizeof(name), "plane 1%c",
+			       pipe_name(pipe));
+	else if (INTEL_INFO(dev)->gen >= 5 || IS_G4X(dev))
+		ret = snprintf(name, sizeof(name), "primary %c",
+			       pipe_name(pipe));
+	else
+		ret = snprintf(name, sizeof(name), "plane %c",
+			       plane_name(primary->plane));
+	WARN_ON(ret >= sizeof(name));
+
 	if (INTEL_INFO(dev)->gen >= 9) {
 		intel_primary_formats = skl_primary_formats;
 		num_formats = ARRAY_SIZE(skl_primary_formats);
@@ -13846,7 +13858,7 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 	ret = drm_universal_plane_init(dev, &primary->base, 0,
 				       &intel_plane_funcs,
 				       intel_primary_formats, num_formats,
-				       DRM_PLANE_TYPE_PRIMARY, "");
+				       DRM_PLANE_TYPE_PRIMARY, name);
 	if (ret)
 		goto fail;
 
@@ -13968,6 +13980,7 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 {
 	struct intel_plane *cursor = NULL;
 	struct intel_plane_state *state = NULL;
+	char name[16];
 	int ret;
 
 	cursor = kzalloc(sizeof(*cursor), GFP_KERNEL);
@@ -13988,11 +14001,14 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 	cursor->commit_plane = intel_commit_cursor_plane;
 	cursor->disable_plane = intel_disable_cursor_plane;
 
+	ret = snprintf(name, sizeof(name), "cursor %c", pipe_name(pipe));
+	WARN_ON(ret >= sizeof(name));
+
 	ret = drm_universal_plane_init(dev, &cursor->base, 0,
 				       &intel_plane_funcs,
 				       intel_cursor_formats,
 				       ARRAY_SIZE(intel_cursor_formats),
-				       DRM_PLANE_TYPE_CURSOR, "");
+				       DRM_PLANE_TYPE_CURSOR, name);
 	if (ret)
 		goto fail;
 

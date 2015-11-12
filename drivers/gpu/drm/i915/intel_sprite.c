@@ -1040,6 +1040,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 {
 	struct intel_plane *intel_plane = NULL;
 	struct intel_plane_state *state = NULL;
+	char name[16];
 	unsigned long possible_crtcs;
 	const uint32_t *plane_formats;
 	int num_plane_formats;
@@ -1123,12 +1124,20 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 	intel_plane->check_plane = intel_check_sprite_plane;
 	intel_plane->commit_plane = intel_commit_sprite_plane;
 
+	if (INTEL_INFO(dev)->gen >= 9)
+		ret = snprintf(name, sizeof(name), "plane %d%c",
+			       plane + 2, pipe_name(pipe));
+	else
+		ret = snprintf(name, sizeof(name), "sprite %c",
+			       sprite_name(pipe, plane));
+	WARN_ON(ret >= sizeof(name));
+
 	possible_crtcs = (1 << pipe);
 
 	ret = drm_universal_plane_init(dev, &intel_plane->base, possible_crtcs,
 				       &intel_plane_funcs,
 				       plane_formats, num_plane_formats,
-				       DRM_PLANE_TYPE_OVERLAY, "");
+				       DRM_PLANE_TYPE_OVERLAY, name);
 	if (ret)
 		goto fail;
 
