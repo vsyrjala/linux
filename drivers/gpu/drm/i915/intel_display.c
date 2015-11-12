@@ -4257,8 +4257,9 @@ struct intel_shared_dpll *intel_get_shared_dpll(struct intel_crtc *crtc,
 		i = (enum intel_dpll_id) crtc->pipe;
 		pll = &dev_priv->shared_dplls[i];
 
-		DRM_DEBUG_KMS("CRTC:%d using pre-allocated %s\n",
-			      crtc->base.base.id, pll->name);
+		DRM_DEBUG_KMS("[CRTC:%d:%s] using pre-allocated %s\n",
+			      crtc->base.base.id, crtc->base.name,
+			      pll->name);
 
 		WARN_ON(shared_dpll[i].crtc_mask);
 
@@ -4278,8 +4279,9 @@ struct intel_shared_dpll *intel_get_shared_dpll(struct intel_crtc *crtc,
 		/* 1:1 mapping between ports and PLLs */
 		i = (enum intel_dpll_id)intel_dig_port->port;
 		pll = &dev_priv->shared_dplls[i];
-		DRM_DEBUG_KMS("CRTC:%d using pre-allocated %s\n",
-			crtc->base.base.id, pll->name);
+		DRM_DEBUG_KMS("[CRTC:%d:%s] using pre-allocated %s\n",
+			      crtc->base.base.id, crtc->base.name,
+			      pll->name);
 		WARN_ON(shared_dpll[i].crtc_mask);
 
 		goto found;
@@ -4297,9 +4299,9 @@ struct intel_shared_dpll *intel_get_shared_dpll(struct intel_crtc *crtc,
 		if (memcmp(&crtc_state->dpll_hw_state,
 			   &shared_dpll[i].hw_state,
 			   sizeof(crtc_state->dpll_hw_state)) == 0) {
-			DRM_DEBUG_KMS("CRTC:%d sharing existing %s (crtc mask 0x%08x, ative %d)\n",
-				      crtc->base.base.id, pll->name,
-				      shared_dpll[i].crtc_mask,
+			DRM_DEBUG_KMS("[CRTC:%d:%s] sharing existing %s (crtc mask 0x%08x, ative %d)\n",
+				      crtc->base.base.id, crtc->base.name,
+				      pll->name, shared_dpll[i].crtc_mask,
 				      pll->active);
 			goto found;
 		}
@@ -4309,8 +4311,9 @@ struct intel_shared_dpll *intel_get_shared_dpll(struct intel_crtc *crtc,
 	for (i = 0; i < dev_priv->num_shared_dpll; i++) {
 		pll = &dev_priv->shared_dplls[i];
 		if (shared_dpll[i].crtc_mask == 0) {
-			DRM_DEBUG_KMS("CRTC:%d allocated %s\n",
-				      crtc->base.base.id, pll->name);
+			DRM_DEBUG_KMS("[CRTC:%d:%s] allocated %s\n",
+				      crtc->base.base.id, crtc->base.name,
+				      pll->name);
 			goto found;
 		}
 	}
@@ -4437,8 +4440,9 @@ int skl_update_scaler_crtc(struct intel_crtc_state *state)
 	struct intel_crtc *intel_crtc = to_intel_crtc(state->base.crtc);
 	const struct drm_display_mode *adjusted_mode = &state->base.adjusted_mode;
 
-	DRM_DEBUG_KMS("Updating scaler for [CRTC:%i] scaler_user index %u.%u\n",
-		      intel_crtc->base.base.id, intel_crtc->pipe, SKL_CRTC_INDEX);
+	DRM_DEBUG_KMS("Updating scaler for [CRTC:%d:%s] scaler_user index %u.%u\n",
+		      intel_crtc->base.base.id, intel_crtc->base.name,
+		      intel_crtc->pipe, SKL_CRTC_INDEX);
 
 	return skl_update_scaler(state, !state->base.active, SKL_CRTC_INDEX,
 		&state->scaler_state.scaler_id, DRM_ROTATE_0,
@@ -11800,13 +11804,13 @@ int intel_plane_atomic_calc_changes(struct drm_crtc_state *crtc_state,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane_state *old_plane_state =
 		to_intel_plane_state(plane->state);
-	int idx = intel_crtc->base.base.id, ret;
 	int i = drm_plane_index(plane);
 	bool mode_changed = needs_modeset(crtc_state);
 	bool was_crtc_enabled = crtc->state->active;
 	bool is_crtc_enabled = crtc_state->active;
 	bool turn_off, turn_on, visible, was_visible;
 	struct drm_framebuffer *fb = plane_state->fb;
+	int ret;
 
 	if (crtc_state && INTEL_INFO(dev)->gen >= 9 &&
 	    plane->type != DRM_PLANE_TYPE_CURSOR) {
@@ -11832,7 +11836,9 @@ int intel_plane_atomic_calc_changes(struct drm_crtc_state *crtc_state,
 	turn_off = was_visible && (!visible || mode_changed);
 	turn_on = visible && (!was_visible || mode_changed);
 
-	DRM_DEBUG_ATOMIC("[CRTC:%i] has [PLANE:%i] with fb %i\n", idx,
+	DRM_DEBUG_ATOMIC("[CRTC:%d:%s] has [PLANE:%i] with fb %i\n",
+			 intel_crtc->base.base.id,
+			 intel_crtc->base.name,
 			 plane->base.id, fb ? fb->base.id : -1);
 
 	DRM_DEBUG_ATOMIC("[PLANE:%i] visible %i -> %i, off %i, on %i, ms %i\n",
@@ -12130,7 +12136,8 @@ static void intel_dump_pipe_config(struct intel_crtc *crtc,
 	struct intel_plane_state *state;
 	struct drm_framebuffer *fb;
 
-	DRM_DEBUG_KMS("[CRTC:%d]%s config %p for pipe %c\n", crtc->base.base.id,
+	DRM_DEBUG_KMS("[CRTC:%d:%s]%s config %p for pipe %c\n",
+		      crtc->base.base.id, crtc->base.name,
 		      context, pipe_config, pipe_name(crtc->pipe));
 
 	DRM_DEBUG_KMS("cpu_transcoder: %c\n", transcoder_name(pipe_config->cpu_transcoder));
@@ -12905,8 +12912,8 @@ check_crtc_state(struct drm_device *dev, struct drm_atomic_state *old_state)
 		pipe_config->base.crtc = crtc;
 		pipe_config->base.state = old_state;
 
-		DRM_DEBUG_KMS("[CRTC:%d]\n",
-			      crtc->base.id);
+		DRM_DEBUG_KMS("[CRTC:%d:%s]\n",
+			      crtc->base.id, crtc->name);
 
 		active = dev_priv->display.get_pipe_config(intel_crtc,
 							   pipe_config);
@@ -13562,8 +13569,8 @@ void intel_crtc_restore_mode(struct drm_crtc *crtc)
 
 	state = drm_atomic_state_alloc(dev);
 	if (!state) {
-		DRM_DEBUG_KMS("[CRTC:%d] crtc restore failed, out of memory",
-			      crtc->base.id);
+		DRM_DEBUG_KMS("[CRTC:%d:%s] crtc restore failed, out of memory",
+			      crtc->base.id, crtc->name);
 		return;
 	}
 
@@ -15380,8 +15387,8 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc)
 	if (INTEL_INFO(dev)->gen < 4 && !intel_check_plane_mapping(crtc)) {
 		bool plane;
 
-		DRM_DEBUG_KMS("[CRTC:%d] wrong plane connection detected!\n",
-			      crtc->base.base.id);
+		DRM_DEBUG_KMS("[CRTC:%d:%s] wrong plane connection detected!\n",
+			      crtc->base.base.id, crtc->base.name);
 
 		/* Pipe has the wrong plane attached and the plane is active.
 		 * Temporarily change the plane mapping and disable everything
@@ -15414,8 +15421,8 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc)
 		 * functions or because of calls to intel_crtc_disable_noatomic,
 		 * or because the pipe is force-enabled due to the
 		 * pipe A quirk. */
-		DRM_DEBUG_KMS("[CRTC:%d] hw state adjusted, was %s, now %s\n",
-			      crtc->base.base.id,
+		DRM_DEBUG_KMS("[CRTC:%d:%s] hw state adjusted, was %s, now %s\n",
+			      crtc->base.base.id, crtc->base.name,
 			      crtc->base.state->enable ? "enabled" : "disabled",
 			      crtc->active ? "enabled" : "disabled");
 
@@ -15577,8 +15584,8 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 
 		readout_plane_state(crtc);
 
-		DRM_DEBUG_KMS("[CRTC:%d] hw state readout: %s\n",
-			      crtc->base.base.id,
+		DRM_DEBUG_KMS("[CRTC:%d:%s] hw state readout: %s\n",
+			      crtc->base.base.id, crtc->base.name,
 			      crtc->active ? "enabled" : "disabled");
 	}
 

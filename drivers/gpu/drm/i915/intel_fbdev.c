@@ -473,10 +473,9 @@ retry:
 		}
 		crtcs[i] = new_crtc;
 
-		DRM_DEBUG_KMS("connector %s on pipe %c [CRTC:%d]: %dx%d%s\n",
+		DRM_DEBUG_KMS("connector %s on [CRTC:%d:%s]: %dx%d%s\n",
 			      connector->name,
-			      pipe_name(to_intel_crtc(encoder->crtc)->pipe),
-			      encoder->crtc->base.id,
+			      encoder->crtc->base.id, encoder->crtc->name,
 			      modes[i]->hdisplay, modes[i]->vdisplay,
 			      modes[i]->flags & DRM_MODE_FLAG_INTERLACE ? "i" :"");
 
