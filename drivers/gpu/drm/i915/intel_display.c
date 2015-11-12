@@ -10711,6 +10711,7 @@ static void intel_crtc_destroy(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
 	struct intel_unpin_work *work;
+	char *name;
 
 	spin_lock_irq(&dev->event_lock);
 	work = intel_crtc->unpin_work;
@@ -10722,8 +10723,13 @@ static void intel_crtc_destroy(struct drm_crtc *crtc)
 		kfree(work);
 	}
 
+	/*
+	 * drm_crtc_cleanup() zeroes the structure, so
+	 * need an extra dance to avoid leaking the name.
+	 */
+	name = crtc->name;
 	drm_crtc_cleanup(crtc);
-
+	kfree(name);
 	kfree(intel_crtc);
 }
 
@@ -14026,15 +14032,16 @@ static void skl_init_scalers(struct drm_device *dev, struct intel_crtc *intel_cr
 static void intel_crtc_init(struct drm_device *dev, int pipe)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc;
+	struct intel_crtc *intel_crtc = NULL;
 	struct intel_crtc_state *crtc_state = NULL;
 	struct drm_plane *primary = NULL;
 	struct drm_plane *cursor = NULL;
+	char *name = NULL;
 	int i, ret;
 
 	intel_crtc = kzalloc(sizeof(*intel_crtc), GFP_KERNEL);
-	if (intel_crtc == NULL)
-		return;
+	if (!intel_crtc)
+		goto fail;
 
 	crtc_state = kzalloc(sizeof(*crtc_state), GFP_KERNEL);
 	if (!crtc_state)
@@ -14042,6 +14049,11 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->config = crtc_state;
 	intel_crtc->base.state = &crtc_state->base;
 	crtc_state->base.crtc = &intel_crtc->base;
+
+	name = kasprintf(GFP_KERNEL, "pipe %c", pipe_name(pipe));
+	if (!name)
+		goto fail;
+	intel_crtc->base.name = name;
 
 	/* initialize shared scalers */
 	if (INTEL_INFO(dev)->gen >= 9) {
@@ -14105,6 +14117,7 @@ fail:
 		drm_plane_cleanup(primary);
 	if (cursor)
 		drm_plane_cleanup(cursor);
+	kfree(name);
 	kfree(crtc_state);
 	kfree(intel_crtc);
 }
