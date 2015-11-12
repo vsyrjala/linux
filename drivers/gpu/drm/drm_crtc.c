@@ -678,10 +678,16 @@ int drm_crtc_init_with_planes(struct drm_device *dev, struct drm_crtc *crtc,
 	crtc->dev = dev;
 	crtc->funcs = funcs;
 
+	crtc->name = kstrdup(name, GFP_KERNEL);
+	if (!crtc->name)
+		return -ENOMEM;
+
 	drm_modeset_lock_init(&crtc->mutex);
 	ret = drm_mode_object_get(dev, &crtc->base, DRM_MODE_OBJECT_CRTC);
-	if (ret)
+	if (ret) {
+		kfree(crtc->name);
 		return ret;
+	}
 
 	crtc->base.properties = &crtc->properties;
 
@@ -728,6 +734,8 @@ void drm_crtc_cleanup(struct drm_crtc *crtc)
 	WARN_ON(crtc->state && !crtc->funcs->atomic_destroy_state);
 	if (crtc->state && crtc->funcs->atomic_destroy_state)
 		crtc->funcs->atomic_destroy_state(crtc, crtc->state);
+
+	kfree(crtc->name);
 
 	memset(crtc, 0, sizeof(*crtc));
 }
@@ -1802,7 +1810,8 @@ int drm_mode_getresources(struct drm_device *dev, void *data,
 		copied = 0;
 		crtc_id = (uint32_t __user *)(unsigned long)card_res->crtc_id_ptr;
 		drm_for_each_crtc(crtc, dev) {
-			DRM_DEBUG_KMS("[CRTC:%d]\n", crtc->base.id);
+			DRM_DEBUG_KMS("[CRTC:%d:%s]\n",
+				      crtc->base.id, crtc->name);
 			if (put_user(crtc->base.id, crtc_id + copied)) {
 				ret = -EFAULT;
 				goto out;
@@ -2647,7 +2656,7 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 		ret = -ENOENT;
 		goto out;
 	}
-	DRM_DEBUG_KMS("[CRTC:%d]\n", crtc->base.id);
+	DRM_DEBUG_KMS("[CRTC:%d:%s]\n", crtc->base.id, crtc->name);
 
 	if (crtc_req->mode_valid) {
 		/* If we have a mode we need a framebuffer. */
