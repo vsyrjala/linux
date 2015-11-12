@@ -1174,9 +1174,15 @@ int drm_universal_plane_init(struct drm_device *dev, struct drm_plane *plane,
 	struct drm_mode_config *config = &dev->mode_config;
 	int ret;
 
+	plane->name = kstrdup(name, GFP_KERNEL);
+	if (!plane->name)
+		return -ENOMEM;
+
 	ret = drm_mode_object_get(dev, &plane->base, DRM_MODE_OBJECT_PLANE);
-	if (ret)
+	if (ret) {
+		kfree(plane->name);
 		return ret;
+	}
 
 	drm_modeset_lock_init(&plane->mutex);
 
@@ -1188,6 +1194,7 @@ int drm_universal_plane_init(struct drm_device *dev, struct drm_plane *plane,
 	if (!plane->format_types) {
 		DRM_DEBUG_KMS("out of memory when allocating plane\n");
 		drm_mode_object_put(dev, &plane->base);
+		kfree(plane->name);
 		return -ENOMEM;
 	}
 
@@ -1280,6 +1287,8 @@ void drm_plane_cleanup(struct drm_plane *plane)
 	WARN_ON(plane->state && !plane->funcs->atomic_destroy_state);
 	if (plane->state && plane->funcs->atomic_destroy_state)
 		plane->funcs->atomic_destroy_state(plane, plane->state);
+
+	kfree(plane->name);
 
 	memset(plane, 0, sizeof(*plane));
 }
