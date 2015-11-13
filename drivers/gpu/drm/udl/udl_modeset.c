@@ -423,7 +423,7 @@ static int udl_crtc_init(struct drm_device *dev)
 	if (crtc == NULL)
 		return -ENOMEM;
 
-	drm_crtc_init(dev, crtc, &udl_crtc_funcs);
+	drm_crtc_init(dev, crtc, &udl_crtc_funcs, "");
 	drm_crtc_helper_add(crtc, &udl_helper_funcs);
 
 	return 0;

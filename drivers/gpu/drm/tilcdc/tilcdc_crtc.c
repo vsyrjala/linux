@@ -702,7 +702,7 @@ struct drm_crtc *tilcdc_crtc_create(struct drm_device *dev)
 	drm_flip_work_init(&tilcdc_crtc->unref_work,
 			"unref", unref_worker);
 
-	ret = drm_crtc_init(dev, crtc, &tilcdc_crtc_funcs);
+	ret = drm_crtc_init(dev, crtc, &tilcdc_crtc_funcs, "");
 	if (ret < 0)
 		goto fail;
 

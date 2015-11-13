@@ -1187,7 +1187,8 @@ extern int drm_crtc_init_with_planes(struct drm_device *dev,
 				     struct drm_crtc *crtc,
 				     struct drm_plane *primary,
 				     struct drm_plane *cursor,
-				     const struct drm_crtc_funcs *funcs);
+				     const struct drm_crtc_funcs *funcs,
+				     const char *name);
 extern void drm_crtc_cleanup(struct drm_crtc *crtc);
 extern unsigned int drm_crtc_index(struct drm_crtc *crtc);
 
@@ -1257,13 +1258,14 @@ extern int drm_universal_plane_init(struct drm_device *dev,
 				    const struct drm_plane_funcs *funcs,
 				    const uint32_t *formats,
 				    unsigned int format_count,
-				    enum drm_plane_type type);
+				    enum drm_plane_type type,
+				    const char *name);
 extern int drm_plane_init(struct drm_device *dev,
 			  struct drm_plane *plane,
 			  unsigned long possible_crtcs,
 			  const struct drm_plane_funcs *funcs,
 			  const uint32_t *formats, unsigned int format_count,
-			  bool is_primary);
+			  bool is_primary, const char *name);
 extern void drm_plane_cleanup(struct drm_plane *plane);
 extern unsigned int drm_plane_index(struct drm_plane *plane);
 extern struct drm_plane * drm_plane_from_index(struct drm_device *dev, int idx);

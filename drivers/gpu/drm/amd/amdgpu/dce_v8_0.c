@@ -2802,7 +2802,8 @@ static int dce_v8_0_crtc_init(struct amdgpu_device *adev, int index)
 	if (amdgpu_crtc == NULL)
 		return -ENOMEM;
 
-	drm_crtc_init(adev->ddev, &amdgpu_crtc->base, &dce_v8_0_crtc_funcs);
+	drm_crtc_init(adev->ddev, &amdgpu_crtc->base, &dce_v8_0_crtc_funcs,
+		      "");
 
 	drm_mode_crtc_set_gamma_size(&amdgpu_crtc->base, 256);
 	amdgpu_crtc->crtc_id = index;

@@ -280,7 +280,7 @@ nv10_overlay_init(struct drm_device *device)
 
 	ret = drm_plane_init(device, &plane->base, 3 /* both crtc's */,
 			     &nv10_plane_funcs,
-			     formats, num_formats, false);
+			     formats, num_formats, false, "");
 	if (ret)
 		goto err;
 
@@ -462,7 +462,7 @@ nv04_overlay_init(struct drm_device *device)
 
 	ret = drm_plane_init(device, &plane->base, 1 /* single crtc */,
 			     &nv04_plane_funcs,
-			     formats, 2, false);
+			     formats, 2, false, "");
 	if (ret)
 		goto err;
 

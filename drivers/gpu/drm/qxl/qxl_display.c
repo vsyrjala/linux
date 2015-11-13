@@ -722,7 +722,7 @@ static int qdev_crtc_init(struct drm_device *dev, int crtc_id)
 	if (!qxl_crtc)
 		return -ENOMEM;
 
-	drm_crtc_init(dev, &qxl_crtc->base, &qxl_crtc_funcs);
+	drm_crtc_init(dev, &qxl_crtc->base, &qxl_crtc_funcs, "");
 	qxl_crtc->index = crtc_id;
 	drm_mode_crtc_set_gamma_size(&qxl_crtc->base, 256);
 	drm_crtc_helper_add(&qxl_crtc->base, &qxl_crtc_helper_funcs);

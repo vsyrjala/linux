@@ -666,7 +666,8 @@ DEFINE_WW_CLASS(crtc_ww_class);
 int drm_crtc_init_with_planes(struct drm_device *dev, struct drm_crtc *crtc,
 			      struct drm_plane *primary,
 			      struct drm_plane *cursor,
-			      const struct drm_crtc_funcs *funcs)
+			      const struct drm_crtc_funcs *funcs,
+			      const char *name)
 {
 	struct drm_mode_config *config = &dev->mode_config;
 	int ret;
@@ -1160,7 +1161,7 @@ int drm_universal_plane_init(struct drm_device *dev, struct drm_plane *plane,
 			     unsigned long possible_crtcs,
 			     const struct drm_plane_funcs *funcs,
 			     const uint32_t *formats, unsigned int format_count,
-			     enum drm_plane_type type)
+			     enum drm_plane_type type, const char *name)
 {
 	struct drm_mode_config *config = &dev->mode_config;
 	int ret;
@@ -1234,13 +1235,13 @@ int drm_plane_init(struct drm_device *dev, struct drm_plane *plane,
 		   unsigned long possible_crtcs,
 		   const struct drm_plane_funcs *funcs,
 		   const uint32_t *formats, unsigned int format_count,
-		   bool is_primary)
+		   bool is_primary, const char *name)
 {
 	enum drm_plane_type type;
 
 	type = is_primary ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
 	return drm_universal_plane_init(dev, plane, possible_crtcs, funcs,
-					formats, format_count, type);
+					formats, format_count, type, name);
 }
 EXPORT_SYMBOL(drm_plane_init);
 

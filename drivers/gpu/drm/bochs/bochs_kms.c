@@ -147,7 +147,7 @@ static void bochs_crtc_init(struct drm_device *dev)
 	struct bochs_device *bochs = dev->dev_private;
 	struct drm_crtc *crtc = &bochs->crtc;
 
-	drm_crtc_init(dev, crtc, &bochs_crtc_funcs);
+	drm_crtc_init(dev, crtc, &bochs_crtc_funcs, "");
 	drm_mode_crtc_set_gamma_size(crtc, 256);
 	drm_crtc_helper_add(crtc, &bochs_helper_funcs);
 }

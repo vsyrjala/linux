@@ -1452,7 +1452,7 @@ nv50_crtc_create(struct drm_device *dev, int index)
 	}
 
 	crtc = &head->base.base;
-	drm_crtc_init(dev, crtc, &nv50_crtc_func);
+	drm_crtc_init(dev, crtc, &nv50_crtc_func, "");
 	drm_crtc_helper_add(crtc, &nv50_crtc_hfunc);
 	drm_mode_crtc_set_gamma_size(crtc, 256);
 

@@ -517,7 +517,7 @@ int shmob_drm_crtc_create(struct shmob_drm_device *sdev)
 
 	sdev->crtc.dpms = DRM_MODE_DPMS_OFF;
 
-	ret = drm_crtc_init(sdev->ddev, crtc, &crtc_funcs);
+	ret = drm_crtc_init(sdev->ddev, crtc, &crtc_funcs, "");
 	if (ret < 0)
 		return ret;
 

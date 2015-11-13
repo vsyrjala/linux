@@ -44,7 +44,7 @@
  */
 
 int drm_crtc_init(struct drm_device *dev, struct drm_crtc *crtc,
-		  const struct drm_crtc_funcs *funcs);
+		  const struct drm_crtc_funcs *funcs, const char *name);
 
 /**
  * drm_plane_helper_funcs - helper operations for CRTCs

@@ -374,7 +374,7 @@ int imx_drm_add_crtc(struct drm_device *drm, struct drm_crtc *crtc,
 			imx_drm_crtc->imx_drm_helper_funcs.crtc_helper_funcs);
 
 	drm_crtc_init(drm, crtc,
-			imx_drm_crtc->imx_drm_helper_funcs.crtc_funcs);
+			imx_drm_crtc->imx_drm_helper_funcs.crtc_funcs, "");
 
 	return 0;
 

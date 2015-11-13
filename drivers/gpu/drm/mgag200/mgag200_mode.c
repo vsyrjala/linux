@@ -1431,7 +1431,7 @@ static void mga_crtc_init(struct mga_device *mdev)
 	if (mga_crtc == NULL)
 		return;
 
-	drm_crtc_init(mdev->dev, &mga_crtc->base, &mga_crtc_funcs);
+	drm_crtc_init(mdev->dev, &mga_crtc->base, &mga_crtc_funcs, "");
 
 	drm_mode_crtc_set_gamma_size(&mga_crtc->base, MGAG200_LUT_SIZE);
 	mdev->mode_info.crtc = mga_crtc;

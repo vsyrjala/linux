@@ -654,7 +654,7 @@ static void radeon_crtc_init(struct drm_device *dev, int index)
 	if (radeon_crtc == NULL)
 		return;
 
-	drm_crtc_init(dev, &radeon_crtc->base, &radeon_crtc_funcs);
+	drm_crtc_init(dev, &radeon_crtc->base, &radeon_crtc_funcs, "");
 
 	drm_mode_crtc_set_gamma_size(&radeon_crtc->base, 256);
 	radeon_crtc->crtc_id = index;
