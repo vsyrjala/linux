@@ -65,6 +65,9 @@ DIM_DRM_UPSTREAM_REMOTE=${DIM_DRM_UPSTREAM_REMOTE:-airlied}
 # usage: $DIM_MUA [-s subject] [-i file] [-c cc-addr] to-addr [...]
 DIM_MUA=${DIM_MUA:-mutt}
 
+# command to run after dim apply
+DIM_POST_APPLY_ACTION=${DIM_POST_APPLY_ACTION:-}
+
 # greetings pull request template
 DIM_TEMPLATE_HELLO=${DIM_TEMPLATE_HELLO:-$HOME/.dim.template.hello}
 
@@ -383,7 +386,7 @@ function dim_apply
 		commit_add_tag "Link" "http://patchwork.freedesktop.org/patch/msgid/$message_id"
 	fi
 
-	git commit --amend &
+	eval $DRY $DIM_POST_APPLY_ACTION
 }
 
 function magic_patch

@@ -21,3 +21,6 @@
 # Mail User Agent supporting a subset of mutt(1) command line options:
 # [-s subject] [-i file] [-c cc-addr] to-addr [...]
 #DIM_MUA=mutt
+
+# Command to run after dim apply
+#DIM_POST_APPLY_ACTION=
