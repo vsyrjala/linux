@@ -1679,9 +1679,12 @@ int dpm_suspend_start(pm_message_t state)
 }
 EXPORT_SYMBOL_GPL(dpm_suspend_start);
 
-void __suspend_report_result(const char *function, void *fn, int ret)
+void __suspend_report_result(const char *function, void *fn, int ret,
+			     bool runtime_pm)
 {
-	if (ret)
+	if (runtime_pm && (ret == -EBUSY || ret == -EAGAIN))
+		printk(KERN_DEBUG "%s(): %pF returns %d\n", function, fn, ret);
+	else if (ret)
 		printk(KERN_ERR "%s(): %pF returns %d\n", function, fn, ret);
 }
 EXPORT_SYMBOL_GPL(__suspend_report_result);
