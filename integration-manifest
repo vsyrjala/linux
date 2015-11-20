@@ -1,0 +1,26 @@
+origin/drm-intel-fixes a53f2afb7e3dfc2c7acbb0c015b44783d99d8119
+	drm/i915: Mark uneven memory banks on gen4 desktop as unknown swizzling
+drm-upstream/drm-fixes 2d591ab18a77e25def2c483b495e07b42a3ea79f
+	Merge tag 'drm-intel-fixes-2015-11-19' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes 816d2206f0f9953ca854e4ff1a2749a5cbd62715
+	Merge tag 'drm-intel-next-fixes-2015-11-06' of git://anongit.freedesktop.org/drm-intel into drm-next
+origin/drm-intel-next-queued 29bb94bb4dc151024feb649422f3b2bccb37e97d
+	drm/i915: take a power domain reference while checking the HDMI live status
+drm-upstream/drm-next f20780f3e8feec0eebcf9fb41e1d90202fffaeff
+	Merge branch 'drm-sti-next-2015-11-03' of http://git.linaro.org/people/benjamin.gaignard/kernel into drm-next
+sound-upstream/for-next 3c7a09358729e64119669f454fb1ac3c5cd20b63
+	ALSA: ua101: replace le16_to_cpu() with usb_endpoint_maxp()
+origin/topic/drm-fixes 5481c8fb1da2a573861095fbea078f30c664d0bd
+	drm/atomic-helper: Check encoder/crtc constraints
+origin/topic/drm-misc 58c8fb954494ca022b6ffba4a35fc7dcfb92bc60
+	drm/sysfs: Grab lock for edid/modes_show
+origin/topic/kerneldoc 5416dc1a465b5108e936870e761e4fd7a8217e41
+	scripts/kernel-doc: Improve Markdown results
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/mst-fixes 6ea76f3cade4734e73e3da842005820558b8b828
+	drm/atomic-helpers: Make encoder picking more robust
+origin/topic/core-for-CI 64a93eaebb44c35c50e10144923189c8558d043d
+	PCI / PM: tune down RPM suspend error message with EBUSY and EAGAIN retval
