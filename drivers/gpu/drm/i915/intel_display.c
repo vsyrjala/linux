@@ -7021,87 +7021,117 @@ static int pipe_required_fdi_lanes(struct intel_crtc_state *crtc_state)
 	return 0;
 }
 
-static int ironlake_check_fdi_lanes(struct drm_device *dev, enum pipe pipe,
-				     struct intel_crtc_state *pipe_config)
+static int
+intel_modeset_pipe_config_start(struct intel_crtc *crtc,
+				struct intel_crtc_state *pipe_config);
+static int
+intel_modeset_pipe_config_continue(struct intel_crtc *crtc,
+				   struct intel_crtc_state *pipe_config);
+
+static int intel_add_crtc_modeset_to_state(struct drm_atomic_state *state,
+					   struct intel_crtc *crtc)
 {
-	struct drm_atomic_state *state = pipe_config->base.state;
-	struct intel_crtc *other_crtc;
-	struct intel_crtc_state *other_crtc_state;
+	struct intel_crtc_state *crtc_state;
+	int ret;
 
-	DRM_DEBUG_KMS("checking fdi config on pipe %c, lanes %i\n",
-		      pipe_name(pipe), pipe_config->fdi_lanes);
-	if (pipe_config->fdi_lanes > 4) {
-		DRM_DEBUG_KMS("invalid fdi lane config on pipe %c: %i lanes\n",
-			      pipe_name(pipe), pipe_config->fdi_lanes);
-		return -EINVAL;
-	}
+	crtc_state = intel_atomic_get_crtc_state(state, crtc);
+	if (IS_ERR(crtc_state))
+		return PTR_ERR(crtc_state);
 
-	if (IS_HASWELL(dev) || IS_BROADWELL(dev)) {
-		if (pipe_config->fdi_lanes > 2) {
-			DRM_DEBUG_KMS("only 2 lanes on haswell, required: %i lanes\n",
-				      pipe_config->fdi_lanes);
-			return -EINVAL;
-		} else {
-			return 0;
-		}
-	}
+	crtc_state->base.mode_changed = true;
 
-	if (INTEL_INFO(dev)->num_pipes == 2)
-		return 0;
+	ret = drm_atomic_add_affected_connectors(state, &crtc->base);
+	if (ret)
+		return ret;
 
-	/* Ivybridge 3 pipe is really complicated */
-	switch (pipe) {
-	case PIPE_A:
-		return 0;
-	case PIPE_B:
-		if (pipe_config->fdi_lanes <= 2)
-			return 0;
+	ret = intel_modeset_pipe_config_start(crtc, crtc_state);
+	if (ret)
+		return ret;
 
-		other_crtc = to_intel_crtc(intel_get_crtc_for_pipe(dev, PIPE_C));
-		other_crtc_state =
-			intel_atomic_get_crtc_state(state, other_crtc);
-		if (IS_ERR(other_crtc_state))
-			return PTR_ERR(other_crtc_state);
+	/*
+	 * Must run through this at least once for every new
+	 * pipe to make sure has_pch_encoder and fdi_lanes are
+	 * set up to something half decent.
+	 */
+	ret = intel_modeset_pipe_config_continue(crtc, crtc_state);
+	if (ret)
+		return ret;
 
-		if (pipe_required_fdi_lanes(other_crtc_state) > 0) {
-			DRM_DEBUG_KMS("invalid shared fdi lane config on pipe %c: %i lanes\n",
-				      pipe_name(pipe), pipe_config->fdi_lanes);
-			return -EINVAL;
-		}
-		return 0;
-	case PIPE_C:
-		if (pipe_config->fdi_lanes > 2) {
-			DRM_DEBUG_KMS("only 2 lanes on pipe %c: required %i lanes\n",
-				      pipe_name(pipe), pipe_config->fdi_lanes);
-			return -EINVAL;
-		}
-
-		other_crtc = to_intel_crtc(intel_get_crtc_for_pipe(dev, PIPE_B));
-		other_crtc_state =
-			intel_atomic_get_crtc_state(state, other_crtc);
-		if (IS_ERR(other_crtc_state))
-			return PTR_ERR(other_crtc_state);
-
-		if (pipe_required_fdi_lanes(other_crtc_state) > 2) {
-			DRM_DEBUG_KMS("fdi link B uses too many lanes to enable link C\n");
-			return -EINVAL;
-		}
-		return 0;
-	default:
-		BUG();
-	}
+	return 0;
 }
 
-#define RETRY 1
-static int ironlake_fdi_compute_config(struct intel_crtc *intel_crtc,
-				       struct intel_crtc_state *pipe_config)
+static int ivybridge_compute_fdi_bc_bifurcation(struct drm_atomic_state *state)
 {
-	struct drm_device *dev = intel_crtc->base.dev;
-	const struct drm_display_mode *adjusted_mode = &pipe_config->base.adjusted_mode;
-	int lane, link_bw, fdi_dotclock, ret;
-	bool needs_recompute = false;
+	struct drm_device *dev = state->dev;
+	struct intel_crtc *crtc_b, *crtc_c;
+	struct intel_crtc_state *crtc_state_b, *crtc_state_c;
+	int ret = 0;
 
-retry:
+	/* nothing to check if pipe C is fused off */
+	if (INTEL_INFO(dev)->num_pipes < 3)
+		return 0;
+
+	crtc_b = to_intel_crtc(intel_get_crtc_for_pipe(dev, PIPE_B));
+	crtc_c = to_intel_crtc(intel_get_crtc_for_pipe(dev, PIPE_C));
+
+	crtc_state_b = intel_atomic_get_crtc_state(state, crtc_b);
+	if (IS_ERR(crtc_state_b))
+		return PTR_ERR(crtc_state_b);
+
+	crtc_state_c = intel_atomic_get_crtc_state(state, crtc_c);
+	if (IS_ERR(crtc_state_c))
+		return PTR_ERR(crtc_state_c);
+
+	if (pipe_required_fdi_lanes(crtc_state_c) > 0) {
+		DRM_DEBUG_KMS("pipe C requires FDI lanes\n");
+
+		/* need to modeset pipe B to make room for pipe C */
+		if (pipe_required_fdi_lanes(crtc_state_b) > 2) {
+			DRM_DEBUG_KMS("forcing a modeset in pipe B to free up FDI lanes\n");
+			ret = intel_add_crtc_modeset_to_state(state, crtc_b);
+		}
+
+		/*
+		 * must do this _after_ intel_add_crtc_modeset_to_state() since
+		 * otherwise we end up with the defaults
+		 */
+		crtc_state_b->max_fdi_lanes = 2;
+		crtc_state_c->max_fdi_lanes = 2;
+	} else {
+		DRM_DEBUG_KMS("pipe C doesn't require FDI lanes\n");
+
+		/* pipe C no longer needs FDI lanes, can give them to pipe B */
+		/*
+		 * FIXME not sure this really is the best thing, or should we keep
+		 * pipe B running in its bw_constrained form until another modeset
+		 * happens due to some other reasons?
+		 */
+		if (pipe_required_fdi_lanes(crtc_state_b) > 0 &&
+		    pipe_required_fdi_lanes(crtc_state_b) <= 2 &&
+		    crtc_state_b->bw_constrained) {
+			DRM_DEBUG_KMS("forcing a modeset in pipe B to use up FDI lanes\n");
+			ret = intel_add_crtc_modeset_to_state(state, crtc_b);
+		}
+
+		/*
+		 * must do this _after_ intel_add_crtc_modeset_to_state() since
+		 * otherwise we end up with the defaults
+		 */
+		crtc_state_b->max_fdi_lanes = 4;
+		crtc_state_c->max_fdi_lanes = 0;
+	}
+
+	return ret;
+}
+
+static void ironlake_fdi_compute_config(struct intel_crtc *crtc,
+					struct intel_crtc_state *pipe_config)
+{
+	struct drm_device *dev = crtc->base.dev;
+	const struct drm_display_mode *adjusted_mode =
+		&pipe_config->base.adjusted_mode;
+	int link_bw, fdi_dotclock;
+
 	/* FDI is a binary signal running at ~2.7GHz, encoding
 	 * each output octet as 10 bits. The actual frequency
 	 * is stored as a divider into a 100MHz clock, and the
@@ -7113,29 +7143,32 @@ retry:
 
 	fdi_dotclock = adjusted_mode->crtc_clock;
 
-	lane = ironlake_get_lanes_required(fdi_dotclock, link_bw,
-					   pipe_config->pipe_bpp);
+	pipe_config->fdi_lanes =
+		ironlake_get_lanes_required(fdi_dotclock, link_bw,
+					    pipe_config->pipe_bpp);
 
-	pipe_config->fdi_lanes = lane;
+	intel_link_compute_m_n(pipe_config->pipe_bpp, pipe_config->fdi_lanes,
+			       fdi_dotclock, link_bw, &pipe_config->fdi_m_n);
+}
 
-	intel_link_compute_m_n(pipe_config->pipe_bpp, lane, fdi_dotclock,
-			       link_bw, &pipe_config->fdi_m_n);
+static int ironlake_fdi_check_config(struct intel_crtc *crtc,
+				     struct intel_crtc_state *pipe_config)
+{
+	if (pipe_config->fdi_lanes <= pipe_config->max_fdi_lanes)
+		return 0;
 
-	ret = ironlake_check_fdi_lanes(dev, intel_crtc->pipe, pipe_config);
-	if (ret == -EINVAL && pipe_config->pipe_bpp > 6*3) {
+	DRM_DEBUG_KMS("invalid fdi lane config on pipe %c: %i lanes (max: %i)\n",
+		      pipe_name(crtc->pipe), pipe_config->fdi_lanes,
+		      pipe_config->max_fdi_lanes);
+
+	if (pipe_config->pipe_bpp > 6*3) {
 		pipe_config->pipe_bpp -= 2*3;
-		DRM_DEBUG_KMS("fdi link bw constraint, reducing pipe bpp to %i\n",
-			      pipe_config->pipe_bpp);
-		needs_recompute = true;
 		pipe_config->bw_constrained = true;
 
-		goto retry;
+		return -EAGAIN;
 	}
 
-	if (needs_recompute)
-		return RETRY;
-
-	return ret;
+	return -EINVAL;
 }
 
 static bool pipe_config_supports_ips(struct drm_i915_private *dev_priv,
@@ -7229,7 +7262,7 @@ static int intel_crtc_compute_config(struct intel_crtc *crtc,
 		hsw_compute_ips_config(crtc, pipe_config);
 
 	if (pipe_config->has_pch_encoder)
-		return ironlake_fdi_compute_config(crtc, pipe_config);
+		return ironlake_fdi_check_config(crtc, pipe_config);
 
 	return 0;
 }
@@ -12694,7 +12727,7 @@ connected_sink_compute_bpp(struct intel_connector *connector,
 	}
 }
 
-static int
+static void
 compute_baseline_pipe_bpp(struct intel_crtc *crtc,
 			  struct intel_crtc_state *pipe_config)
 {
@@ -12724,8 +12757,6 @@ compute_baseline_pipe_bpp(struct intel_crtc *crtc,
 		connected_sink_compute_bpp(to_intel_connector(connector),
 					   pipe_config);
 	}
-
-	return bpp;
 }
 
 static void intel_dump_crtc_timings(const struct drm_display_mode *mode)
@@ -12756,9 +12787,10 @@ static void intel_dump_pipe_config(struct intel_crtc *crtc,
 	DRM_DEBUG_KMS("cpu_transcoder: %s\n", transcoder_name(pipe_config->cpu_transcoder));
 	DRM_DEBUG_KMS("pipe bpp: %i, dithering: %i\n",
 		      pipe_config->pipe_bpp, pipe_config->dither);
-	DRM_DEBUG_KMS("fdi/pch: %i, lanes: %i, gmch_m: %u, gmch_n: %u, link_m: %u, link_n: %u, tu: %u\n",
+	DRM_DEBUG_KMS("fdi/pch: %i, lanes: %i, max_lanes: %i, gmch_m: %u, gmch_n: %u, link_m: %u, link_n: %u, tu: %u\n",
 		      pipe_config->has_pch_encoder,
 		      pipe_config->fdi_lanes,
+		      pipe_config->max_fdi_lanes,
 		      pipe_config->fdi_m_n.gmch_m, pipe_config->fdi_m_n.gmch_n,
 		      pipe_config->fdi_m_n.link_m, pipe_config->fdi_m_n.link_n,
 		      pipe_config->fdi_m_n.tu);
@@ -12963,21 +12995,18 @@ clear_intel_crtc_state(struct intel_crtc_state *crtc_state)
 }
 
 static int
-intel_modeset_pipe_config(struct drm_crtc *crtc,
-			  struct intel_crtc_state *pipe_config)
+intel_modeset_pipe_config_start(struct intel_crtc *crtc,
+				struct intel_crtc_state *pipe_config)
 {
 	struct drm_atomic_state *state = pipe_config->base.state;
-	struct intel_encoder *encoder;
 	struct drm_connector *connector;
 	struct drm_connector_state *connector_state;
-	int base_bpp, ret = -EINVAL;
 	int i;
-	bool retry = true;
 
 	clear_intel_crtc_state(pipe_config);
 
 	pipe_config->cpu_transcoder =
-		(enum transcoder) to_intel_crtc(crtc)->pipe;
+		(enum transcoder) crtc->pipe;
 
 	/*
 	 * Sanitize sync polarity flags based on requested ones. If neither
@@ -12992,10 +13021,7 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 	      (DRM_MODE_FLAG_PVSYNC | DRM_MODE_FLAG_NVSYNC)))
 		pipe_config->base.adjusted_mode.flags |= DRM_MODE_FLAG_NVSYNC;
 
-	base_bpp = compute_baseline_pipe_bpp(to_intel_crtc(crtc),
-					     pipe_config);
-	if (base_bpp < 0)
-		goto fail;
+	compute_baseline_pipe_bpp(crtc, pipe_config);
 
 	/*
 	 * Determine the real pipe dimensions. Note that stereo modes can
@@ -13010,14 +13036,16 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 			       &pipe_config->pipe_src_h);
 
 	for_each_connector_in_state(state, connector, connector_state, i) {
-		if (connector_state->crtc != crtc)
+		struct intel_encoder *encoder;
+
+		if (connector_state->crtc != &crtc->base)
 			continue;
 
 		encoder = to_intel_encoder(connector_state->best_encoder);
 
-		if (!check_single_encoder_cloning(state, to_intel_crtc(crtc), encoder)) {
+		if (!check_single_encoder_cloning(state, crtc, encoder)) {
 			DRM_DEBUG_KMS("rejecting invalid cloning configuration\n");
-			goto fail;
+			return -EINVAL;
 		}
 
 		/*
@@ -13027,7 +13055,24 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 		pipe_config->output_types |= 1 << encoder->type;
 	}
 
-encoder_retry:
+	/* initial assumption is no shared lanes */
+	if (HAS_DDI(crtc->base.dev) || crtc->pipe == PIPE_C)
+		pipe_config->max_fdi_lanes = 2;
+	else
+		pipe_config->max_fdi_lanes = 4;
+
+	return 0;
+}
+
+static int
+intel_modeset_pipe_config_continue(struct intel_crtc *crtc,
+				   struct intel_crtc_state *pipe_config)
+{
+	struct drm_atomic_state *state = pipe_config->base.state;
+	struct drm_connector *connector;
+	struct drm_connector_state *connector_state;
+	int i;
+
 	/* Ensure the port clock defaults are reset when retrying. */
 	pipe_config->port_clock = 0;
 	pipe_config->pixel_multiplier = 1;
@@ -13041,14 +13086,16 @@ encoder_retry:
 	 * a chance to reject the mode entirely.
 	 */
 	for_each_connector_in_state(state, connector, connector_state, i) {
-		if (connector_state->crtc != crtc)
+		struct intel_encoder *encoder;
+
+		if (connector_state->crtc != &crtc->base)
 			continue;
 
 		encoder = to_intel_encoder(connector_state->best_encoder);
 
 		if (!(encoder->compute_config(encoder, pipe_config, connector_state))) {
 			DRM_DEBUG_KMS("Encoder config failure\n");
-			goto fail;
+			return -EINVAL;
 		}
 	}
 
@@ -13058,31 +13105,37 @@ encoder_retry:
 		pipe_config->port_clock = pipe_config->base.adjusted_mode.crtc_clock
 			* pipe_config->pixel_multiplier;
 
-	ret = intel_crtc_compute_config(to_intel_crtc(crtc), pipe_config);
-	if (ret < 0) {
-		DRM_DEBUG_KMS("CRTC fixup failed\n");
-		goto fail;
+	if (pipe_config->has_pch_encoder)
+		ironlake_fdi_compute_config(crtc, pipe_config);
+
+	return 0;
+}
+
+static int
+intel_modeset_pipe_config_finish(struct intel_crtc *crtc,
+				 struct intel_crtc_state *pipe_config)
+{
+	int ret;
+
+	ret = intel_crtc_compute_config(crtc, pipe_config);
+
+	if (ret == -EAGAIN) {
+		DRM_DEBUG_KMS("CRTC bw constrained, retrying\n");
+		return ret;
 	}
 
-	if (ret == RETRY) {
-		if (WARN(!retry, "loop in pipe configuration computation\n")) {
-			ret = -EINVAL;
-			goto fail;
-		}
-
-		DRM_DEBUG_KMS("CRTC bw constrained, retrying\n");
-		retry = false;
-		goto encoder_retry;
+	if (ret) {
+		DRM_DEBUG_KMS("CRTC fixup failed\n");
+		return ret;
 	}
 
 	/* Dithering seems to not pass-through bits correctly when it should, so
 	 * only enable it on 6bpc panels. */
 	pipe_config->dither = pipe_config->pipe_bpp == 6*3;
-	DRM_DEBUG_KMS("hw max bpp: %i, pipe bpp: %i, dithering: %i\n",
-		      base_bpp, pipe_config->pipe_bpp, pipe_config->dither);
+	DRM_DEBUG_KMS("pipe bpp: %i, dithering: %i\n",
+		      pipe_config->pipe_bpp, pipe_config->dither);
 
-fail:
-	return ret;
+	return 0;
 }
 
 static void
@@ -13983,16 +14036,14 @@ static int intel_atomic_check(struct drm_device *dev,
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *crtc_state;
 	int ret, i;
-	bool any_ms = false;
+	unsigned int modeset_pipes = 0;
+	bool retry;
 
 	ret = drm_atomic_helper_check_modeset(dev, state);
 	if (ret)
 		return ret;
 
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
-		struct intel_crtc_state *pipe_config =
-			to_intel_crtc_state(crtc_state);
-
 		/* Catch I915_MODE_FLAG_INHERITED */
 		if (crtc_state->mode.private_flags != crtc->state->mode.private_flags)
 			crtc_state->mode_changed = true;
@@ -14000,24 +14051,62 @@ static int intel_atomic_check(struct drm_device *dev,
 		if (!needs_modeset(crtc_state))
 			continue;
 
-		if (!crtc_state->enable) {
-			any_ms = true;
+		modeset_pipes |= 1 << to_intel_crtc(crtc)->pipe;
+
+		if (!crtc_state->enable)
 			continue;
-		}
 
 		/* FIXME: For only active_changed we shouldn't need to do any
 		 * state recomputation at all. */
 
-		ret = drm_atomic_add_affected_connectors(state, crtc);
+		ret = intel_add_crtc_modeset_to_state(state, to_intel_crtc(crtc));
 		if (ret)
 			return ret;
+	}
 
-		ret = intel_modeset_pipe_config(crtc, pipe_config);
-		if (ret) {
-			intel_dump_pipe_config(to_intel_crtc(crtc),
-					       pipe_config, "[failed]");
+	if (IS_IVYBRIDGE(dev) &&
+	    (modeset_pipes & ((1 << PIPE_B) | (1 << PIPE_C))) != 0) {
+		ret = ivybridge_compute_fdi_bc_bifurcation(state);
+		if (ret)
 			return ret;
+	}
+
+	/*
+	 * Keep at it until we run out of ways
+	 * to reduce FDI bandwith utilization.
+	 */
+	do {
+		retry = false;
+
+		for_each_crtc_in_state(state, crtc, crtc_state, i) {
+			struct intel_crtc_state *pipe_config =
+				to_intel_crtc_state(crtc_state);
+
+			if (!needs_modeset(crtc_state))
+				continue;
+
+			if (!crtc_state->enable)
+				continue;
+
+			ret = intel_modeset_pipe_config_continue(to_intel_crtc(crtc),
+								 pipe_config);
+			if (ret)
+				return ret;
+
+			ret = intel_modeset_pipe_config_finish(to_intel_crtc(crtc),
+							       pipe_config);
+			if (ret == -EAGAIN)
+				retry = true;
+			else if (ret)
+				return ret;
 		}
+	} while (retry);
+
+	modeset_pipes = 0;
+
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		struct intel_crtc_state *pipe_config =
+			to_intel_crtc_state(crtc_state);
 
 		if (i915.fastboot &&
 		    intel_pipe_config_compare(dev,
@@ -14028,7 +14117,7 @@ static int intel_atomic_check(struct drm_device *dev,
 		}
 
 		if (needs_modeset(crtc_state))
-			any_ms = true;
+			modeset_pipes |= 1 << to_intel_crtc(crtc)->pipe;
 
 		ret = drm_atomic_add_affected_planes(state, crtc);
 		if (ret)
@@ -14039,7 +14128,7 @@ static int intel_atomic_check(struct drm_device *dev,
 				       "[modeset]" : "[fastset]");
 	}
 
-	if (any_ms) {
+	if (modeset_pipes) {
 		ret = intel_modeset_checks(state);
 
 		if (ret)

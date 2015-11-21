@@ -647,6 +647,7 @@ struct intel_crtc_state {
 	} pch_pfit;
 
 	/* FDI configuration, only valid if has_pch_encoder is set. */
+	int max_fdi_lanes;
 	int fdi_lanes;
 	struct intel_link_m_n fdi_m_n;
 
