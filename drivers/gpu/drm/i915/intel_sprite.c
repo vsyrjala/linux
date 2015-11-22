@@ -1043,6 +1043,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 	unsigned long possible_crtcs;
 	const uint32_t *plane_formats;
 	int num_plane_formats;
+	unsigned int supported_rotations;
 	int ret;
 
 	if (INTEL_INFO(dev)->gen < 5)
@@ -1114,6 +1115,15 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 		return -ENODEV;
 	}
 
+	if (INTEL_INFO(dev)->gen >= 9) {
+		supported_rotations =
+			BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_90) |
+			BIT(DRM_ROTATE_180) | BIT(DRM_ROTATE_270);
+	} else {
+		supported_rotations =
+			BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_180);
+	}
+
 	intel_plane->pipe = pipe;
 	intel_plane->plane = plane;
 	intel_plane->frontbuffer_bit = INTEL_FRONTBUFFER_SPRITE(pipe, plane);
@@ -1129,7 +1139,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 		goto out;
 	}
 
-	intel_create_rotation_property(dev, intel_plane);
+	intel_create_rotation_property(intel_plane, supported_rotations);
 
 	drm_plane_helper_add(&intel_plane->base, &intel_plane_helper_funcs);
 

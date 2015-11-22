@@ -13907,6 +13907,7 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 	struct intel_plane_state *state;
 	const uint32_t *intel_primary_formats;
 	unsigned int num_formats;
+	unsigned int supported_rotations;
 
 	primary = kzalloc(sizeof(*primary), GFP_KERNEL);
 	if (primary == NULL)
@@ -13945,34 +13946,43 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 		num_formats = ARRAY_SIZE(i8xx_primary_formats);
 	}
 
+	if (INTEL_INFO(dev)->gen >= 9) {
+		supported_rotations =
+			BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_90) |
+			BIT(DRM_ROTATE_180) | BIT(DRM_ROTATE_270);
+	} else if (INTEL_INFO(dev)->gen >= 4) {
+		supported_rotations =
+			BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_180);
+	} else {
+		supported_rotations = BIT(DRM_ROTATE_0);
+	}
+
 	drm_universal_plane_init(dev, &primary->base, 0,
 				 &intel_plane_funcs,
 				 intel_primary_formats, num_formats,
 				 DRM_PLANE_TYPE_PRIMARY);
 
 	if (INTEL_INFO(dev)->gen >= 4)
-		intel_create_rotation_property(dev, primary);
+		intel_create_rotation_property(primary, supported_rotations);
 
 	drm_plane_helper_add(&primary->base, &intel_plane_helper_funcs);
 
 	return &primary->base;
 }
 
-void intel_create_rotation_property(struct drm_device *dev, struct intel_plane *plane)
+void intel_create_rotation_property(struct intel_plane *plane,
+				    unsigned int supported_rotations)
 {
-	if (!dev->mode_config.rotation_property) {
-		unsigned long flags = BIT(DRM_ROTATE_0) |
-			BIT(DRM_ROTATE_180);
+	struct drm_device *dev = plane->base.dev;
 
-		if (INTEL_INFO(dev)->gen >= 9)
-			flags |= BIT(DRM_ROTATE_90) | BIT(DRM_ROTATE_270);
+	if (!plane->base.rotation_property)
+		plane->base.rotation_property =
+			drm_mode_create_rotation_property(dev,
+							  supported_rotations);
 
-		dev->mode_config.rotation_property =
-			drm_mode_create_rotation_property(dev, flags);
-	}
-	if (dev->mode_config.rotation_property)
+	if (plane->base.rotation_property)
 		drm_object_attach_property(&plane->base.base,
-				dev->mode_config.rotation_property,
+				plane->base.rotation_property,
 				plane->base.state->rotation);
 }
 
@@ -14089,17 +14099,10 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 				 ARRAY_SIZE(intel_cursor_formats),
 				 DRM_PLANE_TYPE_CURSOR);
 
-	if (INTEL_INFO(dev)->gen >= 4) {
-		if (!dev->mode_config.rotation_property)
-			dev->mode_config.rotation_property =
-				drm_mode_create_rotation_property(dev,
-							BIT(DRM_ROTATE_0) |
-							BIT(DRM_ROTATE_180));
-		if (dev->mode_config.rotation_property)
-			drm_object_attach_property(&cursor->base.base,
-				dev->mode_config.rotation_property,
-				state->base.rotation);
-	}
+	if (INTEL_INFO(dev)->gen >= 4)
+		intel_create_rotation_property(cursor,
+					       BIT(DRM_ROTATE_0) |
+					       BIT(DRM_ROTATE_180));
 
 	if (INTEL_INFO(dev)->gen >=9)
 		state->scaler_id = -1;

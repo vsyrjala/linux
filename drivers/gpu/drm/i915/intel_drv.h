@@ -1127,8 +1127,8 @@ unsigned int
 intel_tile_height(struct drm_device *dev, uint32_t pixel_format,
 		  uint64_t fb_format_modifier, unsigned int plane);
 
-void intel_create_rotation_property(struct drm_device *dev,
-					struct intel_plane *plane);
+void intel_create_rotation_property(struct intel_plane *plane,
+				    unsigned int supported_rotations);
 
 /* shared dpll functions */
 struct intel_shared_dpll *intel_crtc_to_shared_dpll(struct intel_crtc *crtc);
