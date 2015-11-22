@@ -251,7 +251,7 @@ skl_update_plane(struct drm_plane *drm_plane,
 
 	surf_addr = intel_plane_obj_offset(intel_plane, obj, 0);
 
-	if (intel_rotation_90_or_270(rotation)) {
+	if (drm_rotation_90_or_270(rotation)) {
 		int cpp = drm_format_plane_cpp(fb->pixel_format, 0);
 
 		/* stride: Surface height in tiles */
