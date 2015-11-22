@@ -4979,22 +4979,22 @@ enum skl_disp_power_wells {
 #define   DISPPLANE_GAMMA_ENABLE		(1<<30)
 #define   DISPPLANE_GAMMA_DISABLE		0
 #define   DISPPLANE_PIXFORMAT_MASK		(0xf<<26)
-#define   DISPPLANE_YUV422			(0x0<<26)
+#define   DISPPLANE_YUV422			(0x0<<26) /* alm/mgm/gen3/gen4 C */
 #define   DISPPLANE_8BPP			(0x2<<26)
-#define   DISPPLANE_BGRA555			(0x3<<26)
-#define   DISPPLANE_BGRX555			(0x4<<26)
+#define   DISPPLANE_BGRA555			(0x3<<26) /* gen3 C */
+#define   DISPPLANE_BGRX555			(0x4<<26) /* gen2/gen3 A/B/C */
 #define   DISPPLANE_BGRX565			(0x5<<26)
 #define   DISPPLANE_BGRX888			(0x6<<26)
-#define   DISPPLANE_BGRA888			(0x7<<26)
-#define   DISPPLANE_RGBX101010			(0x8<<26)
-#define   DISPPLANE_RGBA101010			(0x9<<26)
-#define   DISPPLANE_XR_RGBX101010		(0x9<<26)
-#define   DISPPLANE_BGRX101010			(0xa<<26)
-#define   DISPPLANE_BGRA101010			(0xb<<26)
-#define   DISPPLANE_RGBX161616			(0xc<<26)
-#define   DISPPLANE_RGBA161616			(0xd<<26)
-#define   DISPPLANE_RGBX888			(0xe<<26)
-#define   DISPPLANE_RGBA888			(0xf<<26)
+#define   DISPPLANE_BGRA888			(0x7<<26) /* gen2/gen3 B/C, gen4 C, vlv/chv */
+#define   DISPPLANE_RGBX101010			(0x8<<26) /* gen4 A/B/C, ilk+, vlv/chv */
+#define   DISPPLANE_RGBA101010			(0x9<<26) /* vlv/chv */
+#define   DISPPLANE_XR_RGBX101010		(0x9<<26) /* ivb+ */
+#define   DISPPLANE_BGRX101010			(0xa<<26) /* gen4 A/B, ilk+, vlv/chv */
+#define   DISPPLANE_BGRA101010			(0xb<<26) /* vlv/chv */
+#define   DISPPLANE_RGBX161616			(0xc<<26) /* gen4 A/B, ilk+, vlv/chv */
+#define   DISPPLANE_RGBA161616			(0xd<<26) /* vlv/chv */
+#define   DISPPLANE_RGBX888			(0xe<<26) /* gen4 A/B/C, ilk+, vlv/chv */
+#define   DISPPLANE_RGBA888			(0xf<<26) /* gen4 C, vlv/chv */
 #define   DISPPLANE_STEREO_ENABLE		(1<<25)
 #define   DISPPLANE_STEREO_DISABLE		0
 #define   DISPPLANE_PIPE_CSC_ENABLE		(1<<24)
@@ -5102,10 +5102,10 @@ enum skl_disp_power_wells {
 #define   DVS_ENABLE		(1<<31)
 #define   DVS_GAMMA_ENABLE	(1<<30)
 #define   DVS_PIXFORMAT_MASK	(3<<25)
-#define   DVS_FORMAT_YUV422	(0<<25)
-#define   DVS_FORMAT_RGBX101010	(1<<25)
-#define   DVS_FORMAT_RGBX888	(2<<25)
-#define   DVS_FORMAT_RGBX161616	(3<<25)
+#define   DVS_FORMAT_YUV422	(0<<25) /* g4x+ */
+#define   DVS_FORMAT_RGBX101010	(1<<25) /* ilk+ */
+#define   DVS_FORMAT_RGBX888	(2<<25) /* g4x+ */
+#define   DVS_FORMAT_RGBX161616	(3<<25) /* ilk+ */
 #define   DVS_PIPE_CSC_ENABLE   (1<<24)
 #define   DVS_SOURCE_KEY	(1<<22)
 #define   DVS_RGB_ORDER_XBGR	(1<<20)
