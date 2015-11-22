@@ -2284,7 +2284,7 @@ intel_fill_fb_ggtt_view(struct i915_ggtt_view *view, struct drm_framebuffer *fb,
 	if (!plane_state)
 		return;
 
-	if (!intel_rotation_90_or_270(plane_state->rotation))
+	if (!drm_rotation_90_or_270(plane_state->rotation))
 		return;
 
 	*view = i915_ggtt_view_rotated;
@@ -3124,7 +3124,7 @@ static void skylake_update_primary_plane(struct drm_crtc *crtc,
 
 	WARN_ON(x != src_x || y != src_y);
 
-	if (intel_rotation_90_or_270(rotation)) {
+	if (drm_rotation_90_or_270(rotation)) {
 		/* stride = Surface height in tiles */
 		tile_height = intel_tile_height(dev, fb->pixel_format,
 						fb->modifier[0], 0);
@@ -4367,7 +4367,7 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 		to_intel_crtc(crtc_state->base.crtc);
 	int need_scaling;
 
-	need_scaling = intel_rotation_90_or_270(rotation) ?
+	need_scaling = drm_rotation_90_or_270(rotation) ?
 		(src_h != dst_w || src_w != dst_h):
 		(src_w != dst_w || src_h != dst_h);
 
@@ -11242,7 +11242,7 @@ static void skl_do_mmio_flip(struct intel_crtc *intel_crtc,
 	 * The stride is either expressed as a multiple of 64 bytes chunks for
 	 * linear buffers or in number of tiles for tiled buffers.
 	 */
-	if (intel_rotation_90_or_270(rotation)) {
+	if (drm_rotation_90_or_270(rotation)) {
 		/* stride = Surface height in tiles */
 		tile_height = intel_tile_height(dev, fb->pixel_format,
 						fb->modifier[0], 0);

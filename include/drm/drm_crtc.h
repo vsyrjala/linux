@@ -99,6 +99,11 @@ static inline uint64_t I642U64(int64_t val)
 #define DRM_REFLECT_X	4
 #define DRM_REFLECT_Y	5
 
+static inline bool drm_rotation_90_or_270(unsigned int rotation)
+{
+	return rotation & (BIT(DRM_ROTATE_90) | BIT(DRM_ROTATE_270));
+}
+
 enum drm_connector_force {
 	DRM_FORCE_UNSPECIFIED,
 	DRM_FORCE_OFF,

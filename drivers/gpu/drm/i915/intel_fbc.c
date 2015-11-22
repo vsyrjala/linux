@@ -81,7 +81,7 @@ static void intel_fbc_get_plane_source_size(struct intel_crtc *crtc,
 			to_intel_plane_state(crtc->base.primary->state);
 	int w, h;
 
-	if (intel_rotation_90_or_270(plane_state->base.rotation)) {
+	if (drm_rotation_90_or_270(plane_state->base.rotation)) {
 		w = drm_rect_height(&plane_state->src) >> 16;
 		h = drm_rect_width(&plane_state->src) >> 16;
 	} else {

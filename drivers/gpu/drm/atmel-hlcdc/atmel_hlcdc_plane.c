@@ -385,7 +385,7 @@ static void atmel_hlcdc_plane_update_format(struct atmel_hlcdc_plane *plane,
 
 	if ((state->base.fb->pixel_format == DRM_FORMAT_YUV422 ||
 	     state->base.fb->pixel_format == DRM_FORMAT_NV61) &&
-	    (state->base.rotation & (BIT(DRM_ROTATE_90) | BIT(DRM_ROTATE_270))))
+	    drm_rotation_90_or_270(state->base.rotation))
 		cfg |= ATMEL_HLCDC_YUV422ROT;
 
 	atmel_hlcdc_layer_update_cfg(&plane->layer,
@@ -585,7 +585,7 @@ static int atmel_hlcdc_plane_atomic_check(struct drm_plane *p,
 	/*
 	 * Swap width and size in case of 90 or 270 degrees rotation
 	 */
-	if (state->base.rotation & (BIT(DRM_ROTATE_90) | BIT(DRM_ROTATE_270))) {
+	if (drm_rotation_90_or_270(state->base.rotation)) {
 		tmp = state->crtc_w;
 		state->crtc_w = state->crtc_h;
 		state->crtc_h = tmp;
