@@ -383,6 +383,12 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	case DRM_FORMAT_ABGR2101010:
 		sprctl |= SP_FORMAT_RGBA1010102;
 		break;
+	case DRM_FORMAT_XRGB2101010:
+		sprctl |= SP_FORMAT_BGRX1010102;
+		break;
+	case DRM_FORMAT_ARGB2101010:
+		sprctl |= SP_FORMAT_BGRA1010102;
+		break;
 	case DRM_FORMAT_XBGR8888:
 		sprctl |= SP_FORMAT_RGBX8888;
 		break;
@@ -1038,6 +1044,22 @@ static const uint32_t vlv_plane_formats[] = {
 	DRM_FORMAT_VYUY,
 };
 
+static const uint32_t chv_pipe_b_plane_formats[] = {
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_ABGR2101010,
+	DRM_FORMAT_ARGB2101010,
+	DRM_FORMAT_XBGR2101010,
+	DRM_FORMAT_XRGB2101010,
+	DRM_FORMAT_YUYV,
+	DRM_FORMAT_YVYU,
+	DRM_FORMAT_UYVY,
+	DRM_FORMAT_VYUY,
+};
+
 static uint32_t skl_plane_formats[] = {
 	DRM_FORMAT_RGB565,
 	DRM_FORMAT_ABGR8888,
@@ -1102,7 +1124,13 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 			intel_plane->max_downscale = 1;
 		}
 
-		if (IS_VALLEYVIEW(dev)) {
+		if (IS_CHERRYVIEW(dev) && pipe == PIPE_B) {
+			intel_plane->update_plane = vlv_update_plane;
+			intel_plane->disable_plane = vlv_disable_plane;
+
+			plane_formats = chv_pipe_b_plane_formats;
+			num_plane_formats = ARRAY_SIZE(chv_pipe_b_plane_formats);
+		} else if (IS_VALLEYVIEW(dev)) {
 			intel_plane->update_plane = vlv_update_plane;
 			intel_plane->disable_plane = vlv_disable_plane;
 

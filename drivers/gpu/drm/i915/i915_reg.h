@@ -5248,6 +5248,8 @@ enum skl_disp_power_wells {
 #define   SP_FORMAT_BGRA8888		(7<<26)
 #define   SP_FORMAT_RGBX1010102		(8<<26)
 #define   SP_FORMAT_RGBA1010102		(9<<26)
+#define   SP_FORMAT_BGRX1010102		(0xa<<26) /* CHV pipe B */
+#define   SP_FORMAT_BGRA1010102		(0xb<<26) /* CHV pipe B */
 #define   SP_FORMAT_RGBX8888		(0xe<<26)
 #define   SP_FORMAT_RGBA8888		(0xf<<26)
 #define   SP_ALPHA_PREMULTIPLY		(1<<23) /* CHV pipe B */
