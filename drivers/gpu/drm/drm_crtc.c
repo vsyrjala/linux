@@ -5801,6 +5801,39 @@ struct drm_property *drm_mode_create_rotation_property(struct drm_device *dev,
 }
 EXPORT_SYMBOL(drm_mode_create_rotation_property);
 
+int drm_plane_create_rotation_property(struct drm_plane *plane,
+				       unsigned int rotation,
+				       unsigned int supported_rotations)
+{
+	static const struct drm_prop_enum_list props[] = {
+		{ DRM_ROTATE_0,   "rotate-0" },
+		{ DRM_ROTATE_90,  "rotate-90" },
+		{ DRM_ROTATE_180, "rotate-180" },
+		{ DRM_ROTATE_270, "rotate-270" },
+		{ DRM_REFLECT_X,  "reflect-x" },
+		{ DRM_REFLECT_Y,  "reflect-y" },
+	};
+	struct drm_property *prop;
+
+	WARN_ON((supported_rotations & rotation) == 0);
+
+	prop = drm_property_create_bitmask(plane->dev, 0, "rotation",
+					   props, ARRAY_SIZE(props),
+					   supported_rotations);
+	if (!prop)
+		return -ENOMEM;
+
+	drm_object_attach_property(&plane->base, prop, rotation);
+
+	if (plane->state)
+		plane->state->rotation = rotation;
+
+	plane->rotation_property = prop;
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_plane_create_rotation_property);
+
 /**
  * DOC: Tile group
  *
