@@ -407,6 +407,9 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	if (obj->tiling_mode != I915_TILING_NONE)
 		sprctl |= SP_TILED;
 
+	if (dplane->state->rotation & BIT(DRM_ROTATE_180))
+		sprctl |= SP_ROTATE_180;
+
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
@@ -422,8 +425,6 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	linear_offset -= sprsurf_offset;
 
 	if (dplane->state->rotation & BIT(DRM_ROTATE_180)) {
-		sprctl |= SP_ROTATE_180;
-
 		x += src_w;
 		y += src_h;
 		linear_offset += src_h * fb->pitches[0] + src_w * pixel_size;
@@ -526,6 +527,9 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	if (obj->tiling_mode != I915_TILING_NONE)
 		sprctl |= SPRITE_TILED;
 
+	if (plane->state->rotation & BIT(DRM_ROTATE_180))
+		sprctl |= SPRITE_ROTATE_180;
+
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
 		sprctl &= ~SPRITE_TRICKLE_FEED_DISABLE;
 	else
@@ -550,16 +554,13 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 					       pixel_size, fb->pitches[0]);
 	linear_offset -= sprsurf_offset;
 
-	if (plane->state->rotation & BIT(DRM_ROTATE_180)) {
-		sprctl |= SPRITE_ROTATE_180;
-
-		/* HSW and BDW does this automagically in hardware */
-		if (!IS_HASWELL(dev) && !IS_BROADWELL(dev)) {
-			x += src_w;
-			y += src_h;
-			linear_offset += src_h * fb->pitches[0] +
-				src_w * pixel_size;
-		}
+	/* HSW and BDW does this automagically in hardware */
+	if (!IS_HASWELL(dev) && !IS_BROADWELL(dev) &&
+	    plane->state->rotation & BIT(DRM_ROTATE_180)) {
+		x += src_w;
+		y += src_h;
+		linear_offset += src_h * fb->pitches[0] +
+			src_w * pixel_size;
 	}
 
 	if (key->flags) {
@@ -664,6 +665,9 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	if (obj->tiling_mode != I915_TILING_NONE)
 		dvscntr |= DVS_TILED;
 
+	if (plane->state->rotation & BIT(DRM_ROTATE_180))
+		dvscntr |= DVS_ROTATE_180;
+
 	if (IS_GEN6(dev))
 		dvscntr |= DVS_TRICKLE_FEED_DISABLE; /* must disable */
 
@@ -685,8 +689,6 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	linear_offset -= dvssurf_offset;
 
 	if (plane->state->rotation & BIT(DRM_ROTATE_180)) {
-		dvscntr |= DVS_ROTATE_180;
-
 		x += src_w;
 		y += src_h;
 		linear_offset += src_h * fb->pitches[0] + src_w * pixel_size;

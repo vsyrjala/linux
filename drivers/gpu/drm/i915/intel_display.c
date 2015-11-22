@@ -2744,6 +2744,9 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	    obj->tiling_mode != I915_TILING_NONE)
 		dspcntr |= DISPPLANE_TILED;
 
+	if (crtc->primary->state->rotation & BIT(DRM_ROTATE_180))
+		dspcntr |= DISPPLANE_ROTATE_180;
+
 	if (IS_G4X(dev))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
 
@@ -2761,8 +2764,6 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	}
 
 	if (crtc->primary->state->rotation & BIT(DRM_ROTATE_180)) {
-		dspcntr |= DISPPLANE_ROTATE_180;
-
 		x += (intel_crtc->config->pipe_src_w - 1);
 		y += (intel_crtc->config->pipe_src_h - 1);
 
@@ -2851,6 +2852,9 @@ static void ironlake_update_primary_plane(struct drm_crtc *crtc,
 	if (obj->tiling_mode != I915_TILING_NONE)
 		dspcntr |= DISPPLANE_TILED;
 
+	if (crtc->primary->state->rotation & BIT(DRM_ROTATE_180))
+		dspcntr |= DISPPLANE_ROTATE_180;
+
 	if (!IS_HASWELL(dev) && !IS_BROADWELL(dev))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
 
@@ -2861,19 +2865,16 @@ static void ironlake_update_primary_plane(struct drm_crtc *crtc,
 					       pixel_size,
 					       fb->pitches[0]);
 	linear_offset -= intel_crtc->dspaddr_offset;
-	if (crtc->primary->state->rotation & BIT(DRM_ROTATE_180)) {
-		dspcntr |= DISPPLANE_ROTATE_180;
 
-		if (!IS_HASWELL(dev) && !IS_BROADWELL(dev)) {
-			x += (intel_crtc->config->pipe_src_w - 1);
-			y += (intel_crtc->config->pipe_src_h - 1);
+	/* HSW and BDW does this automagically in hardware */
+	if (!IS_HASWELL(dev) && !IS_BROADWELL(dev) &&
+	    crtc->primary->state->rotation & BIT(DRM_ROTATE_180)) {
+		x += (intel_crtc->config->pipe_src_w - 1);
+		y += (intel_crtc->config->pipe_src_h - 1);
 
-			/* Finding the last pixel of the last line of the display
-			data and adding to linear_offset*/
-			linear_offset +=
-				(intel_crtc->config->pipe_src_h - 1) * fb->pitches[0] +
-				(intel_crtc->config->pipe_src_w - 1) * pixel_size;
-		}
+		linear_offset +=
+			(intel_crtc->config->pipe_src_h - 1) * fb->pitches[0] +
+			(intel_crtc->config->pipe_src_w - 1) * pixel_size;
 	}
 
 	intel_crtc->adjusted_x = x;
