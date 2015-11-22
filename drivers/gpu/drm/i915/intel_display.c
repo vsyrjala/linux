@@ -2747,6 +2747,9 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	if (crtc->primary->state->rotation & BIT(DRM_ROTATE_180))
 		dspcntr |= DISPPLANE_ROTATE_180;
 
+	if (crtc->primary->state->rotation & BIT(DRM_REFLECT_X))
+		dspcntr |= DISPPLANE_MIRROR;
+
 	if (IS_G4X(dev))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
 
@@ -2772,6 +2775,16 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		linear_offset +=
 			(intel_crtc->config->pipe_src_h - 1) * fb->pitches[0] +
 			(intel_crtc->config->pipe_src_w - 1) * pixel_size;
+
+		if (crtc->primary->state->rotation & BIT(DRM_REFLECT_X)) {
+			x -= (intel_crtc->config->pipe_src_w - 1);
+			linear_offset -= (intel_crtc->config->pipe_src_w - 1) * pixel_size;
+		}
+	} else {
+		if (crtc->primary->state->rotation & BIT(DRM_REFLECT_X)) {
+			x += (intel_crtc->config->pipe_src_w - 1);
+			linear_offset += (intel_crtc->config->pipe_src_w - 1) * pixel_size;
+		}
 	}
 
 	intel_crtc->adjusted_x = x;
@@ -13951,6 +13964,10 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 		supported_rotations =
 			BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_90) |
 			BIT(DRM_ROTATE_180) | BIT(DRM_ROTATE_270);
+	} else if (IS_CHERRYVIEW(dev) && pipe == PIPE_B) {
+		supported_rotations =
+			BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_180) |
+			BIT(DRM_REFLECT_X);
 	} else if (INTEL_INFO(dev)->gen >= 4) {
 		supported_rotations =
 			BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_180);
