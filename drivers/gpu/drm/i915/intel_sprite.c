@@ -436,6 +436,9 @@ vlv_update_plane(struct drm_plane *dplane,
 	if (rotation & BIT(DRM_ROTATE_180))
 		sprctl |= SP_ROTATE_180;
 
+	if (rotation & BIT(DRM_REFLECT_X))
+		sprctl |= SP_MIRROR;
+
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
@@ -451,6 +454,9 @@ vlv_update_plane(struct drm_plane *dplane,
 		x += src_w;
 		y += src_h;
 		linear_offset += src_h * fb->pitches[0] + src_w * cpp;
+	} else if (rotation & BIT(DRM_REFLECT_X)) {
+		x += src_w;
+		linear_offset += src_w * cpp;
 	}
 
 	if (key->flags) {
@@ -1128,6 +1134,10 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 		supported_rotations =
 			BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_90) |
 			BIT(DRM_ROTATE_180) | BIT(DRM_ROTATE_270);
+	} else if (IS_CHERRYVIEW(dev) && pipe == PIPE_B) {
+		supported_rotations =
+			BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_180) |
+			BIT(DRM_REFLECT_X);
 	} else {
 		supported_rotations =
 			BIT(DRM_ROTATE_0) | BIT(DRM_ROTATE_180);
