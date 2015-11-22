@@ -873,6 +873,8 @@ struct drm_plane {
 
 	struct drm_object_properties properties;
 
+	struct drm_property *rotation_property;
+
 	enum drm_plane_type type;
 
 	const void *helper_private;
