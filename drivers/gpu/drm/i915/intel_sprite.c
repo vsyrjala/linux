@@ -433,6 +433,9 @@ vlv_update_plane(struct drm_plane *dplane,
 	if (obj->tiling_mode != I915_TILING_NONE)
 		sprctl |= SP_TILED;
 
+	if (rotation & BIT(DRM_ROTATE_180))
+		sprctl |= SP_ROTATE_180;
+
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
@@ -445,8 +448,6 @@ vlv_update_plane(struct drm_plane *dplane,
 	linear_offset -= sprsurf_offset;
 
 	if (rotation & BIT(DRM_ROTATE_180)) {
-		sprctl |= SP_ROTATE_180;
-
 		x += src_w;
 		y += src_h;
 		linear_offset += src_h * fb->pitches[0] + src_w * cpp;
@@ -555,6 +556,9 @@ ivb_update_plane(struct drm_plane *plane,
 	if (obj->tiling_mode != I915_TILING_NONE)
 		sprctl |= SPRITE_TILED;
 
+	if (rotation & BIT(DRM_ROTATE_180))
+		sprctl |= SPRITE_ROTATE_180;
+
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
 		sprctl &= ~SPRITE_TRICKLE_FEED_DISABLE;
 	else
@@ -577,15 +581,12 @@ ivb_update_plane(struct drm_plane *plane,
 						   fb->pitches[0], rotation);
 	linear_offset -= sprsurf_offset;
 
-	if (rotation & BIT(DRM_ROTATE_180)) {
-		sprctl |= SPRITE_ROTATE_180;
-
-		/* HSW and BDW does this automagically in hardware */
-		if (!IS_HASWELL(dev) && !IS_BROADWELL(dev)) {
-			x += src_w;
-			y += src_h;
-			linear_offset += src_h * fb->pitches[0] + src_w * cpp;
-		}
+	/* HSW and BDW does this automagically in hardware */
+	if (!IS_HASWELL(dev) && !IS_BROADWELL(dev) &&
+	    rotation & BIT(DRM_ROTATE_180)) {
+		x += src_w;
+		y += src_h;
+		linear_offset += src_h * fb->pitches[0] + src_w * cpp;
 	}
 
 	if (key->flags) {
@@ -696,6 +697,9 @@ ilk_update_plane(struct drm_plane *plane,
 	if (obj->tiling_mode != I915_TILING_NONE)
 		dvscntr |= DVS_TILED;
 
+	if (rotation & BIT(DRM_ROTATE_180))
+		dvscntr |= DVS_ROTATE_180;
+
 	if (IS_GEN6(dev))
 		dvscntr |= DVS_TRICKLE_FEED_DISABLE; /* must disable */
 
@@ -715,8 +719,6 @@ ilk_update_plane(struct drm_plane *plane,
 	linear_offset -= dvssurf_offset;
 
 	if (rotation & BIT(DRM_ROTATE_180)) {
-		dvscntr |= DVS_ROTATE_180;
-
 		x += src_w;
 		y += src_h;
 		linear_offset += src_h * fb->pitches[0] + src_w * cpp;

@@ -2674,6 +2674,9 @@ static void i9xx_update_primary_plane(struct drm_plane *primary,
 	    obj->tiling_mode != I915_TILING_NONE)
 		dspcntr |= DISPPLANE_TILED;
 
+	if (rotation & BIT(DRM_ROTATE_180))
+		dspcntr |= DISPPLANE_ROTATE_180;
+
 	if (IS_G4X(dev))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
 
@@ -2689,8 +2692,6 @@ static void i9xx_update_primary_plane(struct drm_plane *primary,
 	}
 
 	if (rotation & BIT(DRM_ROTATE_180)) {
-		dspcntr |= DISPPLANE_ROTATE_180;
-
 		x += (crtc_state->pipe_src_w - 1);
 		y += (crtc_state->pipe_src_h - 1);
 
@@ -2783,6 +2784,9 @@ static void ironlake_update_primary_plane(struct drm_plane *primary,
 	if (obj->tiling_mode != I915_TILING_NONE)
 		dspcntr |= DISPPLANE_TILED;
 
+	if (rotation & BIT(DRM_ROTATE_180))
+		dspcntr |= DISPPLANE_ROTATE_180;
+
 	if (!IS_HASWELL(dev) && !IS_BROADWELL(dev))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
 
@@ -2792,19 +2796,15 @@ static void ironlake_update_primary_plane(struct drm_plane *primary,
 					  fb->pitches[0], rotation);
 	linear_offset -= intel_crtc->dspaddr_offset;
 
-	if (rotation & BIT(DRM_ROTATE_180)) {
-		dspcntr |= DISPPLANE_ROTATE_180;
+	/* HSW and BDW does this automagically in hardware */
+	if (!IS_HASWELL(dev) && !IS_BROADWELL(dev) &&
+	    rotation & BIT(DRM_ROTATE_180)) {
+		x += (crtc_state->pipe_src_w - 1);
+		y += (crtc_state->pipe_src_h - 1);
 
-		if (!IS_HASWELL(dev) && !IS_BROADWELL(dev)) {
-			x += (crtc_state->pipe_src_w - 1);
-			y += (crtc_state->pipe_src_h - 1);
-
-			/* Finding the last pixel of the last line of the display
-			data and adding to linear_offset*/
-			linear_offset +=
-				(crtc_state->pipe_src_h - 1) * fb->pitches[0] +
-				(crtc_state->pipe_src_w - 1) * cpp;
-		}
+		linear_offset +=
+			(crtc_state->pipe_src_h - 1) * fb->pitches[0] +
+			(crtc_state->pipe_src_w - 1) * cpp;
 	}
 
 	intel_crtc->adjusted_x = x;
