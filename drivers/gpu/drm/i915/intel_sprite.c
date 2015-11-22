@@ -423,6 +423,9 @@ vlv_update_plane(struct drm_plane *dplane,
 	if (fb->modifier[0] == I915_FORMAT_MOD_X_TILED)
 		sprctl |= SP_TILED;
 
+	if (rotation & DRM_ROTATE_180)
+		sprctl |= SP_ROTATE_180;
+
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
@@ -433,8 +436,6 @@ vlv_update_plane(struct drm_plane *dplane,
 	sprsurf_offset = intel_compute_tile_offset(&x, &y, plane_state, 0);
 
 	if (rotation & DRM_ROTATE_180) {
-		sprctl |= SP_ROTATE_180;
-
 		x += src_w;
 		y += src_h;
 	}
@@ -542,6 +543,9 @@ ivb_update_plane(struct drm_plane *plane,
 	if (fb->modifier[0] == I915_FORMAT_MOD_X_TILED)
 		sprctl |= SPRITE_TILED;
 
+	if (rotation & DRM_ROTATE_180)
+		sprctl |= SPRITE_ROTATE_180;
+
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
 		sprctl &= ~SPRITE_TRICKLE_FEED_DISABLE;
 	else
@@ -562,14 +566,11 @@ ivb_update_plane(struct drm_plane *plane,
 	intel_add_fb_offsets(&x, &y, plane_state, 0);
 	sprsurf_offset = intel_compute_tile_offset(&x, &y, plane_state, 0);
 
-	if (rotation & DRM_ROTATE_180) {
-		sprctl |= SPRITE_ROTATE_180;
-
-		/* HSW and BDW does this automagically in hardware */
-		if (!IS_HASWELL(dev) && !IS_BROADWELL(dev)) {
-			x += src_w;
-			y += src_h;
-		}
+	/* HSW+ does this automagically in hardware */
+	if (!IS_HASWELL(dev_priv) && !IS_BROADWELL(dev_priv) &&
+	    rotation & DRM_ROTATE_180) {
+		x += src_w;
+		y += src_h;
 	}
 
 	linear_offset = intel_fb_xy_to_linear(x, y, plane_state, 0);
@@ -680,6 +681,9 @@ ilk_update_plane(struct drm_plane *plane,
 	if (fb->modifier[0] == I915_FORMAT_MOD_X_TILED)
 		dvscntr |= DVS_TILED;
 
+	if (rotation & DRM_ROTATE_180)
+		dvscntr |= DVS_ROTATE_180;
+
 	if (IS_GEN6(dev))
 		dvscntr |= DVS_TRICKLE_FEED_DISABLE; /* must disable */
 
@@ -697,8 +701,6 @@ ilk_update_plane(struct drm_plane *plane,
 	dvssurf_offset = intel_compute_tile_offset(&x, &y, plane_state, 0);
 
 	if (rotation & DRM_ROTATE_180) {
-		dvscntr |= DVS_ROTATE_180;
-
 		x += src_w;
 		y += src_h;
 	}
