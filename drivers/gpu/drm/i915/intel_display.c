@@ -10013,6 +10013,26 @@ static bool haswell_get_pipe_config(struct intel_crtc *crtc,
 	return true;
 }
 
+static uint32_t intel_cursor_base(struct intel_plane *cursor,
+				  struct drm_plane_state *state)
+{
+	struct drm_i915_private *dev_priv = to_i915(cursor->base.dev);
+	struct drm_i915_gem_object *obj = intel_fb_obj(state->fb);
+	uint32_t base;
+
+	if (INTEL_INFO(dev_priv)->cursor_needs_physical)
+		base = obj->phys_handle->busaddr;
+	else
+		base = i915_gem_obj_ggtt_offset(obj);
+
+	/* ILK+ do this automagically */
+	if (HAS_GMCH_DISPLAY(dev_priv) &&
+	    state->rotation & BIT(DRM_ROTATE_180))
+		base += (state->crtc_h * state->crtc_w - 1) * 4;
+
+	return base;
+}
+
 static void i845_update_cursor(struct drm_crtc *crtc, u32 base, bool on)
 {
 	struct drm_device *dev = crtc->dev;
@@ -10134,13 +10154,15 @@ static void intel_crtc_update_cursor(struct drm_crtc *crtc,
 	int y = cursor_state->crtc_y;
 	u32 base = 0, pos = 0;
 
-	base = intel_crtc->cursor_addr;
-
 	if (x >= intel_crtc->config->pipe_src_w)
 		on = false;
 
 	if (y >= intel_crtc->config->pipe_src_h)
 		on = false;
+
+	if (on)
+		base = intel_cursor_base(to_intel_plane(crtc->cursor),
+					 cursor_state);
 
 	if (x < 0) {
 		if (x + cursor_state->crtc_w <= 0)
@@ -10161,13 +10183,6 @@ static void intel_crtc_update_cursor(struct drm_crtc *crtc,
 	pos |= y << CURSOR_Y_SHIFT;
 
 	I915_WRITE(CURPOS(pipe), pos);
-
-	/* ILK+ do this automagically */
-	if (HAS_GMCH_DISPLAY(dev) &&
-	    crtc->cursor->state->rotation == BIT(DRM_ROTATE_180)) {
-		base += (cursor_state->crtc_h *
-			 cursor_state->crtc_w - 1) * 4;
-	}
 
 	if (IS_845G(dev) || IS_I865G(dev))
 		i845_update_cursor(crtc, base, on);
@@ -14092,22 +14107,8 @@ intel_commit_cursor_plane(struct drm_plane *plane,
 			  struct intel_plane_state *state)
 {
 	struct drm_crtc *crtc = state->base.crtc;
-	struct drm_device *dev = plane->dev;
-	struct intel_crtc *intel_crtc;
-	struct drm_i915_gem_object *obj = intel_fb_obj(state->base.fb);
-	uint32_t addr;
 
 	crtc = crtc ? crtc : plane->crtc;
-	intel_crtc = to_intel_crtc(crtc);
-
-	if (!obj)
-		addr = 0;
-	else if (!INTEL_INFO(dev)->cursor_needs_physical)
-		addr = i915_gem_obj_ggtt_offset(obj);
-	else
-		addr = obj->phys_handle->busaddr;
-
-	intel_crtc->cursor_addr = addr;
 
 	intel_crtc_update_cursor(crtc, state->visible);
 }

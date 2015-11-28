@@ -3080,7 +3080,7 @@ static int i915_display_info(struct seq_file *m, void *unused)
 				   yesno(crtc->cursor_base),
 				   x, y, crtc->base.cursor->state->crtc_w,
 				   crtc->base.cursor->state->crtc_h,
-				   crtc->cursor_addr, yesno(active));
+				   crtc->cursor_base, yesno(active));
 			intel_scaler_info(m, crtc);
 			intel_plane_info(m, crtc);
 		}
