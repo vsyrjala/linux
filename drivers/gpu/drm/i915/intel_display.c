@@ -9197,11 +9197,12 @@ static u32 intel_cursor_position(struct intel_plane *plane,
 	return pos;
 }
 
-static void i845_update_cursor(struct intel_plane *plane, u32 base,
+static void i845_update_cursor(struct intel_plane *plane,
+			       const struct intel_crtc_state *crtc_state,
 			       const struct intel_plane_state *plane_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
-	uint32_t cntl = 0, size = 0;
+	u32 cntl = 0, base = 0, pos = 0, size = 0;
 
 	if (plane_state && plane_state->base.visible) {
 		unsigned int width = plane_state->base.crtc_w;
@@ -9227,6 +9228,9 @@ static void i845_update_cursor(struct intel_plane *plane, u32 base,
 			CURSOR_STRIDE(stride);
 
 		size = (height << 12) | width;
+
+		base = intel_cursor_base(plane, plane_state);
+		pos = intel_cursor_position(plane, plane_state);
 	}
 
 	if (plane->cursor.cntl != 0 &&
@@ -9251,6 +9255,9 @@ static void i845_update_cursor(struct intel_plane *plane, u32 base,
 		plane->cursor.size = size;
 	}
 
+	if (cntl)
+		I915_WRITE(CURPOS(PIPE_A), pos);
+
 	if (plane->cursor.cntl != cntl) {
 		I915_WRITE(CURCNTR(PIPE_A), cntl);
 		POSTING_READ(CURCNTR(PIPE_A));
@@ -9258,12 +9265,19 @@ static void i845_update_cursor(struct intel_plane *plane, u32 base,
 	}
 }
 
-static void i9xx_update_cursor(struct intel_plane *plane, u32 base,
+static void i845_disable_cursor(struct intel_plane *plane,
+				struct intel_crtc *crtc)
+{
+	i845_update_cursor(plane, NULL, NULL);
+}
+
+static void i9xx_update_cursor(struct intel_plane *plane,
+			       const struct intel_crtc_state *crtc_state,
 			       const struct intel_plane_state *plane_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum pipe pipe = plane->pipe;
-	uint32_t cntl = 0;
+	u32 cntl = 0, base = 0, pos = 0;
 
 	if (plane_state && plane_state->base.visible) {
 		cntl = MCURSOR_GAMMA_ENABLE;
@@ -9289,6 +9303,9 @@ static void i9xx_update_cursor(struct intel_plane *plane, u32 base,
 
 		if (plane_state->base.rotation & DRM_ROTATE_180)
 			cntl |= CURSOR_ROTATE_180;
+
+		base = intel_cursor_base(plane, plane_state);
+		pos = intel_cursor_position(plane, plane_state);
 	}
 
 	if (plane->cursor.cntl != cntl) {
@@ -9297,6 +9314,9 @@ static void i9xx_update_cursor(struct intel_plane *plane, u32 base,
 		plane->cursor.cntl = cntl;
 	}
 
+	if (cntl)
+		I915_WRITE(CURPOS(pipe), pos);
+
 	/* and commit changes on next vblank */
 	I915_WRITE(CURBASE(pipe), base);
 	POSTING_READ(CURBASE(pipe));
@@ -9304,25 +9324,10 @@ static void i9xx_update_cursor(struct intel_plane *plane, u32 base,
 	plane->cursor.base = base;
 }
 
-/* If no-part of the cursor is visible on the framebuffer, then the GPU may hang... */
-static void intel_crtc_update_cursor(struct intel_plane *plane,
-				     const struct intel_plane_state *plane_state)
+static void i9xx_disable_cursor(struct intel_plane *plane,
+				struct intel_crtc *crtc)
 {
-	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
-	enum pipe pipe = plane->pipe;
-	u32 pos = 0, base = 0;
-
-	if (plane_state) {
-		base = intel_cursor_base(plane, plane_state);
-		pos = intel_cursor_position(plane, plane_state);
-	}
-
-	I915_WRITE(CURPOS(pipe), pos);
-
-	if (IS_I845G(dev_priv) || IS_I865G(dev_priv))
-		i845_update_cursor(plane, base, plane_state);
-	else
-		i9xx_update_cursor(plane, base, plane_state);
+	i9xx_update_cursor(plane, NULL, NULL);
 }
 
 static bool cursor_size_ok(struct drm_i915_private *dev_priv,
@@ -13730,23 +13735,9 @@ intel_check_cursor_plane(struct intel_plane *plane,
 	return 0;
 }
 
-static void
-intel_disable_cursor_plane(struct intel_plane *plane,
-			   struct intel_crtc *crtc)
-{
-	intel_crtc_update_cursor(plane, NULL);
-}
-
-static void
-intel_update_cursor_plane(struct intel_plane *plane,
-			  const struct intel_crtc_state *crtc_state,
-			  const struct intel_plane_state *state)
-{
-	intel_crtc_update_cursor(plane, state);
-}
-
 static struct intel_plane *
-intel_cursor_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
+intel_cursor_plane_create(struct drm_i915_private *dev_priv,
+			  enum pipe pipe)
 {
 	struct intel_plane *cursor = NULL;
 	struct intel_plane_state *state = NULL;
@@ -13773,8 +13764,14 @@ intel_cursor_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 	cursor->id = PLANE_CURSOR;
 	cursor->frontbuffer_bit = INTEL_FRONTBUFFER_CURSOR(pipe);
 	cursor->check_plane = intel_check_cursor_plane;
-	cursor->update_plane = intel_update_cursor_plane;
-	cursor->disable_plane = intel_disable_cursor_plane;
+
+	if (IS_I845G(dev_priv) || IS_I865G(dev_priv)) {
+		cursor->update_plane = i845_update_cursor;
+		cursor->disable_plane = i845_disable_cursor;
+	} else {
+		cursor->update_plane = i9xx_update_cursor;
+		cursor->disable_plane = i9xx_disable_cursor;
+	}
 
 	cursor->cursor.base = ~0;
 	cursor->cursor.cntl = ~0;
