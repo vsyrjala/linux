@@ -83,8 +83,6 @@ static const uint32_t intel_cursor_formats[] = {
 	DRM_FORMAT_ARGB8888,
 };
 
-static void intel_crtc_update_cursor(struct drm_crtc *crtc, bool on);
-
 static void i9xx_crtc_clock_get(struct intel_crtc *crtc,
 				struct intel_crtc_state *pipe_config);
 static void ironlake_pch_clock_get(struct intel_crtc *crtc,
@@ -9991,16 +9989,16 @@ static uint32_t intel_cursor_position(struct intel_plane *cursor,
 	return pos;
 }
 
-static void i845_update_cursor(struct drm_crtc *crtc, u32 base, bool on)
+static void i845_update_cursor(struct intel_plane *cursor,
+			       u32 base, bool on)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct drm_i915_private *dev_priv = to_i915(cursor->base.dev);
 	uint32_t cntl = 0, size = 0;
 
 	if (on) {
-		unsigned int width = intel_crtc->base.cursor->state->crtc_w;
-		unsigned int height = intel_crtc->base.cursor->state->crtc_h;
+		struct drm_plane_state *state = cursor->base.state;
+		unsigned int width = state->crtc_w;
+		unsigned int height = state->crtc_h;
 		unsigned int stride = roundup_pow_of_two(width) * 4;
 
 		switch (stride) {
@@ -10024,47 +10022,49 @@ static void i845_update_cursor(struct drm_crtc *crtc, u32 base, bool on)
 		size = (height << 12) | width;
 	}
 
-	if (intel_crtc->cursor_cntl != 0 &&
-	    (intel_crtc->cursor_base != base ||
-	     intel_crtc->cursor_size != size ||
-	     intel_crtc->cursor_cntl != cntl)) {
+	if (cursor->cursor.cntl != 0 &&
+	    (cursor->cursor.base != base ||
+	     cursor->cursor.size != size ||
+	     cursor->cursor.cntl != cntl)) {
 		/* On these chipsets we can only modify the base/size/stride
 		 * whilst the cursor is disabled.
 		 */
 		I915_WRITE(CURCNTR(PIPE_A), 0);
 		POSTING_READ(CURCNTR(PIPE_A));
-		intel_crtc->cursor_cntl = 0;
+		cursor->cursor.cntl = 0;
 	}
 
-	if (intel_crtc->cursor_base != base) {
+	if (cursor->cursor.base != base) {
 		I915_WRITE(CURBASE(PIPE_A), base);
-		intel_crtc->cursor_base = base;
+		cursor->cursor.base = base;
 	}
 
-	if (intel_crtc->cursor_size != size) {
+	if (cursor->cursor.size != size) {
 		I915_WRITE(CURSIZE, size);
-		intel_crtc->cursor_size = size;
+		cursor->cursor.size = size;
 	}
 
-	if (intel_crtc->cursor_cntl != cntl) {
+	if (cursor->cursor.cntl != cntl) {
 		I915_WRITE(CURCNTR(PIPE_A), cntl);
 		POSTING_READ(CURCNTR(PIPE_A));
-		intel_crtc->cursor_cntl = cntl;
+		cursor->cursor.cntl = cntl;
 	}
 }
 
-static void i9xx_update_cursor(struct drm_crtc *crtc, u32 base, bool on)
+static void i9xx_update_cursor(struct intel_plane *cursor,
+			       u32 base, bool on)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int pipe = intel_crtc->pipe;
+	struct drm_i915_private *dev_priv = to_i915(cursor->base.dev);
+	enum pipe pipe = cursor->pipe;
 	uint32_t cntl;
 
 	cntl = 0;
 	if (on) {
-		cntl = MCURSOR_GAMMA_ENABLE;
-		switch (intel_crtc->base.cursor->state->crtc_w) {
+		struct drm_plane_state *state = cursor->base.state;
+
+		cntl |= MCURSOR_GAMMA_ENABLE;
+
+		switch (state->crtc_w) {
 			case 64:
 				cntl |= CURSOR_MODE_64_ARGB_AX;
 				break;
@@ -10075,56 +10075,52 @@ static void i9xx_update_cursor(struct drm_crtc *crtc, u32 base, bool on)
 				cntl |= CURSOR_MODE_256_ARGB_AX;
 				break;
 			default:
-				MISSING_CASE(intel_crtc->base.cursor->state->crtc_w);
+				MISSING_CASE(state->crtc_w);
 				return;
 		}
+
 		cntl |= pipe << 28; /* Connect to correct pipe */
 
-		if (HAS_DDI(dev))
+		if (HAS_DDI(dev_priv))
 			cntl |= CURSOR_PIPE_CSC_ENABLE;
+
+		if (state->rotation & BIT(DRM_ROTATE_180))
+			cntl |= CURSOR_ROTATE_180;
 	}
 
-	if (crtc->cursor->state->rotation == BIT(DRM_ROTATE_180))
-		cntl |= CURSOR_ROTATE_180;
-
-	if (intel_crtc->cursor_cntl != cntl) {
+	if (cursor->cursor.cntl != cntl) {
 		I915_WRITE(CURCNTR(pipe), cntl);
 		POSTING_READ(CURCNTR(pipe));
-		intel_crtc->cursor_cntl = cntl;
+		cursor->cursor.cntl = cntl;
 	}
 
 	/* and commit changes on next vblank */
 	I915_WRITE(CURBASE(pipe), base);
 	POSTING_READ(CURBASE(pipe));
 
-	intel_crtc->cursor_base = base;
+	cursor->cursor.base = base;
 }
 
 /* If no-part of the cursor is visible on the framebuffer, then the GPU may hang... */
-static void intel_crtc_update_cursor(struct drm_crtc *crtc,
-				     bool on)
+static void intel_update_cursor(struct intel_plane *cursor, bool on)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int pipe = intel_crtc->pipe;
-	struct drm_plane_state *cursor_state = crtc->cursor->state;
+	struct drm_i915_private *dev_priv = to_i915(cursor->base.dev);
+	enum pipe pipe = cursor->pipe;
+	struct drm_plane_state *cursor_state = cursor->base.state;
 	u32 base = 0, pos = 0;
 
 	if (on) {
-		base = intel_cursor_base(to_intel_plane(crtc->cursor),
-					 cursor_state);
+		base = intel_cursor_base(cursor, cursor_state);
 
-		pos = intel_cursor_position(to_intel_plane(crtc->cursor),
-					    cursor_state);
+		pos = intel_cursor_position(cursor, cursor_state);
 	}
 
 	I915_WRITE(CURPOS(pipe), pos);
 
-	if (IS_845G(dev) || IS_I865G(dev))
-		i845_update_cursor(crtc, base, on);
+	if (IS_845G(dev_priv) || IS_I865G(dev_priv))
+		i845_update_cursor(cursor, base, on);
 	else
-		i9xx_update_cursor(crtc, base, on);
+		i9xx_update_cursor(cursor, base, on);
 }
 
 static bool cursor_size_ok(struct drm_device *dev,
@@ -14012,18 +14008,14 @@ static void
 intel_disable_cursor_plane(struct drm_plane *plane,
 			   struct drm_crtc *crtc)
 {
-	intel_crtc_update_cursor(crtc, false);
+	intel_update_cursor(to_intel_plane(plane), false);
 }
 
 static void
 intel_commit_cursor_plane(struct drm_plane *plane,
 			  struct intel_plane_state *state)
 {
-	struct drm_crtc *crtc = state->base.crtc;
-
-	crtc = crtc ? crtc : plane->crtc;
-
-	intel_crtc_update_cursor(crtc, state->visible);
+	intel_update_cursor(to_intel_plane(plane), state->visible);
 }
 
 static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
@@ -14048,6 +14040,11 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 	cursor->pipe = pipe;
 	cursor->plane = pipe;
 	cursor->frontbuffer_bit = INTEL_FRONTBUFFER_CURSOR(pipe);
+
+	cursor->cursor.base = ~0;
+	cursor->cursor.cntl = ~0;
+	cursor->cursor.size = ~0;
+
 	cursor->check_plane = intel_check_cursor_plane;
 	cursor->commit_plane = intel_commit_cursor_plane;
 	cursor->disable_plane = intel_disable_cursor_plane;
@@ -14154,10 +14151,6 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 		DRM_DEBUG_KMS("swapping pipes & planes for FBC\n");
 		intel_crtc->plane = !pipe;
 	}
-
-	intel_crtc->cursor_base = ~0;
-	intel_crtc->cursor_cntl = ~0;
-	intel_crtc->cursor_size = ~0;
 
 	intel_crtc->wm.cxsr_allowed = true;
 
