@@ -565,7 +565,6 @@ struct intel_crtc {
 	int adjusted_x;
 	int adjusted_y;
 
-	uint32_t cursor_addr;
 	uint32_t cursor_cntl;
 	uint32_t cursor_size;
 	uint32_t cursor_base;
