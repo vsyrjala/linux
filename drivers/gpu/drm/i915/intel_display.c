@@ -10033,6 +10033,28 @@ static uint32_t intel_cursor_base(struct intel_plane *cursor,
 	return base;
 }
 
+static uint32_t intel_cursor_position(struct intel_plane *cursor,
+				      struct drm_plane_state *state)
+{
+	int x = state->crtc_x;
+	int y = state->crtc_y;
+	uint32_t pos = 0;
+
+	if (x < 0) {
+		pos |= CURSOR_POS_SIGN << CURSOR_X_SHIFT;
+		x = -x;
+	}
+	pos |= x << CURSOR_X_SHIFT;
+
+	if (y < 0) {
+		pos |= CURSOR_POS_SIGN << CURSOR_Y_SHIFT;
+		y = -y;
+	}
+	pos |= y << CURSOR_Y_SHIFT;
+
+	return pos;
+}
+
 static void i845_update_cursor(struct drm_crtc *crtc, u32 base, bool on)
 {
 	struct drm_device *dev = crtc->dev;
@@ -10150,37 +10172,15 @@ static void intel_crtc_update_cursor(struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int pipe = intel_crtc->pipe;
 	struct drm_plane_state *cursor_state = crtc->cursor->state;
-	int x = cursor_state->crtc_x;
-	int y = cursor_state->crtc_y;
 	u32 base = 0, pos = 0;
 
-	if (x >= intel_crtc->config->pipe_src_w)
-		on = false;
-
-	if (y >= intel_crtc->config->pipe_src_h)
-		on = false;
-
-	if (on)
+	if (on) {
 		base = intel_cursor_base(to_intel_plane(crtc->cursor),
 					 cursor_state);
 
-	if (x < 0) {
-		if (x + cursor_state->crtc_w <= 0)
-			on = false;
-
-		pos |= CURSOR_POS_SIGN << CURSOR_X_SHIFT;
-		x = -x;
+		pos = intel_cursor_position(to_intel_plane(crtc->cursor),
+					    cursor_state);
 	}
-	pos |= x << CURSOR_X_SHIFT;
-
-	if (y < 0) {
-		if (y + cursor_state->crtc_h <= 0)
-			on = false;
-
-		pos |= CURSOR_POS_SIGN << CURSOR_Y_SHIFT;
-		y = -y;
-	}
-	pos |= y << CURSOR_Y_SHIFT;
 
 	I915_WRITE(CURPOS(pipe), pos);
 
