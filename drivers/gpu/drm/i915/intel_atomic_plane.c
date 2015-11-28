@@ -195,6 +195,11 @@ static void intel_plane_atomic_update(struct drm_plane *plane,
 	struct intel_plane_state *intel_state =
 		to_intel_plane_state(plane->state);
 
+	/* skip when !visible -> !visible */
+	if (!to_intel_plane_state(old_state)->visible &&
+	    !intel_state->visible)
+		return;
+
 	intel_plane->commit_plane(plane, intel_state);
 }
 
