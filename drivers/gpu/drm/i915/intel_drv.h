@@ -568,10 +568,6 @@ struct intel_crtc {
 	int adjusted_x;
 	int adjusted_y;
 
-	uint32_t cursor_cntl;
-	uint32_t cursor_size;
-	uint32_t cursor_base;
-
 	struct intel_crtc_state *config;
 
 	/* reset counter value when the last flip was submitted */
@@ -635,6 +631,12 @@ struct intel_plane {
 	bool can_scale;
 	int max_downscale;
 	uint32_t frontbuffer_bit;
+
+	struct {
+		uint32_t cntl;
+		uint32_t base;
+		uint32_t size;
+	} cursor;
 
 	/* Since we need to change the watermarks before/after
 	 * enabling/disabling the planes, we need to store the parameters here
