@@ -9175,6 +9175,28 @@ static u32 intel_cursor_base(struct intel_plane *plane,
 	return base;
 }
 
+static u32 intel_cursor_position(struct intel_plane *plane,
+				 const struct intel_plane_state *plane_state)
+{
+	int x = plane_state->base.crtc_x;
+	int y = plane_state->base.crtc_y;
+	u32 pos = 0;
+
+	if (x < 0) {
+		pos |= CURSOR_POS_SIGN << CURSOR_X_SHIFT;
+		x = -x;
+	}
+	pos |= x << CURSOR_X_SHIFT;
+
+	if (y < 0) {
+		pos |= CURSOR_POS_SIGN << CURSOR_Y_SHIFT;
+		y = -y;
+	}
+	pos |= y << CURSOR_Y_SHIFT;
+
+	return pos;
+}
+
 static void i845_update_cursor(struct intel_plane *plane, u32 base,
 			       const struct intel_plane_state *plane_state)
 {
@@ -9291,22 +9313,8 @@ static void intel_crtc_update_cursor(struct intel_plane *plane,
 	u32 pos = 0, base = 0;
 
 	if (plane_state) {
-		int x = plane_state->base.crtc_x;
-		int y = plane_state->base.crtc_y;
-
-		if (x < 0) {
-			pos |= CURSOR_POS_SIGN << CURSOR_X_SHIFT;
-			x = -x;
-		}
-		pos |= x << CURSOR_X_SHIFT;
-
-		if (y < 0) {
-			pos |= CURSOR_POS_SIGN << CURSOR_Y_SHIFT;
-			y = -y;
-		}
-		pos |= y << CURSOR_Y_SHIFT;
-
 		base = intel_cursor_base(plane, plane_state);
+		pos = intel_cursor_position(plane, plane_state);
 	}
 
 	I915_WRITE(CURPOS(pipe), pos);
