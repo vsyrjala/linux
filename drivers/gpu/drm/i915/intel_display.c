@@ -10132,9 +10132,6 @@ static bool cursor_size_ok(struct drm_device *dev,
 	int width = state->crtc_w;
 	int height = state->crtc_h;
 
-	if (width == 0 || height == 0)
-		return false;
-
 	/*
 	 * 845g/865g are special in that they are only limited by
 	 * the width of their cursors, the height is arbitrary up to
@@ -10160,6 +10157,7 @@ static bool cursor_size_ok(struct drm_device *dev,
 			if (IS_GEN2(dev))
 				return false;
 		case 64:
+		case 0:
 			break;
 		default:
 			return false;
@@ -10170,7 +10168,8 @@ static bool cursor_size_ok(struct drm_device *dev,
 			if (height != width)
 				return false;
 		} else {
-			if (height < 8 || height > width)
+			if (height != 0 &&
+			    (height < 8 || height > width))
 				return false;
 		}
 	}
@@ -13985,7 +13984,6 @@ intel_check_cursor_plane(struct drm_plane *plane,
 {
 	struct drm_crtc *crtc = crtc_state->base.crtc;
 	struct drm_framebuffer *fb = state->base.fb;
-	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
 	unsigned stride;
 	int ret;
 
@@ -13997,10 +13995,6 @@ intel_check_cursor_plane(struct drm_plane *plane,
 	if (ret)
 		return ret;
 
-	/* if we want to turn off the cursor ignore width and height */
-	if (!obj)
-		return 0;
-
 	/* Check for which cursor types we support */
 	if (!cursor_size_ok(plane->dev, &state->base)) {
 		DRM_DEBUG("Cursor dimension %dx%d not supported\n",
@@ -14008,8 +14002,11 @@ intel_check_cursor_plane(struct drm_plane *plane,
 		return -EINVAL;
 	}
 
+	if (!fb)
+		return 0;
+
 	stride = roundup_pow_of_two(state->base.crtc_w) * 4;
-	if (obj->base.size < stride * state->base.crtc_h) {
+	if (intel_fb_obj(fb)->base.size < stride * state->base.crtc_h) {
 		DRM_DEBUG_KMS("buffer is too small\n");
 		return -ENOMEM;
 	}
