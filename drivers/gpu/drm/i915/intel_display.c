@@ -9989,11 +9989,10 @@ static uint32_t intel_cursor_position(struct intel_plane *cursor,
 	return pos;
 }
 
-static void i845_update_cursor(struct intel_plane *cursor,
-			       u32 base, bool on)
+static void i845_update_cursor(struct intel_plane *cursor, bool on)
 {
 	struct drm_i915_private *dev_priv = to_i915(cursor->base.dev);
-	uint32_t cntl = 0, size = 0;
+	uint32_t cntl = 0, base = 0, pos = 0, size = 0;
 
 	if (on) {
 		struct drm_plane_state *state = cursor->base.state;
@@ -10020,6 +10019,9 @@ static void i845_update_cursor(struct intel_plane *cursor,
 			CURSOR_STRIDE(stride);
 
 		size = (height << 12) | width;
+
+		base = intel_cursor_base(cursor, state);
+		pos = intel_cursor_position(cursor, state);
 	}
 
 	if (cursor->cursor.cntl != 0 &&
@@ -10044,6 +10046,9 @@ static void i845_update_cursor(struct intel_plane *cursor,
 		cursor->cursor.size = size;
 	}
 
+	if (on)
+		I915_WRITE(CURPOS(PIPE_A), pos);
+
 	if (cursor->cursor.cntl != cntl) {
 		I915_WRITE(CURCNTR(PIPE_A), cntl);
 		POSTING_READ(CURCNTR(PIPE_A));
@@ -10051,14 +10056,12 @@ static void i845_update_cursor(struct intel_plane *cursor,
 	}
 }
 
-static void i9xx_update_cursor(struct intel_plane *cursor,
-			       u32 base, bool on)
+static void i9xx_update_cursor(struct intel_plane *cursor, bool on)
 {
 	struct drm_i915_private *dev_priv = to_i915(cursor->base.dev);
 	enum pipe pipe = cursor->pipe;
-	uint32_t cntl;
+	uint32_t cntl = 0, base = 0, pos = 0;
 
-	cntl = 0;
 	if (on) {
 		struct drm_plane_state *state = cursor->base.state;
 
@@ -10086,6 +10089,9 @@ static void i9xx_update_cursor(struct intel_plane *cursor,
 
 		if (state->rotation & BIT(DRM_ROTATE_180))
 			cntl |= CURSOR_ROTATE_180;
+
+		base = intel_cursor_base(cursor, state);
+		pos = intel_cursor_position(cursor, state);
 	}
 
 	if (cursor->cursor.cntl != cntl) {
@@ -10093,6 +10099,9 @@ static void i9xx_update_cursor(struct intel_plane *cursor,
 		POSTING_READ(CURCNTR(pipe));
 		cursor->cursor.cntl = cntl;
 	}
+
+	if (on)
+		I915_WRITE(CURPOS(pipe), pos);
 
 	/* and commit changes on next vblank */
 	I915_WRITE(CURBASE(pipe), base);
@@ -10105,22 +10114,11 @@ static void i9xx_update_cursor(struct intel_plane *cursor,
 static void intel_update_cursor(struct intel_plane *cursor, bool on)
 {
 	struct drm_i915_private *dev_priv = to_i915(cursor->base.dev);
-	enum pipe pipe = cursor->pipe;
-	struct drm_plane_state *cursor_state = cursor->base.state;
-	u32 base = 0, pos = 0;
-
-	if (on) {
-		base = intel_cursor_base(cursor, cursor_state);
-
-		pos = intel_cursor_position(cursor, cursor_state);
-	}
-
-	I915_WRITE(CURPOS(pipe), pos);
 
 	if (IS_845G(dev_priv) || IS_I865G(dev_priv))
-		i845_update_cursor(cursor, base, on);
+		i845_update_cursor(cursor, on);
 	else
-		i9xx_update_cursor(cursor, base, on);
+		i9xx_update_cursor(cursor, on);
 }
 
 static bool cursor_size_ok(struct drm_device *dev,
