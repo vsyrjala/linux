@@ -10096,28 +10096,26 @@ static void i845_update_cursor(struct intel_plane *cursor, bool on)
 		 * whilst the cursor is disabled.
 		 */
 		I915_WRITE(CURCNTR(PIPE_A), 0);
-		POSTING_READ(CURCNTR(PIPE_A));
 		cursor->cursor.cntl = 0;
 	}
 
-	if (cursor->cursor.base != base) {
+	if (cursor->cursor.base != base)
 		I915_WRITE(CURBASE(PIPE_A), base);
-		cursor->cursor.base = base;
-	}
 
-	if (cursor->cursor.size != size) {
+	if (cursor->cursor.size != size)
 		I915_WRITE(CURSIZE, size);
-		cursor->cursor.size = size;
-	}
 
 	if (on)
 		I915_WRITE(CURPOS(PIPE_A), pos);
 
-	if (cursor->cursor.cntl != cntl) {
+	if (cursor->cursor.cntl != cntl)
 		I915_WRITE(CURCNTR(PIPE_A), cntl);
-		POSTING_READ(CURCNTR(PIPE_A));
-		cursor->cursor.cntl = cntl;
-	}
+
+	POSTING_READ(CURCNTR(PIPE_A));
+
+	cursor->cursor.cntl = cntl;
+	cursor->cursor.base = base;
+	cursor->cursor.size = size;
 }
 
 static void i9xx_update_cursor(struct intel_plane *cursor, bool on)
@@ -10158,19 +10156,19 @@ static void i9xx_update_cursor(struct intel_plane *cursor, bool on)
 		pos = intel_cursor_position(cursor, state);
 	}
 
-	if (cursor->cursor.cntl != cntl) {
+	if (cursor->cursor.cntl != cntl)
 		I915_WRITE(CURCNTR(pipe), cntl);
-		POSTING_READ(CURCNTR(pipe));
-		cursor->cursor.cntl = cntl;
-	}
 
 	if (on)
 		I915_WRITE(CURPOS(pipe), pos);
 
-	/* and commit changes on next vblank */
-	I915_WRITE(CURBASE(pipe), base);
+	if (cursor->cursor.cntl != cntl ||
+	    cursor->cursor.base != base)
+		I915_WRITE(CURBASE(pipe), base);
+
 	POSTING_READ(CURBASE(pipe));
 
+	cursor->cursor.cntl = cntl;
 	cursor->cursor.base = base;
 }
 
