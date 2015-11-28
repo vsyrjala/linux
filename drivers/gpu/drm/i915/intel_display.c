@@ -9153,8 +9153,7 @@ out:
 	return active;
 }
 
-static u32 intel_cursor_base(struct intel_crtc *crtc,
-			     struct intel_plane *plane,
+static u32 intel_cursor_base(struct intel_plane *plane,
 			     const struct intel_plane_state *plane_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
@@ -9167,8 +9166,6 @@ static u32 intel_cursor_base(struct intel_crtc *crtc,
 	else
 		base = intel_plane_ggtt_offset(plane_state);
 
-	crtc->cursor_addr = base;
-
 	/* ILK+ do this automagically */
 	if (HAS_GMCH_DISPLAY(dev_priv) &&
 	    plane_state->base.rotation & DRM_ROTATE_180)
@@ -9178,12 +9175,10 @@ static u32 intel_cursor_base(struct intel_crtc *crtc,
 	return base;
 }
 
-static void i845_update_cursor(struct drm_crtc *crtc, u32 base,
+static void i845_update_cursor(struct intel_plane *plane, u32 base,
 			       const struct intel_plane_state *plane_state)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	uint32_t cntl = 0, size = 0;
 
 	if (plane_state && plane_state->base.visible) {
@@ -9212,42 +9207,40 @@ static void i845_update_cursor(struct drm_crtc *crtc, u32 base,
 		size = (height << 12) | width;
 	}
 
-	if (intel_crtc->cursor_cntl != 0 &&
-	    (intel_crtc->cursor_base != base ||
-	     intel_crtc->cursor_size != size ||
-	     intel_crtc->cursor_cntl != cntl)) {
+	if (plane->cursor.cntl != 0 &&
+	    (plane->cursor.base != base ||
+	     plane->cursor.size != size ||
+	     plane->cursor.cntl != cntl)) {
 		/* On these chipsets we can only modify the base/size/stride
 		 * whilst the cursor is disabled.
 		 */
 		I915_WRITE(CURCNTR(PIPE_A), 0);
 		POSTING_READ(CURCNTR(PIPE_A));
-		intel_crtc->cursor_cntl = 0;
+		plane->cursor.cntl = 0;
 	}
 
-	if (intel_crtc->cursor_base != base) {
+	if (plane->cursor.base != base) {
 		I915_WRITE(CURBASE(PIPE_A), base);
-		intel_crtc->cursor_base = base;
+		plane->cursor.base = base;
 	}
 
-	if (intel_crtc->cursor_size != size) {
+	if (plane->cursor.size != size) {
 		I915_WRITE(CURSIZE, size);
-		intel_crtc->cursor_size = size;
+		plane->cursor.size = size;
 	}
 
-	if (intel_crtc->cursor_cntl != cntl) {
+	if (plane->cursor.cntl != cntl) {
 		I915_WRITE(CURCNTR(PIPE_A), cntl);
 		POSTING_READ(CURCNTR(PIPE_A));
-		intel_crtc->cursor_cntl = cntl;
+		plane->cursor.cntl = cntl;
 	}
 }
 
-static void i9xx_update_cursor(struct drm_crtc *crtc, u32 base,
+static void i9xx_update_cursor(struct intel_plane *plane, u32 base,
 			       const struct intel_plane_state *plane_state)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int pipe = intel_crtc->pipe;
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	enum pipe pipe = plane->pipe;
 	uint32_t cntl = 0;
 
 	if (plane_state && plane_state->base.visible) {
@@ -9276,28 +9269,25 @@ static void i9xx_update_cursor(struct drm_crtc *crtc, u32 base,
 			cntl |= CURSOR_ROTATE_180;
 	}
 
-	if (intel_crtc->cursor_cntl != cntl) {
+	if (plane->cursor.cntl != cntl) {
 		I915_WRITE(CURCNTR(pipe), cntl);
 		POSTING_READ(CURCNTR(pipe));
-		intel_crtc->cursor_cntl = cntl;
+		plane->cursor.cntl = cntl;
 	}
 
 	/* and commit changes on next vblank */
 	I915_WRITE(CURBASE(pipe), base);
 	POSTING_READ(CURBASE(pipe));
 
-	intel_crtc->cursor_base = base;
+	plane->cursor.base = base;
 }
 
 /* If no-part of the cursor is visible on the framebuffer, then the GPU may hang... */
-static void intel_crtc_update_cursor(struct drm_crtc *crtc,
-				     struct intel_plane *plane,
+static void intel_crtc_update_cursor(struct intel_plane *plane,
 				     const struct intel_plane_state *plane_state)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int pipe = intel_crtc->pipe;
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	enum pipe pipe = plane->pipe;
 	u32 pos = 0, base = 0;
 
 	if (plane_state) {
@@ -9316,17 +9306,15 @@ static void intel_crtc_update_cursor(struct drm_crtc *crtc,
 		}
 		pos |= y << CURSOR_Y_SHIFT;
 
-		base = intel_cursor_base(intel_crtc, plane, plane_state);
-	} else {
-		intel_crtc->cursor_addr = 0;
+		base = intel_cursor_base(plane, plane_state);
 	}
 
 	I915_WRITE(CURPOS(pipe), pos);
 
 	if (IS_I845G(dev_priv) || IS_I865G(dev_priv))
-		i845_update_cursor(crtc, base, plane_state);
+		i845_update_cursor(plane, base, plane_state);
 	else
-		i9xx_update_cursor(crtc, base, plane_state);
+		i9xx_update_cursor(plane, base, plane_state);
 }
 
 static bool cursor_size_ok(struct drm_i915_private *dev_priv,
@@ -11882,7 +11870,7 @@ static void verify_wm_state(struct drm_crtc *crtc,
 	 * allocation. In that case since the ddb allocation will be updated
 	 * once the plane becomes visible, we can skip this check
 	 */
-	if (intel_crtc->cursor_addr) {
+	if (1) {
 		hw_plane_wm = &hw_wm.planes[PLANE_CURSOR];
 		sw_plane_wm = &sw_wm->planes[PLANE_CURSOR];
 
@@ -13738,7 +13726,7 @@ static void
 intel_disable_cursor_plane(struct intel_plane *plane,
 			   struct intel_crtc *crtc)
 {
-	intel_crtc_update_cursor(&crtc->base, plane, NULL);
+	intel_crtc_update_cursor(plane, NULL);
 }
 
 static void
@@ -13746,9 +13734,7 @@ intel_update_cursor_plane(struct intel_plane *plane,
 			  const struct intel_crtc_state *crtc_state,
 			  const struct intel_plane_state *state)
 {
-	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
-
-	intel_crtc_update_cursor(&crtc->base, plane, state);
+	intel_crtc_update_cursor(plane, state);
 }
 
 static struct intel_plane *
@@ -13781,6 +13767,10 @@ intel_cursor_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 	cursor->check_plane = intel_check_cursor_plane;
 	cursor->update_plane = intel_update_cursor_plane;
 	cursor->disable_plane = intel_disable_cursor_plane;
+
+	cursor->cursor.base = ~0;
+	cursor->cursor.cntl = ~0;
+	cursor->cursor.size = ~0;
 
 	ret = drm_universal_plane_init(&dev_priv->drm, &cursor->base,
 				       0, &intel_cursor_plane_funcs,
@@ -13888,10 +13878,6 @@ static int intel_crtc_init(struct drm_i915_private *dev_priv, enum pipe pipe)
 
 	intel_crtc->pipe = pipe;
 	intel_crtc->plane = primary->plane;
-
-	intel_crtc->cursor_base = ~0;
-	intel_crtc->cursor_cntl = ~0;
-	intel_crtc->cursor_size = ~0;
 
 	/* initialize shared scalers */
 	intel_crtc_init_scalers(intel_crtc, crtc_state);
