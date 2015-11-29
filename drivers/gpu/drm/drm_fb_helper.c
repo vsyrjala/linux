@@ -112,12 +112,19 @@ int drm_fb_helper_single_add_all_connectors(struct drm_fb_helper *fb_helper)
 	mutex_lock(&dev->mode_config.mutex);
 	drm_for_each_connector(connector, dev) {
 		struct drm_fb_helper_connector *fb_helper_connector;
+		struct drm_crtc *crtc = connector->encoder ?
+			connector->encoder->crtc : NULL;
 
 		fb_helper_connector = kzalloc(sizeof(struct drm_fb_helper_connector), GFP_KERNEL);
 		if (!fb_helper_connector)
 			goto fail;
 
 		fb_helper_connector->connector = connector;
+		if (crtc && crtc->primary->state)
+			fb_helper_connector->rotation = crtc->primary->state->rotation;
+		if (!fb_helper_connector->rotation)
+			fb_helper_connector->rotation = BIT(DRM_ROTATE_0);
+
 		fb_helper->connector_info[fb_helper->connector_count++] = fb_helper_connector;
 	}
 	mutex_unlock(&dev->mode_config.mutex);
@@ -158,6 +165,8 @@ int drm_fb_helper_add_one_connector(struct drm_fb_helper *fb_helper, struct drm_
 		return -ENOMEM;
 
 	fb_helper_connector->connector = connector;
+	fb_helper_connector->rotation = BIT(DRM_ROTATE_0);
+
 	fb_helper->connector_info[fb_helper->connector_count++] = fb_helper_connector;
 	return 0;
 }
@@ -336,6 +345,35 @@ int drm_fb_helper_debug_leave(struct fb_info *info)
 }
 EXPORT_SYMBOL(drm_fb_helper_debug_leave);
 
+static int fbdev_plane_index(struct drm_fb_helper *fb_helper,
+			     struct drm_plane *plane)
+{
+	int i;
+
+	if (plane->type != DRM_PLANE_TYPE_PRIMARY)
+		return -ENODEV;
+
+	for (i = 0; i < fb_helper->crtc_count; i++) {
+		struct drm_crtc *crtc = fb_helper->crtc_info[i].mode_set.crtc;
+
+		if (crtc && crtc->primary == plane)
+			return i;
+	}
+
+	return -ENODEV;
+}
+
+static unsigned int fbdev_plane_rotation(struct drm_fb_helper *fb_helper,
+					 struct drm_plane *plane)
+{
+	int i = fbdev_plane_index(fb_helper, plane);
+
+	if (i < 0)
+		return BIT(DRM_ROTATE_0);
+	else
+		return fb_helper->crtc_info[i].rotation;
+}
+
 static int restore_fbdev_mode_atomic(struct drm_fb_helper *fb_helper)
 {
 	struct drm_device *dev = fb_helper->dev;
@@ -360,10 +398,10 @@ retry:
 			goto fail;
 		}
 
-		plane_state->rotation = BIT(DRM_ROTATE_0);
-
 		plane->old_fb = plane->fb;
 		plane_mask |= 1 << drm_plane_index(plane);
+
+		plane_state->rotation = fbdev_plane_rotation(fb_helper, plane);
 
 		/* disable non-primary: */
 		if (plane->type == DRM_PLANE_TYPE_PRIMARY)
@@ -420,11 +458,11 @@ static int restore_fbdev_mode(struct drm_fb_helper *fb_helper)
 		if (plane->rotation_property) {
 			drm_mode_plane_set_obj_prop(plane,
 						    plane->rotation_property,
-						    BIT(DRM_ROTATE_0));
+						    fbdev_plane_rotation(fb_helper, plane));
 		} else if (dev->mode_config.rotation_property) {
 			drm_mode_plane_set_obj_prop(plane,
 						    dev->mode_config.rotation_property,
-						    BIT(DRM_ROTATE_0));
+						    fbdev_plane_rotation(fb_helper, plane));
 		}
 	}
 
@@ -715,6 +753,7 @@ int drm_fb_helper_init(struct drm_device *dev,
 		if (!fb_helper->crtc_info[i].mode_set.connectors)
 			goto out_free;
 		fb_helper->crtc_info[i].mode_set.num_connectors = 0;
+		fb_helper->crtc_info[i].rotation = BIT(DRM_ROTATE_0);
 	}
 
 	i = 0;
@@ -1729,8 +1768,7 @@ static bool drm_target_cloned(struct drm_fb_helper *fb_helper,
 {
 	int count, i, j;
 	bool can_clone = false;
-	struct drm_fb_helper_connector *fb_helper_conn;
-	struct drm_display_mode *dmt_mode, *mode;
+	const char *mode_name = NULL;
 
 	/* only contemplate cloning in the single crtc case */
 	if (fb_helper->crtc_count > 1)
@@ -1746,52 +1784,82 @@ static bool drm_target_cloned(struct drm_fb_helper *fb_helper,
 	if (count <= 1)
 		return false;
 
-	/* check the command line or if nothing common pick 1024x768 */
+	/*
+	 * Try to find a common mode on each connector.
+	 * Only use the cmdline mode when it's specified.
+	 */
 	can_clone = true;
-	for (i = 0; i < fb_helper->connector_count; i++) {
-		if (!enabled[i])
-			continue;
-		fb_helper_conn = fb_helper->connector_info[i];
-		modes[i] = drm_pick_cmdline_mode(fb_helper_conn, width, height);
-		if (!modes[i]) {
-			can_clone = false;
-			break;
-		}
-		for (j = 0; j < i; j++) {
-			if (!enabled[j])
-				continue;
-			if (!drm_mode_equal(modes[j], modes[i]))
-				can_clone = false;
-		}
-	}
-
-	if (can_clone) {
-		DRM_DEBUG_KMS("can clone using command line\n");
-		return true;
-	}
-
-	/* try and find a 1024x768 mode on each connector */
-	can_clone = true;
-	dmt_mode = drm_mode_find_dmt(fb_helper->dev, 1024, 768, 60, false);
 
 	for (i = 0; i < fb_helper->connector_count; i++) {
+		struct drm_fb_helper_connector *fb_helper_conn;
+		struct drm_display_mode *mode, *cmdline_mode;
 
 		if (!enabled[i])
 			continue;
 
+		modes[i] = NULL;
+
 		fb_helper_conn = fb_helper->connector_info[i];
+		cmdline_mode = drm_pick_cmdline_mode(fb_helper_conn, width, height);
+
 		list_for_each_entry(mode, &fb_helper_conn->connector->modes, head) {
-			if (drm_mode_equal(mode, dmt_mode))
+			/* use cmdline mode if specified */
+			if (cmdline_mode)
+				mode = cmdline_mode;
+
+			for (j = i + 1; j < fb_helper->connector_count; j++) {
+				struct drm_fb_helper_connector *fb_helper_conn2;
+				struct drm_display_mode *mode2, *cmdline_mode2;
+
+				if (!enabled[j])
+					continue;
+
+				modes[j] = NULL;
+
+				fb_helper_conn2 = fb_helper->connector_info[j];
+				cmdline_mode2 = drm_pick_cmdline_mode(fb_helper_conn2, width, height);
+
+				list_for_each_entry(mode2, &fb_helper_conn2->connector->modes, head) {
+					/* use cmdline mode if specified */
+					if (cmdline_mode2)
+						mode2 = cmdline_mode2;
+
+					if (drm_mode_equal(mode, mode2)) {
+						modes[j] = mode;
+						break;
+					}
+
+					/* don't bother with other modes if cmdline mode is specified */
+					if (cmdline_mode2)
+						break;
+				}
+
+				if (!modes[j])
+					break;
+			}
+
+			if (j == fb_helper->connector_count) {
 				modes[i] = mode;
+				break;
+			}
+
+			/* don't bother with other modes if cmdline mode is specified */
+			if (cmdline_mode)
+				break;
 		}
-		if (!modes[i])
+
+		if (modes[i])
+			mode_name = modes[i]->name;
+		else
 			can_clone = false;
+		break;
 	}
 
 	if (can_clone) {
-		DRM_DEBUG_KMS("can clone using 1024x768\n");
+		DRM_DEBUG_KMS("can clone using %s common mode\n", mode_name);
 		return true;
 	}
+
 	DRM_INFO("kms: can't enable cloning when we probably wanted to.\n");
 	return false;
 }
@@ -1959,7 +2027,13 @@ static int drm_pick_crtcs(struct drm_fb_helper *fb_helper,
 
 			if (!drm_mode_equal(modes[o], modes[n]))
 				continue;
+
+			if (crtc->rotation &&
+			    crtc->rotation != fb_helper_conn->rotation)
+				continue;
 		}
+
+		crtc->rotation = fb_helper_conn->rotation;
 
 		crtcs[n] = crtc;
 		memcpy(crtcs, best_crtcs, n * sizeof(struct drm_fb_helper_crtc *));
@@ -2049,6 +2123,7 @@ static void drm_setup_crtcs(struct drm_fb_helper *fb_helper)
 			fb_crtc->desired_mode = mode;
 			fb_crtc->x = offset->x;
 			fb_crtc->y = offset->y;
+			fb_crtc->rotation = fb_helper->connector_info[i]->rotation;
 			if (modeset->mode)
 				drm_mode_destroy(dev, modeset->mode);
 			modeset->mode = drm_mode_duplicate(dev,

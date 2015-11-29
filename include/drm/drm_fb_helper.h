@@ -42,6 +42,7 @@ struct drm_fb_helper_crtc {
 	struct drm_mode_set mode_set;
 	struct drm_display_mode *desired_mode;
 	int x, y;
+	uint8_t rotation;
 };
 
 /**
@@ -102,6 +103,7 @@ struct drm_fb_helper_funcs {
 
 struct drm_fb_helper_connector {
 	struct drm_connector *connector;
+	uint8_t rotation;
 };
 
 /**

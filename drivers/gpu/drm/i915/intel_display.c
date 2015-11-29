@@ -2648,6 +2648,8 @@ valid_fb:
 	plane_state->crtc_w = fb->width;
 	plane_state->crtc_h = fb->height;
 
+	plane_state->rotation = plane_config->rotation;
+
 	obj = intel_fb_obj(fb);
 	if (obj->tiling_mode != I915_TILING_NONE)
 		dev_priv->preserve_bios_swizzle = true;
@@ -8095,6 +8097,9 @@ i9xx_get_initial_plane_config(struct intel_crtc *crtc,
 			plane_config->tiling = I915_TILING_X;
 			fb->modifier[0] = I915_FORMAT_MOD_X_TILED;
 		}
+
+		if (val & DISPPLANE_ROTATE_180)
+			plane_config->rotation = BIT(DRM_ROTATE_180);
 	}
 
 	pixel_format = val & DISPPLANE_PIXFORMAT_MASK;
@@ -9170,6 +9175,24 @@ skylake_get_initial_plane_config(struct intel_crtc *crtc,
 		goto error;
 	}
 
+	/*
+	 * DRM_ROTATE_ is counter clockwise to stay compatible with Xrandr
+	 * while i915 HW rotation is clockwise, thats why this swapping.
+	 */
+	switch (val & PLANE_CTL_ROTATE_MASK) {
+	case PLANE_CTL_ROTATE_0:
+		break;
+	case PLANE_CTL_ROTATE_90:
+		plane_config->rotation = BIT(DRM_ROTATE_270);
+		break;
+	case BIT(DRM_ROTATE_180):
+		plane_config->rotation = BIT(DRM_ROTATE_180);
+		break;
+	case BIT(DRM_ROTATE_270):
+		plane_config->rotation = BIT(DRM_ROTATE_90);
+		break;
+	}
+
 	base = I915_READ(PLANE_SURF(pipe, 0)) & 0xfffff000;
 	plane_config->base = base;
 
@@ -9256,6 +9279,9 @@ ironlake_get_initial_plane_config(struct intel_crtc *crtc,
 			plane_config->tiling = I915_TILING_X;
 			fb->modifier[0] = I915_FORMAT_MOD_X_TILED;
 		}
+
+		if (val & DISPPLANE_ROTATE_180)
+			plane_config->rotation = BIT(DRM_ROTATE_180);
 	}
 
 	pixel_format = val & DISPPLANE_PIXFORMAT_MASK;
@@ -15228,7 +15254,9 @@ void intel_modeset_init(struct drm_device *dev)
 	drm_modeset_unlock_all(dev);
 
 	for_each_intel_crtc(dev, crtc) {
-		struct intel_initial_plane_config plane_config = {};
+		struct intel_initial_plane_config plane_config = {
+			.rotation = BIT(DRM_ROTATE_0)
+		};
 
 		if (!crtc->active)
 			continue;
