@@ -1,0 +1,24 @@
+origin/drm-intel-fixes 2540058f7a9d9a843b4d9a28d4f8168dd034d030
+	drm/i915: Don't override output type for DDI HDMI
+drm-upstream/drm-fixes 8c14f72b57570d71afda03c5c51b06f0b4af4367
+	Merge branch 'linux-4.4' of git://anongit.freedesktop.org/git/nouveau/linux-2.6 into drm-fixes
+origin/drm-intel-next-fixes 816d2206f0f9953ca854e4ff1a2749a5cbd62715
+	Merge tag 'drm-intel-next-fixes-2015-11-06' of git://anongit.freedesktop.org/drm-intel into drm-next
+origin/drm-intel-next-queued a65347ba6a4e07d276377a62b9b76ee64a277197
+	drm/i915: add has_dsi_encoder to crtc state
+drm-upstream/drm-next f20780f3e8feec0eebcf9fb41e1d90202fffaeff
+	Merge branch 'drm-sti-next-2015-11-03' of http://git.linaro.org/people/benjamin.gaignard/kernel into drm-next
+sound-upstream/for-next e5241a8c4b22b678dd9b07527ba9f178f02e160e
+	ALSA: compress: Pass id string to snd_compress_new
+origin/topic/drm-fixes 5481c8fb1da2a573861095fbea078f30c664d0bd
+	drm/atomic-helper: Check encoder/crtc constraints
+origin/topic/drm-misc 6753ba97e78bb0ed5c0ed35c21c1e2a31f7299a0
+	drm/atomic_helper: Add drm_atomic_helper_disable_planes_on_crtc()
+origin/topic/kerneldoc 1c56404cb748a01609a3cfcf482a167b3cd7480d
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/core-for-CI 64a93eaebb44c35c50e10144923189c8558d043d
+	PCI / PM: tune down RPM suspend error message with EBUSY and EAGAIN retval
