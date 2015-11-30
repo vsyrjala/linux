@@ -1342,6 +1342,49 @@ drm_atomic_helper_commit_planes_on_crtc(struct drm_crtc_state *old_crtc_state)
 EXPORT_SYMBOL(drm_atomic_helper_commit_planes_on_crtc);
 
 /**
+ * drm_atomic_helper_disable_planes_on_crtc - helper to disable CRTC's planes
+ * @crtc: CRTC
+ * @atomic: if set, synchronize with CRTC's atomic_begin/flush hooks
+ *
+ * Disables all planes associated with the given CRTC. This can be
+ * used for instance in the CRTC helper disable callback to disable
+ * all planes before shutting down the display pipeline.
+ *
+ * If the atomic-parameter is set the function calls the CRTC's
+ * atomic_begin hook before and atomic_flush hook after disabling the
+ * planes.
+ *
+ * It is a bug to call this function without having implemented the
+ * ->atomic_disable() plane hook.
+ */
+void drm_atomic_helper_disable_planes_on_crtc(struct drm_crtc *crtc,
+					      bool atomic)
+{
+	const struct drm_crtc_helper_funcs *crtc_funcs =
+		crtc->helper_private;
+	struct drm_plane *plane;
+
+	if (atomic && crtc_funcs && crtc_funcs->atomic_begin)
+		crtc_funcs->atomic_begin(crtc, NULL);
+
+	drm_for_each_plane(plane, crtc->dev) {
+		const struct drm_plane_helper_funcs *plane_funcs =
+			plane->helper_private;
+
+		if (plane->state->crtc != crtc || !plane_funcs)
+			continue;
+
+		WARN_ON(!plane_funcs->atomic_disable);
+		if (plane_funcs->atomic_disable)
+			plane_funcs->atomic_disable(plane, NULL);
+	}
+
+	if (atomic && crtc_funcs && crtc_funcs->atomic_flush)
+		crtc_funcs->atomic_flush(crtc, NULL);
+}
+EXPORT_SYMBOL(drm_atomic_helper_disable_planes_on_crtc);
+
+/**
  * drm_atomic_helper_cleanup_planes - cleanup plane resources after commit
  * @dev: DRM device
  * @old_state: atomic state object with old state structures
@@ -1485,12 +1528,12 @@ retry:
 	drm_atomic_set_fb_for_plane(plane_state, fb);
 	plane_state->crtc_x = crtc_x;
 	plane_state->crtc_y = crtc_y;
-	plane_state->crtc_h = crtc_h;
 	plane_state->crtc_w = crtc_w;
+	plane_state->crtc_h = crtc_h;
 	plane_state->src_x = src_x;
 	plane_state->src_y = src_y;
-	plane_state->src_h = src_h;
 	plane_state->src_w = src_w;
+	plane_state->src_h = src_h;
 
 	if (plane == crtc->cursor)
 		state->legacy_cursor_update = true;
@@ -1609,12 +1652,12 @@ int __drm_atomic_helper_disable_plane(struct drm_plane *plane,
 	drm_atomic_set_fb_for_plane(plane_state, NULL);
 	plane_state->crtc_x = 0;
 	plane_state->crtc_y = 0;
-	plane_state->crtc_h = 0;
 	plane_state->crtc_w = 0;
+	plane_state->crtc_h = 0;
 	plane_state->src_x = 0;
 	plane_state->src_y = 0;
-	plane_state->src_h = 0;
 	plane_state->src_w = 0;
+	plane_state->src_h = 0;
 
 	return 0;
 }
@@ -1797,16 +1840,16 @@ int __drm_atomic_helper_set_config(struct drm_mode_set *set,
 	drm_atomic_set_fb_for_plane(primary_state, set->fb);
 	primary_state->crtc_x = 0;
 	primary_state->crtc_y = 0;
-	primary_state->crtc_h = vdisplay;
 	primary_state->crtc_w = hdisplay;
+	primary_state->crtc_h = vdisplay;
 	primary_state->src_x = set->x << 16;
 	primary_state->src_y = set->y << 16;
 	if (primary_state->rotation & (BIT(DRM_ROTATE_90) | BIT(DRM_ROTATE_270))) {
-		primary_state->src_h = hdisplay << 16;
 		primary_state->src_w = vdisplay << 16;
+		primary_state->src_h = hdisplay << 16;
 	} else {
-		primary_state->src_h = vdisplay << 16;
 		primary_state->src_w = hdisplay << 16;
+		primary_state->src_h = vdisplay << 16;
 	}
 
 commit:
@@ -2184,7 +2227,7 @@ EXPORT_SYMBOL(drm_atomic_helper_connector_dpms);
  */
 void drm_atomic_helper_crtc_reset(struct drm_crtc *crtc)
 {
-	if (crtc->state && crtc->state->mode_blob)
+	if (crtc->state)
 		drm_property_unreference_blob(crtc->state->mode_blob);
 	kfree(crtc->state);
 	crtc->state = kzalloc(sizeof(*crtc->state), GFP_KERNEL);
@@ -2252,8 +2295,7 @@ EXPORT_SYMBOL(drm_atomic_helper_crtc_duplicate_state);
 void __drm_atomic_helper_crtc_destroy_state(struct drm_crtc *crtc,
 					    struct drm_crtc_state *state)
 {
-	if (state->mode_blob)
-		drm_property_unreference_blob(state->mode_blob);
+	drm_property_unreference_blob(state->mode_blob);
 }
 EXPORT_SYMBOL(__drm_atomic_helper_crtc_destroy_state);
 
