@@ -7342,7 +7342,6 @@ enum skl_disp_power_wells {
 /* LPT PIXCLK_GATE */
 #define PIXCLK_GATE			_MMIO(0xC6020)
 #define  PIXCLK_GATE_UNGATE		(1<<0)
-#define  PIXCLK_GATE_GATE		(0<<0)
 
 /* SPLL */
 #define SPLL_CTL			_MMIO(0x46020)
