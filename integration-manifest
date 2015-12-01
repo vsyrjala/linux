@@ -1,0 +1,24 @@
+origin/drm-intel-fixes bb6d19846d1cee7cc977ce3aa736ec60d7163d3a
+	drm/i915: Check the timeout passed to i915_wait_request
+drm-upstream/drm-fixes b50a1705b598fa4074a5e5e4f20ca46485d1cd0e
+	Merge tag 'drm-intel-fixes-2015-11-30' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes 816d2206f0f9953ca854e4ff1a2749a5cbd62715
+	Merge tag 'drm-intel-next-fixes-2015-11-06' of git://anongit.freedesktop.org/drm-intel into drm-next
+origin/drm-intel-next-queued 6b6985169017e554d80a8c2befdadbd81d13c2a2
+	drm/i915: fix fdi related fifo underruns on hsw
+drm-upstream/drm-next f20780f3e8feec0eebcf9fb41e1d90202fffaeff
+	Merge branch 'drm-sti-next-2015-11-03' of http://git.linaro.org/people/benjamin.gaignard/kernel into drm-next
+sound-upstream/for-next e5241a8c4b22b678dd9b07527ba9f178f02e160e
+	ALSA: compress: Pass id string to snd_compress_new
+origin/topic/drm-fixes 5481c8fb1da2a573861095fbea078f30c664d0bd
+	drm/atomic-helper: Check encoder/crtc constraints
+origin/topic/drm-misc 737292a3c0f251a93dcce4bedf7e4accb35335bc
+	drm/gma500: Add driver private mutex for the fault handler
+origin/topic/kerneldoc 1c56404cb748a01609a3cfcf482a167b3cd7480d
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/core-for-CI 64a93eaebb44c35c50e10144923189c8558d043d
+	PCI / PM: tune down RPM suspend error message with EBUSY and EAGAIN retval
