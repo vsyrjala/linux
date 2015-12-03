@@ -382,8 +382,10 @@ function dim_apply
 
 	cat $file | git am -3 "$@"
 
-	if [ -n $message_id ]; then
+	if [ -n "$message_id" ]; then
 		commit_add_tag "Link" "http://patchwork.freedesktop.org/patch/msgid/$message_id"
+	else
+		echo "No message-id found in the patch file."
 	fi
 
 	eval $DRY $DIM_POST_APPLY_ACTION
