@@ -9649,8 +9649,6 @@ void hsw_disable_pc8(struct drm_i915_private *dev_priv)
 		val |= PCH_LP_PARTITION_LEVEL_DISABLE;
 		I915_WRITE(SOUTH_DSPCLK_GATE_D, val);
 	}
-
-	intel_prepare_ddi(dev);
 }
 
 static void broxton_modeset_commit_cdclk(struct drm_atomic_state *old_state)
@@ -15172,7 +15170,6 @@ static void i915_disable_vga(struct drm_device *dev)
 void intel_modeset_init_hw(struct drm_device *dev)
 {
 	intel_update_cdclk(dev);
-	intel_prepare_ddi(dev);
 	intel_init_clock_gating(dev);
 	intel_enable_gt_powersave(dev);
 }
