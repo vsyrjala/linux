@@ -673,7 +673,7 @@ void hsw_fdi_link_train(struct drm_crtc *crtc)
 		udelay(5);
 
 		temp = I915_READ(DP_TP_STATUS(PORT_E));
-		if (temp & DP_TP_STATUS_AUTOTRAIN_DONE) {
+		if (i && temp & DP_TP_STATUS_AUTOTRAIN_DONE) {
 			DRM_DEBUG_KMS("FDI link training done on step %d\n", i);
 			break;
 		}
