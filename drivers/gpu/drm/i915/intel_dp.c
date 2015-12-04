@@ -4601,8 +4601,6 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 
 	if (intel_dp->is_mst) {
 		/* MST devices are disconnected from a monitor POV */
-		if (intel_encoder->type != INTEL_OUTPUT_EDP)
-			intel_encoder->type = INTEL_OUTPUT_DISPLAYPORT;
 		return connector_status_disconnected;
 	}
 
@@ -4632,8 +4630,6 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 	if (ret) {
 		/* if we are in MST mode then this connector
 		   won't appear connected or have anything with EDID on it */
-		if (intel_encoder->type != INTEL_OUTPUT_EDP)
-			intel_encoder->type = INTEL_OUTPUT_DISPLAYPORT;
 		status = connector_status_disconnected;
 		goto out;
 	}
@@ -4648,8 +4644,6 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 
 	intel_dp_set_edid(intel_dp);
 
-	if (intel_encoder->type != INTEL_OUTPUT_EDP)
-		intel_encoder->type = INTEL_OUTPUT_DISPLAYPORT;
 	status = connector_status_connected;
 
 	/* Try to read the source of the interrupt */
@@ -4692,9 +4686,6 @@ intel_dp_force(struct drm_connector *connector)
 	intel_dp_set_edid(intel_dp);
 
 	intel_display_power_put(dev_priv, power_domain);
-
-	if (intel_encoder->type != INTEL_OUTPUT_EDP)
-		intel_encoder->type = INTEL_OUTPUT_DISPLAYPORT;
 }
 
 static int intel_dp_get_modes(struct drm_connector *connector)
@@ -4969,9 +4960,9 @@ intel_dp_hpd_pulse(struct intel_digital_port *intel_dig_port, bool long_hpd)
 	enum intel_display_power_domain power_domain;
 	enum irqreturn ret = IRQ_NONE;
 
-	if (intel_dig_port->base.type != INTEL_OUTPUT_EDP &&
-	    intel_dig_port->base.type != INTEL_OUTPUT_HDMI)
-		intel_dig_port->base.type = INTEL_OUTPUT_DISPLAYPORT;
+	if (WARN_ON_ONCE(intel_dig_port->base.type != INTEL_OUTPUT_EDP &&
+			 intel_dig_port->base.type != INTEL_OUTPUT_DISPLAYPORT))
+		return IRQ_HANDLED;
 
 	if (long_hpd && intel_dig_port->base.type == INTEL_OUTPUT_EDP) {
 		/*
@@ -5815,6 +5806,9 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 	enum port port = intel_dig_port->port;
 	int type, ret;
 
+	if (WARN_ON(intel_encoder->type != INTEL_OUTPUT_DISPLAYPORT))
+		return false;
+
 	if (WARN(intel_dig_port->max_lanes < 1,
 		 "Not enough lanes (%d) for DP on port %c\n",
 		 intel_dig_port->max_lanes, port_name(port)))
@@ -5851,11 +5845,6 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 	else
 		type = DRM_MODE_CONNECTOR_DisplayPort;
 
-	/*
-	 * For eDP we always set the encoder type to INTEL_OUTPUT_EDP, but
-	 * for DP the encoder type can be set by the caller to
-	 * INTEL_OUTPUT_UNKNOWN for DDI, so don't rewrite it.
-	 */
 	if (type == DRM_MODE_CONNECTOR_eDP)
 		intel_encoder->type = INTEL_OUTPUT_EDP;
 

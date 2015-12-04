@@ -318,7 +318,6 @@ static void ddi_get_encoder_port(struct intel_encoder *intel_encoder,
 	case INTEL_OUTPUT_DISPLAYPORT:
 	case INTEL_OUTPUT_EDP:
 	case INTEL_OUTPUT_HDMI:
-	case INTEL_OUTPUT_UNKNOWN:
 		*dig_port = enc_to_dig_port(encoder);
 		*port = (*dig_port)->port;
 		break;
@@ -1942,19 +1941,19 @@ bool intel_ddi_connector_get_hw_state(struct intel_connector *intel_connector)
 	switch (tmp & TRANS_DDI_MODE_SELECT_MASK) {
 	case TRANS_DDI_MODE_SELECT_HDMI:
 	case TRANS_DDI_MODE_SELECT_DVI:
-		return (type == DRM_MODE_CONNECTOR_HDMIA);
+		return type == DRM_MODE_CONNECTOR_HDMIA;
 
 	case TRANS_DDI_MODE_SELECT_DP_SST:
-		if (type == DRM_MODE_CONNECTOR_eDP)
-			return true;
-		return (type == DRM_MODE_CONNECTOR_DisplayPort);
+		return type == DRM_MODE_CONNECTOR_DisplayPort ||
+			type == DRM_MODE_CONNECTOR_eDP;
+
 	case TRANS_DDI_MODE_SELECT_DP_MST:
 		/* if the transcoder is in MST state then
 		 * connector isn't connected */
 		return false;
 
 	case TRANS_DDI_MODE_SELECT_FDI:
-		return (type == DRM_MODE_CONNECTOR_VGA);
+		return type == DRM_MODE_CONNECTOR_VGA;
 
 	default:
 		return false;
@@ -1981,7 +1980,22 @@ bool intel_ddi_get_hw_state(struct intel_encoder *encoder,
 		return false;
 
 	if (port == PORT_A) {
+		WARN_ON(encoder->type != INTEL_OUTPUT_EDP);
+
 		tmp = I915_READ(TRANS_DDI_FUNC_CTL(TRANSCODER_EDP));
+
+		if ((tmp & TRANS_DDI_FUNC_ENABLE) == 0)
+			goto out;
+
+		switch (tmp & TRANS_DDI_MODE_SELECT_MASK) {
+		case TRANS_DDI_MODE_SELECT_DP_SST:
+			break;
+		default:
+			WARN(1,
+			     "Bad transcoder EDP DDI mode 0x%08x for port %c\n",
+			     tmp, port_name(port));
+			return false;
+		}
 
 		switch (tmp & TRANS_DDI_EDP_INPUT_MASK) {
 		case TRANS_DDI_EDP_INPUT_A_ON:
@@ -1994,25 +2008,98 @@ bool intel_ddi_get_hw_state(struct intel_encoder *encoder,
 		case TRANS_DDI_EDP_INPUT_C_ONOFF:
 			*pipe = PIPE_C;
 			break;
+		default:
+			WARN(1,
+			     "Bad transcoder EDP input select 0x%08x for port %c\n",
+			     tmp, port_name(port));
+			return false;
 		}
 
 		return true;
 	} else {
+		int num_mst_transcoders = 0;
+		int num_sst_transcoders = 0;
+		int num_fdi_transcoders = 0;
+		int num_hdmi_transcoders = 0;
+		int num_transcoders = 0;
+		bool enabled = false;
+
 		for (i = TRANSCODER_A; i <= TRANSCODER_C; i++) {
 			tmp = I915_READ(TRANS_DDI_FUNC_CTL(i));
 
-			if ((tmp & TRANS_DDI_PORT_MASK)
-			    == TRANS_DDI_SELECT_PORT(port)) {
-				if ((tmp & TRANS_DDI_MODE_SELECT_MASK) == TRANS_DDI_MODE_SELECT_DP_MST)
-					return false;
+			if ((tmp & TRANS_DDI_FUNC_ENABLE) == 0)
+				continue;
 
-				*pipe = i;
-				return true;
+			if ((tmp & TRANS_DDI_PORT_MASK) != TRANS_DDI_SELECT_PORT(port))
+				continue;
+
+			if ((tmp & TRANS_DDI_MODE_SELECT_MASK) == TRANS_DDI_MODE_SELECT_DP_MST) {
+				num_mst_transcoders++;
+				WARN_ON(port == PORT_E);
+				continue;
+			}
+
+
+			switch (tmp & TRANS_DDI_MODE_SELECT_MASK) {
+			case TRANS_DDI_MODE_SELECT_DP_SST:
+				WARN_ON(port == PORT_E && INTEL_INFO(dev_priv)->gen < 9);
+
+				num_sst_transcoders++;
+				if (encoder->type == INTEL_OUTPUT_DISPLAYPORT ||
+				    encoder->type == INTEL_OUTPUT_EDP) {
+					enabled = true;
+					*pipe = i;
+				}
+				break;
+			case TRANS_DDI_MODE_SELECT_HDMI:
+			case TRANS_DDI_MODE_SELECT_DVI:
+				WARN_ON(port == PORT_E);
+
+				num_hdmi_transcoders++;
+				if (encoder->type == INTEL_OUTPUT_HDMI) {
+					enabled = true;
+					*pipe = i;
+				}
+				break;
+
+			case TRANS_DDI_MODE_SELECT_FDI:
+				WARN_ON(port != PORT_E || INTEL_INFO(dev_priv)->gen >= 9);
+
+				num_fdi_transcoders++;
+				if (encoder->type == INTEL_OUTPUT_ANALOG) {
+					enabled = true;
+					*pipe = i;
+				}
+				break;
+
+			default:
+				WARN(1, "Bad transcoder %c DDI mode 0x%08x for port %c\n",
+				     transcoder_name(i), tmp, port_name(port));
+				return false;
 			}
 		}
+
+		num_transcoders = num_sst_transcoders +
+			num_fdi_transcoders + num_hdmi_transcoders;
+
+		if (WARN(num_transcoders && num_mst_transcoders,
+			 "MST and non-MST transcoders enabled for port %c (%d sst, %d mst, %d fdi, %d hdmi)\n",
+			 port_name(port), num_sst_transcoders, num_mst_transcoders,
+			 num_fdi_transcoders, num_hdmi_transcoders))
+			return false;
+
+		if (WARN(num_transcoders > 1,
+			 "Multiple transcoders enabled for port %c (%d sst, %d mst, %d fdi, %d hdmi)\n",
+			 port_name(port), num_sst_transcoders, num_mst_transcoders,
+			 num_fdi_transcoders, num_hdmi_transcoders))
+			return false;
+
+		if (enabled)
+			return true;
 	}
 
-	DRM_DEBUG_KMS("No pipe for ddi port %c found\n", port_name(port));
+out:
+	DRM_DEBUG_KMS("No pipe for DDI port %c found\n", port_name(port));
 
 	return false;
 }
@@ -3174,8 +3261,6 @@ static bool intel_ddi_compute_config(struct intel_encoder *encoder,
 	int type = encoder->type;
 	int port = intel_ddi_get_encoder_port(encoder);
 
-	WARN(type == INTEL_OUTPUT_UNKNOWN, "compute_config() on unknown output!\n");
-
 	if (port == PORT_A)
 		pipe_config->cpu_transcoder = TRANSCODER_EDP;
 
@@ -3224,12 +3309,90 @@ intel_ddi_init_hdmi_connector(struct intel_digital_port *intel_dig_port)
 	return connector;
 }
 
-void intel_ddi_init(struct drm_device *dev, enum port port)
+static int intel_ddi_init_role(struct drm_device *dev, enum port port,
+			       int encoder_type, uint32_t saved_port_bits,
+			       int max_lanes)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_digital_port *intel_dig_port;
 	struct intel_encoder *intel_encoder;
 	struct drm_encoder *encoder;
+
+	intel_dig_port = kzalloc(sizeof(*intel_dig_port), GFP_KERNEL);
+	if (!intel_dig_port)
+		return -ENOMEM;
+
+	intel_encoder = &intel_dig_port->base;
+	encoder = &intel_encoder->base;
+
+	drm_encoder_init(dev, encoder, &intel_ddi_funcs,
+			 DRM_MODE_ENCODER_TMDS);
+
+	intel_encoder->compute_config = intel_ddi_compute_config;
+	intel_encoder->enable = intel_enable_ddi;
+	intel_encoder->pre_enable = intel_ddi_pre_enable;
+	intel_encoder->disable = intel_disable_ddi;
+	intel_encoder->post_disable = intel_ddi_post_disable;
+	intel_encoder->get_hw_state = intel_ddi_get_hw_state;
+	intel_encoder->get_config = intel_ddi_get_config;
+
+	intel_dig_port->port = port;
+	intel_dig_port->saved_port_bits = saved_port_bits;
+	intel_dig_port->max_lanes = max_lanes;
+
+	/*
+	 * Bspec says that DDI_A_4_LANES is the only supported configuration
+	 * for Broxton.  Yet some BIOS fail to set this bit on port A if eDP
+	 * wasn't lit up at boot.  Force this bit on in our internal
+	 * configuration so that we use the proper lane count for our
+	 * calculations.
+	 */
+	if (IS_BROXTON(dev) && port == PORT_A) {
+		if (!(intel_dig_port->saved_port_bits & DDI_A_4_LANES)) {
+			DRM_DEBUG_KMS("BXT BIOS forgot to set DDI_A_4_LANES for port A; fixing\n");
+			intel_dig_port->saved_port_bits |= DDI_A_4_LANES;
+		}
+	}
+
+	intel_encoder->type = encoder_type;
+	intel_encoder->crtc_mask = (1 << 0) | (1 << 1) | (1 << 2);
+	intel_encoder->cloneable = 0;
+
+	if (intel_encoder->type == INTEL_OUTPUT_DISPLAYPORT) {
+		if (!intel_ddi_init_dp_connector(intel_dig_port))
+			goto err;
+
+		intel_dig_port->hpd_pulse = intel_dp_hpd_pulse;
+		/*
+		 * On BXT A0/A1, sw needs to activate DDIA HPD logic and
+		 * interrupts to check the external panel connection.
+		 */
+		if (IS_BXT_REVID(dev, 0, BXT_REVID_A1) && port == PORT_B)
+			dev_priv->hotplug.irq_port[PORT_A] = intel_dig_port;
+		else
+			dev_priv->hotplug.irq_port[port] = intel_dig_port;
+	}
+
+	/* In theory we don't need the encoder->type check, but leave it just in
+	 * case we have some really bad VBTs... */
+	if (intel_encoder->type == INTEL_OUTPUT_HDMI) {
+		if (!intel_ddi_init_hdmi_connector(intel_dig_port))
+			goto err;
+	}
+
+	return intel_encoder->type;
+
+err:
+	drm_encoder_cleanup(encoder);
+	kfree(intel_dig_port);
+
+	return -ENODEV;
+}
+
+void intel_ddi_init(struct drm_device *dev, enum port port)
+{
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	uint32_t saved_port_bits;
 	bool init_hdmi, init_dp;
 	int max_lanes;
 
@@ -3268,73 +3431,18 @@ void intel_ddi_init(struct drm_device *dev, enum port port)
 		return;
 	}
 
-	intel_dig_port = kzalloc(sizeof(*intel_dig_port), GFP_KERNEL);
-	if (!intel_dig_port)
-		return;
-
-	intel_encoder = &intel_dig_port->base;
-	encoder = &intel_encoder->base;
-
-	drm_encoder_init(dev, encoder, &intel_ddi_funcs,
-			 DRM_MODE_ENCODER_TMDS);
-
-	intel_encoder->compute_config = intel_ddi_compute_config;
-	intel_encoder->enable = intel_enable_ddi;
-	intel_encoder->pre_enable = intel_ddi_pre_enable;
-	intel_encoder->disable = intel_disable_ddi;
-	intel_encoder->post_disable = intel_ddi_post_disable;
-	intel_encoder->get_hw_state = intel_ddi_get_hw_state;
-	intel_encoder->get_config = intel_ddi_get_config;
-
-	intel_dig_port->port = port;
-	intel_dig_port->saved_port_bits = I915_READ(DDI_BUF_CTL(port)) &
-					  (DDI_BUF_PORT_REVERSAL |
-					   DDI_A_4_LANES);
-	intel_dig_port->max_lanes = max_lanes;
-
-	/*
-	 * Bspec says that DDI_A_4_LANES is the only supported configuration
-	 * for Broxton.  Yet some BIOS fail to set this bit on port A if eDP
-	 * wasn't lit up at boot.  Force this bit on in our internal
-	 * configuration so that we use the proper lane count for our
-	 * calculations.
-	 */
-	if (IS_BROXTON(dev) && port == PORT_A) {
-		if (!(intel_dig_port->saved_port_bits & DDI_A_4_LANES)) {
-			DRM_DEBUG_KMS("BXT BIOS forgot to set DDI_A_4_LANES for port A; fixing\n");
-			intel_dig_port->saved_port_bits |= DDI_A_4_LANES;
-		}
-	}
-
-	intel_encoder->type = INTEL_OUTPUT_UNKNOWN;
-	intel_encoder->crtc_mask = (1 << 0) | (1 << 1) | (1 << 2);
-	intel_encoder->cloneable = 0;
+	saved_port_bits = I915_READ(DDI_BUF_CTL(port)) &
+		(DDI_BUF_PORT_REVERSAL | DDI_A_4_LANES);
 
 	if (init_dp) {
-		if (!intel_ddi_init_dp_connector(intel_dig_port))
-			goto err;
-
-		intel_dig_port->hpd_pulse = intel_dp_hpd_pulse;
-		/*
-		 * On BXT A0/A1, sw needs to activate DDIA HPD logic and
-		 * interrupts to check the external panel connection.
-		 */
-		if (IS_BXT_REVID(dev, 0, BXT_REVID_A1) && port == PORT_B)
-			dev_priv->hotplug.irq_port[PORT_A] = intel_dig_port;
-		else
-			dev_priv->hotplug.irq_port[port] = intel_dig_port;
+		int ret = intel_ddi_init_role(dev, port, INTEL_OUTPUT_DISPLAYPORT,
+					      saved_port_bits, max_lanes);
+		/* Don't register the HDMI connector/encoder when we have eDP */
+		if (ret == INTEL_OUTPUT_EDP)
+			init_hdmi = false;
 	}
 
-	/* In theory we don't need the encoder->type check, but leave it just in
-	 * case we have some really bad VBTs... */
-	if (intel_encoder->type != INTEL_OUTPUT_EDP && init_hdmi) {
-		if (!intel_ddi_init_hdmi_connector(intel_dig_port))
-			goto err;
-	}
-
-	return;
-
-err:
-	drm_encoder_cleanup(encoder);
-	kfree(intel_dig_port);
+	if (init_hdmi)
+		intel_ddi_init_role(dev, port, INTEL_OUTPUT_HDMI,
+				    saved_port_bits, max_lanes);
 }

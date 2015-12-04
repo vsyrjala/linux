@@ -2034,6 +2034,9 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 	enum port port = intel_dig_port->port;
 	uint8_t alternate_ddc_pin;
 
+	if (WARN_ON(intel_encoder->type != INTEL_OUTPUT_HDMI))
+		return;
+
 	if (WARN(intel_dig_port->max_lanes < 4,
 		 "Not enough lanes (%d) for HDMI on port %c\n",
 		 intel_dig_port->max_lanes, port_name(port)))

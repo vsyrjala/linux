@@ -5252,13 +5252,9 @@ static enum intel_display_power_domain port_to_aux_power_domain(enum port port)
 enum intel_display_power_domain
 intel_display_port_power_domain(struct intel_encoder *intel_encoder)
 {
-	struct drm_device *dev = intel_encoder->base.dev;
 	struct intel_digital_port *intel_dig_port;
 
 	switch (intel_encoder->type) {
-	case INTEL_OUTPUT_UNKNOWN:
-		/* Only DDI platforms should ever use this output type */
-		WARN_ON_ONCE(!HAS_DDI(dev));
 	case INTEL_OUTPUT_DISPLAYPORT:
 	case INTEL_OUTPUT_HDMI:
 	case INTEL_OUTPUT_EDP:
@@ -5279,20 +5275,9 @@ intel_display_port_power_domain(struct intel_encoder *intel_encoder)
 enum intel_display_power_domain
 intel_display_port_aux_power_domain(struct intel_encoder *intel_encoder)
 {
-	struct drm_device *dev = intel_encoder->base.dev;
 	struct intel_digital_port *intel_dig_port;
 
 	switch (intel_encoder->type) {
-	case INTEL_OUTPUT_UNKNOWN:
-	case INTEL_OUTPUT_HDMI:
-		/*
-		 * Only DDI platforms should ever use these output types.
-		 * We can get here after the HDMI detect code has already set
-		 * the type of the shared encoder. Since we can't be sure
-		 * what's the status of the given connectors, play safe and
-		 * run the DP detection too.
-		 */
-		WARN_ON_ONCE(!HAS_DDI(dev));
 	case INTEL_OUTPUT_DISPLAYPORT:
 	case INTEL_OUTPUT_EDP:
 		intel_dig_port = enc_to_dig_port(&intel_encoder->base);
@@ -12283,9 +12268,6 @@ static bool check_digital_port_conflicts(struct drm_atomic_state *state)
 
 		switch (encoder->type) {
 			unsigned int port_mask;
-		case INTEL_OUTPUT_UNKNOWN:
-			if (WARN_ON(!HAS_DDI(dev)))
-				break;
 		case INTEL_OUTPUT_DISPLAYPORT:
 		case INTEL_OUTPUT_HDMI:
 		case INTEL_OUTPUT_EDP:
