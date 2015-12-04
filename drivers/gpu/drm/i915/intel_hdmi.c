@@ -1557,7 +1557,7 @@ static void intel_hdmi_pre_enable(struct intel_encoder *encoder)
 	intel_hdmi_prepare(encoder);
 
 	intel_hdmi->set_infoframes(&encoder->base,
-				   intel_crtc->config->has_hdmi_sink,
+				   intel_crtc->config->has_infoframe,
 				   adjusted_mode);
 }
 
@@ -1601,7 +1601,7 @@ static void vlv_hdmi_pre_enable(struct intel_encoder *encoder)
 	mutex_unlock(&dev_priv->sb_lock);
 
 	intel_hdmi->set_infoframes(&encoder->base,
-				   intel_crtc->config->has_hdmi_sink,
+				   intel_crtc->config->has_infoframe,
 				   adjusted_mode);
 
 	g4x_enable_hdmi(encoder);
@@ -1970,7 +1970,7 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 	mutex_unlock(&dev_priv->sb_lock);
 
 	intel_hdmi->set_infoframes(&encoder->base,
-				   intel_crtc->config->has_hdmi_sink,
+				   intel_crtc->config->has_infoframe,
 				   adjusted_mode);
 
 	g4x_enable_hdmi(encoder);
