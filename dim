@@ -870,7 +870,8 @@ case "$subcommand" in
 	update-next)
 		assert_branch drm-intel-next-queued
 
-		git fetch $DIM_DRM_INTEL_REMOTE
+		git pull --ff-only
+
 		if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-fixes &> /dev/null ; then
 			echo "drm-intel-fixes not merged into -nigthly, please update!"
 			exit 2
@@ -888,6 +889,9 @@ case "$subcommand" in
 			git commit -s -F -
 
 		gitk drm-intel-next-queued ^$DIM_DRM_UPSTREAM_REMOTE/drm-next &
+
+		# try to push dinq first in case someone raced
+		dim push-queued
 
 		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
 		tag=drm-intel-next-$today
