@@ -1631,7 +1631,7 @@ static void intel_ddi_pre_enable(struct intel_encoder *intel_encoder)
 		struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
 
 		intel_hdmi->set_infoframes(encoder,
-					   crtc->config->has_hdmi_sink,
+					   crtc->config->has_infoframe,
 					   &crtc->config->base.adjusted_mode);
 	}
 }
