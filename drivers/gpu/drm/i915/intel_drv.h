@@ -818,6 +818,7 @@ struct intel_digital_port {
 	struct intel_hdmi hdmi;
 	enum irqreturn (*hpd_pulse)(struct intel_digital_port *, bool);
 	bool release_cl2_override;
+	uint8_t max_lanes;
 };
 
 struct intel_dp_mst_encoder {
