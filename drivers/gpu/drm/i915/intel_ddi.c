@@ -421,8 +421,7 @@ void intel_prepare_dp_ddi_buffers(struct intel_encoder *encoder)
 		ddi_translations_edp =
 				skl_get_buf_trans_edp(dev_priv, &n_edp_entries);
 		/* If we're boosting the current, set bit 31 of trans1 */
-		if (dev_priv->vbt.ddi_port_info[port].hdmi_boost_level ||
-		    dev_priv->vbt.ddi_port_info[port].dp_boost_level)
+		if (dev_priv->vbt.ddi_port_info[port].dp_boost_level)
 			iboost_bit = 1<<31;
 
 		if (WARN_ON(port != PORT_A &&
@@ -508,8 +507,7 @@ static void intel_prepare_hdmi_ddi_buffers(struct intel_encoder *encoder)
 		ddi_translations_hdmi = skl_get_buf_trans_hdmi(dev_priv, &n_hdmi_entries);
 		hdmi_default_entry = 8;
 		/* If we're boosting the current, set bit 31 of trans1 */
-		if (dev_priv->vbt.ddi_port_info[port].hdmi_boost_level ||
-		    dev_priv->vbt.ddi_port_info[port].dp_boost_level)
+		if (dev_priv->vbt.ddi_port_info[port].hdmi_boost_level)
 			iboost_bit = 1<<31;
 	} else if (IS_BROADWELL(dev_priv)) {
 		ddi_translations_hdmi = bdw_ddi_translations_hdmi;
