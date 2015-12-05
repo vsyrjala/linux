@@ -304,41 +304,21 @@ static const struct bxt_ddi_buf_trans bxt_ddi_translations_hdmi[] = {
 static void bxt_ddi_vswing_sequence(struct drm_i915_private *dev_priv,
 				    u32 level, enum port port, int type);
 
-static void ddi_get_encoder_port(struct intel_encoder *intel_encoder,
-				 struct intel_digital_port **dig_port,
-				 enum port *port)
+enum port intel_ddi_get_encoder_port(struct intel_encoder *encoder)
 {
-	struct drm_encoder *encoder = &intel_encoder->base;
-
-	switch (intel_encoder->type) {
+	switch (encoder->type) {
 	case INTEL_OUTPUT_DP_MST:
-		*dig_port = enc_to_mst(encoder)->primary;
-		*port = (*dig_port)->port;
-		break;
+		return enc_to_mst(&encoder->base)->primary->port;
 	case INTEL_OUTPUT_DISPLAYPORT:
 	case INTEL_OUTPUT_EDP:
 	case INTEL_OUTPUT_HDMI:
-		*dig_port = enc_to_dig_port(encoder);
-		*port = (*dig_port)->port;
-		break;
+		return enc_to_dig_port(&encoder->base)->port;
 	case INTEL_OUTPUT_ANALOG:
-		*dig_port = NULL;
-		*port = PORT_E;
-		break;
+		return PORT_E;
 	default:
-		WARN(1, "Invalid DDI encoder type %d\n", intel_encoder->type);
-		break;
+		MISSING_CASE(encoder->type);
+		return PORT_A;
 	}
-}
-
-enum port intel_ddi_get_encoder_port(struct intel_encoder *intel_encoder)
-{
-	struct intel_digital_port *dig_port;
-	enum port port;
-
-	ddi_get_encoder_port(intel_encoder, &dig_port, &port);
-
-	return port;
 }
 
 static const struct ddi_buf_trans *
