@@ -516,9 +516,9 @@ void intel_prepare_ddi_buffers(struct intel_encoder *encoder)
 		hdmi_level = hdmi_default_entry;
 
 	/* Entry 9 is for HDMI: */
-	I915_WRITE(DDI_BUF_TRANS_LO(port, i),
+	I915_WRITE(DDI_BUF_TRANS_LO(port, 9),
 		   ddi_translations_hdmi[hdmi_level].trans1 | iboost_bit);
-	I915_WRITE(DDI_BUF_TRANS_HI(port, i),
+	I915_WRITE(DDI_BUF_TRANS_HI(port, 9),
 		   ddi_translations_hdmi[hdmi_level].trans2);
 }
 
