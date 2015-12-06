@@ -526,6 +526,9 @@ static void intel_prepare_hdmi_ddi_buffers(struct intel_encoder *encoder)
 		hdmi_default_entry = 7;
 	}
 
+	if (WARN_ON(hdmi_default_entry >= n_hdmi_entries))
+		hdmi_default_entry = 0;
+
 	/* Choose a good default if VBT is badly populated */
 	if (hdmi_level == HDMI_LEVEL_SHIFT_UNKNOWN ||
 	    hdmi_level >= n_hdmi_entries)
