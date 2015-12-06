@@ -351,6 +351,10 @@ intel_dig_port_supports_hdmi(const struct intel_digital_port *intel_dig_port)
 static const struct ddi_buf_trans *
 skl_get_buf_trans_dp(struct drm_i915_private *dev_priv, int *n_entries)
 {
+	BUILD_BUG_ON(ARRAY_SIZE(skl_y_ddi_translations_dp) != 9);
+	BUILD_BUG_ON(ARRAY_SIZE(skl_u_ddi_translations_dp) != 9);
+	BUILD_BUG_ON(ARRAY_SIZE(skl_ddi_translations_dp) != 9);
+
 	if (IS_SKL_ULX(dev_priv)) {
 		*n_entries = ARRAY_SIZE(skl_y_ddi_translations_dp);
 		return skl_y_ddi_translations_dp;
@@ -366,6 +370,10 @@ skl_get_buf_trans_dp(struct drm_i915_private *dev_priv, int *n_entries)
 static const struct ddi_buf_trans *
 skl_get_buf_trans_edp(struct drm_i915_private *dev_priv, int *n_entries)
 {
+	BUILD_BUG_ON(ARRAY_SIZE(skl_y_ddi_translations_edp) != 10);
+	BUILD_BUG_ON(ARRAY_SIZE(skl_u_ddi_translations_edp) != 10);
+	BUILD_BUG_ON(ARRAY_SIZE(skl_ddi_translations_edp) != 10);
+
 	if (dev_priv->edp_low_vswing) {
 		if (IS_SKL_ULX(dev_priv)) {
 			*n_entries = ARRAY_SIZE(skl_y_ddi_translations_edp);
@@ -436,6 +444,10 @@ static void intel_prepare_ddi_buffers(struct drm_i915_private *dev_priv,
 		    dev_priv->vbt.ddi_port_info[port].dp_boost_level)
 			iboost_bit = 1<<31;
 	} else if (IS_BROADWELL(dev_priv)) {
+		BUILD_BUG_ON(ARRAY_SIZE(bdw_ddi_translations_fdi) != 9);
+		BUILD_BUG_ON(ARRAY_SIZE(bdw_ddi_translations_dp) != 9);
+		BUILD_BUG_ON(ARRAY_SIZE(bdw_ddi_translations_edp) != 9);
+
 		ddi_translations_fdi = bdw_ddi_translations_fdi;
 		ddi_translations_dp = bdw_ddi_translations_dp;
 		ddi_translations_edp = bdw_ddi_translations_edp;
@@ -445,6 +457,9 @@ static void intel_prepare_ddi_buffers(struct drm_i915_private *dev_priv,
 		n_hdmi_entries = ARRAY_SIZE(bdw_ddi_translations_hdmi);
 		hdmi_default_entry = 7;
 	} else if (IS_HASWELL(dev_priv)) {
+		BUILD_BUG_ON(ARRAY_SIZE(hsw_ddi_translations_fdi) != 9);
+		BUILD_BUG_ON(ARRAY_SIZE(hsw_ddi_translations_dp) != 9);
+
 		ddi_translations_fdi = hsw_ddi_translations_fdi;
 		ddi_translations_dp = hsw_ddi_translations_dp;
 		ddi_translations_edp = hsw_ddi_translations_dp;
