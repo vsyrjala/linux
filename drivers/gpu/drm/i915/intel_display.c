@@ -4866,6 +4866,15 @@ static void intel_crtc_disable_planes(struct drm_crtc *crtc, unsigned plane_mask
 	intel_frontbuffer_flip(dev, INTEL_FRONTBUFFER_ALL_MASK(pipe));
 }
 
+#define intel_call_encoder_func(encoder, func) \
+do { \
+	if (!(encoder)->func) \
+		break; \
+	DRM_DEBUG_KMS("%s " #func " start\n", (encoder)->base.name); \
+	(encoder)->func(encoder); \
+	DRM_DEBUG_KMS("%s " #func " end\n", (encoder)->base.name); \
+} while (0)
+
 static void ironlake_crtc_enable(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
@@ -4900,8 +4909,7 @@ static void ironlake_crtc_enable(struct drm_crtc *crtc)
 	intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, true);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		if (encoder->pre_enable)
-			encoder->pre_enable(encoder);
+		intel_call_encoder_func(encoder, pre_enable);
 
 	if (intel_crtc->config->has_pch_encoder) {
 		/* Note: FDI PLL enabling _must_ be done before we enable the
@@ -4931,7 +4939,7 @@ static void ironlake_crtc_enable(struct drm_crtc *crtc)
 	drm_crtc_vblank_on(crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		encoder->enable(encoder);
+		intel_call_encoder_func(encoder, enable);
 
 	if (HAS_PCH_CPT(dev))
 		cpt_verify_modeset(dev, intel_crtc->pipe);
@@ -4996,10 +5004,8 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 	else
 		intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, true);
 
-	for_each_encoder_on_crtc(dev, crtc, encoder) {
-		if (encoder->pre_enable)
-			encoder->pre_enable(encoder);
-	}
+	for_each_encoder_on_crtc(dev, crtc, encoder)
+		intel_call_encoder_func(encoder, pre_enable);
 
 	if (intel_crtc->config->has_pch_encoder)
 		dev_priv->display.fdi_link_train(crtc);
@@ -5035,7 +5041,7 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 	drm_crtc_vblank_on(crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
-		encoder->enable(encoder);
+		intel_call_encoder_func(encoder, enable);
 		intel_opregion_notify_encoder(encoder, true);
 	}
 
@@ -5085,7 +5091,7 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 		intel_set_pch_fifo_underrun_reporting(dev_priv, pipe, false);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		encoder->disable(encoder);
+		intel_call_encoder_func(encoder, disable);
 
 	drm_crtc_vblank_off(crtc);
 	assert_vblank_disabled(crtc);
@@ -5108,8 +5114,7 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 	}
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		if (encoder->post_disable)
-			encoder->post_disable(encoder);
+		intel_call_encoder_func(encoder, post_disable);
 
 	if (intel_crtc->config->has_pch_encoder) {
 		ironlake_disable_pch_transcoder(dev_priv, pipe);
@@ -5154,7 +5159,7 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
 		intel_opregion_notify_encoder(encoder, false);
-		encoder->disable(encoder);
+		intel_call_encoder_func(encoder, disable);
 	}
 
 	drm_crtc_vblank_off(crtc);
@@ -5177,8 +5182,7 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 		intel_ddi_disable_pipe_clock(intel_crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		if (encoder->post_disable)
-			encoder->post_disable(encoder);
+		intel_call_encoder_func(encoder, post_disable);
 
 	if (intel_crtc->config->has_pch_encoder) {
 		lpt_disable_pch_transcoder(dev_priv);
@@ -6200,8 +6204,7 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, true);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		if (encoder->pre_pll_enable)
-			encoder->pre_pll_enable(encoder);
+		intel_call_encoder_func(encoder, pre_pll_enable);
 
 	if (!intel_crtc->config->has_dsi_encoder) {
 		if (IS_CHERRYVIEW(dev)) {
@@ -6214,8 +6217,7 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	}
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		if (encoder->pre_enable)
-			encoder->pre_enable(encoder);
+		intel_call_encoder_func(encoder, pre_enable);
 
 	i9xx_pfit_enable(intel_crtc);
 
@@ -6227,7 +6229,7 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	drm_crtc_vblank_on(crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		encoder->enable(encoder);
+		intel_call_encoder_func(encoder, enable);
 }
 
 static void i9xx_set_pll_dividers(struct intel_crtc *crtc)
@@ -6265,8 +6267,7 @@ static void i9xx_crtc_enable(struct drm_crtc *crtc)
 		intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, true);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		if (encoder->pre_enable)
-			encoder->pre_enable(encoder);
+		intel_call_encoder_func(encoder, pre_enable);
 
 	i9xx_enable_pll(intel_crtc);
 
@@ -6281,7 +6282,7 @@ static void i9xx_crtc_enable(struct drm_crtc *crtc)
 	drm_crtc_vblank_on(crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		encoder->enable(encoder);
+		intel_call_encoder_func(encoder, enable);
 
 	intel_fbc_enable(intel_crtc);
 }
@@ -6318,7 +6319,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	intel_wait_for_vblank(dev, pipe);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		encoder->disable(encoder);
+		intel_call_encoder_func(encoder, disable);
 
 	drm_crtc_vblank_off(crtc);
 	assert_vblank_disabled(crtc);
@@ -6328,8 +6329,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	i9xx_pfit_disable(intel_crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		if (encoder->post_disable)
-			encoder->post_disable(encoder);
+		intel_call_encoder_func(encoder, post_disable);
 
 	if (!intel_crtc->config->has_dsi_encoder) {
 		if (IS_CHERRYVIEW(dev))
@@ -6341,8 +6341,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	}
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
-		if (encoder->post_pll_disable)
-			encoder->post_pll_disable(encoder);
+		intel_call_encoder_func(encoder, post_pll_disable);
 
 	if (!IS_GEN2(dev))
 		intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, false);
@@ -15527,9 +15526,8 @@ static void intel_sanitize_encoder(struct intel_encoder *encoder)
 			DRM_DEBUG_KMS("[ENCODER:%d:%s] manually disabled\n",
 				      encoder->base.base.id,
 				      encoder->base.name);
-			encoder->disable(encoder);
-			if (encoder->post_disable)
-				encoder->post_disable(encoder);
+			intel_call_encoder_func(encoder, disable);
+			intel_call_encoder_func(encoder, post_disable);
 		}
 		encoder->base.crtc = NULL;
 
