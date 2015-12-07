@@ -1111,6 +1111,19 @@ static const struct drm_connector_funcs intel_dsi_connector_funcs = {
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 };
 
+static char intel_dsi_port_name(const struct drm_i915_private *dev_priv)
+{
+	switch (dev_priv->vbt.dsi.port) {
+	case DVO_PORT_MIPIA:
+		return 'A';
+	case DVO_PORT_MIPIC:
+		return 'C';
+	default:
+		MISSING_CASE(dev_priv->vbt.dsi.port);
+		return '?';
+	}
+}
+
 void intel_dsi_init(struct drm_device *dev)
 {
 	struct intel_dsi *intel_dsi;
@@ -1153,7 +1166,7 @@ void intel_dsi_init(struct drm_device *dev)
 	connector = &intel_connector->base;
 
 	drm_encoder_init(dev, encoder, &intel_dsi_funcs, DRM_MODE_ENCODER_DSI,
-			 NULL);
+			 "MIPI %c", intel_dsi_port_name(dev_priv));
 
 	intel_encoder->compute_config = intel_dsi_compute_config;
 	intel_encoder->pre_enable = intel_dsi_pre_enable;
