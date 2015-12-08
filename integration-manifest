@@ -1,0 +1,24 @@
+origin/drm-intel-fixes 6704d45528537ea6088aeea0667d87b605b82d51
+	drm/i915/skl: Double RC6 WRL always on
+drm-upstream/drm-fixes df4d4aa96d1db1657e14b848a341fc614c8d61eb
+	Merge branch 'drm-fixes-4.4' of git://people.freedesktop.org/~agd5f/linux into drm-next
+origin/drm-intel-next-fixes 816d2206f0f9953ca854e4ff1a2749a5cbd62715
+	Merge tag 'drm-intel-next-fixes-2015-11-06' of git://anongit.freedesktop.org/drm-intel into drm-next
+origin/drm-intel-next-queued a308ccb3a93bc665ed0f6bc864960795e2955532
+	drm/i915: Leave FDI running after failed link training on LPT-H
+drm-upstream/drm-next e876b41ab074561d65f213bf5e0fc68cf5bc7380
+	Back merge tag 'v4.4-rc4' into drm-next
+sound-upstream/for-next c10368897e104c008c610915a218f0fe5fa4ec96
+	ALSA: compress: add support for 32bit calls in a 64bit kernel
+origin/topic/drm-fixes 5481c8fb1da2a573861095fbea078f30c664d0bd
+	drm/atomic-helper: Check encoder/crtc constraints
+origin/topic/drm-misc e7562e79a0ccd489e61c8b5f22d1d720b32bab47
+	drm: Document drm_encoder/crtc_helper_funcs
+origin/topic/kerneldoc a638906d302fd07aa772252d008c41f0d88391b2
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/core-for-CI 527e9316f8ec44bd53d90fb9f611fa7ffff52bb9
+	Linux 4.4-rc4
