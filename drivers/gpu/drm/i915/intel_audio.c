@@ -161,9 +161,9 @@ static bool audio_rate_need_prog(struct intel_crtc *crtc,
 }
 
 static bool intel_eld_uptodate(struct drm_connector *connector,
-			       int reg_eldv, uint32_t bits_eldv,
-			       int reg_elda, uint32_t bits_elda,
-			       int reg_edid)
+			       i915_reg_t reg_eldv, uint32_t bits_eldv,
+			       i915_reg_t reg_elda, uint32_t bits_elda,
+			       i915_reg_t reg_edid)
 {
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
 	uint8_t *eld = connector->eld;
@@ -262,7 +262,8 @@ static void hsw_audio_codec_disable(struct intel_encoder *encoder)
 	tmp |= AUD_CONFIG_N_PROG_ENABLE;
 	tmp &= ~AUD_CONFIG_UPPER_N_MASK;
 	tmp &= ~AUD_CONFIG_LOWER_N_MASK;
-	if (intel_pipe_has_type(intel_crtc, INTEL_OUTPUT_DISPLAYPORT))
+	if (intel_pipe_has_type(intel_crtc, INTEL_OUTPUT_DISPLAYPORT) ||
+	    intel_pipe_has_type(intel_crtc, INTEL_OUTPUT_DP_MST))
 		tmp |= AUD_CONFIG_N_VALUE_INDEX;
 	I915_WRITE(HSW_AUD_CFG(pipe), tmp);
 
@@ -364,8 +365,7 @@ static void ilk_audio_codec_disable(struct intel_encoder *encoder)
 	enum port port = intel_dig_port->port;
 	enum pipe pipe = intel_crtc->pipe;
 	uint32_t tmp, eldv;
-	int aud_config;
-	int aud_cntrl_st2;
+	i915_reg_t aud_config, aud_cntrl_st2;
 
 	DRM_DEBUG_KMS("Disable audio codec on port %c, pipe %c\n",
 		      port_name(port), pipe_name(pipe));
@@ -376,7 +376,7 @@ static void ilk_audio_codec_disable(struct intel_encoder *encoder)
 	if (HAS_PCH_IBX(dev_priv->dev)) {
 		aud_config = IBX_AUD_CFG(pipe);
 		aud_cntrl_st2 = IBX_AUD_CNTL_ST2;
-	} else if (IS_VALLEYVIEW(dev_priv)) {
+	} else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
 		aud_config = VLV_AUD_CFG(pipe);
 		aud_cntrl_st2 = VLV_AUD_CNTL_ST2;
 	} else {
@@ -416,10 +416,7 @@ static void ilk_audio_codec_enable(struct drm_connector *connector,
 	uint32_t eldv;
 	uint32_t tmp;
 	int len, i;
-	int hdmiw_hdmiedid;
-	int aud_config;
-	int aud_cntl_st;
-	int aud_cntrl_st2;
+	i915_reg_t hdmiw_hdmiedid, aud_config, aud_cntl_st, aud_cntrl_st2;
 
 	DRM_DEBUG_KMS("Enable audio codec on port %c, pipe %c, %u bytes ELD\n",
 		      port_name(port), pipe_name(pipe), drm_eld_size(eld));
@@ -439,7 +436,8 @@ static void ilk_audio_codec_enable(struct drm_connector *connector,
 		aud_config = IBX_AUD_CFG(pipe);
 		aud_cntl_st = IBX_AUD_CNTL_ST(pipe);
 		aud_cntrl_st2 = IBX_AUD_CNTL_ST2;
-	} else if (IS_VALLEYVIEW(connector->dev)) {
+	} else if (IS_VALLEYVIEW(connector->dev) ||
+		   IS_CHERRYVIEW(connector->dev)) {
 		hdmiw_hdmiedid = VLV_HDMIW_HDMIEDID(pipe);
 		aud_config = VLV_AUD_CFG(pipe);
 		aud_cntl_st = VLV_AUD_CNTL_ST(pipe);
@@ -478,7 +476,8 @@ static void ilk_audio_codec_enable(struct drm_connector *connector,
 	tmp &= ~AUD_CONFIG_N_VALUE_INDEX;
 	tmp &= ~AUD_CONFIG_N_PROG_ENABLE;
 	tmp &= ~AUD_CONFIG_PIXEL_CLOCK_HDMI_MASK;
-	if (intel_pipe_has_type(intel_crtc, INTEL_OUTPUT_DISPLAYPORT))
+	if (intel_pipe_has_type(intel_crtc, INTEL_OUTPUT_DISPLAYPORT) ||
+	    intel_pipe_has_type(intel_crtc, INTEL_OUTPUT_DP_MST))
 		tmp |= AUD_CONFIG_N_VALUE_INDEX;
 	else
 		tmp |= audio_config_hdmi_pixel_clock(adjusted_mode);
@@ -516,7 +515,8 @@ void intel_audio_codec_enable(struct intel_encoder *intel_encoder)
 
 	/* ELD Conn_Type */
 	connector->eld[5] &= ~(3 << 2);
-	if (intel_pipe_has_type(crtc, INTEL_OUTPUT_DISPLAYPORT))
+	if (intel_pipe_has_type(crtc, INTEL_OUTPUT_DISPLAYPORT) ||
+	    intel_pipe_has_type(crtc, INTEL_OUTPUT_DP_MST))
 		connector->eld[5] |= (1 << 2);
 
 	connector->eld[6] = drm_av_sync_delay(connector, adjusted_mode) / 2;
@@ -563,7 +563,7 @@ void intel_init_audio(struct drm_device *dev)
 	if (IS_G4X(dev)) {
 		dev_priv->display.audio_codec_enable = g4x_audio_codec_enable;
 		dev_priv->display.audio_codec_disable = g4x_audio_codec_disable;
-	} else if (IS_VALLEYVIEW(dev)) {
+	} else if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)) {
 		dev_priv->display.audio_codec_enable = ilk_audio_codec_enable;
 		dev_priv->display.audio_codec_disable = ilk_audio_codec_disable;
 	} else if (IS_HASWELL(dev) || INTEL_INFO(dev)->gen >= 8) {
@@ -591,7 +591,7 @@ static void i915_audio_component_codec_wake_override(struct device *dev,
 	struct drm_i915_private *dev_priv = dev_to_i915(dev);
 	u32 tmp;
 
-	if (!IS_SKYLAKE(dev_priv))
+	if (!IS_SKYLAKE(dev_priv) && !IS_KABYLAKE(dev_priv))
 		return;
 
 	/*
@@ -642,10 +642,11 @@ static int i915_audio_component_sync_audio_rate(struct device *dev,
 	u32 tmp;
 	int n;
 
-	/* HSW, BDW SKL need this fix */
+	/* HSW, BDW, SKL, KBL need this fix */
 	if (!IS_SKYLAKE(dev_priv) &&
-		!IS_BROADWELL(dev_priv) &&
-		!IS_HASWELL(dev_priv))
+	    !IS_KABYLAKE(dev_priv) &&
+	    !IS_BROADWELL(dev_priv) &&
+	    !IS_HASWELL(dev_priv))
 		return 0;
 
 	mutex_lock(&dev_priv->av_mutex);
