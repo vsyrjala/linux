@@ -10062,20 +10062,7 @@ static void i845_update_cursor(struct intel_plane *cursor, bool on)
 		struct drm_plane_state *state = cursor->base.state;
 		unsigned int width = state->crtc_w;
 		unsigned int height = state->crtc_h;
-		unsigned int stride = roundup_pow_of_two(width) * 4;
-
-		switch (stride) {
-		default:
-			WARN_ONCE(1, "Invalid cursor width/stride, width=%u, stride=%u\n",
-				  width, stride);
-			stride = 256;
-			/* fallthrough */
-		case 256:
-		case 512:
-		case 1024:
-		case 2048:
-			break;
-		}
+		unsigned int stride = state->fb->pitches[0];
 
 		cntl |= CURSOR_ENABLE |
 			CURSOR_GAMMA_ENABLE |
@@ -14078,10 +14065,9 @@ intel_check_cursor_plane(struct drm_plane *plane,
 			 struct intel_crtc_state *crtc_state,
 			 struct intel_plane_state *state)
 {
+	struct drm_device *dev = plane->dev;
 	struct drm_crtc *crtc = crtc_state->base.crtc;
 	struct drm_framebuffer *fb = state->base.fb;
-	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
-	unsigned stride;
 	int ret;
 
 	ret = drm_plane_helper_check_update(plane, crtc, fb, &state->src,
@@ -14093,20 +14079,34 @@ intel_check_cursor_plane(struct drm_plane *plane,
 		return ret;
 
 	/* if we want to turn off the cursor ignore width and height */
-	if (!obj)
+	if (!fb)
 		return 0;
 
 	/* Check for which cursor types we support */
-	if (!cursor_size_ok(plane->dev, &state->base)) {
+	if (!cursor_size_ok(dev, &state->base)) {
 		DRM_DEBUG("Cursor dimension %dx%d not supported\n",
 			  state->base.crtc_w, state->base.crtc_h);
 		return -EINVAL;
 	}
 
-	stride = roundup_pow_of_two(state->base.crtc_w) * 4;
-	if (obj->base.size < stride * state->base.crtc_h) {
-		DRM_DEBUG_KMS("buffer is too small\n");
-		return -ENOMEM;
+	if (IS_845G(dev) || IS_I865G(dev)) {
+		switch (fb->pitches[0]) {
+		case 256:
+		case 512:
+		case 1024:
+		case 2048:
+			break;
+		default:
+			DRM_DEBUG_KMS("Invalid cursor stride (%u)\n",
+				      fb->pitches[0]);
+			return -EINVAL;
+		}
+	} else {
+		if (fb->pitches[0] != roundup_pow_of_two(state->base.crtc_w) * 4) {
+			DRM_DEBUG_KMS("Invalid cursor stride (%u) (cursor width %d)\n",
+				      fb->pitches[0], state->base.crtc_w);
+			return -EINVAL;
+		}
 	}
 
 	if (fb->modifier[0] != DRM_FORMAT_MOD_NONE) {
