@@ -2401,6 +2401,7 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 				struct intel_crtc_state *pipe_config)
 {
 	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	u32 tmp, flags = 0;
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -2441,6 +2442,10 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 	if (!HAS_PCH_SPLIT(dev) && !IS_VALLEYVIEW(dev) &&
 	    !IS_CHERRYVIEW(dev) && tmp & DP_COLOR_RANGE_16_235)
 		pipe_config->limited_color_range = true;
+
+	if (intel_dig_port->infoframe_enabled &&
+	    intel_dig_port->infoframe_enabled(&encoder->base, pipe_config))
+		pipe_config->has_infoframe = true;
 
 	pipe_config->has_dp_encoder = true;
 
@@ -3843,6 +3848,10 @@ intel_dp_link_down(struct intel_dp *intel_dp)
 		intel_set_cpu_fifo_underrun_reporting(dev_priv, PIPE_A, true);
 		intel_set_pch_fifo_underrun_reporting(dev_priv, PIPE_A, true);
 	}
+
+	if (intel_dig_port->set_infoframes)
+		intel_dig_port->set_infoframes(&intel_dig_port->base.base,
+					       NULL, false);
 
 	msleep(intel_dp->panel_power_down_delay);
 
@@ -6053,6 +6062,9 @@ intel_dp_init(struct drm_device *dev,
 
 	intel_dig_port->hpd_pulse = intel_dp_hpd_pulse;
 	dev_priv->hotplug.irq_port[port] = intel_dig_port;
+
+	if (port != PORT_A)
+		intel_infoframe_init(intel_dig_port);
 
 	if (!intel_dp_init_connector(intel_dig_port, intel_connector))
 		goto err_init_connector;

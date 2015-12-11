@@ -2129,8 +2129,6 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 		BUG();
 	}
 
-	intel_infoframe_init(intel_dig_port);
-
 	if (HAS_DDI(dev))
 		intel_connector->get_hw_state = intel_ddi_connector_get_hw_state;
 	else
@@ -2228,6 +2226,8 @@ void intel_hdmi_init(struct drm_device *dev,
 	dev_priv->dig_port_map[port] = intel_encoder;
 	intel_dig_port->hdmi.hdmi_reg = hdmi_reg;
 	intel_dig_port->dp.output_reg = INVALID_MMIO_REG;
+
+	intel_infoframe_init(intel_dig_port);
 
 	intel_hdmi_init_connector(intel_dig_port, intel_connector);
 }

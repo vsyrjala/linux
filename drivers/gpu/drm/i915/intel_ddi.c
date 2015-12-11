@@ -3141,7 +3141,6 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	enum transcoder cpu_transcoder = pipe_config->cpu_transcoder;
-	struct intel_digital_port *intel_dig_port;
 	u32 temp, flags = 0;
 
 	temp = I915_READ(TRANS_DDI_FUNC_CTL(cpu_transcoder));
@@ -3173,13 +3172,17 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 		break;
 	}
 
-	switch (temp & TRANS_DDI_MODE_SELECT_MASK) {
-	case TRANS_DDI_MODE_SELECT_HDMI:
-		pipe_config->has_hdmi_sink = true;
-		intel_dig_port = enc_to_dig_port(&encoder->base);
+	if (encoder->type != INTEL_OUTPUT_ANALOG) {
+		struct intel_digital_port *intel_dig_port =
+			enc_to_dig_port(&encoder->base);
 
 		if (intel_dig_port->infoframe_enabled(&encoder->base, pipe_config))
 			pipe_config->has_infoframe = true;
+	}
+
+	switch (temp & TRANS_DDI_MODE_SELECT_MASK) {
+	case TRANS_DDI_MODE_SELECT_HDMI:
+		pipe_config->has_hdmi_sink = true;
 		break;
 	case TRANS_DDI_MODE_SELECT_DVI:
 	case TRANS_DDI_MODE_SELECT_FDI:
@@ -3341,6 +3344,8 @@ void intel_ddi_init(struct drm_device *dev, enum port port)
 	intel_encoder->type = INTEL_OUTPUT_UNKNOWN;
 	intel_encoder->crtc_mask = (1 << 0) | (1 << 1) | (1 << 2);
 	intel_encoder->cloneable = 0;
+
+	intel_infoframe_init(intel_dig_port);
 
 	if (init_dp) {
 		if (!intel_ddi_init_dp_connector(intel_dig_port))
