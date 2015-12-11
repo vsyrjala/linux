@@ -1801,6 +1801,33 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 	intel_hdmi->aspect_ratio = HDMI_PICTURE_ASPECT_NONE;
 }
 
+void intel_infoframe_init(struct intel_digital_port *intel_dig_port)
+{
+	struct drm_device *dev = intel_dig_port->base.base.dev;
+
+	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)) {
+		intel_dig_port->write_infoframe = vlv_write_infoframe;
+		intel_dig_port->set_infoframes = vlv_set_infoframes;
+		intel_dig_port->infoframe_enabled = vlv_infoframe_enabled;
+	} else if (IS_G4X(dev)) {
+		intel_dig_port->write_infoframe = g4x_write_infoframe;
+		intel_dig_port->set_infoframes = g4x_set_infoframes;
+		intel_dig_port->infoframe_enabled = g4x_infoframe_enabled;
+	} else if (HAS_DDI(dev)) {
+		intel_dig_port->write_infoframe = hsw_write_infoframe;
+		intel_dig_port->set_infoframes = hsw_set_infoframes;
+		intel_dig_port->infoframe_enabled = hsw_infoframe_enabled;
+	} else if (HAS_PCH_IBX(dev)) {
+		intel_dig_port->write_infoframe = ibx_write_infoframe;
+		intel_dig_port->set_infoframes = ibx_set_infoframes;
+		intel_dig_port->infoframe_enabled = ibx_infoframe_enabled;
+	} else {
+		intel_dig_port->write_infoframe = cpt_write_infoframe;
+		intel_dig_port->set_infoframes = cpt_set_infoframes;
+		intel_dig_port->infoframe_enabled = cpt_infoframe_enabled;
+	}
+}
+
 void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 			       struct intel_connector *intel_connector)
 {
@@ -1881,28 +1908,6 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 		/* Internal port only for eDP. */
 	default:
 		BUG();
-	}
-
-	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)) {
-		intel_dig_port->write_infoframe = vlv_write_infoframe;
-		intel_dig_port->set_infoframes = vlv_set_infoframes;
-		intel_dig_port->infoframe_enabled = vlv_infoframe_enabled;
-	} else if (IS_G4X(dev)) {
-		intel_dig_port->write_infoframe = g4x_write_infoframe;
-		intel_dig_port->set_infoframes = g4x_set_infoframes;
-		intel_dig_port->infoframe_enabled = g4x_infoframe_enabled;
-	} else if (HAS_DDI(dev)) {
-		intel_dig_port->write_infoframe = hsw_write_infoframe;
-		intel_dig_port->set_infoframes = hsw_set_infoframes;
-		intel_dig_port->infoframe_enabled = hsw_infoframe_enabled;
-	} else if (HAS_PCH_IBX(dev)) {
-		intel_dig_port->write_infoframe = ibx_write_infoframe;
-		intel_dig_port->set_infoframes = ibx_set_infoframes;
-		intel_dig_port->infoframe_enabled = ibx_infoframe_enabled;
-	} else {
-		intel_dig_port->write_infoframe = cpt_write_infoframe;
-		intel_dig_port->set_infoframes = cpt_set_infoframes;
-		intel_dig_port->infoframe_enabled = cpt_infoframe_enabled;
 	}
 
 	if (HAS_DDI(dev))
@@ -2001,6 +2006,8 @@ void intel_hdmi_init(struct drm_device *dev,
 	intel_dig_port->hdmi.hdmi_reg = hdmi_reg;
 	intel_dig_port->dp.output_reg = INVALID_MMIO_REG;
 	intel_dig_port->max_lanes = 4;
+
+	intel_infoframe_init(intel_dig_port);
 
 	intel_hdmi_init_connector(intel_dig_port, intel_connector);
 }
