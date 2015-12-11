@@ -9300,8 +9300,6 @@ static int i845_check_cursor(struct intel_plane *plane,
 			     struct intel_plane_state *state)
 {
 	struct drm_framebuffer *fb = state->base.fb;
-	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
-	unsigned stride;
 	int ret;
 
 	ret = drm_plane_helper_check_state(&state->base,
@@ -9313,7 +9311,7 @@ static int i845_check_cursor(struct intel_plane *plane,
 		return ret;
 
 	/* if we want to turn off the cursor ignore width and height */
-	if (!obj)
+	if (!fb)
 		return 0;
 
 	/* Check for which cursor types we support */
@@ -9323,10 +9321,16 @@ static int i845_check_cursor(struct intel_plane *plane,
 		return -EINVAL;
 	}
 
-	stride = roundup_pow_of_two(state->base.crtc_w) * 4;
-	if (obj->base.size < stride * state->base.crtc_h) {
-		DRM_DEBUG_KMS("buffer is too small\n");
-		return -ENOMEM;
+	switch (fb->pitches[0]) {
+	case 256:
+	case 512:
+	case 1024:
+	case 2048:
+		break;
+	default:
+		DRM_DEBUG_KMS("Invalid cursor stride (%u)\n",
+			      fb->pitches[0]);
+		return -EINVAL;
 	}
 
 	if (fb->modifier != DRM_FORMAT_MOD_NONE) {
@@ -9430,9 +9434,7 @@ static int i9xx_check_cursor(struct intel_plane *plane,
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	struct drm_framebuffer *fb = state->base.fb;
-	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
 	enum pipe pipe = plane->pipe;
-	unsigned stride;
 	int ret;
 
 	ret = drm_plane_helper_check_state(&state->base,
@@ -9444,7 +9446,7 @@ static int i9xx_check_cursor(struct intel_plane *plane,
 		return ret;
 
 	/* if we want to turn off the cursor ignore width and height */
-	if (!obj)
+	if (!fb)
 		return 0;
 
 	/* Check for which cursor types we support */
@@ -9454,10 +9456,10 @@ static int i9xx_check_cursor(struct intel_plane *plane,
 		return -EINVAL;
 	}
 
-	stride = roundup_pow_of_two(state->base.crtc_w) * 4;
-	if (obj->base.size < stride * state->base.crtc_h) {
-		DRM_DEBUG_KMS("buffer is too small\n");
-		return -ENOMEM;
+	if (fb->pitches[0] != state->base.crtc_w * fb->format->cpp[0]) {
+		DRM_DEBUG_KMS("Invalid cursor stride (%u) (cursor width %d)\n",
+			      fb->pitches[0], state->base.crtc_w);
+		return -EINVAL;
 	}
 
 	if (fb->modifier != DRM_FORMAT_MOD_NONE) {
