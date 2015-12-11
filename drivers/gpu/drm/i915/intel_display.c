@@ -10197,9 +10197,6 @@ static bool cursor_size_ok(struct drm_device *dev,
 	int width = state->crtc_w;
 	int height = state->crtc_h;
 
-	if (width == 0 || height == 0)
-		return false;
-
 	if (IS_845G(dev) || IS_I865G(dev)) {
 		/*
 		 * supported cursor widths:
@@ -10226,6 +10223,7 @@ static bool cursor_size_ok(struct drm_device *dev,
 			if (IS_GEN2(dev))
 				return false;
 		case 64:
+		case 0:
 			break;
 		default:
 			return false;
@@ -10240,10 +10238,10 @@ static bool cursor_size_ok(struct drm_device *dev,
 		 * few power-of-two sizes.
 		 */
 		if (HAS_CUR_FBC(dev) && state->rotation & BIT(DRM_ROTATE_0)) {
-			if (height < 8 || height > width)
+			if (height != 0 && (height < 8 || height > width))
 				return false;
 		} else {
-			if (height != width)
+			if (height != 0 && height != width)
 				return false;
 		}
 	}
