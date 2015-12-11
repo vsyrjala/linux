@@ -790,14 +790,6 @@ struct intel_hdmi {
 	bool rgb_quant_range_selectable;
 	enum hdmi_picture_aspect aspect_ratio;
 	struct intel_connector *attached_connector;
-	void (*write_infoframe)(struct drm_encoder *encoder,
-				enum hdmi_infoframe_type type,
-				const void *frame, ssize_t len);
-	void (*set_infoframes)(struct drm_encoder *encoder,
-			       bool enable,
-			       const struct drm_display_mode *adjusted_mode);
-	bool (*infoframe_enabled)(struct drm_encoder *encoder,
-				  const struct intel_crtc_state *pipe_config);
 };
 
 struct intel_dp_mst_encoder;
@@ -907,6 +899,14 @@ struct intel_digital_port {
 	uint8_t max_lanes;
 	/* for communication with audio component; protected by av_mutex */
 	const struct drm_connector *audio_connector;
+	void (*write_infoframe)(struct drm_encoder *encoder,
+				enum hdmi_infoframe_type type,
+				const void *frame, ssize_t len);
+	void (*set_infoframes)(struct drm_encoder *encoder,
+			       bool enable,
+			       const struct drm_display_mode *adjusted_mode);
+	bool (*infoframe_enabled)(struct drm_encoder *encoder,
+				  const struct intel_crtc_state *pipe_config);
 };
 
 struct intel_dp_mst_encoder {

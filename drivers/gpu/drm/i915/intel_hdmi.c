@@ -427,7 +427,7 @@ static bool hsw_infoframe_enabled(struct drm_encoder *encoder,
 static void intel_write_infoframe(struct drm_encoder *encoder,
 				  union hdmi_infoframe *frame)
 {
-	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
+	struct intel_digital_port *intel_dig_port = enc_to_dig_port(encoder);
 	uint8_t buffer[VIDEO_DIP_DATA_SIZE];
 	ssize_t len;
 
@@ -443,7 +443,7 @@ static void intel_write_infoframe(struct drm_encoder *encoder,
 	buffer[3] = 0;
 	len++;
 
-	intel_hdmi->write_infoframe(encoder, frame->any.type, buffer, len);
+	intel_dig_port->write_infoframe(encoder, frame->any.type, buffer, len);
 }
 
 static void intel_hdmi_set_avi_infoframe(struct drm_encoder *encoder,
@@ -930,6 +930,7 @@ static void intel_hdmi_get_config(struct intel_encoder *encoder,
 				  struct intel_crtc_state *pipe_config)
 {
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
+	struct intel_digital_port *intel_dig_port = hdmi_to_dig_port(intel_hdmi);
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 tmp, flags = 0;
@@ -950,7 +951,7 @@ static void intel_hdmi_get_config(struct intel_encoder *encoder,
 	if (tmp & HDMI_MODE_SELECT_HDMI)
 		pipe_config->has_hdmi_sink = true;
 
-	if (intel_hdmi->infoframe_enabled(&encoder->base, pipe_config))
+	if (intel_dig_port->infoframe_enabled(&encoder->base, pipe_config))
 		pipe_config->has_infoframe = true;
 
 	if (tmp & SDVO_AUDIO_ENABLE)
@@ -1117,6 +1118,8 @@ static void intel_disable_hdmi(struct intel_encoder *encoder)
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
+	struct intel_digital_port *intel_dig_port =
+		hdmi_to_dig_port(intel_hdmi);
 	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
 	u32 temp;
 
@@ -1159,7 +1162,7 @@ static void intel_disable_hdmi(struct intel_encoder *encoder)
 		intel_set_pch_fifo_underrun_reporting(dev_priv, PIPE_A, true);
 	}
 
-	intel_hdmi->set_infoframes(&encoder->base, false, NULL);
+	intel_dig_port->set_infoframes(&encoder->base, false, NULL);
 
 	intel_dp_dual_mode_set_tmds_output(intel_hdmi, false);
 }
@@ -1658,21 +1661,21 @@ done:
 
 static void intel_hdmi_pre_enable(struct intel_encoder *encoder)
 {
-	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
+	struct intel_digital_port *intel_dig_port =
+		enc_to_dig_port(&encoder->base);
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	const struct drm_display_mode *adjusted_mode = &intel_crtc->config->base.adjusted_mode;
 
 	intel_hdmi_prepare(encoder);
 
-	intel_hdmi->set_infoframes(&encoder->base,
-				   intel_crtc->config->has_infoframe,
-				   adjusted_mode);
+	intel_dig_port->set_infoframes(&encoder->base,
+				       intel_crtc->config->has_infoframe,
+				       adjusted_mode);
 }
 
 static void vlv_hdmi_pre_enable(struct intel_encoder *encoder)
 {
 	struct intel_digital_port *dport = enc_to_dig_port(&encoder->base);
-	struct intel_hdmi *intel_hdmi = &dport->hdmi;
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc =
@@ -1685,9 +1688,9 @@ static void vlv_hdmi_pre_enable(struct intel_encoder *encoder)
 	vlv_set_phy_signal_level(encoder, 0x2b245f5f, 0x00002000, 0x5578b83a,
 				 0x2b247878);
 
-	intel_hdmi->set_infoframes(&encoder->base,
-				   intel_crtc->config->has_infoframe,
-				   adjusted_mode);
+	dport->set_infoframes(&encoder->base,
+			      intel_crtc->config->has_infoframe,
+			      adjusted_mode);
 
 	g4x_enable_hdmi(encoder);
 
@@ -1735,7 +1738,6 @@ static void chv_hdmi_post_disable(struct intel_encoder *encoder)
 static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 {
 	struct intel_digital_port *dport = enc_to_dig_port(&encoder->base);
-	struct intel_hdmi *intel_hdmi = &dport->hdmi;
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc =
@@ -1748,9 +1750,9 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 	/* Use 800mV-0dB */
 	chv_set_phy_signal_level(encoder, 128, 102, false);
 
-	intel_hdmi->set_infoframes(&encoder->base,
-				   intel_crtc->config->has_infoframe,
-				   adjusted_mode);
+	dport->set_infoframes(&encoder->base,
+			      intel_crtc->config->has_infoframe,
+			      adjusted_mode);
 
 	g4x_enable_hdmi(encoder);
 
@@ -1882,25 +1884,25 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 	}
 
 	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)) {
-		intel_hdmi->write_infoframe = vlv_write_infoframe;
-		intel_hdmi->set_infoframes = vlv_set_infoframes;
-		intel_hdmi->infoframe_enabled = vlv_infoframe_enabled;
+		intel_dig_port->write_infoframe = vlv_write_infoframe;
+		intel_dig_port->set_infoframes = vlv_set_infoframes;
+		intel_dig_port->infoframe_enabled = vlv_infoframe_enabled;
 	} else if (IS_G4X(dev)) {
-		intel_hdmi->write_infoframe = g4x_write_infoframe;
-		intel_hdmi->set_infoframes = g4x_set_infoframes;
-		intel_hdmi->infoframe_enabled = g4x_infoframe_enabled;
+		intel_dig_port->write_infoframe = g4x_write_infoframe;
+		intel_dig_port->set_infoframes = g4x_set_infoframes;
+		intel_dig_port->infoframe_enabled = g4x_infoframe_enabled;
 	} else if (HAS_DDI(dev)) {
-		intel_hdmi->write_infoframe = hsw_write_infoframe;
-		intel_hdmi->set_infoframes = hsw_set_infoframes;
-		intel_hdmi->infoframe_enabled = hsw_infoframe_enabled;
+		intel_dig_port->write_infoframe = hsw_write_infoframe;
+		intel_dig_port->set_infoframes = hsw_set_infoframes;
+		intel_dig_port->infoframe_enabled = hsw_infoframe_enabled;
 	} else if (HAS_PCH_IBX(dev)) {
-		intel_hdmi->write_infoframe = ibx_write_infoframe;
-		intel_hdmi->set_infoframes = ibx_set_infoframes;
-		intel_hdmi->infoframe_enabled = ibx_infoframe_enabled;
+		intel_dig_port->write_infoframe = ibx_write_infoframe;
+		intel_dig_port->set_infoframes = ibx_set_infoframes;
+		intel_dig_port->infoframe_enabled = ibx_infoframe_enabled;
 	} else {
-		intel_hdmi->write_infoframe = cpt_write_infoframe;
-		intel_hdmi->set_infoframes = cpt_set_infoframes;
-		intel_hdmi->infoframe_enabled = cpt_infoframe_enabled;
+		intel_dig_port->write_infoframe = cpt_write_infoframe;
+		intel_dig_port->set_infoframes = cpt_set_infoframes;
+		intel_dig_port->infoframe_enabled = cpt_infoframe_enabled;
 	}
 
 	if (HAS_DDI(dev))

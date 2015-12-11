@@ -1628,11 +1628,12 @@ static void intel_ddi_pre_enable(struct intel_encoder *intel_encoder)
 		if (port != PORT_A || INTEL_INFO(dev_priv)->gen >= 9)
 			intel_dp_stop_link_train(intel_dp);
 	} else if (type == INTEL_OUTPUT_HDMI) {
-		struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
+		struct intel_digital_port *intel_dig_port =
+			enc_to_dig_port(encoder);
 
-		intel_hdmi->set_infoframes(encoder,
-					   crtc->config->has_infoframe,
-					   &crtc->config->base.adjusted_mode);
+		intel_dig_port->set_infoframes(encoder,
+					       crtc->config->has_infoframe,
+					       &crtc->config->base.adjusted_mode);
 	}
 }
 
@@ -1662,9 +1663,10 @@ static void intel_ddi_post_disable(struct intel_encoder *intel_encoder)
 		intel_wait_ddi_buf_idle(dev_priv, port);
 
 	if (type == INTEL_OUTPUT_HDMI) {
-		struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
+		struct intel_digital_port *intel_dig_port =
+			enc_to_dig_port(encoder);
 
-		intel_hdmi->set_infoframes(encoder, false, NULL);
+		intel_dig_port->set_infoframes(encoder, false, NULL);
 	}
 
 	if (type == INTEL_OUTPUT_DISPLAYPORT || type == INTEL_OUTPUT_EDP) {
@@ -2155,7 +2157,7 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	enum transcoder cpu_transcoder = pipe_config->cpu_transcoder;
-	struct intel_hdmi *intel_hdmi;
+	struct intel_digital_port *intel_dig_port;
 	u32 temp, flags = 0;
 
 	/* XXX: DSI transcoder paranoia */
@@ -2194,9 +2196,9 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 	switch (temp & TRANS_DDI_MODE_SELECT_MASK) {
 	case TRANS_DDI_MODE_SELECT_HDMI:
 		pipe_config->has_hdmi_sink = true;
-		intel_hdmi = enc_to_intel_hdmi(&encoder->base);
+		intel_dig_port = enc_to_dig_port(&encoder->base);
 
-		if (intel_hdmi->infoframe_enabled(&encoder->base, pipe_config))
+		if (intel_dig_port->infoframe_enabled(&encoder->base, pipe_config))
 			pipe_config->has_infoframe = true;
 		/* fall through */
 	case TRANS_DDI_MODE_SELECT_DVI:
