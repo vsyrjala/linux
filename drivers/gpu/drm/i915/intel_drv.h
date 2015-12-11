@@ -903,16 +903,6 @@ struct intel_hdmi {
 	enum hdmi_force_audio force_audio;
 	bool rgb_quant_range_selectable;
 	struct intel_connector *attached_connector;
-	void (*write_infoframe)(struct drm_encoder *encoder,
-				const struct intel_crtc_state *crtc_state,
-				enum hdmi_infoframe_type type,
-				const void *frame, ssize_t len);
-	void (*set_infoframes)(struct drm_encoder *encoder,
-			       bool enable,
-			       const struct intel_crtc_state *crtc_state,
-			       const struct drm_connector_state *conn_state);
-	bool (*infoframe_enabled)(struct drm_encoder *encoder,
-				  const struct intel_crtc_state *pipe_config);
 };
 
 struct intel_dp_mst_encoder;
@@ -1074,6 +1064,17 @@ struct intel_digital_port {
 	bool release_cl2_override;
 	uint8_t max_lanes;
 	enum intel_display_power_domain ddi_io_power_domain;
+
+	void (*write_infoframe)(struct drm_encoder *encoder,
+				const struct intel_crtc_state *crtc_state,
+				enum hdmi_infoframe_type type,
+				const void *frame, ssize_t len);
+	void (*set_infoframes)(struct drm_encoder *encoder,
+			       bool enable,
+			       const struct intel_crtc_state *crtc_state,
+			       const struct drm_connector_state *conn_state);
+	bool (*infoframe_enabled)(struct drm_encoder *encoder,
+				  const struct intel_crtc_state *pipe_config);
 };
 
 struct intel_dp_mst_encoder {
