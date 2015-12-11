@@ -1753,6 +1753,13 @@ static void intel_ddi_post_disable(struct intel_encoder *intel_encoder,
 	if (wait)
 		intel_wait_ddi_buf_idle(dev_priv, port);
 
+	if (type == INTEL_OUTPUT_HDMI) {
+		struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
+
+		intel_hdmi->set_infoframes(encoder, false,
+					   old_crtc_state, old_conn_state);
+	}
+
 	if (type == INTEL_OUTPUT_DP || type == INTEL_OUTPUT_EDP) {
 		struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
 		intel_dp_sink_dpms(intel_dp, DRM_MODE_DPMS_OFF);
