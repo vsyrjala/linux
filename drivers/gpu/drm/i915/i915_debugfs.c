@@ -3518,7 +3518,7 @@ i915_pipe_crc_read(struct file *filep, char __user *user_buf, size_t count,
 		pipe_crc->tail = (pipe_crc->tail + 1) & (INTEL_PIPE_CRC_ENTRIES_NR - 1);
 
 		bytes_read += snprintf(buf, PIPE_CRC_BUFFER_LEN,
-				       "%8u %8x %8x %8x %8x %8x\n",
+				       "%8x %8x %8x %8x %8x %8x\n",
 				       entry->frame, entry->crc[0],
 				       entry->crc[1], entry->crc[2],
 				       entry->crc[3], entry->crc[4]);
