@@ -3264,6 +3264,9 @@ static int __i915_vma_unbind(struct i915_vma *vma, bool wait)
 		ret = i915_gem_object_put_fence(obj);
 		if (ret)
 			return ret;
+	} else if (i915_is_ggtt(vma->vm) &&
+		   vma->ggtt_view.type == I915_GGTT_VIEW_PARTIAL) {
+		i915_gem_release_mmap(obj);
 	}
 
 	trace_i915_vma_unbind(vma);
