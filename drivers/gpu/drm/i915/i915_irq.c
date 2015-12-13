@@ -1533,7 +1533,10 @@ static void display_pipe_crc_irq_handler(struct drm_device *dev, enum pipe pipe,
 
 	entry = &pipe_crc->entries[head];
 
-	entry->frame = dev->driver->get_vblank_counter(dev, pipe);
+	if (dev->max_vblank_count == 0)
+		entry->frame = drm_vblank_count(dev, pipe);
+	else
+		entry->frame = dev->driver->get_vblank_counter(dev, pipe);
 	entry->crc[0] = crc0;
 	entry->crc[1] = crc1;
 	entry->crc[2] = crc2;

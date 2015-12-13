@@ -4021,6 +4021,14 @@ static int pipe_crc_set_source(struct drm_device *dev, enum pipe pipe,
 		if (!entries)
 			return -ENOMEM;
 
+		if (dev->max_vblank_count == 0) {
+			ret = drm_vblank_get(dev, pipe);
+			if (ret) {
+				kfree(entries);
+				return ret;
+			}
+		}
+
 		/*
 		 * When IPS gets enabled, the pipe CRC changes. Since IPS gets
 		 * enabled and disabled dynamically based on package C states,
@@ -4073,6 +4081,9 @@ static int pipe_crc_set_source(struct drm_device *dev, enum pipe pipe,
 			hsw_trans_edp_pipe_A_crc_wa(dev, false);
 
 		hsw_enable_ips(crtc);
+
+		if (dev->max_vblank_count == 0)
+			drm_vblank_put(dev, pipe);
 	}
 
 	return 0;
