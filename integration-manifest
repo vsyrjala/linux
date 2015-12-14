@@ -1,0 +1,24 @@
+origin/drm-intel-fixes 634b3a4a476e96816d5d6cd5bb9f8900a53f56ba
+	drm/i915: Do a better job at disabling primary plane in the noatomic case.
+drm-upstream/drm-fixes 9f5bd30818c42c6c36a51f93b4df75a2ea2bd85e
+	vgaarb: fix signal handling in vga_get()
+origin/drm-intel-next-fixes 816d2206f0f9953ca854e4ff1a2749a5cbd62715
+	Merge tag 'drm-intel-next-fixes-2015-11-06' of git://anongit.freedesktop.org/drm-intel into drm-next
+origin/drm-intel-next-queued 7370c68d5b9a2e853600290e797a4a79fefaf1e7
+	drm/i915: PSR also doesn't have link_entry_time on SKL.
+drm-upstream/drm-next 663a233eef643b38f36c05535cb5c9a4972edcc1
+	Merge branch 'drm-header-fixes' of https://github.com/GabrielL/linux into drm-next
+sound-upstream/for-next 17074c1a5f1bbbf352fe071b2947a498db42661f
+	ALSA: usb-audio: constify usb_protocol_ops structures
+origin/topic/drm-fixes 5481c8fb1da2a573861095fbea078f30c664d0bd
+	drm/atomic-helper: Check encoder/crtc constraints
+origin/topic/drm-misc 17663917074820dab602da96fede6aca699ee022
+	drm/doc: Convert to markdown
+origin/topic/kerneldoc 8ba718e60a1091dec68a0b3e513393b48b894654
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/core-for-CI 527e9316f8ec44bd53d90fb9f611fa7ffff52bb9
+	Linux 4.4-rc4
