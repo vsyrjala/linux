@@ -1825,6 +1825,9 @@ i830_dispatch_execbuffer(struct drm_i915_gem_request *req,
 	u32 cs_offset = ring->scratch.gtt_offset;
 	int ret;
 
+	if (len < 8)
+		return -EINVAL;
+
 	ret = intel_ring_begin(req, 6);
 	if (ret)
 		return ret;
