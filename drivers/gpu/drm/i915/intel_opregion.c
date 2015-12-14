@@ -120,7 +120,9 @@ struct opregion_asle {
 	u64 fdss;
 	u32 fdsp;
 	u32 stat;
-	u8 rsvd[70];
+	u64 rvda;	/* Physical address of raw vbt data */
+	u32 rvds;	/* Size of raw vbt data */
+	u8 rsvd[58];
 } __packed;
 
 /* Driver readiness indicator */
@@ -682,7 +684,7 @@ static void intel_didl_outputs(struct drm_device *dev)
 	}
 
 	if (!acpi_video_bus) {
-		DRM_ERROR("No ACPI video bus found\n");
+		DRM_DEBUG_KMS("No ACPI video bus found\n");
 		return;
 	}
 
