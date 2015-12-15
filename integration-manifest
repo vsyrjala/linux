@@ -1,0 +1,24 @@
+origin/drm-intel-fixes 634b3a4a476e96816d5d6cd5bb9f8900a53f56ba
+	drm/i915: Do a better job at disabling primary plane in the noatomic case.
+drm-upstream/drm-fixes 4655a12b81edab7cc7b13ca4db4094792fb01b4a
+	drm: Don't overwrite UNVERFIED mode status to OK
+origin/drm-intel-next-fixes 816d2206f0f9953ca854e4ff1a2749a5cbd62715
+	Merge tag 'drm-intel-next-fixes-2015-11-06' of git://anongit.freedesktop.org/drm-intel into drm-next
+origin/drm-intel-next-queued 663f3122d00c0b412d429f105dca129aa8f4f094
+	drm/i915: Drop the broken cursor base==0 special casing
+drm-upstream/drm-next 51bce5bc38bdb79c0f7ab33f1fe91a68ef1afa77
+	Merge tag 'drm-intel-next-2015-12-04-1' of git://anongit.freedesktop.org/drm-intel into drm-next
+sound-upstream/for-next 17074c1a5f1bbbf352fe071b2947a498db42661f
+	ALSA: usb-audio: constify usb_protocol_ops structures
+origin/topic/drm-fixes 5481c8fb1da2a573861095fbea078f30c664d0bd
+	drm/atomic-helper: Check encoder/crtc constraints
+origin/topic/drm-misc e112e593b215c394c0303dbf0534db0928e87967
+	drm: use dev_name as default unique name in drm_dev_alloc()
+origin/topic/kerneldoc 8ba718e60a1091dec68a0b3e513393b48b894654
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/core-for-CI 527e9316f8ec44bd53d90fb9f611fa7ffff52bb9
+	Linux 4.4-rc4
