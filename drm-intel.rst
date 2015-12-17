@@ -71,7 +71,9 @@ The Upstream i915 Driver Repository
 
 `git://anongit.freedesktop.org/drm-intel`
 
-Maintained by Daniel Vetter and co. Consists mostly of `drivers/gpu/drm/i915`.
+Maintained by Daniel Vetter and Jani Nikula, with several developers also having
+commit access for pushing `drm-intel-next-queued`. Consists mostly of
+`drivers/gpu/drm/i915`.
 
 drm-intel-next-queued (aka "dinq")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -140,6 +142,117 @@ release. There are no fast paths.
 
 For predictions on the future merge windows and releases, see
 http://phb-crystal-ball.org/.
+
+Committer Guidelines
+====================
+
+This section describes the guidelines for pushing patches. Strict rules covering
+all cases are impossible write and follow. We put a lot of trust in the sound
+judgement of the people with commit access, and that only develops with
+experience. These guidelines are primarily for the committers to aid in making
+the right decisions, and for others to set their the expectations right.
+
+The short list:
+
+* Only push patches changing `drivers/gpu/drm/i915`.
+
+* Only push patches to `drm-intel-next-queued` branch.
+
+* Ensure certain details are covered, see separate list below.
+
+* You have confidence in the patches you push, proportionate to the complexity
+  and impact they have. The confidence must be explicitly documented with
+  special tags (Reviewed-by, Acked-by, Tested-by, Bugzilla, etc.) in the commit
+  message. This is also your insurance, and you want to have it when the commit
+  comes back haunting you. The complexity and impact are properties of the patch
+  that must be justified in the commit message.
+
+* Last but not least, especially when getting started, you can't go wrong with
+  asking or deferring to the maintainers. If you don't feel comfortable pushing
+  a patch for any reason (technical concerns, unresolved or conflicting
+  feedback, management or peer pressure, or anything really) it's best to defer
+  to the maintainers. This is what the maintainers are there for.
+
+* After pushing, please reply to the list that you've done so.
+
+Detail Check List
+-----------------
+
+An inexhaustive list of details to check:
+
+* The patch conforms to `Documentation/SubmittingPatches
+  <https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/SubmittingPatches>`_.
+
+* The commit message is sensible, and includes adequate details and references.
+
+* Bug fixes are clearly indicated as such.
+
+* IGT test cases, if applicable, must be complete and reviewed. Please see
+  `details on testing requirements
+  <http://blog.ffwll.ch/2013/11/testing-requirements-for-drmi915.html>`_.
+
+* An open source userspace, reviewed and released by the upstream project, must
+  be available for new kernel ABI. Please see `details on upstreaming
+  requirements
+  <http://blog.ffwll.ch/2015/05/gfx-kernel-upstreaming-requirements.html>`_.
+
+* Relevant documentation must be updated as part of the patch or series.
+
+* Patch series builds and is expected to boot every step of the way, i.e. is
+  bisectable.
+
+* Each patch is of a sensible size. A good rule of thumb metric is, would you
+  (or the author) stand a chance to fairly quickly understand what goes wrong if
+  the commit is reported to cause a regression?
+
+* `checkpatch.pl` does not complain. (Some of the more subjective warnings may
+  be ignored at the committer's discretion.)
+
+* The patch does not introduce new `sparse` warnings.
+
+On Confidence, Complexity, and Transparency
+-------------------------------------------
+
+* Reviewed-by/Acked-by/Tested-by must include the name and email of a real
+  person for transparency. Anyone can give these, and therefore you have to
+  value them according to the merits of the person. Quality matters, not
+  quantity. Be suspicious of rubber stamps.
+
+* Reviewed-by/Acked-by/Tested-by can be asked for and given informally (on the
+  list, IRC, in person, in a meeting) but must be added to the commit.
+
+* Reviewed-by. All patches must be reviewed, no exceptions. Please see
+  "Reviewer's statement of oversight" in `Documentation/SubmittingPatches
+  <https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/SubmittingPatches>`_
+  and `review training
+  <http://blog.ffwll.ch/2014/08/review-training-slides.html>`_.
+
+* Acked-by. Indicates acceptance. No reply is not a sign of acceptance, unless
+  you've involved the person (added Cc:, explicitly included in discussion).
+
+* Tested-by. Please solicit separate Tested-by especially from the bug
+  reporters, or people with specific hardware that you or the author do not
+  have.
+
+* There must not be open issues or unresolved or conflicting feedback from
+  anyone. Clear them up first. Defer to maintainers as needed.
+
+* For patches that are simple, isolated, non-functional, not visible to
+  userspace, and/or are in author or reviewer's domain of expertise, one
+  reviewer is enough. Author with commit access can push after review, or
+  reviewer with commit access can push after review.
+
+* The more complicated the patch gets, the greater the impact, involves ABI,
+  touches several areas or platforms, is outside of author's domain of
+  expertise, the more eyeballs are needed. For example, several reviewers, or
+  separate author, reviewer and committer. Make sure you have experienced
+  reviewers. Involve the domain expert(s). Possibly involve people across
+  team/group boundaries. Possibly involve the maintainers. Give people more time
+  to voice their concerns.
+
+* Most patches fall somewhere in between. You have to be the judge, and ensure
+  you have involved enough people to feel comfortable if the justification for
+  the commit is questioned afterwards.
 
 Tooling
 =======
