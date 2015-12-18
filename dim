@@ -408,6 +408,25 @@ function dim_apply
 	#git commit --amend &
 }
 
+function dim_add_link
+{
+	dim_cd drm-intel-next-queued
+
+	local file=`mktemp`
+
+	if [[ -n `git status --porcelain --untracked-files=no` ]] ; then
+		echo Repository not clean, aborting
+		exit 2
+	fi
+
+	cat > $file
+
+	local message_id=$(message_get_id $file)
+
+	if [ -n $message_id ]; then
+		commit_add_tag "Link" "http://patchwork.freedesktop.org/patch/msgid/$message_id"
+	fi
+}
 
 # $1 is the rev-list
 function dim_revlist
@@ -836,6 +855,9 @@ case "$subcommand" in
 		;;
 	extract-tags|xt)
 		dim_extract_tags "$@"
+		;;
+	add-link|al)
+		dim_add_link "$@"
 		;;
 	apply-branch|ab|sob)
 		dim_apply "$@"
