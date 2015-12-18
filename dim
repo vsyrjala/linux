@@ -592,6 +592,45 @@ function dim_apply_branch
 	eval $DRY $DIM_POST_APPLY_ACTION
 }
 
+dim_alias_ll=add-link
+function dim_add_link
+{
+	local branch=$1
+	shift
+	local file=`mktemp`
+
+	assert_branch $branch
+	assert_repo_clean
+
+	cat > $file
+
+	local message_id=$(message_get_id $file)
+
+	if [ -n $message_id ]; then
+		dim_commit_add_tag "Link: http://patchwork.freedesktop.org/patch/msgid/$message_id"
+	else
+		echo "No message-id found in the patch file."
+	fi
+}
+
+dim_alias_lq=add-link-queued
+function dim_add_link_queued
+{
+	dim_add_link drm-intel-next-queued "$@"
+}
+
+dim_alias_lf=add-link-fixes
+function dim_add_link_fixes
+{
+	dim_add_link drm-intel-fixes "$@"
+}
+
+dim_alias_lnf=add-link-next-fixes
+function dim_add_link_next_fixes
+{
+	dim_add_link drm-intel-next-fixes "$@"
+}
+
 dim_alias_aq=apply-queued
 function dim_apply_queued
 {
