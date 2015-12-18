@@ -383,7 +383,7 @@ function dim_apply
 		commit_add_tag "Link" "http://patchwork.freedesktop.org/patch/msgid/$message_id"
 	fi
 
-	git commit --amend &
+	#git commit --amend &
 }
 
 function magic_patch
