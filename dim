@@ -669,7 +669,7 @@ function dim_apply_resolved
 {
 	make $DIM_MAKE_OPTIONS && git add -u && git am --resolved
 	checkpatch_commit HEAD
-	git commit --amend &
+	#git commit --amend &
 }
 
 dim_alias_mrr=magic-rebase-resolve
