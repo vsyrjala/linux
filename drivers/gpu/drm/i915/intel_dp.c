@@ -5701,9 +5701,7 @@ intel_dp_drrs_init(struct intel_connector *intel_connector,
 		return NULL;
 	}
 
-	downclock_mode = intel_find_panel_downclock
-					(dev, fixed_mode, connector);
-
+	downclock_mode = intel_panel_edid_downclock_mode(connector, fixed_mode);
 	if (!downclock_mode) {
 		DRM_DEBUG_KMS("Downclock mode is not found. DRRS not supported\n");
 		return NULL;
@@ -5727,7 +5725,6 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 	struct drm_display_mode *fixed_mode = NULL;
 	struct drm_display_mode *downclock_mode = NULL;
 	bool has_dpcd;
-	struct drm_display_mode *scan;
 	struct edid *edid;
 	enum pipe pipe = INVALID_PIPE;
 
@@ -5773,24 +5770,17 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 	}
 	intel_connector->edid = edid;
 
-	/* prefer fixed mode from EDID if available */
-	list_for_each_entry(scan, &connector->probed_modes, head) {
-		if ((scan->type & DRM_MODE_TYPE_PREFERRED)) {
-			fixed_mode = drm_mode_duplicate(dev, scan);
-			downclock_mode = intel_dp_drrs_init(
-						intel_connector, fixed_mode);
-			break;
-		}
-	}
+	fixed_mode = intel_panel_edid_fixed_mode(connector);
+	if (fixed_mode)
+		downclock_mode = intel_dp_drrs_init(intel_connector, fixed_mode);
 
-	/* fallback to VBT if available for eDP */
-	if (!fixed_mode && dev_priv->vbt.lfp_lvds_vbt_mode) {
-		fixed_mode = drm_mode_duplicate(dev,
-					dev_priv->vbt.lfp_lvds_vbt_mode);
-		if (fixed_mode)
-			fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;
-	}
+	if (!fixed_mode)
+		fixed_mode = intel_panel_vbt_fixed_mode(connector);
+
 	mutex_unlock(&dev->mode_config.mutex);
+
+	if (!fixed_mode)
+		return false;
 
 	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)) {
 		intel_dp->edp_notifier.notifier_call = edp_notify_handler;

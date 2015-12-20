@@ -1177,6 +1177,8 @@ int i915_driver_unload(struct drm_device *dev)
 	dev_priv->vbt.sdvo_lvds_vbt_mode = NULL;
 	kfree(dev_priv->vbt.lfp_lvds_vbt_mode);
 	dev_priv->vbt.lfp_lvds_vbt_mode = NULL;
+	kfree(dev_priv->vbt.lfp_lvds_vbt_downclock_mode);
+	dev_priv->vbt.lfp_lvds_vbt_downclock_mode = NULL;
 
 	vga_switcheroo_unregister_client(dev->pdev);
 	vga_client_register(dev->pdev, NULL, NULL, NULL);

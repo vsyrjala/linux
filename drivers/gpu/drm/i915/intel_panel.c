@@ -46,25 +46,21 @@ intel_fixed_panel_mode(const struct drm_display_mode *fixed_mode,
 	drm_mode_set_crtcinfo(adjusted_mode, 0);
 }
 
-/**
- * intel_find_panel_downclock - find the reduced downclock for LVDS in EDID
- * @dev: drm device
- * @fixed_mode : panel native mode
- * @connector: LVDS/eDP connector
- *
- * Return downclock_avail
- * Find the reduced downclock for LVDS/eDP in EDID.
- */
-struct drm_display_mode *
-intel_find_panel_downclock(struct drm_device *dev,
-			struct drm_display_mode *fixed_mode,
-			struct drm_connector *connector)
+bool intel_is_downclock_mode(const struct drm_display_mode *downclock_mode,
+			     const struct drm_display_mode *fixed_mode)
 {
-	struct drm_display_mode *scan, *tmp_mode;
-	int temp_downclock;
+	return drm_mode_equal_no_clocks(downclock_mode, fixed_mode) &&
+		downclock_mode->clock < fixed_mode->clock;
+}
 
-	temp_downclock = fixed_mode->clock;
-	tmp_mode = NULL;
+struct drm_display_mode *
+intel_panel_edid_downclock_mode(struct drm_connector *connector,
+				const struct drm_display_mode *fixed_mode)
+{
+	struct drm_device *dev = connector->dev;
+	struct drm_display_mode *scan, *tmp_mode = NULL;
+	struct drm_display_mode *downclock_mode;
+	int temp_downclock = fixed_mode->clock;
 
 	list_for_each_entry(scan, &connector->probed_modes, head) {
 		/*
@@ -74,29 +70,104 @@ intel_find_panel_downclock(struct drm_device *dev,
 		 * case we can set the different FPx0/1 to dynamically select
 		 * between low and high frequency.
 		 */
-		if (scan->hdisplay == fixed_mode->hdisplay &&
-		    scan->hsync_start == fixed_mode->hsync_start &&
-		    scan->hsync_end == fixed_mode->hsync_end &&
-		    scan->htotal == fixed_mode->htotal &&
-		    scan->vdisplay == fixed_mode->vdisplay &&
-		    scan->vsync_start == fixed_mode->vsync_start &&
-		    scan->vsync_end == fixed_mode->vsync_end &&
-		    scan->vtotal == fixed_mode->vtotal) {
-			if (scan->clock < temp_downclock) {
-				/*
-				 * The downclock is already found. But we
-				 * expect to find the lower downclock.
-				 */
-				temp_downclock = scan->clock;
-				tmp_mode = scan;
-			}
+		if (!intel_is_downclock_mode(scan, fixed_mode))
+			continue;
+
+		if (scan->clock < temp_downclock) {
+			/*
+			 * The downclock is already found. But we
+			 * expect to find the lower downclock.
+			 */
+			temp_downclock = scan->clock;
+			tmp_mode = scan;
 		}
 	}
 
-	if (temp_downclock < fixed_mode->clock)
-		return drm_mode_duplicate(dev, tmp_mode);
-	else
+	if (!tmp_mode)
 		return NULL;
+
+	downclock_mode = drm_mode_duplicate(dev, tmp_mode);
+	if (!downclock_mode)
+		return NULL;
+
+	DRM_DEBUG_KMS("%s downclock mode found in EDID. "
+		      "Normal clock %d kHz, downclock %d kHz\n",
+		      connector->name, fixed_mode->clock,
+		      downclock_mode->clock);
+
+	return downclock_mode;
+}
+
+struct drm_display_mode *
+intel_panel_edid_fixed_mode(struct drm_connector *connector)
+{
+	struct drm_device *dev = connector->dev;
+	const struct drm_display_mode *scan;
+
+	list_for_each_entry(scan, &connector->probed_modes, head) {
+		struct drm_display_mode *fixed_mode;
+
+		if ((scan->type & DRM_MODE_TYPE_PREFERRED) == 0)
+			continue;
+
+		fixed_mode = drm_mode_duplicate(dev, scan);
+		if (!fixed_mode)
+			return NULL;
+
+		DRM_DEBUG_KMS("%s using preferred mode from EDID: ",
+			      connector->name);
+		drm_mode_debug_printmodeline(fixed_mode);
+
+		return fixed_mode;
+	}
+
+	return NULL;
+}
+
+struct drm_display_mode *
+intel_panel_vbt_fixed_mode(struct drm_connector *connector)
+{
+	struct drm_device *dev = connector->dev;
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_display_mode *fixed_mode;
+
+	if (!dev_priv->vbt.lfp_lvds_vbt_mode)
+		return NULL;
+
+	fixed_mode = drm_mode_duplicate(dev, dev_priv->vbt.lfp_lvds_vbt_mode);
+	if (!fixed_mode)
+		return NULL;
+
+	fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;
+
+	DRM_DEBUG_KMS("%s using mode from VBT: ",
+		      connector->name);
+	drm_mode_debug_printmodeline(fixed_mode);
+
+	return fixed_mode;
+}
+
+struct drm_display_mode *
+intel_panel_vbt_downclock_mode(struct drm_connector *connector,
+			       const struct drm_display_mode *fixed_mode)
+{
+	struct drm_device *dev = connector->dev;
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_display_mode *downclock_mode;
+
+	if (!dev_priv->vbt.lfp_lvds_vbt_downclock_mode)
+		return NULL;
+
+	downclock_mode = drm_mode_duplicate(dev, dev_priv->vbt.lfp_lvds_vbt_downclock_mode);
+	if (!downclock_mode)
+		return NULL;
+
+	DRM_DEBUG_KMS("%s downclock mode found in VBT. "
+		      "Normal clock %d kHz, downclock %d kHz\n",
+		      connector->name, fixed_mode->clock,
+		      downclock_mode->clock);
+
+	return downclock_mode;
 }
 
 /* adjusted_mode has been preset to be the panel's fixed mode */

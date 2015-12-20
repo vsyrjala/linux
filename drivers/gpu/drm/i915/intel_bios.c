@@ -170,6 +170,35 @@ get_lvds_fp_timing(const struct bdb_header *bdb,
 	return (const struct lvds_fp_timing *)((const u8 *)bdb + ofs);
 }
 
+static bool
+mode_from_lvds_dvo_timing(struct drm_i915_private *dev_priv,
+			  struct drm_display_mode *mode,
+			  const struct bdb_header *bdb,
+			  int index)
+{
+	const struct lvds_dvo_timing *panel_dvo_timing;
+	const struct bdb_lvds_lfp_data *lvds_lfp_data;
+	const struct bdb_lvds_lfp_data_ptrs *lvds_lfp_data_ptrs;
+
+	lvds_lfp_data = find_section(bdb, BDB_LVDS_LFP_DATA);
+	if (!lvds_lfp_data)
+		return false;
+
+	lvds_lfp_data_ptrs = find_section(bdb, BDB_LVDS_LFP_DATA_PTRS);
+	if (!lvds_lfp_data_ptrs)
+		return false;
+
+	memset(mode, 0, sizeof(*mode));
+
+	panel_dvo_timing = get_lvds_dvo_timing(lvds_lfp_data,
+					       lvds_lfp_data_ptrs,
+					       index);
+
+	fill_detail_timing_data(mode, panel_dvo_timing);
+
+	return true;
+}
+
 /* Try to find integrated panel data */
 static void
 parse_lfp_panel_data(struct drm_i915_private *dev_priv,
@@ -178,10 +207,14 @@ parse_lfp_panel_data(struct drm_i915_private *dev_priv,
 	const struct bdb_lvds_options *lvds_options;
 	const struct bdb_lvds_lfp_data *lvds_lfp_data;
 	const struct bdb_lvds_lfp_data_ptrs *lvds_lfp_data_ptrs;
-	const struct lvds_dvo_timing *panel_dvo_timing;
 	const struct lvds_fp_timing *fp_timing;
-	struct drm_display_mode *panel_fixed_mode;
+	struct drm_display_mode tmp_mode;
+	struct drm_display_mode *fixed_mode;
+	struct drm_display_mode *downclock_mode;
 	int drrs_mode;
+	int best_downclock_clock;
+	int best_downclock_index;
+	int i;
 
 	lvds_options = find_section(bdb, BDB_LVDS_OPTIONS);
 	if (!lvds_options)
@@ -223,35 +256,67 @@ parse_lfp_panel_data(struct drm_i915_private *dev_priv,
 	if (!lvds_lfp_data_ptrs)
 		return;
 
-	dev_priv->vbt.lvds_vbt = 1;
-
-	panel_dvo_timing = get_lvds_dvo_timing(lvds_lfp_data,
-					       lvds_lfp_data_ptrs,
-					       lvds_options->panel_type);
-
-	panel_fixed_mode = kzalloc(sizeof(*panel_fixed_mode), GFP_KERNEL);
-	if (!panel_fixed_mode)
+	if (!mode_from_lvds_dvo_timing(dev_priv, &tmp_mode,
+				       bdb, lvds_options->panel_type))
 		return;
 
-	fill_detail_timing_data(panel_fixed_mode, panel_dvo_timing);
+	dev_priv->vbt.lvds_vbt = 1;
 
-	dev_priv->vbt.lfp_lvds_vbt_mode = panel_fixed_mode;
+	fixed_mode = kmemdup(&tmp_mode, sizeof(tmp_mode), GFP_KERNEL);
+	if (!fixed_mode)
+		return;
+
+	dev_priv->vbt.lfp_lvds_vbt_mode = fixed_mode;
 
 	DRM_DEBUG_KMS("Found panel mode in BIOS VBT tables:\n");
-	drm_mode_debug_printmodeline(panel_fixed_mode);
+	drm_mode_debug_printmodeline(fixed_mode);
+
+	best_downclock_clock = fixed_mode->clock;
+	best_downclock_index = -1;
+
+	/*
+	 * Iterate over the LVDS panel timing info to find the lowest clock
+	 * for the native resolution.
+	 */
+	for (i = 0; i < 16; i++) {
+		if (!mode_from_lvds_dvo_timing(dev_priv, &tmp_mode, bdb, i))
+			continue;
+
+		if (!intel_is_downclock_mode(&tmp_mode, fixed_mode))
+			continue;
+
+		if (tmp_mode.clock < best_downclock_clock) {
+			best_downclock_index = i;
+			best_downclock_clock = tmp_mode.clock;
+		}
+	}
+
+	if (best_downclock_index >= 0 &&
+	    mode_from_lvds_dvo_timing(dev_priv, &tmp_mode, bdb,
+				      best_downclock_index)) {
+		downclock_mode = kmemdup(&tmp_mode, sizeof(tmp_mode), GFP_KERNEL);
+
+		if (downclock_mode)
+			DRM_DEBUG_KMS("Found downclock mode in BIOS VBT tables. "
+				      "Normal Clock %dKHz, downclock %dKHz\n",
+				      fixed_mode->clock, downclock_mode->clock);
+
+		dev_priv->vbt.lfp_lvds_vbt_downclock_mode = downclock_mode;
+	}
 
 	fp_timing = get_lvds_fp_timing(bdb, lvds_lfp_data,
 				       lvds_lfp_data_ptrs,
 				       lvds_options->panel_type);
 	if (fp_timing) {
 		/* check the resolution, just to be sure */
-		if (fp_timing->x_res == panel_fixed_mode->hdisplay &&
-		    fp_timing->y_res == panel_fixed_mode->vdisplay) {
+		if (fp_timing->x_res == fixed_mode->hdisplay &&
+		    fp_timing->y_res == fixed_mode->vdisplay) {
 			dev_priv->vbt.bios_lvds_val = fp_timing->lvds_reg_val;
 			DRM_DEBUG_KMS("VBT initial LVDS value %x\n",
 				      dev_priv->vbt.bios_lvds_val);
 		}
 	}
+
 }
 
 static void

@@ -1361,6 +1361,16 @@ int intel_panel_init(struct intel_panel *panel,
 void intel_panel_fini(struct intel_panel *panel);
 void intel_fixed_panel_mode(const struct drm_display_mode *fixed_mode,
 			    struct drm_display_mode *adjusted_mode);
+struct drm_display_mode *
+intel_panel_edid_fixed_mode(struct drm_connector *connector);
+struct drm_display_mode *
+intel_panel_edid_downclock_mode(struct drm_connector *connector,
+				const struct drm_display_mode *fixed_mode);
+struct drm_display_mode *
+intel_panel_vbt_fixed_mode(struct drm_connector *connector);
+struct drm_display_mode *
+intel_panel_vbt_downclock_mode(struct drm_connector *connector,
+			       const struct drm_display_mode *fixed_mode);
 void intel_pch_panel_fitting(struct intel_crtc *crtc,
 			     struct intel_crtc_state *pipe_config,
 			     int fitting_mode);
@@ -1374,12 +1384,10 @@ void intel_panel_enable_backlight(struct intel_connector *connector);
 void intel_panel_disable_backlight(struct intel_connector *connector);
 void intel_panel_destroy_backlight(struct drm_connector *connector);
 enum drm_connector_status intel_panel_detect(struct drm_device *dev);
-extern struct drm_display_mode *intel_find_panel_downclock(
-				struct drm_device *dev,
-				struct drm_display_mode *fixed_mode,
-				struct drm_connector *connector);
 void intel_backlight_register(struct drm_device *dev);
 void intel_backlight_unregister(struct drm_device *dev);
+bool intel_is_downclock_mode(const struct drm_display_mode *fixed_mode,
+			     const struct drm_display_mode *downclock_mode);
 
 
 /* intel_psr.c */
