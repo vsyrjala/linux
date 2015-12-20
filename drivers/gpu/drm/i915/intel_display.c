@@ -10558,12 +10558,22 @@ static int i9xx_pll_refclk(struct drm_device *dev,
 
 	if ((dpll & PLL_REF_INPUT_MASK) == PLLB_REF_INPUT_SPREADSPECTRUMIN)
 		return dev_priv->vbt.lvds_ssc_freq;
-	else if (HAS_PCH_SPLIT(dev))
-		return 120000;
 	else if (!IS_GEN2(dev))
 		return 96000;
 	else
 		return 48000;
+}
+
+static int ironlake_pll_refclk(struct drm_device *dev,
+			       const struct intel_crtc_state *pipe_config)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 dpll = pipe_config->dpll_hw_state.dpll;
+
+	if ((dpll & PLL_REF_INPUT_MASK) == PLLB_REF_INPUT_SPREADSPECTRUMIN)
+		return dev_priv->vbt.lvds_ssc_freq;
+	else
+		return 120000;
 }
 
 /* Returns the clock of the currently programmed mode of the given pipe. */
@@ -10577,7 +10587,12 @@ static void i9xx_crtc_clock_get(struct intel_crtc *crtc,
 	u32 fp;
 	intel_clock_t clock;
 	int port_clock;
-	int refclk = i9xx_pll_refclk(dev, pipe_config);
+	int refclk;
+
+	if (HAS_PCH_SPLIT(dev_priv))
+		refclk = ironlake_pll_refclk(dev, pipe_config);
+	else
+		refclk = i9xx_pll_refclk(dev, pipe_config);
 
 	if ((dpll & DISPLAY_RATE_SELECT_FPA1) == 0)
 		fp = pipe_config->dpll_hw_state.fp0;
