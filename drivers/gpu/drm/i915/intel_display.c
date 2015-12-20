@@ -7179,24 +7179,20 @@ static int i9xx_get_refclk(const struct intel_crtc_state *crtc_state)
 {
 	struct drm_device *dev = crtc_state->base.crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int refclk;
-
-	WARN_ON(!crtc_state->base.state);
 
 	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev) || IS_BROXTON(dev)) {
-		refclk = 100000;
+		return 100000;
 	} else if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS) &&
 		   intel_panel_use_ssc(dev_priv) &&
 		   intel_crtc_num_connectors(crtc_state) < 2) {
-		refclk = dev_priv->vbt.lvds_ssc_freq;
-		DRM_DEBUG_KMS("using SSC reference clock of %d kHz\n", refclk);
+		DRM_DEBUG_KMS("using SSC reference clock of %d kHz\n",
+			      dev_priv->vbt.lvds_ssc_freq);
+		return dev_priv->vbt.lvds_ssc_freq;
 	} else if (!IS_GEN2(dev)) {
-		refclk = 96000;
+		return 96000;
 	} else {
-		refclk = 48000;
+		return 48000;
 	}
-
-	return refclk;
 }
 
 static uint32_t pnv_dpll_compute_fp(struct dpll *dpll)
