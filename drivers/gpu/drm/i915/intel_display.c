@@ -1028,7 +1028,7 @@ chv_find_best_dpll(const intel_limit_t *limit,
 bool bxt_find_best_dpll(struct intel_crtc_state *crtc_state, int target_clock,
 			intel_clock_t *best_clock)
 {
-	int refclk = i9xx_get_refclk(crtc_state);
+	int refclk = 100000;
 
 	return chv_find_best_dpll(intel_limit(crtc_state, refclk), crtc_state,
 				  target_clock, refclk, NULL, best_clock);
@@ -7187,10 +7187,7 @@ static int i9xx_get_refclk(const struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
 
-	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv) ||
-	    IS_BROXTON(dev_priv)) {
-		return 100000;
-	} else if (intel_crtc_can_use_ssc_refclk(crtc_state)) {
+	if (intel_crtc_can_use_ssc_refclk(crtc_state)) {
 		DRM_DEBUG_KMS("using SSC reference clock of %d kHz\n",
 			      dev_priv->vbt.lvds_ssc_freq);
 		return dev_priv->vbt.lvds_ssc_freq;
@@ -7940,7 +7937,10 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 		bool ok;
 		const intel_limit_t *limit;
 
-		refclk = i9xx_get_refclk(crtc_state);
+		if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
+			refclk = 100000;
+		else
+			refclk = i9xx_get_refclk(crtc_state);
 
 		/*
 		 * Returns a set of divisors for the desired target clock with
