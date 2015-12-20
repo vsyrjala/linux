@@ -5354,51 +5354,6 @@ static bool intel_dp_drrs_supported(struct drm_connector *connector,
 	return dev_priv->vbt.drrs_type == SEAMLESS_DRRS_SUPPORT;
 }
 
-/**
- * intel_dp_drrs_init - Init basic DRRS work and mutex.
- * @intel_connector: eDP connector
- * @fixed_mode: preferred mode of panel
- *
- * This function is  called only once at driver load to initialize basic
- * DRRS stuff.
- *
- * Returns:
- * Downclock mode if panel supports it, else return NULL.
- * DRRS support is determined by the presence of downclock mode (apart
- * from VBT setting).
- */
-static struct drm_display_mode *
-intel_dp_drrs_init(struct intel_connector *intel_connector,
-		   struct drm_display_mode *fixed_mode,
-		   enum port port)
-{
-	struct drm_connector *connector = &intel_connector->base;
-	struct drm_device *dev = connector->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_display_mode *downclock_mode = NULL;
-
-	if (INTEL_INFO(dev)->gen <= 6) {
-		DRM_DEBUG_KMS("DRRS supported for Gen7 and above\n");
-		return NULL;
-	}
-
-	if (!intel_dp_drrs_supported(connector, port)) {
-		DRM_DEBUG_KMS("VBT doesn't support DRRS\n");
-		return NULL;
-	}
-
-	downclock_mode = intel_panel_edid_downclock_mode(connector, fixed_mode);
-	if (!downclock_mode) {
-		DRM_DEBUG_KMS("Downclock mode is not found. DRRS not supported\n");
-		return NULL;
-	}
-
-	dev_priv->drrs.type = dev_priv->vbt.drrs_type;
-
-	DRM_DEBUG_KMS("seamless DRRS supported for eDP panel.\n");
-	return downclock_mode;
-}
-
 static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 				     struct intel_connector *intel_connector)
 {
@@ -5457,9 +5412,8 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 	intel_connector->edid = edid;
 
 	fixed_mode = intel_panel_edid_fixed_mode(connector);
-	if (fixed_mode)
-		downclock_mode = intel_dp_drrs_init(intel_connector,
-						    fixed_mode, port);
+	if (fixed_mode && intel_dp_drrs_supported(connector, port))
+		downclock_mode = intel_panel_edid_downclock_mode(connector, fixed_mode);
 
 	if (!fixed_mode)
 		fixed_mode = intel_panel_vbt_fixed_mode(connector);

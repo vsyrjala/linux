@@ -948,7 +948,6 @@ enum drrs_support_type {
 struct intel_dp;
 struct i915_drrs {
 	struct mutex mutex;
-	enum drrs_support_type type;
 };
 
 struct i915_psr {
