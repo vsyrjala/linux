@@ -511,14 +511,7 @@ needs_modeset(struct drm_crtc_state *state)
  */
 bool intel_pipe_has_type(struct intel_crtc *crtc, enum intel_output_type type)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct intel_encoder *encoder;
-
-	for_each_encoder_on_crtc(dev, &crtc->base, encoder)
-		if (encoder->type == type)
-			return true;
-
-	return false;
+	return crtc->config->output_types & (1 << type);
 }
 
 /**
@@ -528,28 +521,9 @@ bool intel_pipe_has_type(struct intel_crtc *crtc, enum intel_output_type type)
  * encoder->crtc.
  */
 static bool intel_pipe_will_have_type(const struct intel_crtc_state *crtc_state,
-				      int type)
+				      enum intel_output_type type)
 {
-	struct drm_atomic_state *state = crtc_state->base.state;
-	struct drm_connector *connector;
-	struct drm_connector_state *connector_state;
-	struct intel_encoder *encoder;
-	int i, num_connectors = 0;
-
-	for_each_connector_in_state(state, connector, connector_state, i) {
-		if (connector_state->crtc != crtc_state->base.crtc)
-			continue;
-
-		num_connectors++;
-
-		encoder = to_intel_encoder(connector_state->best_encoder);
-		if (encoder->type == type)
-			return true;
-	}
-
-	WARN_ON(num_connectors == 0);
-
-	return false;
+	return crtc_state->output_types & (1 << type);
 }
 
 static const intel_limit_t *
@@ -12410,6 +12384,8 @@ encoder_retry:
 
 		encoder = to_intel_encoder(connector_state->best_encoder);
 
+		pipe_config->output_types |= 1 << encoder->type;
+
 		if (!(encoder->compute_config(encoder, pipe_config))) {
 			DRM_DEBUG_KMS("Encoder config failure\n");
 			goto fail;
@@ -12687,6 +12663,7 @@ intel_pipe_config_compare(struct drm_device *dev,
 		PIPE_CONF_CHECK_M_N_ALT(dp_m_n, dp_m2_n2);
 
 	PIPE_CONF_CHECK_I(has_dsi_encoder);
+	PIPE_CONF_CHECK_X(output_types);
 
 	PIPE_CONF_CHECK_I(base.adjusted_mode.crtc_hdisplay);
 	PIPE_CONF_CHECK_I(base.adjusted_mode.crtc_htotal);
@@ -12946,8 +12923,10 @@ check_crtc_state(struct drm_device *dev, struct drm_atomic_state *old_state)
 					"Encoder connected to wrong pipe %c\n",
 					pipe_name(pipe));
 
-			if (active)
+			if (active) {
+				pipe_config->output_types |= 1 << encoder->type;
 				encoder->get_config(encoder, pipe_config);
+			}
 		}
 
 		if (!crtc->state->active)
@@ -15615,6 +15594,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 		if (encoder->get_hw_state(encoder, &pipe)) {
 			crtc = to_intel_crtc(dev_priv->pipe_to_crtc_mapping[pipe]);
 			encoder->base.crtc = &crtc->base;
+			crtc->config->output_types |= 1 << encoder->type;
 			encoder->get_config(encoder, crtc->config);
 		} else {
 			encoder->base.crtc = NULL;
