@@ -1520,6 +1520,8 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	enum port port = dp_to_dig_port(intel_dp)->port;
 	struct intel_crtc *intel_crtc = to_intel_crtc(pipe_config->base.crtc);
 	struct intel_connector *intel_connector = intel_dp->attached_connector;
+	const struct drm_display_mode *downclock_mode =
+		intel_connector->panel.downclock_mode;
 	int lane_count, clock;
 	int min_lane_count = 1;
 	int max_lane_count = intel_dp_max_lane_count(intel_dp);
@@ -1651,13 +1653,15 @@ found:
 			       pipe_config->port_clock,
 			       &pipe_config->dp_m_n);
 
-	if (intel_connector->panel.downclock_mode != NULL &&
-		dev_priv->drrs.type == SEAMLESS_DRRS_SUPPORT) {
-			pipe_config->has_drrs = true;
-			intel_link_compute_m_n(bpp, lane_count,
-				intel_connector->panel.downclock_mode->clock,
-				pipe_config->port_clock,
-				&pipe_config->dp_m2_n2);
+	if (downclock_mode &&
+	    dev_priv->drrs.type == SEAMLESS_DRRS_SUPPORT) {
+		pipe_config->has_drrs = true;
+		pipe_config->dotclock_low = downclock_mode->clock;
+
+		intel_link_compute_m_n(bpp, lane_count,
+				       pipe_config->dotclock_low,
+				       pipe_config->port_clock,
+				       &pipe_config->dp_m2_n2);
 	}
 
 	if ((IS_SKYLAKE(dev)  || IS_KABYLAKE(dev)) && is_edp(intel_dp))

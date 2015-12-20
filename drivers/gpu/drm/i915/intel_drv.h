@@ -453,6 +453,8 @@ struct intel_crtc_state {
 	 */
 	int port_clock;
 
+	int dotclock_low; /* for DRRS */
+
 	/* Used by SDVO (and if we ever fix it, HDMI). */
 	unsigned pixel_multiplier;
 

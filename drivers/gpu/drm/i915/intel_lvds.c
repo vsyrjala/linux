@@ -305,6 +305,8 @@ static bool intel_lvds_compute_config(struct intel_encoder *intel_encoder,
 	struct intel_connector *intel_connector =
 		&lvds_encoder->attached_connector->base;
 	struct drm_display_mode *adjusted_mode = &pipe_config->base.adjusted_mode;
+	const struct drm_display_mode *downclock_mode =
+		intel_connector->panel.downclock_mode;
 	struct intel_crtc *intel_crtc = to_intel_crtc(pipe_config->base.crtc);
 	unsigned int lvds_bpp;
 
@@ -344,6 +346,9 @@ static bool intel_lvds_compute_config(struct intel_encoder *intel_encoder,
 					 intel_connector->panel.fitting_mode);
 
 	}
+
+	if (downclock_mode)
+		pipe_config->dotclock_low = downclock_mode->clock;
 
 	/*
 	 * XXX: It would be nice to support lower refresh rates on the

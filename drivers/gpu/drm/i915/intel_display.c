@@ -7982,6 +7982,8 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 				   struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	intel_clock_t reduced_clock;
+	bool has_reduced_clock = false;
 
 	memset(&crtc_state->dpll_hw_state, 0,
 	       sizeof(crtc_state->dpll_hw_state));
@@ -8021,6 +8023,30 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 			return -EINVAL;
 		}
 
+		if (crtc_state->dotclock_low &&
+		    !intel_crtc_has_dp_encoder(crtc_state)) {
+			/*
+			 * Ensure we match the reduced clock's P to the target
+			 * clock.  If the clocks don't match, we can't switch
+			 * the display clock by using the FP0/FP1. In such case
+			 * we will disable the LVDS downclock feature.
+			 */
+			has_reduced_clock =
+				dev_priv->display.find_dpll(limit, crtc_state,
+							    crtc_state->dotclock_low,
+							    refclk, &clock,
+							    &reduced_clock);
+
+			intel_pll_dump_clock(crtc_state->dotclock_low,
+					     &reduced_clock, has_reduced_clock);
+
+			if (!has_reduced_clock) {
+				DRM_DEBUG_DRIVER("Couldn't find PLL settings for reduced clock (%d kHz)\n",
+						 crtc_state->dotclock_low);
+				crtc_state->dotclock_low = 0;
+			}
+		}
+
 		crtc_state->dpll.n = clock.n;
 		crtc_state->dpll.m1 = clock.m1;
 		crtc_state->dpll.m2 = clock.m2;
@@ -8029,13 +8055,15 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 	}
 
 	if (IS_GEN2(dev_priv)) {
-		i8xx_compute_dpll(crtc, crtc_state, NULL);
+		i8xx_compute_dpll(crtc, crtc_state,
+				  has_reduced_clock ? &reduced_clock : NULL);
 	} else if (IS_CHERRYVIEW(dev_priv)) {
 		chv_compute_dpll(crtc, crtc_state);
 	} else if (IS_VALLEYVIEW(dev_priv)) {
 		vlv_compute_dpll(crtc, crtc_state);
 	} else {
-		i9xx_compute_dpll(crtc, crtc_state, NULL);
+		i9xx_compute_dpll(crtc, crtc_state,
+				  has_reduced_clock ? &reduced_clock : NULL);
 	}
 
 	return 0;
@@ -8996,6 +9024,8 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 				       struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	intel_clock_t reduced_clock;
+	bool has_reduced_clock = false;
 
 	memset(&crtc_state->dpll_hw_state, 0,
 	       sizeof(crtc_state->dpll_hw_state));
@@ -9031,6 +9061,30 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 			return -EINVAL;
 		}
 
+		if (crtc_state->dotclock_low &&
+		    !intel_crtc_has_dp_encoder(crtc_state)) {
+			/*
+			 * Ensure we match the reduced clock's P to the target clock.
+			 * If the clocks don't match, we can't switch the display clock
+			 * by using the FP0/FP1. In such case we will disable the LVDS
+			 * downclock feature.
+			 */
+			has_reduced_clock =
+				dev_priv->display.find_dpll(limit, crtc_state,
+							    crtc_state->dotclock_low,
+							    refclk, &clock,
+							    &reduced_clock);
+
+			intel_pll_dump_clock(crtc_state->dotclock_low,
+					     &reduced_clock, has_reduced_clock);
+
+			if (!has_reduced_clock) {
+				DRM_DEBUG_DRIVER("Couldn't find PLL settings for reduced clock (%d kHz)\n",
+						 crtc_state->dotclock_low);
+				crtc_state->dotclock_low = 0;
+			}
+		}
+
 		crtc_state->dpll.n = clock.n;
 		crtc_state->dpll.m1 = clock.m1;
 		crtc_state->dpll.m2 = clock.m2;
@@ -9042,7 +9096,8 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 	if (crtc_state->has_pch_encoder) {
 		struct intel_shared_dpll *pll;
 
-		ironlake_compute_dpll(crtc, crtc_state, NULL);
+		ironlake_compute_dpll(crtc, crtc_state,
+				      has_reduced_clock ? &reduced_clock : NULL);
 
 		pll = intel_get_shared_dpll(crtc, crtc_state);
 		if (pll == NULL) {
@@ -12166,6 +12221,7 @@ static void intel_dump_pipe_config(struct intel_crtc *crtc,
 	drm_mode_debug_printmodeline(&pipe_config->base.adjusted_mode);
 	intel_dump_crtc_timings(&pipe_config->base.adjusted_mode);
 	DRM_DEBUG_KMS("port clock: %d\n", pipe_config->port_clock);
+	DRM_DEBUG_KMS("dot clock low: %d\n", pipe_config->dotclock_low);
 	DRM_DEBUG_KMS("pipe src size: %dx%d\n",
 		      pipe_config->pipe_src_w, pipe_config->pipe_src_h);
 	DRM_DEBUG_KMS("num_scalers: %d, scaler_users: 0x%x, scaler_id: %d\n",
@@ -12382,6 +12438,7 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 encoder_retry:
 	/* Ensure the port clock defaults are reset when retrying. */
 	pipe_config->port_clock = 0;
+	pipe_config->dotclock_low = 0;
 	pipe_config->pixel_multiplier = 1;
 
 	/* Fill in default crtc timings, allow encoders to overwrite them. */
@@ -12757,6 +12814,7 @@ intel_pipe_config_compare(struct drm_device *dev,
 
 	PIPE_CONF_CHECK_CLOCK_FUZZY(base.adjusted_mode.crtc_clock);
 	PIPE_CONF_CHECK_CLOCK_FUZZY(port_clock);
+	/* FIXME check dotclock_low? need readout first */
 
 #undef PIPE_CONF_CHECK_X
 #undef PIPE_CONF_CHECK_I
