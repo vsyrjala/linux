@@ -276,8 +276,6 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 
 	DRM_DEBUG_KMS("\n");
 
-	pipe_config->has_dsi_encoder = true;
-
 	if (fixed_mode)
 		intel_fixed_panel_mode(fixed_mode, adjusted_mode);
 
@@ -704,8 +702,6 @@ static void intel_dsi_get_config(struct intel_encoder *encoder,
 {
 	u32 pclk = 0;
 	DRM_DEBUG_KMS("\n");
-
-	pipe_config->has_dsi_encoder = true;
 
 	/*
 	 * DPLL_MD is not used in case of DSI, reading will get some default value

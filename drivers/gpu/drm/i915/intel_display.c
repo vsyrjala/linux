@@ -2099,7 +2099,7 @@ static void intel_enable_pipe(struct intel_crtc *crtc)
 	 * need the check.
 	 */
 	if (HAS_GMCH_DISPLAY(dev_priv->dev))
-		if (crtc->config->has_dsi_encoder)
+		if (intel_crtc_has_type(crtc->config, INTEL_OUTPUT_DSI))
 			assert_dsi_pll_enabled(dev_priv);
 		else
 			assert_pll_enabled(dev_priv, pipe);
@@ -4625,7 +4625,7 @@ static void intel_crtc_load_lut(struct drm_crtc *crtc)
 		return;
 
 	if (HAS_GMCH_DISPLAY(dev_priv->dev)) {
-		if (intel_crtc->config->has_dsi_encoder)
+		if (intel_crtc_has_type(intel_crtc->config, INTEL_OUTPUT_DSI))
 			assert_dsi_pll_enabled(dev_priv);
 		else
 			assert_pll_enabled(dev_priv, pipe);
@@ -4979,7 +4979,7 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 	if (intel_crtc->config->has_pch_encoder)
 		dev_priv->display.fdi_link_train(crtc);
 
-	if (!intel_crtc->config->has_dsi_encoder)
+	if (!intel_crtc_has_type(intel_crtc->config, INTEL_OUTPUT_DSI))
 		intel_ddi_enable_pipe_clock(intel_crtc);
 
 	if (INTEL_INFO(dev)->gen >= 9)
@@ -4994,7 +4994,7 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 	intel_crtc_load_lut(crtc);
 
 	intel_ddi_set_pipe_settings(crtc);
-	if (!intel_crtc->config->has_dsi_encoder)
+	if (!intel_crtc_has_type(intel_crtc->config, INTEL_OUTPUT_DSI))
 		intel_ddi_enable_transcoder_func(crtc);
 
 	intel_update_watermarks(crtc);
@@ -5140,7 +5140,7 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 	if (intel_crtc->config->dp_encoder_is_mst)
 		intel_ddi_set_vc_payload_alloc(crtc, false);
 
-	if (!intel_crtc->config->has_dsi_encoder)
+	if (!intel_crtc_has_type(intel_crtc->config, INTEL_OUTPUT_DSI))
 		intel_ddi_disable_transcoder_func(dev_priv, cpu_transcoder);
 
 	if (INTEL_INFO(dev)->gen >= 9)
@@ -5148,7 +5148,7 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 	else
 		ironlake_pfit_disable(intel_crtc, false);
 
-	if (!intel_crtc->config->has_dsi_encoder)
+	if (!intel_crtc_has_type(intel_crtc->config, INTEL_OUTPUT_DSI))
 		intel_ddi_disable_pipe_clock(intel_crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
@@ -6178,7 +6178,7 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 		if (encoder->pre_pll_enable)
 			encoder->pre_pll_enable(encoder);
 
-	if (!intel_crtc->config->has_dsi_encoder) {
+	if (!intel_crtc_has_type(intel_crtc->config, INTEL_OUTPUT_DSI)) {
 		if (IS_CHERRYVIEW(dev)) {
 			chv_prepare_pll(intel_crtc, intel_crtc->config);
 			chv_enable_pll(intel_crtc, intel_crtc->config);
@@ -6306,7 +6306,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 		if (encoder->post_disable)
 			encoder->post_disable(encoder);
 
-	if (!intel_crtc->config->has_dsi_encoder) {
+	if (!intel_crtc_has_type(intel_crtc->config, INTEL_OUTPUT_DSI)) {
 		if (IS_CHERRYVIEW(dev))
 			chv_disable_pll(dev_priv, pipe);
 		else if (IS_VALLEYVIEW(dev))
@@ -7929,7 +7929,7 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 	memset(&crtc_state->dpll_hw_state, 0,
 	       sizeof(crtc_state->dpll_hw_state));
 
-	if (crtc_state->has_dsi_encoder)
+	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DSI))
 		return 0;
 
 	for_each_connector_in_state(state, connector, connector_state, i) {
@@ -12630,7 +12630,6 @@ intel_pipe_config_compare(struct drm_device *dev,
 	} else
 		PIPE_CONF_CHECK_M_N_ALT(dp_m_n, dp_m2_n2);
 
-	PIPE_CONF_CHECK_I(has_dsi_encoder);
 	PIPE_CONF_CHECK_X(output_types);
 
 	PIPE_CONF_CHECK_I(base.adjusted_mode.crtc_hdisplay);
