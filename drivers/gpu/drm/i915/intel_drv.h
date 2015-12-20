@@ -505,10 +505,6 @@ struct intel_crtc_state {
 	 */
 	bool limited_color_range;
 
-	/* DP has a bunch of special case unfortunately, so mark the pipe
-	 * accordingly. */
-	bool has_dp_encoder;
-
 	/* DSI has special cases */
 	bool has_dsi_encoder;
 
@@ -1169,6 +1165,7 @@ enum transcoder intel_pipe_to_cpu_transcoder(struct drm_i915_private *dev_priv,
 					     enum pipe pipe);
 bool intel_crtc_has_type(const struct intel_crtc_state *crtc_state,
 			 enum intel_output_type type);
+bool intel_crtc_has_dp_encoder(const struct intel_crtc_state *crtc_state);
 static inline void
 intel_wait_for_vblank(struct drm_device *dev, int pipe)
 {
