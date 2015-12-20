@@ -7227,13 +7227,12 @@ static void i9xx_update_pll_dividers(struct intel_crtc *crtc,
 
 	crtc_state->dpll_hw_state.fp0 = fp;
 
-	crtc->lowfreq_avail = false;
-	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS) &&
-	    reduced_clock) {
+	if (reduced_clock) {
 		crtc_state->dpll_hw_state.fp1 = fp2;
 		crtc->lowfreq_avail = true;
 	} else {
 		crtc_state->dpll_hw_state.fp1 = fp;
+		crtc->lowfreq_avail = false;
 	}
 }
 
@@ -8831,23 +8830,18 @@ static bool ironlake_needs_fb_cb_tune(struct dpll *dpll, int factor)
 	return i9xx_dpll_compute_m(dpll) < factor * dpll->n;
 }
 
-static uint32_t ironlake_compute_dpll(struct intel_crtc *intel_crtc,
-				      struct intel_crtc_state *crtc_state,
-				      u32 *fp,
-				      intel_clock_t *reduced_clock, u32 *fp2)
+static void ironlake_update_pll_dividers(struct intel_crtc *crtc,
+					 struct intel_crtc_state *crtc_state,
+					 intel_clock_t *reduced_clock)
 {
-	struct drm_crtc *crtc = &intel_crtc->base;
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	uint32_t dpll;
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	uint32_t fp, fp2 = 0;
 	int factor;
-	bool is_lvds;
-
-	is_lvds = intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS);
 
 	/* Enable autotuning of the PLL clock (if permissible) */
 	factor = 21;
-	if (is_lvds) {
+	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS)) {
 		if ((intel_panel_use_ssc(dev_priv) &&
 		     dev_priv->vbt.lvds_ssc_freq == 100000) ||
 		    (HAS_PCH_IBX(dev) && intel_is_dual_link_lvds(dev)))
@@ -8855,15 +8849,40 @@ static uint32_t ironlake_compute_dpll(struct intel_crtc *intel_crtc,
 	} else if (crtc_state->sdvo_tv_clock)
 		factor = 20;
 
-	if (ironlake_needs_fb_cb_tune(&crtc_state->dpll, factor))
-		*fp |= FP_CB_TUNE;
+	fp = i9xx_dpll_compute_fp(&crtc_state->dpll);
 
-	if (fp2 && (reduced_clock->m < factor * reduced_clock->n))
-		*fp2 |= FP_CB_TUNE;
+	if (ironlake_needs_fb_cb_tune(&crtc_state->dpll, factor))
+		fp |= FP_CB_TUNE;
+
+	if (reduced_clock) {
+		fp2 = i9xx_dpll_compute_fp(reduced_clock);
+
+		if (reduced_clock->m < factor * reduced_clock->n)
+			fp2 |= FP_CB_TUNE;
+	}
+
+	crtc_state->dpll_hw_state.fp0 = fp;
+
+	if (reduced_clock) {
+		crtc_state->dpll_hw_state.fp1 = fp2;
+		crtc->lowfreq_avail = true;
+	} else {
+		crtc_state->dpll_hw_state.fp1 = fp;
+		crtc->lowfreq_avail = false;
+	}
+}
+
+static void ironlake_compute_dpll(struct intel_crtc *crtc,
+				  struct intel_crtc_state *crtc_state,
+				  intel_clock_t *reduced_clock)
+{
+	uint32_t dpll;
+
+	ironlake_update_pll_dividers(crtc, crtc_state, reduced_clock);
 
 	dpll = 0;
 
-	if (is_lvds)
+	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS))
 		dpll |= DPLLB_MODE_LVDS;
 	else
 		dpll |= DPLLB_MODE_DAC_SERIAL;
@@ -8903,21 +8922,17 @@ static uint32_t ironlake_compute_dpll(struct intel_crtc *intel_crtc,
 	else
 		dpll |= PLL_REF_INPUT_DREFCLK;
 
-	return dpll | DPLL_VCO_ENABLE;
+	dpll |= DPLL_VCO_ENABLE;
+	crtc_state->dpll_hw_state.dpll = dpll;
 }
 
 static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 				       struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	intel_clock_t reduced_clock;
-	bool has_reduced_clock = false;
-	bool is_lvds;
 
 	memset(&crtc_state->dpll_hw_state, 0,
 	       sizeof(crtc_state->dpll_hw_state));
-
-	is_lvds = intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS);
 
 	WARN(!(HAS_PCH_IBX(dev_priv) || HAS_PCH_CPT(dev_priv)),
 	     "Unexpected PCH type %d\n", INTEL_PCH_TYPE(dev_priv));
@@ -8954,22 +8969,8 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 	/* CPU eDP is the only output that doesn't need a PCH PLL of its own. */
 	if (crtc_state->has_pch_encoder) {
 		struct intel_shared_dpll *pll;
-		u32 dpll, fp, fp2 = 0;
 
-		fp = i9xx_dpll_compute_fp(&crtc_state->dpll);
-		if (has_reduced_clock)
-			fp2 = i9xx_dpll_compute_fp(&reduced_clock);
-
-		dpll = ironlake_compute_dpll(crtc, crtc_state,
-					     &fp, &reduced_clock,
-					     has_reduced_clock ? &fp2 : NULL);
-
-		crtc_state->dpll_hw_state.dpll = dpll;
-		crtc_state->dpll_hw_state.fp0 = fp;
-		if (has_reduced_clock)
-			crtc_state->dpll_hw_state.fp1 = fp2;
-		else
-			crtc_state->dpll_hw_state.fp1 = fp;
+		ironlake_compute_dpll(crtc, crtc_state, NULL);
 
 		pll = intel_get_shared_dpll(crtc, crtc_state);
 		if (pll == NULL) {
@@ -8978,11 +8979,6 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 			return -EINVAL;
 		}
 	}
-
-	if (is_lvds && has_reduced_clock)
-		crtc->lowfreq_avail = true;
-	else
-		crtc->lowfreq_avail = false;
 
 	return 0;
 }
