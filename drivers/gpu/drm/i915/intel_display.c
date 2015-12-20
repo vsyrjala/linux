@@ -7177,10 +7177,10 @@ static int intel_crtc_num_connectors(const struct intel_crtc_state *crtc_state)
 
 static int i9xx_get_refclk(const struct intel_crtc_state *crtc_state)
 {
-	struct drm_device *dev = crtc_state->base.crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
 
-	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev) || IS_BROXTON(dev)) {
+	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv) ||
+	    IS_BROXTON(dev_priv)) {
 		return 100000;
 	} else if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS) &&
 		   intel_panel_use_ssc(dev_priv) &&
@@ -7188,7 +7188,7 @@ static int i9xx_get_refclk(const struct intel_crtc_state *crtc_state)
 		DRM_DEBUG_KMS("using SSC reference clock of %d kHz\n",
 			      dev_priv->vbt.lvds_ssc_freq);
 		return dev_priv->vbt.lvds_ssc_freq;
-	} else if (!IS_GEN2(dev)) {
+	} else if (!IS_GEN2(dev_priv)) {
 		return 96000;
 	} else {
 		return 48000;
@@ -7209,10 +7209,10 @@ static void i9xx_update_pll_dividers(struct intel_crtc *crtc,
 				     struct intel_crtc_state *crtc_state,
 				     intel_clock_t *reduced_clock)
 {
-	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	u32 fp, fp2 = 0;
 
-	if (IS_PINEVIEW(dev)) {
+	if (IS_PINEVIEW(dev_priv)) {
 		fp = pnv_dpll_compute_fp(&crtc_state->dpll);
 		if (reduced_clock)
 			fp2 = pnv_dpll_compute_fp(reduced_clock);
@@ -7617,8 +7617,7 @@ static void i9xx_compute_dpll(struct intel_crtc *crtc,
 			      struct intel_crtc_state *crtc_state,
 			      intel_clock_t *reduced_clock)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	u32 dpll;
 	struct dpll *clock = &crtc_state->dpll;
 
@@ -7631,7 +7630,7 @@ static void i9xx_compute_dpll(struct intel_crtc *crtc,
 	else
 		dpll |= DPLLB_MODE_DAC_SERIAL;
 
-	if (IS_I945G(dev) || IS_I945GM(dev) || IS_G33(dev)) {
+	if (IS_I945G(dev_priv) || IS_I945GM(dev_priv) || IS_G33(dev_priv)) {
 		dpll |= (crtc_state->pixel_multiplier - 1)
 			<< SDVO_MULTIPLIER_SHIFT_HIRES;
 	}
@@ -7644,11 +7643,11 @@ static void i9xx_compute_dpll(struct intel_crtc *crtc,
 		dpll |= DPLL_SDVO_HIGH_SPEED;
 
 	/* compute bitmask from p1 value */
-	if (IS_PINEVIEW(dev))
+	if (IS_PINEVIEW(dev_priv))
 		dpll |= (1 << (clock->p1 - 1)) << DPLL_FPA01_P1_POST_DIV_SHIFT_PINEVIEW;
 	else {
 		dpll |= (1 << (clock->p1 - 1)) << DPLL_FPA01_P1_POST_DIV_SHIFT;
-		if (IS_G4X(dev) && reduced_clock)
+		if (IS_G4X(dev_priv) && reduced_clock)
 			dpll |= (1 << (reduced_clock->p1 - 1)) << DPLL_FPA1_P1_POST_DIV_SHIFT;
 	}
 	switch (clock->p2) {
@@ -7665,7 +7664,7 @@ static void i9xx_compute_dpll(struct intel_crtc *crtc,
 		dpll |= DPLLB_LVDS_P2_CLOCK_DIV_14;
 		break;
 	}
-	if (INTEL_INFO(dev)->gen >= 4)
+	if (INTEL_INFO(dev_priv)->gen >= 4)
 		dpll |= (6 << PLL_LOAD_PULSE_PHASE_SHIFT);
 
 	if (crtc_state->sdvo_tv_clock)
@@ -7680,7 +7679,7 @@ static void i9xx_compute_dpll(struct intel_crtc *crtc,
 	dpll |= DPLL_VCO_ENABLE;
 	crtc_state->dpll_hw_state.dpll = dpll;
 
-	if (INTEL_INFO(dev)->gen >= 4) {
+	if (INTEL_INFO(dev_priv)->gen >= 4) {
 		u32 dpll_md = (crtc_state->pixel_multiplier - 1)
 			<< DPLL_MD_UDI_MULTIPLIER_SHIFT;
 		crtc_state->dpll_hw_state.dpll_md = dpll_md;
@@ -7691,8 +7690,7 @@ static void i8xx_compute_dpll(struct intel_crtc *crtc,
 			      struct intel_crtc_state *crtc_state,
 			      intel_clock_t *reduced_clock)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	u32 dpll;
 	struct dpll *clock = &crtc_state->dpll;
 
@@ -7711,7 +7709,7 @@ static void i8xx_compute_dpll(struct intel_crtc *crtc,
 			dpll |= PLL_P2_DIVIDE_BY_4;
 	}
 
-	if (!IS_I830(dev) && intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DVO))
+	if (!IS_I830(dev_priv) && intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DVO))
 		dpll |= DPLL_DVO_2X_MODE;
 
 	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS) &&
@@ -7926,12 +7924,7 @@ static void i9xx_set_pipeconf(struct intel_crtc *intel_crtc)
 static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 				   struct intel_crtc_state *crtc_state)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	int refclk;
-	intel_clock_t clock;
-	bool ok;
-	const intel_limit_t *limit;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
 	memset(&crtc_state->dpll_hw_state, 0,
 	       sizeof(crtc_state->dpll_hw_state));
@@ -7940,6 +7933,11 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 		return 0;
 
 	if (!crtc_state->clock_set) {
+		int refclk;
+		intel_clock_t clock;
+		bool ok;
+		const intel_limit_t *limit;
+
 		refclk = i9xx_get_refclk(crtc_state);
 
 		/*
@@ -7965,11 +7963,11 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 		crtc_state->dpll.p2 = clock.p2;
 	}
 
-	if (IS_GEN2(dev)) {
+	if (IS_GEN2(dev_priv)) {
 		i8xx_compute_dpll(crtc, crtc_state, NULL);
-	} else if (IS_CHERRYVIEW(dev)) {
+	} else if (IS_CHERRYVIEW(dev_priv)) {
 		chv_compute_dpll(crtc, crtc_state);
-	} else if (IS_VALLEYVIEW(dev)) {
+	} else if (IS_VALLEYVIEW(dev_priv)) {
 		vlv_compute_dpll(crtc, crtc_state);
 	} else {
 		i9xx_compute_dpll(crtc, crtc_state, NULL);
@@ -8943,7 +8941,7 @@ static uint32_t ironlake_compute_dpll(struct intel_crtc *intel_crtc,
 static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 				       struct intel_crtc_state *crtc_state)
 {
-	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	intel_clock_t clock, reduced_clock;
 	u32 dpll = 0, fp = 0, fp2 = 0;
 	bool ok, has_reduced_clock = false;
@@ -8955,8 +8953,8 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 
 	is_lvds = intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS);
 
-	WARN(!(HAS_PCH_IBX(dev) || HAS_PCH_CPT(dev)),
-	     "Unexpected PCH type %d\n", INTEL_PCH_TYPE(dev));
+	WARN(!(HAS_PCH_IBX(dev_priv) || HAS_PCH_CPT(dev_priv)),
+	     "Unexpected PCH type %d\n", INTEL_PCH_TYPE(dev_priv));
 
 	ok = ironlake_compute_clocks(&crtc->base, crtc_state, &clock,
 				     &has_reduced_clock, &reduced_clock);
