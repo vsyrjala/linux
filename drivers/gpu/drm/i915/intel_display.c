@@ -7603,13 +7603,9 @@ static void i9xx_compute_dpll(struct intel_crtc *crtc,
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 dpll;
-	bool is_sdvo;
 	struct dpll *clock = &crtc_state->dpll;
 
 	i9xx_update_pll_dividers(crtc, crtc_state, reduced_clock);
-
-	is_sdvo = intel_crtc_has_type(crtc_state, INTEL_OUTPUT_SDVO) ||
-		intel_crtc_has_type(crtc_state, INTEL_OUTPUT_HDMI);
 
 	dpll = DPLL_VGA_MODE_DIS;
 
@@ -7623,7 +7619,8 @@ static void i9xx_compute_dpll(struct intel_crtc *crtc,
 			<< SDVO_MULTIPLIER_SHIFT_HIRES;
 	}
 
-	if (is_sdvo)
+	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_SDVO) ||
+	    intel_crtc_has_type(crtc_state, INTEL_OUTPUT_HDMI))
 		dpll |= DPLL_SDVO_HIGH_SPEED;
 
 	if (crtc_state->has_dp_encoder)
@@ -8647,27 +8644,16 @@ static int ironlake_get_refclk(struct intel_crtc_state *crtc_state)
 	struct drm_atomic_state *state = crtc_state->base.state;
 	struct drm_connector *connector;
 	struct drm_connector_state *connector_state;
-	struct intel_encoder *encoder;
 	int num_connectors = 0, i;
-	bool is_lvds = false;
 
 	for_each_connector_in_state(state, connector, connector_state, i) {
 		if (connector_state->crtc != crtc_state->base.crtc)
 			continue;
-
-		encoder = to_intel_encoder(connector_state->best_encoder);
-
-		switch (encoder->type) {
-		case INTEL_OUTPUT_LVDS:
-			is_lvds = true;
-			break;
-		default:
-			break;
-		}
 		num_connectors++;
 	}
 
-	if (is_lvds && intel_panel_use_ssc(dev_priv) && num_connectors < 2) {
+	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS) &&
+	    intel_panel_use_ssc(dev_priv) && num_connectors < 2) {
 		DRM_DEBUG_KMS("using SSC reference clock of %d kHz\n",
 			      dev_priv->vbt.lvds_ssc_freq);
 		return dev_priv->vbt.lvds_ssc_freq;
@@ -8891,31 +8877,17 @@ static uint32_t ironlake_compute_dpll(struct intel_crtc *intel_crtc,
 	struct drm_atomic_state *state = crtc_state->base.state;
 	struct drm_connector *connector;
 	struct drm_connector_state *connector_state;
-	struct intel_encoder *encoder;
 	uint32_t dpll;
 	int factor, num_connectors = 0, i;
-	bool is_lvds = false, is_sdvo = false;
+	bool is_lvds;
 
 	for_each_connector_in_state(state, connector, connector_state, i) {
 		if (connector_state->crtc != crtc_state->base.crtc)
 			continue;
-
-		encoder = to_intel_encoder(connector_state->best_encoder);
-
-		switch (encoder->type) {
-		case INTEL_OUTPUT_LVDS:
-			is_lvds = true;
-			break;
-		case INTEL_OUTPUT_SDVO:
-		case INTEL_OUTPUT_HDMI:
-			is_sdvo = true;
-			break;
-		default:
-			break;
-		}
-
 		num_connectors++;
 	}
+
+	is_lvds = intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS);
 
 	/* Enable autotuning of the PLL clock (if permissible) */
 	factor = 21;
@@ -8943,8 +8915,10 @@ static uint32_t ironlake_compute_dpll(struct intel_crtc *intel_crtc,
 	dpll |= (crtc_state->pixel_multiplier - 1)
 		<< PLL_REF_SDVO_HDMI_MULTIPLIER_SHIFT;
 
-	if (is_sdvo)
+	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_SDVO) ||
+	    intel_crtc_has_type(crtc_state, INTEL_OUTPUT_HDMI))
 		dpll |= DPLL_SDVO_HIGH_SPEED;
+
 	if (crtc_state->has_dp_encoder)
 		dpll |= DPLL_SDVO_HIGH_SPEED;
 
@@ -8983,7 +8957,7 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 	intel_clock_t clock, reduced_clock;
 	u32 dpll = 0, fp = 0, fp2 = 0;
 	bool ok, has_reduced_clock = false;
-	bool is_lvds = false;
+	bool is_lvds;
 	struct intel_shared_dpll *pll;
 
 	memset(&crtc_state->dpll_hw_state, 0,
