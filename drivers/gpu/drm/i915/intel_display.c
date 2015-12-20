@@ -7957,7 +7957,6 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 			return -EINVAL;
 		}
 
-		/* Compat-code for transition, will disappear. */
 		crtc_state->dpll.n = clock.n;
 		crtc_state->dpll.m1 = clock.m1;
 		crtc_state->dpll.m2 = clock.m2;
@@ -8816,35 +8815,6 @@ static void haswell_set_pipeconf(struct drm_crtc *crtc)
 	}
 }
 
-static bool ironlake_compute_clocks(struct drm_crtc *crtc,
-				    struct intel_crtc_state *crtc_state,
-				    intel_clock_t *clock,
-				    bool *has_reduced_clock,
-				    intel_clock_t *reduced_clock)
-{
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	int refclk;
-	const intel_limit_t *limit;
-	bool ret;
-
-	refclk = ironlake_get_refclk(crtc_state);
-
-	/*
-	 * Returns a set of divisors for the desired target clock with the given
-	 * refclk, or FALSE.  The returned values represent the clock equation:
-	 * reflck * (5 * (m1 + 2) + (m2 + 2)) / (n + 2) / p1 / p2.
-	 */
-	limit = intel_limit(crtc_state, refclk);
-	ret = dev_priv->display.find_dpll(limit, crtc_state,
-					  crtc_state->port_clock,
-					  refclk, NULL, clock);
-	if (!ret)
-		return false;
-
-	return true;
-}
-
 int ironlake_get_lanes_required(int target_clock, int link_bw, int bpp)
 {
 	/*
@@ -8940,11 +8910,9 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 				       struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	intel_clock_t clock, reduced_clock;
-	u32 dpll = 0, fp = 0, fp2 = 0;
-	bool ok, has_reduced_clock = false;
+	intel_clock_t reduced_clock;
+	bool has_reduced_clock = false;
 	bool is_lvds;
-	struct intel_shared_dpll *pll;
 
 	memset(&crtc_state->dpll_hw_state, 0,
 	       sizeof(crtc_state->dpll_hw_state));
@@ -8954,14 +8922,28 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 	WARN(!(HAS_PCH_IBX(dev_priv) || HAS_PCH_CPT(dev_priv)),
 	     "Unexpected PCH type %d\n", INTEL_PCH_TYPE(dev_priv));
 
-	ok = ironlake_compute_clocks(&crtc->base, crtc_state, &clock,
-				     &has_reduced_clock, &reduced_clock);
-	if (!ok && !crtc_state->clock_set) {
-		DRM_ERROR("Couldn't find PLL settings for mode!\n");
-		return -EINVAL;
-	}
-	/* Compat-code for transition, will disappear. */
 	if (!crtc_state->clock_set) {
+		int refclk;
+		intel_clock_t clock;
+		bool ok;
+		const intel_limit_t *limit;
+
+		refclk = ironlake_get_refclk(crtc_state);
+
+		/*
+		 * Returns a set of divisors for the desired target clock with the given
+		 * refclk, or FALSE.  The returned values represent the clock equation:
+		 * reflck * (5 * (m1 + 2) + (m2 + 2)) / (n + 2) / p1 / p2.
+		 */
+		limit = intel_limit(crtc_state, refclk);
+		ok = dev_priv->display.find_dpll(limit, crtc_state,
+						 crtc_state->port_clock,
+						 refclk, NULL, &clock);
+		if (!ok) {
+			DRM_ERROR("Couldn't find PLL settings for mode!\n");
+			return -EINVAL;
+		}
+
 		crtc_state->dpll.n = clock.n;
 		crtc_state->dpll.m1 = clock.m1;
 		crtc_state->dpll.m2 = clock.m2;
@@ -8971,6 +8953,9 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 
 	/* CPU eDP is the only output that doesn't need a PCH PLL of its own. */
 	if (crtc_state->has_pch_encoder) {
+		struct intel_shared_dpll *pll;
+		u32 dpll, fp, fp2 = 0;
+
 		fp = i9xx_dpll_compute_fp(&crtc_state->dpll);
 		if (has_reduced_clock)
 			fp2 = i9xx_dpll_compute_fp(&reduced_clock);
