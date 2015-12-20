@@ -553,7 +553,6 @@ struct intel_crtc {
 	 */
 	bool active;
 	unsigned long enabled_power_domains;
-	bool lowfreq_avail;
 	struct intel_overlay *overlay;
 	struct intel_unpin_work *unpin_work;
 

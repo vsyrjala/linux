@@ -7293,13 +7293,10 @@ static void i9xx_update_pll_dividers(struct intel_crtc *crtc,
 
 	crtc_state->dpll_hw_state.fp0 = fp;
 
-	if (reduced_clock) {
+	if (reduced_clock)
 		crtc_state->dpll_hw_state.fp1 = fp2;
-		crtc->lowfreq_avail = true;
-	} else {
+	else
 		crtc_state->dpll_hw_state.fp1 = fp;
-		crtc->lowfreq_avail = false;
-	}
 }
 
 static void vlv_pllb_recal_opamp(struct drm_i915_private *dev_priv, enum pipe
@@ -8931,13 +8928,10 @@ static void ironlake_update_pll_dividers(struct intel_crtc *crtc,
 
 	crtc_state->dpll_hw_state.fp0 = fp;
 
-	if (reduced_clock) {
+	if (reduced_clock)
 		crtc_state->dpll_hw_state.fp1 = fp2;
-		crtc->lowfreq_avail = true;
-	} else {
+	else
 		crtc_state->dpll_hw_state.fp1 = fp;
-		crtc->lowfreq_avail = false;
-	}
 }
 
 static void ironlake_compute_dpll(struct intel_crtc *crtc,
@@ -9806,8 +9800,6 @@ static int haswell_crtc_compute_clock(struct intel_crtc *crtc,
 {
 	if (!intel_ddi_pll_select(crtc, crtc_state))
 		return -EINVAL;
-
-	crtc->lowfreq_avail = false;
 
 	return 0;
 }
