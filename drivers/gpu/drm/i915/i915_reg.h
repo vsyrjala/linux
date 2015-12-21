@@ -4438,9 +4438,8 @@ enum skl_disp_power_wells {
 #define   PIPECONF_INTERLACED_DBL_ILK		(4 << 21) /* ilk/snb only */
 #define   PIPECONF_PFIT_PF_INTERLACED_DBL_ILK	(5 << 21) /* ilk/snb only */
 #define   PIPECONF_INTERLACE_MODE_MASK		(7 << 21)
-#define   PIPECONF_EDP_RR_MODE_SWITCH		(1 << 20)
-#define   PIPECONF_CXSR_DOWNCLOCK	(1<<16)
-#define   PIPECONF_EDP_RR_MODE_SWITCH_VLV	(1 << 14)
+#define   PIPECONF_REFRESH_RATE_LOW_ILK		(1 << 20)
+#define   PIPECONF_REFRESH_RATE_LOW_VLV		(1 << 14)
 #define   PIPECONF_COLOR_RANGE_SELECT	(1 << 13)
 #define   PIPECONF_BPC_MASK	(0x7 << 5)
 #define   PIPECONF_8BPC		(0<<5)

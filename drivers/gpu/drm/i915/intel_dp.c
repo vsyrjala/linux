@@ -5421,14 +5421,14 @@ static void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 		val = I915_READ(reg);
 		if (index == DRRS_LOW_RR) {
 			if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
-				val |= PIPECONF_EDP_RR_MODE_SWITCH_VLV;
+				val |= PIPECONF_REFRESH_RATE_LOW_VLV;
 			else
-				val |= PIPECONF_EDP_RR_MODE_SWITCH;
+				val |= PIPECONF_REFRESH_RATE_LOW_ILK;
 		} else {
 			if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
-				val &= ~PIPECONF_EDP_RR_MODE_SWITCH_VLV;
+				val &= ~PIPECONF_REFRESH_RATE_LOW_VLV;
 			else
-				val &= ~PIPECONF_EDP_RR_MODE_SWITCH;
+				val &= ~PIPECONF_REFRESH_RATE_LOW_ILK;
 		}
 		I915_WRITE(reg, val);
 	}
