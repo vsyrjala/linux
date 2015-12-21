@@ -2986,7 +2986,7 @@ static void intel_connector_info(struct seq_file *m,
 			   connector->display_info.cea_rev);
 	}
 	if (intel_encoder) {
-		if (intel_encoder->type == INTEL_OUTPUT_DISPLAYPORT ||
+		if (intel_encoder->type == INTEL_OUTPUT_DP ||
 		    intel_encoder->type == INTEL_OUTPUT_EDP)
 			intel_dp_info(m, intel_connector);
 		else if (intel_encoder->type == INTEL_OUTPUT_HDMI)
@@ -3387,7 +3387,7 @@ static void drrs_status_per_crtc(struct seq_file *m,
 		case INTEL_OUTPUT_HDMI:
 			seq_puts(m, "HDMI:\n");
 			break;
-		case INTEL_OUTPUT_DISPLAYPORT:
+		case INTEL_OUTPUT_DP:
 			seq_puts(m, "DP:\n");
 			break;
 		default:
@@ -3492,7 +3492,7 @@ static int i915_dp_mst_info(struct seq_file *m, void *unused)
 	drm_modeset_lock_all(dev);
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		intel_encoder = to_intel_encoder(encoder);
-		if (intel_encoder->type != INTEL_OUTPUT_DISPLAYPORT)
+		if (intel_encoder->type != INTEL_OUTPUT_DP)
 			continue;
 		intel_dig_port = enc_to_dig_port(encoder);
 		if (!intel_dig_port->dp.can_mst)
@@ -3754,7 +3754,7 @@ static int i9xx_pipe_crc_auto_source(struct drm_device *dev, enum pipe pipe,
 		case INTEL_OUTPUT_TVOUT:
 			*source = INTEL_PIPE_CRC_SOURCE_TV;
 			break;
-		case INTEL_OUTPUT_DISPLAYPORT:
+		case INTEL_OUTPUT_DP:
 		case INTEL_OUTPUT_EDP:
 			dig_port = enc_to_dig_port(&encoder->base);
 			switch (dig_port->port) {
