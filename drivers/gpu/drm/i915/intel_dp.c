@@ -5412,8 +5412,11 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 	if (fixed_mode && intel_dp_drrs_supported(connector, port))
 		downclock_mode = intel_panel_edid_downclock_mode(connector, fixed_mode);
 
-	if (!fixed_mode)
+	if (!fixed_mode) {
 		fixed_mode = intel_panel_vbt_fixed_mode(connector);
+		if (fixed_mode && intel_dp_drrs_supported(connector, port))
+			downclock_mode = intel_panel_vbt_downclock_mode(connector, fixed_mode);
+	}
 
 	mutex_unlock(&dev->mode_config.mutex);
 
