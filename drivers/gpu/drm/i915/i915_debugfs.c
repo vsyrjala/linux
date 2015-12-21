@@ -3322,7 +3322,7 @@ static void drrs_status_per_crtc(struct seq_file *m,
 
 	seq_puts(m, "\n\n");
 
-	if (to_intel_crtc_state(intel_crtc->base.state)->has_drrs) {
+	if (to_intel_crtc_state(intel_crtc->base.state)->dotclock_low) {
 		struct intel_panel *panel;
 
 		mutex_lock(&drrs->mutex);

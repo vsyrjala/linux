@@ -444,7 +444,6 @@ struct intel_crtc_state {
 
 	/* m2_n2 for eDP downclock */
 	struct intel_link_m_n dp_m2_n2;
-	bool has_drrs;
 
 	/*
 	 * Frequence the dpll for the port should run at. Differs from the

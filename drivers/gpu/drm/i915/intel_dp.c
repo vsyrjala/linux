@@ -1544,7 +1544,6 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	if (HAS_PCH_SPLIT(dev) && !HAS_DDI(dev) && port != PORT_A)
 		pipe_config->has_pch_encoder = true;
 
-	pipe_config->has_drrs = false;
 	pipe_config->has_audio = intel_dp->has_audio && port != PORT_A;
 
 	if (is_edp(intel_dp) && intel_connector->panel.fixed_mode) {
@@ -1654,7 +1653,6 @@ found:
 			       &pipe_config->dp_m_n);
 
 	if (downclock_mode) {
-		pipe_config->has_drrs = true;
 		pipe_config->dotclock_low = downclock_mode->clock;
 
 		intel_link_compute_m_n(bpp, lane_count,
@@ -5433,7 +5431,7 @@ void intel_edp_drrs_enable(struct intel_dp *intel_dp)
 	struct drm_crtc *crtc = dig_port->base.base.crtc;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 
-	if (!intel_crtc->config->has_drrs) {
+	if (intel_crtc->config->dotclock_low == 0) {
 		DRM_DEBUG_KMS("Panel doesn't support DRRS\n");
 		return;
 	}
@@ -5461,12 +5459,6 @@ void intel_edp_drrs_disable(struct intel_dp *intel_dp)
 {
 	struct drm_device *dev = intel_dp_to_dev(intel_dp);
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
-	struct drm_crtc *crtc = dig_port->base.base.crtc;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-
-	if (!intel_crtc->config->has_drrs)
-		return;
 
 	mutex_lock(&dev_priv->drrs.mutex);
 	if (!dev_priv->drrs.dp) {
