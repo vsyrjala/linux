@@ -1110,9 +1110,14 @@ void intel_lvds_init(struct drm_device *dev)
 	}
 
 	fixed_mode = intel_panel_edid_fixed_mode(connector);
+	if (fixed_mode)
+		downclock_mode = intel_panel_edid_downclock_mode(connector, fixed_mode);
 
-	if (!fixed_mode)
+	if (!fixed_mode) {
 		fixed_mode = intel_panel_vbt_fixed_mode(connector);
+		if (fixed_mode)
+			downclock_mode = intel_panel_vbt_downclock_mode(connector, fixed_mode);
+	}
 
 	if (fixed_mode)
 		goto out;
