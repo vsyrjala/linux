@@ -125,6 +125,9 @@ void intel_crtc_drrs_enable(struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
+	if (!i915.drrs)
+		return;
+
 	if (crtc->config->dotclock_low == 0)
 		return;
 

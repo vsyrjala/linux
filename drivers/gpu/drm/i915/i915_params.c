@@ -58,6 +58,10 @@ struct i915_params i915 __read_mostly = {
 	.guc_log_level = -1,
 };
 
+module_param_named(drrs, i915.drrs, bool, 0600);
+MODULE_PARM_DESC(drrs,
+	"Use DRRS (default: false");
+
 module_param_named(modeset, i915.modeset, int, 0400);
 MODULE_PARM_DESC(modeset,
 	"Use kernel modesetting [KMS] (0=disable, "

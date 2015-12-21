@@ -2692,6 +2692,7 @@ struct i915_params {
 	bool verbose_state_checks;
 	bool nuclear_pageflip;
 	int edp_vswing;
+	bool drrs;
 };
 extern struct i915_params i915 __read_mostly;
 
