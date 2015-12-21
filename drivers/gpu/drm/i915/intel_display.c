@@ -739,6 +739,51 @@ i9xx_select_p2_div(const intel_limit_t *limit,
 	}
 }
 
+#define dump_pll_limit(x) DRM_DEBUG(" " #x ": [%d-%d]\n", limit->x.min, limit->x.max)
+
+static void intel_pll_dump_limits(struct drm_i915_private *dev_priv,
+				  int refclk, const intel_limit_t *limit)
+{
+	DRM_DEBUG("DPLL limits:\n");
+	DRM_DEBUG(" refclk: %d kHz\n", refclk);
+	dump_pll_limit(dot);
+	dump_pll_limit(vco);
+	dump_pll_limit(n);
+	dump_pll_limit(m);
+	dump_pll_limit(m1);
+	dump_pll_limit(m2);
+	dump_pll_limit(p);
+	dump_pll_limit(p1);
+	if (IS_VALLEYVIEW(dev_priv) ||
+	    IS_CHERRYVIEW(dev_priv) || IS_BROXTON(dev_priv))
+		DRM_DEBUG(" p2: [%d-%d]\n",
+			  limit->p2.p2_slow, limit->p2.p2_fast);
+	else
+		DRM_DEBUG(" p2: dot_limit=%d kHz, slow=%d, fast=%d\n",
+			  limit->p2.dot_limit,
+			  limit->p2.p2_slow, limit->p2.p2_fast);
+}
+
+#undef dump_pll_limit
+
+static void intel_pll_dump_clock(int target,
+				 const intel_clock_t *clock, bool found)
+{
+	if (!found) {
+		DRM_DEBUG("DPLL target %d not found\n", target);
+		return;
+	}
+
+	DRM_DEBUG("DPLL target: %d kHz\n", target);
+	DRM_DEBUG(" dot: %d kHz, vco: %d kHz\n",
+		  clock->dot, clock->vco);
+	DRM_DEBUG(" n: %4d\n", clock->n);
+	DRM_DEBUG(" m1: %3d, m2: %3d, m: %3d\n",
+		  clock->m1, clock->m2, clock->m);
+	DRM_DEBUG(" p1: %3d, p2: %3d, p: %3d \n",
+		  clock->p1, clock->p2, clock->p);
+}
+
 static bool
 i9xx_find_best_dpll(const intel_limit_t *limit,
 		    struct intel_crtc_state *crtc_state,
@@ -1040,10 +1085,19 @@ chv_find_best_dpll(const intel_limit_t *limit,
 bool bxt_find_best_dpll(struct intel_crtc_state *crtc_state, int target_clock,
 			intel_clock_t *best_clock)
 {
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
+	bool ok;
 	int refclk = 100000;
+	const intel_limit_t *limit = intel_limit(crtc_state, refclk);
 
-	return chv_find_best_dpll(intel_limit(crtc_state, refclk), crtc_state,
-				  target_clock, refclk, NULL, best_clock);
+	intel_pll_dump_limits(dev_priv, refclk, limit);
+
+	ok = chv_find_best_dpll(intel_limit(crtc_state, refclk), crtc_state,
+				target_clock, refclk, NULL, best_clock);
+
+	intel_pll_dump_clock(target_clock, best_clock, ok);
+
+	return ok;
 }
 
 bool intel_crtc_active(struct drm_crtc *crtc)
@@ -7965,9 +8019,15 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 		 * 2) / p1 / p2.
 		 */
 		limit = intel_limit(crtc_state, refclk);
+
+		intel_pll_dump_limits(dev_priv, refclk, limit);
+
 		ok = dev_priv->display.find_dpll(limit, crtc_state,
 						 crtc_state->port_clock,
 						 refclk, NULL, &clock);
+
+		intel_pll_dump_clock(crtc_state->port_clock, &clock, ok);
+
 		if (!ok) {
 			DRM_ERROR("Couldn't find PLL settings for mode!\n");
 			return -EINVAL;
@@ -8972,9 +9032,15 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 		 * reflck * (5 * (m1 + 2) + (m2 + 2)) / (n + 2) / p1 / p2.
 		 */
 		limit = intel_limit(crtc_state, refclk);
+
+		intel_pll_dump_limits(dev_priv, refclk, limit);
+
 		ok = dev_priv->display.find_dpll(limit, crtc_state,
 						 crtc_state->port_clock,
 						 refclk, NULL, &clock);
+
+		intel_pll_dump_clock(crtc_state->port_clock, &clock, ok);
+
 		if (!ok) {
 			DRM_ERROR("Couldn't find PLL settings for mode!\n");
 			return -EINVAL;
