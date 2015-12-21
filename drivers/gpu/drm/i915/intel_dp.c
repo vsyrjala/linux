@@ -5361,7 +5361,7 @@ static void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 	struct intel_dp *intel_dp = dev_priv->drrs.dp;
 	struct intel_crtc_state *config = NULL;
 	struct intel_crtc *intel_crtc = NULL;
-	enum drrs_refresh_rate_type index = DRRS_HIGH_RR;
+	enum drrs_refresh_rate index = DRRS_REFRESH_RATE_HIGH;
 
 	if (refresh_rate <= 0) {
 		DRM_DEBUG_KMS("Refresh rate should be positive non-zero.\n");
@@ -5396,7 +5396,7 @@ static void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 
 	if (intel_dp->attached_connector->panel.downclock_mode->vrefresh ==
 			refresh_rate)
-		index = DRRS_LOW_RR;
+		index = DRRS_REFRESH_RATE_LOW;
 
 	if (index == dev_priv->drrs.refresh_rate_type) {
 		DRM_DEBUG_KMS(
@@ -5410,7 +5410,7 @@ static void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 	}
 
 	if (INTEL_INFO(dev)->gen >= 8 && !IS_CHERRYVIEW(dev)) {
-		if (index == DRRS_LOW_RR)
+		if (index == DRRS_REFRESH_RATE_LOW)
 			intel_dp_set_m_n(intel_crtc, &intel_crtc->config->dp_m2_n2);
 		else
 			intel_dp_set_m_n(intel_crtc, &intel_crtc->config->dp_m_n);
@@ -5419,7 +5419,7 @@ static void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 		u32 val;
 
 		val = I915_READ(reg);
-		if (index == DRRS_LOW_RR) {
+		if (index == DRRS_REFRESH_RATE_LOW) {
 			if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
 				val |= PIPECONF_REFRESH_RATE_LOW_VLV;
 			else
@@ -5493,7 +5493,7 @@ void intel_edp_drrs_disable(struct intel_dp *intel_dp)
 		return;
 	}
 
-	if (dev_priv->drrs.refresh_rate_type == DRRS_LOW_RR)
+	if (dev_priv->drrs.refresh_rate_type == DRRS_REFRESH_RATE_LOW)
 		intel_dp_set_drrs_state(dev_priv->dev,
 			intel_dp->attached_connector->panel.
 			fixed_mode->vrefresh);
@@ -5525,7 +5525,7 @@ static void intel_edp_drrs_downclock_work(struct work_struct *work)
 	if (dev_priv->drrs.busy_frontbuffer_bits)
 		goto unlock;
 
-	if (dev_priv->drrs.refresh_rate_type != DRRS_LOW_RR)
+	if (dev_priv->drrs.refresh_rate_type != DRRS_REFRESH_RATE_LOW)
 		intel_dp_set_drrs_state(dev_priv->dev,
 			intel_dp->attached_connector->panel.
 			downclock_mode->vrefresh);
@@ -5569,7 +5569,8 @@ void intel_edp_drrs_invalidate(struct drm_device *dev,
 	dev_priv->drrs.busy_frontbuffer_bits |= frontbuffer_bits;
 
 	/* invalidate means busy screen hence upclock */
-	if (frontbuffer_bits && dev_priv->drrs.refresh_rate_type == DRRS_LOW_RR)
+	if (frontbuffer_bits &&
+	    dev_priv->drrs.refresh_rate_type == DRRS_REFRESH_RATE_LOW)
 		intel_dp_set_drrs_state(dev_priv->dev,
 				dev_priv->drrs.dp->attached_connector->panel.
 				fixed_mode->vrefresh);
@@ -5614,7 +5615,8 @@ void intel_edp_drrs_flush(struct drm_device *dev,
 	dev_priv->drrs.busy_frontbuffer_bits &= ~frontbuffer_bits;
 
 	/* flush means busy screen hence upclock */
-	if (frontbuffer_bits && dev_priv->drrs.refresh_rate_type == DRRS_LOW_RR)
+	if (frontbuffer_bits &&
+	    dev_priv->drrs.refresh_rate_type == DRRS_REFRESH_RATE_LOW)
 		intel_dp_set_drrs_state(dev_priv->dev,
 				dev_priv->drrs.dp->attached_connector->panel.
 				fixed_mode->vrefresh);
@@ -5709,7 +5711,7 @@ intel_dp_drrs_init(struct intel_connector *intel_connector,
 
 	dev_priv->drrs.type = dev_priv->vbt.drrs_type;
 
-	dev_priv->drrs.refresh_rate_type = DRRS_HIGH_RR;
+	dev_priv->drrs.refresh_rate_type = DRRS_REFRESH_RATE_HIGH;
 	DRM_DEBUG_KMS("seamless DRRS supported for eDP panel.\n");
 	return downclock_mode;
 }
