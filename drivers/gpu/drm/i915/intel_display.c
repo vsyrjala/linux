@@ -7937,6 +7937,38 @@ void intel_mode_from_pipe_config(struct drm_display_mode *mode,
 	drm_mode_set_name(mode);
 }
 
+void intel_crtc_pipeconf_set_refresh_rate(struct intel_crtc *crtc,
+					  enum drrs_refresh_rate rate)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum transcoder cpu_transcoder = crtc->config->cpu_transcoder;
+	u32 val, bit;
+
+	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
+		bit = PIPECONF_REFRESH_RATE_LOW_VLV;
+	else
+		bit = PIPECONF_REFRESH_RATE_LOW_ILK;
+
+	val = I915_READ(PIPECONF(cpu_transcoder));
+
+	if (rate == DRRS_REFRESH_RATE_LOW)
+		val |= bit;
+	else
+		val &= ~bit;
+
+	I915_WRITE(PIPECONF(cpu_transcoder), val);
+	POSTING_READ(PIPECONF(cpu_transcoder));
+}
+
+void intel_crtc_dp_m_n_set_refresh_rate(struct intel_crtc *crtc,
+					enum drrs_refresh_rate rate)
+{
+	if (rate == DRRS_REFRESH_RATE_LOW)
+		intel_dp_set_m_n(crtc, &crtc->config->dp_m2_n2);
+	else
+		intel_dp_set_m_n(crtc, &crtc->config->dp_m_n);
+}
+
 static void i9xx_set_pipeconf(struct intel_crtc *intel_crtc)
 {
 	struct drm_device *dev = intel_crtc->base.dev;

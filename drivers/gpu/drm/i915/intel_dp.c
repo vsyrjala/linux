@@ -5410,27 +5410,9 @@ static void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 	}
 
 	if (INTEL_INFO(dev)->gen >= 8 && !IS_CHERRYVIEW(dev)) {
-		if (index == DRRS_REFRESH_RATE_LOW)
-			intel_dp_set_m_n(intel_crtc, &intel_crtc->config->dp_m2_n2);
-		else
-			intel_dp_set_m_n(intel_crtc, &intel_crtc->config->dp_m_n);
+		intel_crtc_dp_m_n_set_refresh_rate(intel_crtc, index);
 	} else if (INTEL_INFO(dev)->gen > 6) {
-		i915_reg_t reg = PIPECONF(intel_crtc->config->cpu_transcoder);
-		u32 val;
-
-		val = I915_READ(reg);
-		if (index == DRRS_REFRESH_RATE_LOW) {
-			if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
-				val |= PIPECONF_REFRESH_RATE_LOW_VLV;
-			else
-				val |= PIPECONF_REFRESH_RATE_LOW_ILK;
-		} else {
-			if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
-				val &= ~PIPECONF_REFRESH_RATE_LOW_VLV;
-			else
-				val &= ~PIPECONF_REFRESH_RATE_LOW_ILK;
-		}
-		I915_WRITE(reg, val);
+		intel_crtc_pipeconf_set_refresh_rate(intel_crtc, index);
 	}
 
 	dev_priv->drrs.refresh_rate_type = index;
