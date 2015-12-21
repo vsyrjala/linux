@@ -718,26 +718,6 @@ struct intel_hdmi {
 struct intel_dp_mst_encoder;
 #define DP_MAX_DOWNSTREAM_PORTS		0x10
 
-/*
- * enum link_m_n_set:
- *	When platform provides two set of M_N registers for dp, we can
- *	program them and switch between them incase of DRRS.
- *	But When only one such register is provided, we have to program the
- *	required divider value on that registers itself based on the DRRS state.
- *
- * M1_N1	: Program dp_m_n on M1_N1 registers
- *			  dp_m2_n2 on M2_N2 registers (If supported)
- *
- * M2_N2	: Program dp_m2_n2 on M1_N1 registers
- *			  M2_N2 registers are not supported
- */
-
-enum link_m_n_set {
-	/* Sets the m1_n1 and m2_n2 */
-	M1_N1 = 0,
-	M2_N2
-};
-
 struct intel_dp {
 	i915_reg_t output_reg;
 	i915_reg_t aux_ch_ctl_reg;
@@ -1190,7 +1170,9 @@ void skl_enable_dc6(struct drm_i915_private *dev_priv);
 void skl_disable_dc6(struct drm_i915_private *dev_priv);
 void intel_dp_get_m_n(struct intel_crtc *crtc,
 		      struct intel_crtc_state *pipe_config);
-void intel_dp_set_m_n(struct intel_crtc *crtc, enum link_m_n_set m_n);
+void intel_dp_get_m2_n2(struct intel_crtc *crtc,
+			struct intel_crtc_state *pipe_config);
+void intel_dp_set_m_n(struct intel_crtc *crtc, const struct intel_link_m_n *m_n);
 int intel_dotclock_calculate(int link_freq, const struct intel_link_m_n *m_n);
 void
 ironlake_check_encoder_dotclock(const struct intel_crtc_state *pipe_config,

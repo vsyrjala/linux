@@ -3181,6 +3181,8 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 		pipe_config->lane_count =
 			((temp & DDI_PORT_WIDTH_MASK) >> DDI_PORT_WIDTH_SHIFT) + 1;
 		intel_dp_get_m_n(intel_crtc, pipe_config);
+		if (IS_HASWELL(dev_priv) && cpu_transcoder == TRANSCODER_EDP)
+			intel_dp_get_m2_n2(intel_crtc, pipe_config);
 		break;
 	default:
 		break;

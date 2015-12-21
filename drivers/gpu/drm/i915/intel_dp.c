@@ -2448,6 +2448,8 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 		((tmp & DP_PORT_WIDTH_MASK) >> DP_PORT_WIDTH_SHIFT) + 1;
 
 	intel_dp_get_m_n(crtc, pipe_config);
+	if (!IS_G4X(dev_priv))
+		intel_dp_get_m2_n2(crtc, pipe_config);
 
 	if (port == PORT_A) {
 		if ((I915_READ(DP_A) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
@@ -5408,23 +5410,16 @@ static void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 	}
 
 	if (INTEL_INFO(dev)->gen >= 8 && !IS_CHERRYVIEW(dev)) {
-		switch (index) {
-		case DRRS_HIGH_RR:
-			intel_dp_set_m_n(intel_crtc, M1_N1);
-			break;
-		case DRRS_LOW_RR:
-			intel_dp_set_m_n(intel_crtc, M2_N2);
-			break;
-		case DRRS_MAX_RR:
-		default:
-			DRM_ERROR("Unsupported refreshrate type\n");
-		}
+		if (index == DRRS_LOW_RR)
+			intel_dp_set_m_n(intel_crtc, &intel_crtc->config->dp_m2_n2);
+		else
+			intel_dp_set_m_n(intel_crtc, &intel_crtc->config->dp_m_n);
 	} else if (INTEL_INFO(dev)->gen > 6) {
 		i915_reg_t reg = PIPECONF(intel_crtc->config->cpu_transcoder);
 		u32 val;
 
 		val = I915_READ(reg);
-		if (index > DRRS_HIGH_RR) {
+		if (index == DRRS_LOW_RR) {
 			if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
 				val |= PIPECONF_EDP_RR_MODE_SWITCH_VLV;
 			else
