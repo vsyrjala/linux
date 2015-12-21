@@ -572,11 +572,11 @@ intel_limit(struct intel_crtc_state *crtc_state, int refclk)
 	struct drm_device *dev = crtc_state->base.crtc->dev;
 	const intel_limit_t *limit;
 
-	if (IS_BROXTON(dev))
+	if (IS_BROXTON(dev)) {
 		limit = &intel_limits_bxt;
-	else if (HAS_PCH_SPLIT(dev))
+	} else if (HAS_PCH_SPLIT(dev)) {
 		limit = intel_ironlake_limit(crtc_state, refclk);
-	else if (IS_G4X(dev)) {
+	} else if (IS_G4X(dev)) {
 		limit = intel_g4x_limit(crtc_state);
 	} else if (IS_PINEVIEW(dev)) {
 		if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS))
