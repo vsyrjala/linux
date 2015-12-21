@@ -5343,9 +5343,6 @@ static bool intel_dp_drrs_supported(struct drm_connector *connector,
 {
 	struct drm_i915_private *dev_priv = to_i915(connector->dev);
 
-	if (INTEL_INFO(dev_priv)->gen < 7 || IS_IVYBRIDGE(dev_priv))
-		return false;
-
 	/* Only TRANSCODER_EDP has M2/N2 */
 	if (IS_HASWELL(dev_priv) && port != PORT_A)
 		return false;
