@@ -4936,6 +4936,8 @@ static void ironlake_crtc_enable(struct drm_crtc *crtc)
 	if (intel_crtc->config->has_pch_encoder) {
 		intel_cpu_transcoder_set_m_n(intel_crtc,
 					     &intel_crtc->config->fdi_m_n);
+		intel_cpu_transcoder_set_m2_n2(intel_crtc,
+					       &intel_crtc->config->fdi_m2_n2);
 	}
 
 	ironlake_set_pipeconf(crtc);
@@ -6684,6 +6686,11 @@ retry:
 
 	intel_link_compute_m_n(pipe_config->pipe_bpp, lane, fdi_dotclock,
 			       link_bw, &pipe_config->fdi_m_n);
+
+	if (pipe_config->dotclock_low)
+		intel_link_compute_m_n(pipe_config->pipe_bpp, lane,
+				       pipe_config->dotclock_low,
+				       link_bw, &pipe_config->fdi_m2_n2);
 
 	ret = ironlake_check_fdi_lanes(intel_crtc->base.dev,
 				       intel_crtc->pipe, pipe_config);
@@ -9089,6 +9096,11 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 				DRM_DEBUG_DRIVER("Couldn't find PLL settings for reduced clock (%d kHz)\n",
 						 crtc_state->dotclock_low);
 				crtc_state->dotclock_low = 0;
+				/* FIXME should really compute FDI M/N after the
+				 * DPLL, and using the actual DPLL output frequency as
+				 * the FDI dotclock.
+				 */
+				memset(&crtc_state->fdi_m2_n2, 0, sizeof(crtc_state->fdi_m2_n2));
 			}
 		}
 
@@ -9189,6 +9201,13 @@ static void ironlake_get_fdi_m_n_config(struct intel_crtc *crtc,
 {
 	intel_cpu_transcoder_get_m_n(crtc, pipe_config->cpu_transcoder,
 				     &pipe_config->fdi_m_n);
+}
+
+static void ironlake_get_fdi_m2_n2_config(struct intel_crtc *crtc,
+					  struct intel_crtc_state *pipe_config)
+{
+	intel_cpu_transcoder_get_m2_n2(crtc, pipe_config->cpu_transcoder,
+				       &pipe_config->fdi_m2_n2);
 }
 
 static void skylake_get_pfit_config(struct intel_crtc *crtc,
@@ -9446,6 +9465,7 @@ static bool ironlake_get_pipe_config(struct intel_crtc *crtc,
 					  FDI_DP_PORT_WIDTH_SHIFT) + 1;
 
 		ironlake_get_fdi_m_n_config(crtc, pipe_config);
+		ironlake_get_fdi_m2_n2_config(crtc, pipe_config);
 
 		if (HAS_PCH_IBX(dev_priv->dev)) {
 			pipe_config->shared_dpll =
@@ -12201,6 +12221,12 @@ static void intel_dump_pipe_config(struct intel_crtc *crtc,
 		      pipe_config->fdi_m_n.gmch_m, pipe_config->fdi_m_n.gmch_n,
 		      pipe_config->fdi_m_n.link_m, pipe_config->fdi_m_n.link_n,
 		      pipe_config->fdi_m_n.tu);
+	DRM_DEBUG_KMS("fdi/pch: %i, lanes: %i, gmch_m2: %u, gmch_n2: %u, link_m2: %u, link_n2: %u, tu: %u\n",
+		      pipe_config->has_pch_encoder,
+		      pipe_config->fdi_lanes,
+		      pipe_config->fdi_m2_n2.gmch_m, pipe_config->fdi_m2_n2.gmch_n,
+		      pipe_config->fdi_m2_n2.link_m, pipe_config->fdi_m2_n2.link_n,
+		      pipe_config->fdi_m2_n2.tu);
 
 	DRM_DEBUG_KMS("dp: %i, lanes: %i, gmch_m: %u, gmch_n: %u, link_m: %u, link_n: %u, tu: %u\n",
 		      intel_crtc_has_dp_encoder(pipe_config),
@@ -12725,6 +12751,7 @@ intel_pipe_config_compare(struct drm_device *dev,
 	PIPE_CONF_CHECK_I(has_pch_encoder);
 	PIPE_CONF_CHECK_I(fdi_lanes);
 	PIPE_CONF_CHECK_M_N(fdi_m_n);
+	PIPE_CONF_CHECK_M_N(fdi_m2_n2);
 
 	PIPE_CONF_CHECK_I(lane_count);
 
