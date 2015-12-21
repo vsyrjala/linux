@@ -746,6 +746,8 @@ i9xx_find_best_dpll(const intel_limit_t *limit,
 	memset(best_clock, 0, sizeof(*best_clock));
 
 	clock.p2 = i9xx_select_p2_div(limit, crtc_state, target);
+	if (match_clock && clock.p2 != match_clock->p2)
+		return false;
 
 	for (clock.m1 = limit->m1.min; clock.m1 <= limit->m1.max;
 	     clock.m1++) {
@@ -793,6 +795,8 @@ pnv_find_best_dpll(const intel_limit_t *limit,
 	memset(best_clock, 0, sizeof(*best_clock));
 
 	clock.p2 = i9xx_select_p2_div(limit, crtc_state, target);
+	if (match_clock && clock.p2 != match_clock->p2)
+		return false;
 
 	for (clock.m1 = limit->m1.min; clock.m1 <= limit->m1.max;
 	     clock.m1++) {
@@ -841,6 +845,8 @@ g4x_find_best_dpll(const intel_limit_t *limit,
 	memset(best_clock, 0, sizeof(*best_clock));
 
 	clock.p2 = i9xx_select_p2_div(limit, crtc_state, target);
+	if (match_clock && clock.p2 != match_clock->p2)
+		return false;
 
 	max_n = limit->n.max;
 	/* based on hardware requirement, prefer smaller n to precision */
