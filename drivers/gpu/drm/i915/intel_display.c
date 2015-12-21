@@ -7940,6 +7940,23 @@ void intel_mode_from_pipe_config(struct drm_display_mode *mode,
 	drm_mode_set_name(mode);
 }
 
+void intel_crtc_dpll_set_refresh_rate(struct intel_crtc *crtc,
+				      enum drrs_refresh_rate rate)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+	u32 dpll;
+
+	dpll = crtc->config->dpll_hw_state.dpll;
+
+	/* FIXME gen4 bspec says this bit is reserved for 965g/gm? */
+	if (rate == DRRS_REFRESH_RATE_LOW)
+		dpll |= DISPLAY_RATE_SELECT_FPA1;
+
+	I915_WRITE(DPLL(pipe), dpll);
+	POSTING_READ(DPLL(pipe));
+}
+
 void intel_crtc_pipeconf_set_refresh_rate(struct intel_crtc *crtc,
 					  enum drrs_refresh_rate rate)
 {

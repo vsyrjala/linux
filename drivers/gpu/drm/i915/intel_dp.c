@@ -5367,6 +5367,8 @@ static void intel_crtc_drrs_set_refresh_rate(struct intel_crtc *crtc,
 		intel_crtc_dp_m_n_set_refresh_rate(crtc, rate);
 	else if (INTEL_INFO(dev_priv)->gen >= 5)
 		intel_crtc_pipeconf_set_refresh_rate(crtc, rate);
+	else
+		intel_crtc_dpll_set_refresh_rate(crtc, rate);
 
 	crtc->drrs.rate = rate;
 

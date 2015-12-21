@@ -1139,6 +1139,8 @@ struct intel_shared_dpll *intel_get_shared_dpll(struct intel_crtc *crtc,
 void vlv_force_pll_on(struct drm_device *dev, enum pipe pipe,
 		      const struct dpll *dpll);
 void vlv_force_pll_off(struct drm_device *dev, enum pipe pipe);
+void intel_crtc_dpll_set_refresh_rate(struct intel_crtc *crtc,
+				      enum drrs_refresh_rate rate);
 void intel_crtc_pipeconf_set_refresh_rate(struct intel_crtc *crtc,
 					  enum drrs_refresh_rate rate);
 void intel_crtc_dp_m_n_set_refresh_rate(struct intel_crtc *crtc,
