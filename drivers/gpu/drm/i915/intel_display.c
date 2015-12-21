@@ -4991,6 +4991,7 @@ static void ironlake_crtc_enable(struct drm_crtc *crtc)
 	intel_set_pch_fifo_underrun_reporting(dev_priv, pipe, true);
 
 	intel_fbc_enable(intel_crtc);
+	intel_crtc_drrs_enable(intel_crtc);
 }
 
 /* IPS only exists on ULT machines and is tied to pipe A. */
@@ -5136,6 +5137,8 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_encoder *encoder;
 	int pipe = intel_crtc->pipe;
+
+	intel_crtc_drrs_disable(intel_crtc);
 
 	if (intel_crtc->config->has_pch_encoder)
 		intel_set_pch_fifo_underrun_reporting(dev_priv, pipe, false);
