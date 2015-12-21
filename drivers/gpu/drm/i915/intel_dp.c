@@ -5473,7 +5473,7 @@ static void intel_drrs_update(struct drm_i915_private *dev_priv,
 			cancel_delayed_work(&crtc->drrs.work);
 		else
 			schedule_delayed_work(&crtc->drrs.work,
-					      msecs_to_jiffies(1000));
+					      msecs_to_jiffies(100));
 	}
 
 	mutex_unlock(&dev_priv->drrs.mutex);
