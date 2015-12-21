@@ -1250,15 +1250,6 @@ void intel_dp_hot_plug(struct intel_encoder *intel_encoder);
 void vlv_power_sequencer_reset(struct drm_i915_private *dev_priv);
 uint32_t intel_dp_pack_aux(const uint8_t *src, int src_bytes);
 void intel_plane_destroy(struct drm_plane *plane);
-void intel_crtc_drrs_enable(struct intel_crtc *crtc);
-void intel_crtc_drrs_disable(struct intel_crtc *crtc);
-void intel_drrs_invalidate(struct drm_i915_private *dev_priv,
-			   unsigned frontbuffer_bits);
-void intel_drrs_flush(struct drm_i915_private *dev_priv,
-		      unsigned frontbuffer_bits);
-void intel_drrs_init(struct drm_i915_private *dev_priv);
-void intel_drrs_cleanup(struct drm_i915_private *dev_priv);
-void intel_crtc_drrs_init(struct intel_crtc *crtc);
 bool intel_digital_port_connected(struct drm_i915_private *dev_priv,
 					 struct intel_digital_port *port);
 void hsw_dp_set_ddi_pll_sel(struct intel_crtc_state *pipe_config);
@@ -1610,5 +1601,16 @@ struct drm_plane_state *intel_plane_duplicate_state(struct drm_plane *plane);
 void intel_plane_destroy_state(struct drm_plane *plane,
 			       struct drm_plane_state *state);
 extern const struct drm_plane_helper_funcs intel_plane_helper_funcs;
+
+/* intel_drrs.c */
+void intel_crtc_drrs_init(struct intel_crtc *crtc);
+void intel_crtc_drrs_enable(struct intel_crtc *crtc);
+void intel_crtc_drrs_disable(struct intel_crtc *crtc);
+void intel_drrs_init(struct drm_i915_private *dev_priv);
+void intel_drrs_cleanup(struct drm_i915_private *dev_priv);
+void intel_drrs_invalidate(struct drm_i915_private *dev_priv,
+			   unsigned int frontbuffer_bits);
+void intel_drrs_flush(struct drm_i915_private *dev_priv,
+		      unsigned int frontbuffer_bits);
 
 #endif /* __INTEL_DRV_H__ */
