@@ -7328,52 +7328,47 @@ static void vlv_pllb_recal_opamp(struct drm_i915_private *dev_priv, enum pipe
 	vlv_dpio_write(dev_priv, pipe, VLV_REF_DW13, reg_val);
 }
 
+#define SET_M_N(m_n, rpre, rsuf, pipe) do { \
+	I915_WRITE(rpre ## _DATA_M ## rsuf(pipe), TU_SIZE((m_n)->tu) | (m_n)->gmch_m); \
+	I915_WRITE(rpre ## _DATA_N ## rsuf(pipe), (m_n)->gmch_n); \
+	I915_WRITE(rpre ## _LINK_M ## rsuf(pipe), (m_n)->link_m); \
+	I915_WRITE(rpre ## _LINK_N ## rsuf(pipe), (m_n)->link_n); \
+} while (0)
+
 static void intel_pch_transcoder_set_m_n(struct intel_crtc *crtc,
 					 struct intel_link_m_n *m_n)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	int pipe = crtc->pipe;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	I915_WRITE(PCH_TRANS_DATA_M1(pipe), TU_SIZE(m_n->tu) | m_n->gmch_m);
-	I915_WRITE(PCH_TRANS_DATA_N1(pipe), m_n->gmch_n);
-	I915_WRITE(PCH_TRANS_LINK_M1(pipe), m_n->link_m);
-	I915_WRITE(PCH_TRANS_LINK_N1(pipe), m_n->link_n);
+	SET_M_N(m_n, PCH_TRANS, 1, crtc->pipe);
 }
 
 static void intel_cpu_transcoder_set_m_n(struct intel_crtc *crtc,
 					 struct intel_link_m_n *m_n,
 					 struct intel_link_m_n *m2_n2)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	int pipe = crtc->pipe;
-	enum transcoder transcoder = crtc->config->cpu_transcoder;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	if (INTEL_INFO(dev)->gen >= 5) {
-		I915_WRITE(PIPE_DATA_M1(transcoder), TU_SIZE(m_n->tu) | m_n->gmch_m);
-		I915_WRITE(PIPE_DATA_N1(transcoder), m_n->gmch_n);
-		I915_WRITE(PIPE_LINK_M1(transcoder), m_n->link_m);
-		I915_WRITE(PIPE_LINK_N1(transcoder), m_n->link_n);
+	if (INTEL_INFO(dev_priv)->gen >= 5) {
+		enum transcoder transcoder = crtc->config->cpu_transcoder;
+
+		SET_M_N(m_n, PIPE, 1, transcoder);
+
 		/* M2_N2 registers to be set only for gen < 8 (M2_N2 available
 		 * for gen < 8) and if DRRS is supported (to make sure the
 		 * registers are not unnecessarily accessed).
 		 */
-		if (m2_n2 && (IS_CHERRYVIEW(dev) || INTEL_INFO(dev)->gen < 8) &&
-			crtc->config->has_drrs) {
-			I915_WRITE(PIPE_DATA_M2(transcoder),
-					TU_SIZE(m2_n2->tu) | m2_n2->gmch_m);
-			I915_WRITE(PIPE_DATA_N2(transcoder), m2_n2->gmch_n);
-			I915_WRITE(PIPE_LINK_M2(transcoder), m2_n2->link_m);
-			I915_WRITE(PIPE_LINK_N2(transcoder), m2_n2->link_n);
+		if (m2_n2 && (IS_CHERRYVIEW(dev_priv) ||
+			      INTEL_INFO(dev_priv)->gen < 8) &&
+		    crtc->config->has_drrs) {
+			SET_M_N(m2_n2, PIPE, 2, transcoder);
 		}
 	} else {
-		I915_WRITE(PIPE_DATA_M_G4X(pipe), TU_SIZE(m_n->tu) | m_n->gmch_m);
-		I915_WRITE(PIPE_DATA_N_G4X(pipe), m_n->gmch_n);
-		I915_WRITE(PIPE_LINK_M_G4X(pipe), m_n->link_m);
-		I915_WRITE(PIPE_LINK_N_G4X(pipe), m_n->link_n);
+		SET_M_N(m_n, PIPE, _G4X, crtc->pipe);
 	}
 }
+
+#undef SET_M_N
 
 void intel_dp_set_m_n(struct intel_crtc *crtc, enum link_m_n_set m_n)
 {
@@ -9110,20 +9105,20 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 	return 0;
 }
 
+#define GET_M_N(m_n, rpre, rsuf, pipe) do { \
+	(m_n)->link_m = I915_READ(rpre ## _LINK_M ## rsuf(pipe)); \
+	(m_n)->link_n = I915_READ(rpre ## _LINK_N ## rsuf(pipe)); \
+	(m_n)->gmch_m = I915_READ(rpre ## _DATA_M ## rsuf(pipe)) & ~TU_SIZE_MASK; \
+	(m_n)->gmch_n = I915_READ(rpre ## _DATA_N ## rsuf(pipe)); \
+	(m_n)->tu = ((I915_READ(rpre ## _DATA_M ## rsuf(pipe)) & TU_SIZE_MASK) >> TU_SIZE_SHIFT) + 1; \
+} while (0)
+
 static void intel_pch_transcoder_get_m_n(struct intel_crtc *crtc,
 					 struct intel_link_m_n *m_n)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	enum pipe pipe = crtc->pipe;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	m_n->link_m = I915_READ(PCH_TRANS_LINK_M1(pipe));
-	m_n->link_n = I915_READ(PCH_TRANS_LINK_N1(pipe));
-	m_n->gmch_m = I915_READ(PCH_TRANS_DATA_M1(pipe))
-		& ~TU_SIZE_MASK;
-	m_n->gmch_n = I915_READ(PCH_TRANS_DATA_N1(pipe));
-	m_n->tu = ((I915_READ(PCH_TRANS_DATA_M1(pipe))
-		    & TU_SIZE_MASK) >> TU_SIZE_SHIFT) + 1;
+	GET_M_N(m_n, PCH_TRANS, 1, crtc->pipe);
 }
 
 static void intel_cpu_transcoder_get_m_n(struct intel_crtc *crtc,
@@ -9131,42 +9126,25 @@ static void intel_cpu_transcoder_get_m_n(struct intel_crtc *crtc,
 					 struct intel_link_m_n *m_n,
 					 struct intel_link_m_n *m2_n2)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	enum pipe pipe = crtc->pipe;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	if (INTEL_INFO(dev)->gen >= 5) {
-		m_n->link_m = I915_READ(PIPE_LINK_M1(transcoder));
-		m_n->link_n = I915_READ(PIPE_LINK_N1(transcoder));
-		m_n->gmch_m = I915_READ(PIPE_DATA_M1(transcoder))
-			& ~TU_SIZE_MASK;
-		m_n->gmch_n = I915_READ(PIPE_DATA_N1(transcoder));
-		m_n->tu = ((I915_READ(PIPE_DATA_M1(transcoder))
-			    & TU_SIZE_MASK) >> TU_SIZE_SHIFT) + 1;
+	if (INTEL_INFO(dev_priv)->gen >= 5) {
+		GET_M_N(m_n, PIPE, 1, transcoder);
+
 		/* Read M2_N2 registers only for gen < 8 (M2_N2 available for
 		 * gen < 8) and if DRRS is supported (to make sure the
 		 * registers are not unnecessarily read).
 		 */
-		if (m2_n2 && INTEL_INFO(dev)->gen < 8 &&
-			crtc->config->has_drrs) {
-			m2_n2->link_m = I915_READ(PIPE_LINK_M2(transcoder));
-			m2_n2->link_n =	I915_READ(PIPE_LINK_N2(transcoder));
-			m2_n2->gmch_m =	I915_READ(PIPE_DATA_M2(transcoder))
-					& ~TU_SIZE_MASK;
-			m2_n2->gmch_n =	I915_READ(PIPE_DATA_N2(transcoder));
-			m2_n2->tu = ((I915_READ(PIPE_DATA_M2(transcoder))
-					& TU_SIZE_MASK) >> TU_SIZE_SHIFT) + 1;
+		if (m2_n2 && INTEL_INFO(dev_priv)->gen < 8 &&
+		    crtc->config->has_drrs) {
+			GET_M_N(m2_n2, PIPE, 2, transcoder);
 		}
 	} else {
-		m_n->link_m = I915_READ(PIPE_LINK_M_G4X(pipe));
-		m_n->link_n = I915_READ(PIPE_LINK_N_G4X(pipe));
-		m_n->gmch_m = I915_READ(PIPE_DATA_M_G4X(pipe))
-			& ~TU_SIZE_MASK;
-		m_n->gmch_n = I915_READ(PIPE_DATA_N_G4X(pipe));
-		m_n->tu = ((I915_READ(PIPE_DATA_M_G4X(pipe))
-			    & TU_SIZE_MASK) >> TU_SIZE_SHIFT) + 1;
+		GET_M_N(m_n, PIPE, _G4X, crtc->pipe);
 	}
 }
+
+#undef GET_M_N
 
 void intel_dp_get_m_n(struct intel_crtc *crtc,
 		      struct intel_crtc_state *pipe_config)
