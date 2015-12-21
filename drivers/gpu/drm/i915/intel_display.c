@@ -666,7 +666,18 @@ int chv_calc_dpll_params(int refclk, intel_clock_t *clock)
 	return clock->dot / 5;
 }
 
-#define INTELPllInvalid(s)   do { /* DRM_DEBUG(s); */ return false; } while (0)
+#define PLL_DEBUG 0
+
+#define intel_pll_check(x) do {					  \
+	if (clock->x < limit->x.min || clock->x > limit->x.max) { \
+		if (PLL_DEBUG) { \
+			DRM_DEBUG(#x " out of range: %d [%d-%d]\n", \
+				  clock->x, limit->x.min, limit->x.max); \
+		} \
+		return false; \
+	} \
+} while (0)
+
 /**
  * Returns whether the given set of divisors are valid for a given refclk with
  * the given connectors.
@@ -676,34 +687,29 @@ static bool intel_PLL_is_valid(struct drm_device *dev,
 			       const intel_limit_t *limit,
 			       const intel_clock_t *clock)
 {
-	if (clock->n   < limit->n.min   || limit->n.max   < clock->n)
-		INTELPllInvalid("n out of range\n");
-	if (clock->p1  < limit->p1.min  || limit->p1.max  < clock->p1)
-		INTELPllInvalid("p1 out of range\n");
-	if (clock->m2  < limit->m2.min  || limit->m2.max  < clock->m2)
-		INTELPllInvalid("m2 out of range\n");
-	if (clock->m1  < limit->m1.min  || limit->m1.max  < clock->m1)
-		INTELPllInvalid("m1 out of range\n");
+	intel_pll_check(n);
+	intel_pll_check(m1);
+	intel_pll_check(m2);
+	intel_pll_check(p1);
 
 	if (!IS_PINEVIEW(dev) && !IS_VALLEYVIEW(dev) &&
-	    !IS_CHERRYVIEW(dev) && !IS_BROXTON(dev))
-		if (clock->m1 <= clock->m2)
-			INTELPllInvalid("m1 <= m2\n");
-
-	if (!IS_VALLEYVIEW(dev) && !IS_CHERRYVIEW(dev) && !IS_BROXTON(dev)) {
-		if (clock->p < limit->p.min || limit->p.max < clock->p)
-			INTELPllInvalid("p out of range\n");
-		if (clock->m < limit->m.min || limit->m.max < clock->m)
-			INTELPllInvalid("m out of range\n");
+	    !IS_CHERRYVIEW(dev) && !IS_BROXTON(dev) &&
+	    clock->m1 <= clock->m2) {
+		if (PLL_DEBUG)
+			DRM_DEBUG("m1 (%d) <= m2 (%d)\n", clock->m1, clock->m2);
+		return false;
 	}
 
-	if (clock->vco < limit->vco.min || limit->vco.max < clock->vco)
-		INTELPllInvalid("vco out of range\n");
+	if (!IS_VALLEYVIEW(dev) && !IS_CHERRYVIEW(dev) && !IS_BROXTON(dev)) {
+		intel_pll_check(p);
+		intel_pll_check(m);
+	}
+
+	intel_pll_check(vco);
 	/* XXX: We may need to be checking "Dot clock" depending on the multiplier,
 	 * connector, etc., rather than just a single range.
 	 */
-	if (clock->dot < limit->dot.min || limit->dot.max < clock->dot)
-		INTELPllInvalid("dot out of range\n");
+	intel_pll_check(dot);
 
 	return true;
 }
