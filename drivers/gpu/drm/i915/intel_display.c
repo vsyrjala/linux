@@ -5109,6 +5109,7 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 	}
 
 	intel_fbc_enable(intel_crtc);
+	intel_crtc_drrs_enable(intel_crtc);
 }
 
 static void ironlake_pfit_disable(struct intel_crtc *crtc, bool force)
@@ -5200,6 +5201,8 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_encoder *encoder;
 	enum transcoder cpu_transcoder = intel_crtc->config->cpu_transcoder;
+
+	intel_crtc_drrs_disable(intel_crtc);
 
 	if (intel_crtc->config->has_pch_encoder)
 		intel_set_pch_fifo_underrun_reporting(dev_priv, TRANSCODER_A,
@@ -14373,6 +14376,8 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 
 	intel_crtc->wm.cxsr_allowed = true;
 
+	intel_crtc_drrs_init(intel_crtc);
+
 	BUG_ON(pipe >= ARRAY_SIZE(dev_priv->plane_to_crtc_mapping) ||
 	       dev_priv->plane_to_crtc_mapping[intel_crtc->plane] != NULL);
 	dev_priv->plane_to_crtc_mapping[intel_crtc->plane] = &intel_crtc->base;
@@ -15312,6 +15317,8 @@ void intel_modeset_init(struct drm_device *dev)
 	intel_init_quirks(dev);
 
 	intel_init_pm(dev);
+
+	intel_drrs_init(dev_priv);
 
 	if (INTEL_INFO(dev)->num_pipes == 0)
 		return;

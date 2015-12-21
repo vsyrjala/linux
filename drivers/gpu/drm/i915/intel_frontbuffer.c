@@ -97,7 +97,7 @@ void intel_fb_obj_invalidate(struct drm_i915_gem_object *obj,
 	}
 
 	intel_psr_invalidate(dev, obj->frontbuffer_bits);
-	intel_edp_drrs_invalidate(dev, obj->frontbuffer_bits);
+	intel_drrs_invalidate(dev_priv, obj->frontbuffer_bits);
 	intel_fbc_invalidate(dev_priv, obj->frontbuffer_bits, origin);
 }
 
@@ -127,7 +127,7 @@ static void intel_frontbuffer_flush(struct drm_device *dev,
 	if (!frontbuffer_bits)
 		return;
 
-	intel_edp_drrs_flush(dev, frontbuffer_bits);
+	intel_drrs_flush(dev_priv, frontbuffer_bits);
 	intel_psr_flush(dev, frontbuffer_bits, origin);
 	intel_fbc_flush(dev_priv, frontbuffer_bits, origin);
 }

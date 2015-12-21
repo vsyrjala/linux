@@ -5339,8 +5339,8 @@ intel_dp_init_panel_power_sequencer_registers(struct drm_device *dev,
 }
 
 /**
- * intel_dp_set_drrs_state - program registers for RR switch to take effect
- * @dev: DRM device
+ * intel_crtc_drrs_set_refresh_rate - program registers for RR switch to take effect
+ * @crtc: crtc
  * @refresh_rate: RR to be programmed
  *
  * This function gets called when refresh rate (RR) has to be changed from
@@ -5350,258 +5350,172 @@ intel_dp_init_panel_power_sequencer_registers(struct drm_device *dev,
  *
  * The caller of this function needs to take a lock on dev_priv->drrs.
  */
-static void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
+static void intel_crtc_drrs_set_refresh_rate(struct intel_crtc *crtc,
+					     enum drrs_refresh_rate rate)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_encoder *encoder;
-	struct intel_digital_port *dig_port = NULL;
-	struct intel_dp *intel_dp = dev_priv->drrs.dp;
-	struct intel_crtc_state *config = NULL;
-	struct intel_crtc *intel_crtc = NULL;
-	enum drrs_refresh_rate index = DRRS_REFRESH_RATE_HIGH;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	if (refresh_rate <= 0) {
-		DRM_DEBUG_KMS("Refresh rate should be positive non-zero.\n");
+	lockdep_assert_held(&dev_priv->drrs.mutex);
+
+	if (WARN_ON(!crtc->drrs.enable))
 		return;
-	}
 
-	if (intel_dp == NULL) {
-		DRM_DEBUG_KMS("DRRS not supported.\n");
+	if (crtc->drrs.rate == rate)
 		return;
-	}
 
-	/*
-	 * FIXME: This needs proper synchronization with psr state for some
-	 * platforms that cannot have PSR and DRRS enabled at the same time.
-	 */
+	if (INTEL_INFO(dev_priv)->gen >= 8 && !IS_CHERRYVIEW(dev_priv))
+		intel_crtc_dp_m_n_set_refresh_rate(crtc, rate);
+	else if (INTEL_INFO(dev_priv)->gen > 6)
+		intel_crtc_pipeconf_set_refresh_rate(crtc, rate);
 
-	dig_port = dp_to_dig_port(intel_dp);
-	encoder = &dig_port->base;
-	intel_crtc = to_intel_crtc(encoder->base.crtc);
+	crtc->drrs.rate = rate;
 
-	if (!intel_crtc) {
-		DRM_DEBUG_KMS("DRRS: intel_crtc not initialized\n");
-		return;
-	}
-
-	config = intel_crtc->config;
-
-	if (dev_priv->drrs.type < SEAMLESS_DRRS_SUPPORT) {
-		DRM_DEBUG_KMS("Only Seamless DRRS supported.\n");
-		return;
-	}
-
-	if (intel_dp->attached_connector->panel.downclock_mode->vrefresh ==
-			refresh_rate)
-		index = DRRS_REFRESH_RATE_LOW;
-
-	if (index == dev_priv->drrs.refresh_rate_type) {
-		DRM_DEBUG_KMS(
-			"DRRS requested for previously set RR...ignoring\n");
-		return;
-	}
-
-	if (!intel_crtc->active) {
-		DRM_DEBUG_KMS("eDP encoder disabled. CRTC not Active\n");
-		return;
-	}
-
-	if (INTEL_INFO(dev)->gen >= 8 && !IS_CHERRYVIEW(dev)) {
-		intel_crtc_dp_m_n_set_refresh_rate(intel_crtc, index);
-	} else if (INTEL_INFO(dev)->gen > 6) {
-		intel_crtc_pipeconf_set_refresh_rate(intel_crtc, index);
-	}
-
-	dev_priv->drrs.refresh_rate_type = index;
-
-	DRM_DEBUG_KMS("eDP Refresh Rate set to : %dHz\n", refresh_rate);
+	DRM_DEBUG_KMS("pipe %c refresh rate set to: %s\n",
+		      pipe_name(crtc->pipe),
+		      rate == DRRS_REFRESH_RATE_HIGH ? "high" : "low");
 }
 
 /**
- * intel_edp_drrs_enable - init drrs struct if supported
- * @intel_dp: DP struct
+ * intel_crtc_drrs_disable - Disable DRRS
+ * @crtc: crtc
  *
- * Initializes frontbuffer_bits and drrs.dp
+ * Disable DRRS for @crtc. Should be called after to enabling
+ * the crtc.
  */
-void intel_edp_drrs_enable(struct intel_dp *intel_dp)
+void intel_crtc_drrs_enable(struct intel_crtc *crtc)
 {
-	struct drm_device *dev = intel_dp_to_dev(intel_dp);
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
-	struct drm_crtc *crtc = dig_port->base.base.crtc;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	if (intel_crtc->config->dotclock_low == 0) {
-		DRM_DEBUG_KMS("Panel doesn't support DRRS\n");
+	if (crtc->config->dotclock_low == 0)
 		return;
-	}
+
+	DRM_DEBUG_KMS("enabling DRRS for pipe %c\n", pipe_name(crtc->pipe));
 
 	mutex_lock(&dev_priv->drrs.mutex);
-	if (WARN_ON(dev_priv->drrs.dp)) {
-		DRM_ERROR("DRRS already enabled\n");
-		goto unlock;
-	}
 
-	dev_priv->drrs.busy_frontbuffer_bits = 0;
+	WARN_ON(crtc->drrs.enable);
 
-	dev_priv->drrs.dp = intel_dp;
+	crtc->drrs.enable = true;
+	crtc->drrs.busy_bits = 0;
 
-unlock:
 	mutex_unlock(&dev_priv->drrs.mutex);
 }
 
 /**
- * intel_edp_drrs_disable - Disable DRRS
- * @intel_dp: DP struct
+ * intel_crtc_drrs_disable - Disable DRRS
+ * @crtc: crtc
  *
+ * Disable DRRS for @crtc. Should be called prior to disabling
+ * the pipe.
  */
-void intel_edp_drrs_disable(struct intel_dp *intel_dp)
+void intel_crtc_drrs_disable(struct intel_crtc *crtc)
 {
-	struct drm_device *dev = intel_dp_to_dev(intel_dp);
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
 	mutex_lock(&dev_priv->drrs.mutex);
-	if (!dev_priv->drrs.dp) {
-		mutex_unlock(&dev_priv->drrs.mutex);
-		return;
+
+	if (crtc->drrs.enable) {
+		DRM_DEBUG_KMS("disabling DRRS for pipe %c\n", pipe_name(crtc->pipe));
+		intel_crtc_drrs_set_refresh_rate(crtc, DRRS_REFRESH_RATE_HIGH);
+		cancel_delayed_work(&crtc->drrs.work);
+		crtc->drrs.enable = false;
+		crtc->drrs.busy_bits = 0;
 	}
 
-	if (dev_priv->drrs.refresh_rate_type == DRRS_REFRESH_RATE_LOW)
-		intel_dp_set_drrs_state(dev_priv->dev,
-			intel_dp->attached_connector->panel.
-			fixed_mode->vrefresh);
-
-	dev_priv->drrs.dp = NULL;
 	mutex_unlock(&dev_priv->drrs.mutex);
-
-	cancel_delayed_work_sync(&dev_priv->drrs.work);
 }
 
-static void intel_edp_drrs_downclock_work(struct work_struct *work)
+static void intel_crtc_drrs_downclock_work(struct work_struct *work)
 {
-	struct drm_i915_private *dev_priv =
-		container_of(work, typeof(*dev_priv), drrs.work.work);
-	struct intel_dp *intel_dp;
+	struct intel_crtc *crtc =
+		container_of(work, typeof(*crtc), drrs.work.work);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
 	mutex_lock(&dev_priv->drrs.mutex);
 
-	intel_dp = dev_priv->drrs.dp;
+	if (crtc->drrs.enable && !crtc->drrs.busy_bits)
+		intel_crtc_drrs_set_refresh_rate(crtc, DRRS_REFRESH_RATE_LOW);
 
-	if (!intel_dp)
-		goto unlock;
+	mutex_unlock(&dev_priv->drrs.mutex);
+}
 
-	/*
-	 * The delayed work can race with an invalidate hence we need to
-	 * recheck.
-	 */
+static void intel_drrs_update(struct drm_i915_private *dev_priv,
+			      unsigned int frontbuffer_bits,
+			      bool invalidate)
+{
+	struct drm_device *dev = dev_priv->dev;
+	struct intel_crtc *crtc;
 
-	if (dev_priv->drrs.busy_frontbuffer_bits)
-		goto unlock;
+	mutex_lock(&dev_priv->drrs.mutex);
 
-	if (dev_priv->drrs.refresh_rate_type != DRRS_REFRESH_RATE_LOW)
-		intel_dp_set_drrs_state(dev_priv->dev,
-			intel_dp->attached_connector->panel.
-			downclock_mode->vrefresh);
+	for_each_intel_crtc(dev, crtc) {
+		unsigned int bits;
 
-unlock:
+		bits = frontbuffer_bits & INTEL_FRONTBUFFER_ALL_MASK(crtc->pipe);
+		if (!bits)
+			continue;
+
+		frontbuffer_bits &= ~bits;
+
+		if (!crtc->drrs.enable)
+			continue;
+
+		intel_crtc_drrs_set_refresh_rate(crtc, DRRS_REFRESH_RATE_HIGH);
+
+		if (invalidate)
+			crtc->drrs.busy_bits |= bits;
+		else
+			crtc->drrs.busy_bits &= ~bits;
+
+		if (crtc->drrs.busy_bits)
+			cancel_delayed_work(&crtc->drrs.work);
+		else
+			schedule_delayed_work(&crtc->drrs.work,
+					      msecs_to_jiffies(1000));
+	}
+
 	mutex_unlock(&dev_priv->drrs.mutex);
 }
 
 /**
- * intel_edp_drrs_invalidate - Disable Idleness DRRS
- * @dev: DRM device
+ * intel_drrs_invalidate - Disable Idleness DRRS
+ * @dev_priv: device
  * @frontbuffer_bits: frontbuffer plane tracking bits
  *
  * This function gets called everytime rendering on the given planes start.
  * Hence DRRS needs to be Upclocked, i.e. (LOW_RR -> HIGH_RR).
- *
- * Dirty frontbuffers relevant to DRRS are tracked in busy_frontbuffer_bits.
  */
-void intel_edp_drrs_invalidate(struct drm_device *dev,
-		unsigned frontbuffer_bits)
+void intel_drrs_invalidate(struct drm_i915_private *dev_priv,
+			   unsigned int frontbuffer_bits)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_crtc *crtc;
-	enum pipe pipe;
-
-	if (dev_priv->drrs.type == DRRS_NOT_SUPPORTED)
-		return;
-
-	cancel_delayed_work(&dev_priv->drrs.work);
-
-	mutex_lock(&dev_priv->drrs.mutex);
-	if (!dev_priv->drrs.dp) {
-		mutex_unlock(&dev_priv->drrs.mutex);
-		return;
-	}
-
-	crtc = dp_to_dig_port(dev_priv->drrs.dp)->base.base.crtc;
-	pipe = to_intel_crtc(crtc)->pipe;
-
-	frontbuffer_bits &= INTEL_FRONTBUFFER_ALL_MASK(pipe);
-	dev_priv->drrs.busy_frontbuffer_bits |= frontbuffer_bits;
-
-	/* invalidate means busy screen hence upclock */
-	if (frontbuffer_bits &&
-	    dev_priv->drrs.refresh_rate_type == DRRS_REFRESH_RATE_LOW)
-		intel_dp_set_drrs_state(dev_priv->dev,
-				dev_priv->drrs.dp->attached_connector->panel.
-				fixed_mode->vrefresh);
-
-	mutex_unlock(&dev_priv->drrs.mutex);
+	intel_drrs_update(dev_priv, frontbuffer_bits, true);
 }
 
 /**
- * intel_edp_drrs_flush - Restart Idleness DRRS
- * @dev: DRM device
+ * intel_drrs_flush - Restart Idleness DRRS
+ * @dev_priv: device
  * @frontbuffer_bits: frontbuffer plane tracking bits
  *
  * This function gets called every time rendering on the given planes has
  * completed or flip on a crtc is completed. So DRRS should be upclocked
  * (LOW_RR -> HIGH_RR). And also Idleness detection should be started again,
  * if no other planes are dirty.
- *
- * Dirty frontbuffers relevant to DRRS are tracked in busy_frontbuffer_bits.
  */
-void intel_edp_drrs_flush(struct drm_device *dev,
-		unsigned frontbuffer_bits)
+void intel_drrs_flush(struct drm_i915_private *dev_priv,
+		      unsigned int frontbuffer_bits)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_crtc *crtc;
-	enum pipe pipe;
+	intel_drrs_update(dev_priv, frontbuffer_bits, false);
+}
 
-	if (dev_priv->drrs.type == DRRS_NOT_SUPPORTED)
-		return;
 
-	cancel_delayed_work(&dev_priv->drrs.work);
+void intel_drrs_init(struct drm_i915_private *dev_priv)
+{
+	mutex_init(&dev_priv->drrs.mutex);
+}
 
-	mutex_lock(&dev_priv->drrs.mutex);
-	if (!dev_priv->drrs.dp) {
-		mutex_unlock(&dev_priv->drrs.mutex);
-		return;
-	}
-
-	crtc = dp_to_dig_port(dev_priv->drrs.dp)->base.base.crtc;
-	pipe = to_intel_crtc(crtc)->pipe;
-
-	frontbuffer_bits &= INTEL_FRONTBUFFER_ALL_MASK(pipe);
-	dev_priv->drrs.busy_frontbuffer_bits &= ~frontbuffer_bits;
-
-	/* flush means busy screen hence upclock */
-	if (frontbuffer_bits &&
-	    dev_priv->drrs.refresh_rate_type == DRRS_REFRESH_RATE_LOW)
-		intel_dp_set_drrs_state(dev_priv->dev,
-				dev_priv->drrs.dp->attached_connector->panel.
-				fixed_mode->vrefresh);
-
-	/*
-	 * flush also means no more activity hence schedule downclock, if all
-	 * other fbs are quiescent too
-	 */
-	if (!dev_priv->drrs.busy_frontbuffer_bits)
-		schedule_delayed_work(&dev_priv->drrs.work,
-				msecs_to_jiffies(1000));
-	mutex_unlock(&dev_priv->drrs.mutex);
+void intel_crtc_drrs_init(struct intel_crtc *crtc)
+{
+	INIT_DELAYED_WORK(&crtc->drrs.work, intel_crtc_drrs_downclock_work);
 }
 
 /**
@@ -5634,7 +5548,7 @@ void intel_edp_drrs_flush(struct drm_device *dev,
  * When there is no movement on screen, after a timeout of 1 second, a switch
  * to low RR is made.
  *        For integration with frontbuffer tracking code,
- * intel_edp_drrs_invalidate() and intel_edp_drrs_flush() are called.
+ * intel_drrs_invalidate() and intel_drrs_flush() are called.
  *
  * DRRS can be further extended to support other internal panels and also
  * the scenario of video playback wherein RR is set based on the rate
@@ -5681,9 +5595,6 @@ intel_dp_drrs_init(struct intel_connector *intel_connector,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_display_mode *downclock_mode = NULL;
 
-	INIT_DELAYED_WORK(&dev_priv->drrs.work, intel_edp_drrs_downclock_work);
-	mutex_init(&dev_priv->drrs.mutex);
-
 	if (INTEL_INFO(dev)->gen <= 6) {
 		DRM_DEBUG_KMS("DRRS supported for Gen7 and above\n");
 		return NULL;
@@ -5702,7 +5613,6 @@ intel_dp_drrs_init(struct intel_connector *intel_connector,
 
 	dev_priv->drrs.type = dev_priv->vbt.drrs_type;
 
-	dev_priv->drrs.refresh_rate_type = DRRS_REFRESH_RATE_HIGH;
 	DRM_DEBUG_KMS("seamless DRRS supported for eDP panel.\n");
 	return downclock_mode;
 }

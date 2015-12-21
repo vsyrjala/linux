@@ -948,10 +948,6 @@ enum drrs_support_type {
 struct intel_dp;
 struct i915_drrs {
 	struct mutex mutex;
-	struct delayed_work work;
-	struct intel_dp *dp;
-	unsigned busy_frontbuffer_bits;
-	enum drrs_refresh_rate refresh_rate_type;
 	enum drrs_support_type type;
 };
 
