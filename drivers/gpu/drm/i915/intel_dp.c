@@ -1653,8 +1653,7 @@ found:
 			       pipe_config->port_clock,
 			       &pipe_config->dp_m_n);
 
-	if (downclock_mode &&
-	    dev_priv->drrs.type == SEAMLESS_DRRS_SUPPORT) {
+	if (downclock_mode) {
 		pipe_config->has_drrs = true;
 		pipe_config->dotclock_low = downclock_mode->clock;
 
@@ -5650,6 +5649,23 @@ void intel_edp_drrs_flush(struct drm_device *dev,
  * requested by userspace.
  */
 
+
+static bool intel_dp_drrs_supported(struct drm_connector *connector,
+				    enum port port)
+{
+	struct drm_i915_private *dev_priv = to_i915(connector->dev);
+
+	if (INTEL_INFO(dev_priv)->gen < 7 || IS_IVYBRIDGE(dev_priv))
+		return false;
+
+	/* Only TRANSCODER_EDP has M2/N2 */
+	if (IS_HASWELL(dev_priv) && port != PORT_A)
+		return false;
+
+	/* FIXME should we really care or not? */
+	return dev_priv->vbt.drrs_type == SEAMLESS_DRRS_SUPPORT;
+}
+
 /**
  * intel_dp_drrs_init - Init basic DRRS work and mutex.
  * @intel_connector: eDP connector
@@ -5665,7 +5681,8 @@ void intel_edp_drrs_flush(struct drm_device *dev,
  */
 static struct drm_display_mode *
 intel_dp_drrs_init(struct intel_connector *intel_connector,
-		struct drm_display_mode *fixed_mode)
+		   struct drm_display_mode *fixed_mode,
+		   enum port port)
 {
 	struct drm_connector *connector = &intel_connector->base;
 	struct drm_device *dev = connector->dev;
@@ -5680,7 +5697,7 @@ intel_dp_drrs_init(struct intel_connector *intel_connector,
 		return NULL;
 	}
 
-	if (dev_priv->vbt.drrs_type != SEAMLESS_DRRS_SUPPORT) {
+	if (!intel_dp_drrs_supported(connector, port)) {
 		DRM_DEBUG_KMS("VBT doesn't support DRRS\n");
 		return NULL;
 	}
@@ -5711,6 +5728,7 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 	bool has_dpcd;
 	struct edid *edid;
 	enum pipe pipe = INVALID_PIPE;
+	enum port port = intel_dig_port->port;
 
 	if (!is_edp(intel_dp))
 		return true;
@@ -5756,7 +5774,8 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 
 	fixed_mode = intel_panel_edid_fixed_mode(connector);
 	if (fixed_mode)
-		downclock_mode = intel_dp_drrs_init(intel_connector, fixed_mode);
+		downclock_mode = intel_dp_drrs_init(intel_connector,
+						    fixed_mode, port);
 
 	if (!fixed_mode)
 		fixed_mode = intel_panel_vbt_fixed_mode(connector);
