@@ -302,6 +302,17 @@ parse_lfp_panel_data(struct drm_i915_private *dev_priv,
 				      fixed_mode->clock, downclock_mode->clock);
 
 		dev_priv->vbt.lfp_lvds_vbt_downclock_mode = downclock_mode;
+	} else {
+		downclock_mode = kmemdup(fixed_mode, sizeof(*fixed_mode), GFP_KERNEL);
+
+		if (downclock_mode) {
+			downclock_mode->clock = downclock_mode->clock * 56 / 60;
+			DRM_DEBUG_KMS("Hacked downclock mode in BIOS VBT tables. "
+				      "Normal Clock %dKHz, downclock %dKHz\n",
+				      fixed_mode->clock, downclock_mode->clock);
+		}
+
+		dev_priv->vbt.lfp_lvds_vbt_downclock_mode = downclock_mode;
 	}
 
 	fp_timing = get_lvds_fp_timing(bdb, lvds_lfp_data,
