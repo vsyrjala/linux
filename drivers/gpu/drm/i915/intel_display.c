@@ -6291,6 +6291,8 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
 		encoder->enable(encoder);
+
+	intel_crtc_drrs_enable(intel_crtc);
 }
 
 static void i9xx_set_pll_dividers(struct intel_crtc *crtc)
@@ -6347,6 +6349,7 @@ static void i9xx_crtc_enable(struct drm_crtc *crtc)
 		encoder->enable(encoder);
 
 	intel_fbc_enable(intel_crtc);
+	intel_crtc_drrs_enable(intel_crtc);
 }
 
 static void i9xx_pfit_disable(struct intel_crtc *crtc)
@@ -6371,6 +6374,8 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_encoder *encoder;
 	int pipe = intel_crtc->pipe;
+
+	intel_crtc_drrs_disable(intel_crtc);
 
 	/*
 	 * On gen2 planes are double buffered but the pipe isn't, so we must
