@@ -84,9 +84,16 @@ intel_panel_edid_downclock_mode(struct drm_connector *connector,
 	}
 
 	if (!tmp_mode)
-		return NULL;
-
+	{
+		DRM_DEBUG_KMS("%s hacking downclock mode for EDID\n",
+			      connector->name);
+		downclock_mode = drm_mode_duplicate(dev, fixed_mode);
+		if (downclock_mode)
+			downclock_mode->clock = downclock_mode->clock * 56 / 60;
+		// return NULL;
+	} else {
 	downclock_mode = drm_mode_duplicate(dev, tmp_mode);
+	}
 	if (!downclock_mode)
 		return NULL;
 
