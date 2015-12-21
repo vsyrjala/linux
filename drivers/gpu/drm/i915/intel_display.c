@@ -4193,6 +4193,8 @@ static void ironlake_pch_enable(struct drm_crtc *crtc)
 	 * detection works. */
 	I915_WRITE(FDI_RX_TUSIZE1(pipe),
 		   I915_READ(PIPE_DATA_M1(pipe)) & TU_SIZE_MASK);
+	I915_WRITE(FDI_RX_TUSIZE2(pipe),
+		   I915_READ(PIPE_DATA_M2(pipe)) & TU_SIZE_MASK);
 
 	/*
 	 * Sometimes spurious CPU pipe underruns happen during FDI
