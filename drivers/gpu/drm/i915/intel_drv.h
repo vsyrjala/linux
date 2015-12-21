@@ -1257,6 +1257,7 @@ void intel_drrs_invalidate(struct drm_i915_private *dev_priv,
 void intel_drrs_flush(struct drm_i915_private *dev_priv,
 		      unsigned frontbuffer_bits);
 void intel_drrs_init(struct drm_i915_private *dev_priv);
+void intel_drrs_cleanup(struct drm_i915_private *dev_priv);
 void intel_crtc_drrs_init(struct intel_crtc *crtc);
 bool intel_digital_port_connected(struct drm_i915_private *dev_priv,
 					 struct intel_digital_port *port);

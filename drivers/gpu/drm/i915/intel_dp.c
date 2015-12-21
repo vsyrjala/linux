@@ -5515,6 +5515,15 @@ void intel_drrs_init(struct drm_i915_private *dev_priv)
 	mutex_init(&dev_priv->drrs.mutex);
 }
 
+void intel_drrs_cleanup(struct drm_i915_private *dev_priv)
+{
+	struct drm_device *dev = dev_priv->dev;
+	struct intel_crtc *crtc;
+
+	for_each_intel_crtc(dev, crtc)
+		intel_crtc_drrs_disable(crtc);
+}
+
 void intel_crtc_drrs_init(struct intel_crtc *crtc)
 {
 	INIT_DELAYED_WORK(&crtc->drrs.work, intel_crtc_drrs_downclock_work);

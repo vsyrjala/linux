@@ -15999,6 +15999,8 @@ void intel_modeset_cleanup(struct drm_device *dev)
 
 	intel_fbc_disable(dev_priv);
 
+	intel_drrs_cleanup(dev_priv);
+
 	/* flush any delayed tasks or pending work */
 	flush_scheduled_work();
 
