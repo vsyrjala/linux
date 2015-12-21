@@ -4623,7 +4623,7 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 	if (intel_dp->is_mst) {
 		/* MST devices are disconnected from a monitor POV */
 		if (intel_encoder->type != INTEL_OUTPUT_EDP)
-			intel_encoder->type = INTEL_OUTPUT_DISPLAYPORT;
+			intel_encoder->type = INTEL_OUTPUT_DP;
 		return connector_status_disconnected;
 	}
 
@@ -4654,7 +4654,7 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 		/* if we are in MST mode then this connector
 		   won't appear connected or have anything with EDID on it */
 		if (intel_encoder->type != INTEL_OUTPUT_EDP)
-			intel_encoder->type = INTEL_OUTPUT_DISPLAYPORT;
+			intel_encoder->type = INTEL_OUTPUT_DP;
 		status = connector_status_disconnected;
 		goto out;
 	}
@@ -4670,7 +4670,7 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 	intel_dp_set_edid(intel_dp);
 
 	if (intel_encoder->type != INTEL_OUTPUT_EDP)
-		intel_encoder->type = INTEL_OUTPUT_DISPLAYPORT;
+		intel_encoder->type = INTEL_OUTPUT_DP;
 	status = connector_status_connected;
 
 	/* Try to read the source of the interrupt */
@@ -4715,7 +4715,7 @@ intel_dp_force(struct drm_connector *connector)
 	intel_display_power_put(dev_priv, power_domain);
 
 	if (intel_encoder->type != INTEL_OUTPUT_EDP)
-		intel_encoder->type = INTEL_OUTPUT_DISPLAYPORT;
+		intel_encoder->type = INTEL_OUTPUT_DP;
 }
 
 static int intel_dp_get_modes(struct drm_connector *connector)
@@ -4992,7 +4992,7 @@ intel_dp_hpd_pulse(struct intel_digital_port *intel_dig_port, bool long_hpd)
 
 	if (intel_dig_port->base.type != INTEL_OUTPUT_EDP &&
 	    intel_dig_port->base.type != INTEL_OUTPUT_HDMI)
-		intel_dig_port->base.type = INTEL_OUTPUT_DISPLAYPORT;
+		intel_dig_port->base.type = INTEL_OUTPUT_DP;
 
 	if (long_hpd && intel_dig_port->base.type == INTEL_OUTPUT_EDP) {
 		/*
@@ -6035,7 +6035,7 @@ intel_dp_init(struct drm_device *dev,
 	dev_priv->dig_port_map[port] = intel_encoder;
 	intel_dig_port->dp.output_reg = output_reg;
 
-	intel_encoder->type = INTEL_OUTPUT_DISPLAYPORT;
+	intel_encoder->type = INTEL_OUTPUT_DP;
 	if (IS_CHERRYVIEW(dev)) {
 		if (port == PORT_D)
 			intel_encoder->crtc_mask = 1 << 2;
@@ -6075,7 +6075,7 @@ void intel_dp_mst_suspend(struct drm_device *dev)
 		if (!intel_dig_port)
 			continue;
 
-		if (intel_dig_port->base.type == INTEL_OUTPUT_DISPLAYPORT) {
+		if (intel_dig_port->base.type == INTEL_OUTPUT_DP) {
 			if (!intel_dig_port->dp.can_mst)
 				continue;
 			if (intel_dig_port->dp.is_mst)
@@ -6093,7 +6093,7 @@ void intel_dp_mst_resume(struct drm_device *dev)
 		struct intel_digital_port *intel_dig_port = dev_priv->hotplug.irq_port[i];
 		if (!intel_dig_port)
 			continue;
-		if (intel_dig_port->base.type == INTEL_OUTPUT_DISPLAYPORT) {
+		if (intel_dig_port->base.type == INTEL_OUTPUT_DP) {
 			int ret;
 
 			if (!intel_dig_port->dp.can_mst)
