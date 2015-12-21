@@ -5363,9 +5363,9 @@ static void intel_crtc_drrs_set_refresh_rate(struct intel_crtc *crtc,
 	if (crtc->drrs.rate == rate)
 		return;
 
-	if (INTEL_INFO(dev_priv)->gen >= 8 && !IS_CHERRYVIEW(dev_priv))
+	if (IS_BROADWELL(dev_priv) || INTEL_INFO(dev_priv)->gen >= 9)
 		intel_crtc_dp_m_n_set_refresh_rate(crtc, rate);
-	else if (INTEL_INFO(dev_priv)->gen > 6)
+	else if (INTEL_INFO(dev_priv)->gen >= 5)
 		intel_crtc_pipeconf_set_refresh_rate(crtc, rate);
 
 	crtc->drrs.rate = rate;
