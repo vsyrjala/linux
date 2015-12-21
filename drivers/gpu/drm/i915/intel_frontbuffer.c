@@ -191,6 +191,7 @@ void intel_frontbuffer_flip_prepare(struct drm_device *dev,
 	dev_priv->fb_tracking.busy_bits &= ~frontbuffer_bits;
 	mutex_unlock(&dev_priv->fb_tracking.lock);
 
+	intel_drrs_invalidate(dev_priv, frontbuffer_bits);
 	intel_psr_single_frame_update(dev, frontbuffer_bits);
 }
 
