@@ -773,7 +773,6 @@ struct intel_csr {
 	func(is_kabylake) sep \
 	func(is_preliminary) sep \
 	func(has_fbc) sep \
-	func(has_pipe_cxsr) sep \
 	func(has_hotplug) sep \
 	func(cursor_needs_physical) sep \
 	func(has_overlay) sep \
@@ -2599,7 +2598,6 @@ struct drm_i915_cmd_table {
 #define I915_HAS_HOTPLUG(dev)		 (INTEL_INFO(dev)->has_hotplug)
 
 #define HAS_FW_BLC(dev) (INTEL_INFO(dev)->gen > 2)
-#define HAS_PIPE_CXSR(dev) (INTEL_INFO(dev)->has_pipe_cxsr)
 #define HAS_FBC(dev) (INTEL_INFO(dev)->has_fbc)
 
 #define HAS_IPS(dev)		(IS_HSW_ULT(dev) || IS_BROADWELL(dev))
