@@ -556,7 +556,15 @@ function create_workdir
 
 		echo Creating separate workdir for $branch
 
-		$DRY git-new-workdir ${DIM_DRM_INTEL} $branch $branch
+		if git help worktree &> /dev/null; then
+			# native worktree support was added in git 2.5
+			cd $DIM_DRM_INTEL
+			$DRY git worktree prune
+			$DRY git worktree add $DIM_PREFIX/$branch $branch
+			cd $DIM_PREFIX
+		else
+			$DRY git-new-workdir $DIM_DRM_INTEL $branch $branch
+		fi
 	done
 }
 
