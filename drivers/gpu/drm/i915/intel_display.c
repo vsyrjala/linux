@@ -5407,21 +5407,55 @@ static void intel_update_max_cdclk(struct drm_device *dev)
 			dev_priv->max_cdclk_freq = 450000;
 		else
 			dev_priv->max_cdclk_freq = 337500;
-	} else if (IS_BROADWELL(dev))  {
+	} else if (IS_BROADWELL(dev)) {
+		int bios_max_cdclk_freq, max_cdclk_freq;
+
 		/*
-		 * FIXME with extra cooling we can allow
-		 * 540 MHz for ULX and 675 Mhz for ULT.
-		 * How can we know if extra cooling is
-		 * available? PCI ID, VTB, something else?
+		 * With extra cooling we can allow 540 MHz for
+		 * ULX and 675 Mhz for ULT. Assume VBIOS/GOP
+		 * passes that information in SWF06.
 		 */
-		if (I915_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
-			dev_priv->max_cdclk_freq = 450000;
-		else if (IS_BDW_ULX(dev))
-			dev_priv->max_cdclk_freq = 450000;
-		else if (IS_BDW_ULT(dev))
-			dev_priv->max_cdclk_freq = 540000;
-		else
-			dev_priv->max_cdclk_freq = 675000;
+		switch (I915_READ(SWF_ILK(0x06)) & 0x3) {
+		case 0:
+			bios_max_cdclk_freq = 450000;
+			break;
+		case 1:
+			bios_max_cdclk_freq = 540000;
+			break;
+		case 2:
+			bios_max_cdclk_freq = 337500;
+			break;
+		case 3:
+			bios_max_cdclk_freq = 675000;
+			break;
+		}
+
+		if (I915_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT) {
+			if (WARN_ON(bios_max_cdclk_freq != 450000))
+				bios_max_cdclk_freq = 450000;
+			max_cdclk_freq = 450000;
+		} else if (IS_BDW_ULX(dev_priv)) {
+			if (WARN_ON(bios_max_cdclk_freq > 540000))
+				bios_max_cdclk_freq = 540000;
+			max_cdclk_freq = 450000;
+		} else if (IS_BDW_ULT(dev_priv)) {
+			max_cdclk_freq = 540000;
+		} else {
+			max_cdclk_freq = 675000;
+		}
+
+		if (bios_max_cdclk_freq > max_cdclk_freq) {
+			DRM_DEBUG_KMS("VBIOS/GOP max cdclk (%d kHz) higher than basic limit (%d kHz), "
+				      "assuming extra cooling is present\n",
+				      bios_max_cdclk_freq, max_cdclk_freq);
+			max_cdclk_freq = bios_max_cdclk_freq;
+		} else if (bios_max_cdclk_freq < max_cdclk_freq) {
+			DRM_DEBUG_KMS("VBIOS/GOP max cdclk (%d kHz) lower than basic limit (%d kHz), "
+				      "ignoring it\n",
+				      bios_max_cdclk_freq, max_cdclk_freq);
+		}
+
+		dev_priv->max_cdclk_freq = max_cdclk_freq;
 	} else if (IS_CHERRYVIEW(dev)) {
 		dev_priv->max_cdclk_freq = 320000;
 	} else if (IS_VALLEYVIEW(dev)) {
