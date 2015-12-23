@@ -29,7 +29,7 @@ _dim ()
 	cmds="$cmds magic-patch mp cd"
 	cmds="$cmds magic-rebase-resolve mrr"
 	cmds="$cmds apply-igt ai"
-	cmds="$cmds apply-resolved ar tc check-patch cp cherry-pick"
+	cmds="$cmds apply-resolved ar tc fixes check-patch cp cherry-pick"
 	cmds="$cmds pull-request pull-request-fixes pull-request-next pull-request-next-fixes"
 	cmds="$cmds update-next"
 	cmds="$cmds create-branch remove-branch create-workdir for-each-workdirs fw"
@@ -73,7 +73,7 @@ _dim ()
 				COMPREPLY=( $( compgen -o nospace -W "-a" -- $cur ) )
 			fi
 			;;
-		tc)
+		tc|fixes)
 			# FIXME needs a git sha1
 			;;
 		check-patch|cp)

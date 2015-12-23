@@ -177,6 +177,11 @@ tc *commit-ish*
 Print the oldest Linux kernel release or -rc tag that contains the supplied
 *commit-ish*, or, if none do, print the upstream branches that contain it.
 
+fixes *commit-ish*
+---------------
+Print the Fixes: line for the supplied *commit-ish* in the linux kernel
+CodingStyle approved format.
+
 check-patch|cp [*commit-ish* [.. *commit-ish*]]
 -----------------------------------------------
 Runs the given commit range commit-ish..commit-ish through the check tools. If

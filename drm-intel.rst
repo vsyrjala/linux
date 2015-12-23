@@ -163,8 +163,16 @@ or, if the fix is relevant for a released kernel,
 
 	Cc: stable@vger.kernel.org
 
-If the Cc: was forgotten, you can still reply to the list with that, just like
-any other tags, and they should be picked up by whoever pushes the patch.
+If your patch fixes a regression then please include a Fixes: line to help
+maintainers where to cherry-pick a patch to. This also extremely useful for
+product groups to know which bugfixes they must include. To follow the
+recommended format please generate the Fixes: line using
+
+        $ dim fixes $regressing_commit
+
+If the Cc: or Fixes: was forgotten, you can still reply to the list with that,
+just like any other tags, and they should be picked up by whoever pushes the
+patch.
 
 The maintainers will cherry-pick labeled patches from drm-intel-next-queued to
 the appropriate branches.
