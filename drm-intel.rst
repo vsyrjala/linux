@@ -93,7 +93,8 @@ drm-intel-next-fixes (aka "dinf")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This branch contains drm/i915 specific fixes to drm-next after the drm/i915
-features have been merged there.
+features have been merged there. Fixes are first applied to
+drm-intel-next-queued, and cherry-picked to drm-intel-next-fixes.
 
 Pull requests to Dave are sent as needed, with no particular schedule.
 
@@ -101,13 +102,14 @@ drm-intel-fixes (aka "-fixes")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This branch contains fixes to Linus' tree after drm-next has been merged during
-the merge window. The fixes are merged through drm-fixes. Valid from -rc1 to the
-kernel release.
+the merge window. Fixes are first applied to drm-intel-next-queued, and
+cherry-picked to drm-intel-fixes. The fixes are then merged through drm-fixes.
+Valid from -rc1 to the kernel release.
 
 Usually Linus releases each -rc on a Sunday, and drm-intel-fixes gets rebased on
-that the following Monday. The pull request to Dave for new fixes is typically
-sent on the following Thursday. This is repeated until final release of the
-kernel.
+that the following Monday. Usually this is a fast-forward. The pull request to
+Dave for new fixes is typically sent on the following Thursday. This is repeated
+until final release of the kernel.
 
 This is the fastest path to getting fixes to Linus' tree. It is generally for
 the regressions, cc:stable, black screens, GPU hangs only, and should pretty
@@ -129,6 +131,73 @@ flow of the commits to drm-upstream and Linus' tree.
 	:file: drm-intel-flow.svg
 
 Legend: Green = Linus. Red = drm-upstream. Blue = drm-intel. Black = patches.
+
+Features
+--------
+
+Features are picked up and pushed to drm-intel-next-queued by committers and
+maintainers. See committer guidelines below for details.
+
+Fixes
+-----
+
+Fixes are picked up and pushed to drm-intel-next-queued by committers and
+maintainers, just like any other patches. This is to ensure fixes are pushed in
+a timely manner. Fixes that are relevant for stable, current development
+kernels, or drm-next, will be cherry-picked by maintainers to drm-intel-fixes or
+drm-intel-next-fixes.
+
+To make this work, patches should be labeled as fixes (see below), and extra
+care should be put into making fixes the first patches in series, not depending
+on preparatory work or cleanup.
+
+Labeling Fixes Before Pushing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To label fixes that should be cherry-picked to the current -rc development
+kernel or drm-next, the commit message should contain either:
+
+	Cc: drm-intel-fixes@lists.freedesktop.org
+
+or, if the fix is relevant for a released kernel,
+
+	Cc: stable@vger.kernel.org
+
+If the Cc: was forgotten, you can still reply to the list with that, just like
+any other tags, and they should be picked up by whoever pushes the patch.
+
+The maintainers will cherry-pick labeled patches from drm-intel-next-queued to
+the appropriate branches.
+
+If possible, the commit message should also contain a Fixes: tag as described in
+`Documentation/SubmittingPatches
+<https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/SubmittingPatches>`_
+to aid the maintainers in identifying the right branch.
+
+Requesting Fixes Cherry-Pick Afterwards
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It's not uncommon for a patch to have been committed before it's identified as a
+fix needing to be backported.
+
+If the patch is already in Linus' tree, please follow `stable kernel rules
+<https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/stable_kernel_rules.txt>`_.
+
+Otherwise, send an email to intel-gfx@lists.freedesktop.org and
+drm-intel-fixes@lists.freedesktop.org containing the subject of the patch, the
+commit id, why you think it should be applied, and what branch you wish it to be
+applied to.
+
+Replying to the original patch is also fine, but please do remember to add Cc:
+drm-intel-fixes@lists.freedesktop.org and the commit id.
+
+Alternatively, if the cherry-pick has conflicts, please send a patch to
+intel-gfx@lists.freedesktop.org and drm-intel-fixes@lists.freedesktop.org with
+subject prefix "drm-intel-fixes PATCH" or "drm-intel-next-fixes PATCH" depending
+on the branch. Please add 'git cherry-pick -x' style annotation above your
+Signed-off-by: line in the commit message:
+
+	(cherry picked from commit 0bff4858653312a10c83709e0009c3adb87e6f1e)
 
 Merge Timeline
 ==============

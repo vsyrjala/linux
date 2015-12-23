@@ -77,8 +77,7 @@ strict digraph "drm-intel" {
        "intel-gfx" [label="intel-gfx mailing list"]
        "internal" [label="internal mailing list"]
 
-       "fixes for current" -> "intel-gfx"
-       "fixes for next" -> "intel-gfx"
+       "fixes" -> "intel-gfx"
        "feature patches" -> "intel-gfx"
 
        "embargoed patches" -> "internal"
@@ -86,7 +85,7 @@ strict digraph "drm-intel" {
 
        "internal" -> "drm-intel-internal" [label="maintainers pick\nalways open"]
 
-       "intel-gfx" -> "drm-intel-next-queued" [label="maintainers pick\nalways open"]
-       "intel-gfx" -> "drm-intel-fixes" [label="maintainers pick\nrc1..rcN of current"]
-       "intel-gfx" -> "drm-intel-next-fixes" [label="maintainers pick\n~rc5..release of current"]
+       "intel-gfx" -> "drm-intel-next-queued" [label="committers/maintainers pick\nalways open"]
+       "drm-intel-next-queued" -> "drm-intel-fixes" [label="maintainers cherry-pick\nrc1..rcN of current" color=blue]
+       "drm-intel-next-queued" -> "drm-intel-next-fixes" [label="maintainers cherry-pick\n~rc5..release of current" color=blue]
 }
