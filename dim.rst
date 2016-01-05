@@ -178,7 +178,7 @@ Print the oldest Linux kernel release or -rc tag that contains the supplied
 *commit-ish*, or, if none do, print the upstream branches that contain it.
 
 fixes *commit-ish*
----------------
+------------------
 Print the Fixes: line for the supplied *commit-ish* in the linux kernel
 CodingStyle approved format.
 
