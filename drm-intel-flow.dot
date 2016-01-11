@@ -68,10 +68,18 @@ strict digraph "drm-intel" {
        "drm-intel-next-queued" -> "drm-next" [label="special topic/* branches" color=blue]
        "drm-intel-nightly" -> "drm-intel-testing" [label="snapshot for QA" color=blue]
 
+       # other trees in nightly
+       "sound/for-linus" [color=yellow style=dashed]
+       "sound/for-next" [color=yellow style=dashed]
+
        # nightly rebuild
        "drm-intel-fixes" -> "drm-intel-nightly" [label="rebuild" color=blue]
        "drm-intel-next-fixes" -> "drm-intel-nightly" [label="rebuild" color=blue]
        "drm-intel-next-queued" -> "drm-intel-nightly" [label="rebuild" color=blue]
+       "drm-next" -> "drm-intel-nightly" [label="rebuild" color=blue]
+       "drm-fixes" -> "drm-intel-nightly" [label="rebuild" color=blue]
+       "sound/for-next" -> "drm-intel-nightly" [label="rebuild" color=blue]
+       "sound/for-linus" -> "drm-intel-nightly" [label="rebuild" color=blue]
 
        # patch flow
        "intel-gfx" [label="intel-gfx mailing list"]
