@@ -167,7 +167,7 @@ or, if the fix is relevant for a released kernel,
 If your patch fixes a regression then please include a Fixes: line to help
 maintainers where to cherry-pick a patch to. This also extremely useful for
 product groups to know which bugfixes they must include. To follow the
-recommended format please generate the Fixes: line using
+recommended format please generate the Fixes: line using ::
 
         $ dim fixes $regressing_commit
 
@@ -207,6 +207,64 @@ on the branch. Please add 'git cherry-pick -x' style annotation above your
 Signed-off-by: line in the commit message:
 
 	(cherry picked from commit 0bff4858653312a10c83709e0009c3adb87e6f1e)
+
+Resolving Conflicts when Rebuilding drm-intel-nightly
+=====================================================
+
+When you push patches with dim drm-intel-nightly always gets rebuild and this
+can sometimes fail, for example like this: ::
+
+        Updating rerere cache and nightly.conf... Done.
+        Fetching drm-upstream... Done.
+        Fetching origin... Done.
+        Fetching sound-upstream... Done.
+        Merging origin/drm-intel-fixes... Reset. Done.
+        Merging drm-upstream/drm-fixes... Fast-forward. Done.
+        Merging origin/drm-intel-next-fixes... Done.
+        Merging origin/drm-intel-next-queued... ++<<<<<<< HEAD
+        ++=======
+        ++>>>>>>> origin/drm-intel-next-queued
+        Fail: conflict merging origin/drm-intel-next-queued
+
+Often it's very easy to resolve such conflicts, but maintainers can take over
+when it's tricky or something fails in the below procedure.
+
+1. First check that drm-intel-next-queued was indeed pushed correctly and that
+   your local and remote branches match.
+
+2. Then re-run the -nightly generation just to confirm: ::
+
+        $ dim rebuild-nightly
+
+   It's handy to keep the log output for context so that you know which branch
+   caused the conflicts, and which branches are already included.
+
+3. Switch to $DIM_PREFIX/drm-intel-nightly and analyze the conflict: ::
+
+        $ git diff # shows three-way diff of conflict
+        $ gitk --merge # lists all commits git believes to be relevant
+
+   If the conflict is simple and created by one of the patches fix things up and
+   compile/test the resulting kernel. In case of doubt just ping authors of
+   other patches or maintainers on IRC.
+
+4. When you're happy with the resolution commit it with ::
+
+        $ git commit -a
+
+   git will then store the conflict resolution internally (see git help rerere
+   for how this is implemented). Then re-run -nigthly generation to confirm the
+   resolution has been captured correctly by git (sometimes git rerere can't
+   match up your resolution with the conflict for odd reasons) and to make sure
+   there's no other conflict in later merges: ::
+
+        $ dim rebuild-nightly
+
+   This will also push the stored conflict resolution to the drm-intel-rerere
+   branch and therefore publishes your resolution. Everything before this step
+   has just local effects.
+
+And if any step fails or the conflict is tricky just ping maintainers.
 
 Merge Timeline
 ==============
