@@ -1672,6 +1672,9 @@ uint32_t ilk_pipe_pixel_rate(const struct intel_crtc_state *pipe_config)
 		if (pipe_h < pfit_h)
 			pipe_h = pfit_h;
 
+		if (WARN_ON(!pfit_w || !pfit_h))
+			return pixel_rate;
+
 		pixel_rate = div_u64((uint64_t) pixel_rate * pipe_w * pipe_h,
 				     pfit_w * pfit_h);
 	}
@@ -1703,6 +1706,8 @@ static uint32_t ilk_wm_method2(uint32_t pixel_rate, uint32_t pipe_htotal,
 
 	if (WARN(latency == 0, "Latency value missing\n"))
 		return UINT_MAX;
+	if (WARN_ON(!pipe_htotal))
+		return UINT_MAX;
 
 	ret = (latency * pixel_rate) / (pipe_htotal * 10000);
 	ret = (ret + 1) * horiz_pixels * bytes_per_pixel;
@@ -1713,6 +1718,17 @@ static uint32_t ilk_wm_method2(uint32_t pixel_rate, uint32_t pipe_htotal,
 static uint32_t ilk_wm_fbc(uint32_t pri_val, uint32_t horiz_pixels,
 			   uint8_t bytes_per_pixel)
 {
+	/*
+	 * Neither of these should be possible since this function shouldn't be
+	 * called if the CRTC is off or the plane is invisible.  But let's be
+	 * extra paranoid to avoid a potential divide-by-zero if we screw up
+	 * elsewhere in the driver.
+	 */
+	if (WARN_ON(!bytes_per_pixel))
+		return 0;
+	if (WARN_ON(!horiz_pixels))
+		return 0;
+
 	return DIV_ROUND_UP(pri_val * 64, horiz_pixels * bytes_per_pixel) + 2;
 }
 
@@ -1998,14 +2014,19 @@ static void ilk_compute_wm_level(const struct drm_i915_private *dev_priv,
 }
 
 static uint32_t
-hsw_compute_linetime_wm(struct drm_device *dev, struct drm_crtc *crtc)
+hsw_compute_linetime_wm(struct drm_device *dev,
+			struct intel_crtc_state *cstate)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	const struct drm_display_mode *adjusted_mode = &intel_crtc->config->base.adjusted_mode;
+	const struct drm_display_mode *adjusted_mode =
+		&cstate->base.adjusted_mode;
 	u32 linetime, ips_linetime;
 
-	if (!intel_crtc->active)
+	if (!cstate->base.active)
+		return 0;
+	if (WARN_ON(adjusted_mode->crtc_clock == 0))
+		return 0;
+	if (WARN_ON(dev_priv->cdclk_freq == 0))
 		return 0;
 
 	/* The WM are computed with base on how long it takes to fill a single
@@ -2252,6 +2273,29 @@ static void skl_setup_wm_latency(struct drm_device *dev)
 	intel_print_wm_latency(dev, "Gen9 Plane", dev_priv->wm.skl_latency);
 }
 
+static bool ilk_validate_pipe_wm(struct drm_device *dev,
+				 struct intel_pipe_wm *pipe_wm)
+{
+	/* LP0 watermark maximums depend on this pipe alone */
+	const struct intel_wm_config config = {
+		.num_pipes_active = 1,
+		.sprites_enabled = pipe_wm->sprites_enabled,
+		.sprites_scaled = pipe_wm->sprites_scaled,
+	};
+	struct ilk_wm_maximums max;
+
+	/* LP0 watermarks always use 1/2 DDB partitioning */
+	ilk_compute_wm_maximums(dev, 0, &config, INTEL_DDB_PART_1_2, &max);
+
+	/* At least LP0 must be valid */
+	if (!ilk_validate_wm_level(0, &max, &pipe_wm->wm[0])) {
+		DRM_DEBUG_KMS("LP0 watermark invalid\n");
+		return false;
+	}
+
+	return true;
+}
+
 /* Compute new watermarks for the pipe */
 static int ilk_compute_pipe_wm(struct intel_crtc *intel_crtc,
 			       struct drm_atomic_state *state)
@@ -2266,10 +2310,6 @@ static int ilk_compute_pipe_wm(struct intel_crtc *intel_crtc,
 	struct intel_plane_state *sprstate = NULL;
 	struct intel_plane_state *curstate = NULL;
 	int level, max_level = ilk_wm_max_level(dev);
-	/* LP0 watermark maximums depend on this pipe alone */
-	struct intel_wm_config config = {
-		.num_pipes_active = 1,
-	};
 	struct ilk_wm_maximums max;
 
 	cstate = intel_atomic_get_crtc_state(state, intel_crtc);
@@ -2277,6 +2317,7 @@ static int ilk_compute_pipe_wm(struct intel_crtc *intel_crtc,
 		return PTR_ERR(cstate);
 
 	pipe_wm = &cstate->wm.optimal.ilk;
+	memset(pipe_wm, 0, sizeof(*pipe_wm));
 
 	for_each_intel_plane_on_crtc(dev, intel_crtc, intel_plane) {
 		ps = drm_atomic_get_plane_state(state,
@@ -2292,36 +2333,28 @@ static int ilk_compute_pipe_wm(struct intel_crtc *intel_crtc,
 			curstate = to_intel_plane_state(ps);
 	}
 
-	config.sprites_enabled = sprstate->visible;
-	config.sprites_scaled = sprstate->visible &&
+	pipe_wm->pipe_enabled = cstate->base.active;
+	pipe_wm->sprites_enabled = sprstate->visible;
+	pipe_wm->sprites_scaled = sprstate->visible &&
 		(drm_rect_width(&sprstate->dst) != drm_rect_width(&sprstate->src) >> 16 ||
 		drm_rect_height(&sprstate->dst) != drm_rect_height(&sprstate->src) >> 16);
-
-	pipe_wm->pipe_enabled = cstate->base.active;
-	pipe_wm->sprites_enabled = config.sprites_enabled;
-	pipe_wm->sprites_scaled = config.sprites_scaled;
 
 	/* ILK/SNB: LP2+ watermarks only w/o sprites */
 	if (INTEL_INFO(dev)->gen <= 6 && sprstate->visible)
 		max_level = 1;
 
 	/* ILK/SNB/IVB: LP1+ watermarks only w/o scaling */
-	if (config.sprites_scaled)
+	if (pipe_wm->sprites_scaled)
 		max_level = 0;
 
 	ilk_compute_wm_level(dev_priv, intel_crtc, 0, cstate,
 			     pristate, sprstate, curstate, &pipe_wm->wm[0]);
 
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
-		pipe_wm->linetime = hsw_compute_linetime_wm(dev,
-							    &intel_crtc->base);
+		pipe_wm->linetime = hsw_compute_linetime_wm(dev, cstate);
 
-	/* LP0 watermarks always use 1/2 DDB partitioning */
-	ilk_compute_wm_maximums(dev, 0, &config, INTEL_DDB_PART_1_2, &max);
-
-	/* At least LP0 must be valid */
-	if (!ilk_validate_wm_level(0, &max, &pipe_wm->wm[0]))
-		return -EINVAL;
+	if (!ilk_validate_pipe_wm(dev, pipe_wm))
+		return false;
 
 	ilk_compute_wm_reg_maximums(dev, 1, &max);
 
@@ -2346,6 +2379,59 @@ static int ilk_compute_pipe_wm(struct intel_crtc *intel_crtc,
 }
 
 /*
+ * Build a set of 'intermediate' watermark values that satisfy both the old
+ * state and the new state.  These can be programmed to the hardware
+ * immediately.
+ */
+static int ilk_compute_intermediate_wm(struct drm_device *dev,
+				       struct intel_crtc *intel_crtc,
+				       struct intel_crtc_state *newstate)
+{
+	struct intel_pipe_wm *a = &newstate->wm.intermediate;
+	struct intel_pipe_wm *b = &intel_crtc->wm.active.ilk;
+	int level, max_level = ilk_wm_max_level(dev);
+
+	/*
+	 * Start with the final, target watermarks, then combine with the
+	 * currently active watermarks to get values that are safe both before
+	 * and after the vblank.
+	 */
+	*a = newstate->wm.optimal.ilk;
+	a->pipe_enabled |= b->pipe_enabled;
+	a->sprites_enabled |= b->sprites_enabled;
+	a->sprites_scaled |= b->sprites_scaled;
+
+	for (level = 0; level <= max_level; level++) {
+		struct intel_wm_level *a_wm = &a->wm[level];
+		const struct intel_wm_level *b_wm = &b->wm[level];
+
+		a_wm->enable &= b_wm->enable;
+		a_wm->pri_val = max(a_wm->pri_val, b_wm->pri_val);
+		a_wm->spr_val = max(a_wm->spr_val, b_wm->spr_val);
+		a_wm->cur_val = max(a_wm->cur_val, b_wm->cur_val);
+		a_wm->fbc_val = max(a_wm->fbc_val, b_wm->fbc_val);
+	}
+
+	/*
+	 * We need to make sure that these merged watermark values are
+	 * actually a valid configuration themselves.  If they're not,
+	 * there's no safe way to transition from the old state to
+	 * the new state, so we need to fail the atomic transaction.
+	 */
+	if (!ilk_validate_pipe_wm(dev, a))
+		return -EINVAL;
+
+	/*
+	 * If our intermediate WM are identical to the final WM, then we can
+	 * omit the post-vblank programming; only update if it's different.
+	 */
+	if (memcmp(a, &newstate->wm.optimal.ilk, sizeof(*a)) != 0)
+		newstate->wm.need_postvbl_update = false;
+
+	return 0;
+}
+
+/*
  * Merge the watermarks from all active pipes for a specific level.
  */
 static void ilk_merge_wm_level(struct drm_device *dev,
@@ -2357,9 +2443,7 @@ static void ilk_merge_wm_level(struct drm_device *dev,
 	ret_wm->enable = true;
 
 	for_each_intel_crtc(dev, intel_crtc) {
-		const struct intel_crtc_state *cstate =
-			to_intel_crtc_state(intel_crtc->base.state);
-		const struct intel_pipe_wm *active = &cstate->wm.optimal.ilk;
+		const struct intel_pipe_wm *active = &intel_crtc->wm.active.ilk;
 		const struct intel_wm_level *wm = &active->wm[level];
 
 		if (!active->pipe_enabled)
@@ -2507,15 +2591,14 @@ static void ilk_compute_wm_results(struct drm_device *dev,
 
 	/* LP0 register values */
 	for_each_intel_crtc(dev, intel_crtc) {
-		const struct intel_crtc_state *cstate =
-			to_intel_crtc_state(intel_crtc->base.state);
 		enum pipe pipe = intel_crtc->pipe;
-		const struct intel_wm_level *r = &cstate->wm.optimal.ilk.wm[0];
+		const struct intel_wm_level *r =
+			&intel_crtc->wm.active.ilk.wm[0];
 
 		if (WARN_ON(!r->enable))
 			continue;
 
-		results->wm_linetime[pipe] = cstate->wm.optimal.ilk.linetime;
+		results->wm_linetime[pipe] = intel_crtc->wm.active.ilk.linetime;
 
 		results->wm_pipe[pipe] =
 			(r->pri_val << WM0_PIPE_PLANE_SHIFT) |
@@ -2722,7 +2805,7 @@ static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
 	dev_priv->wm.hw = *results;
 }
 
-static bool ilk_disable_lp_wm(struct drm_device *dev)
+bool ilk_disable_lp_wm(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
@@ -3597,23 +3680,43 @@ static void skl_update_wm(struct drm_crtc *crtc)
 	dev_priv->wm.skl_hw = *results;
 }
 
+static void ilk_compute_wm_config(struct drm_device *dev,
+				  struct intel_wm_config *config)
+{
+	struct intel_crtc *crtc;
+
+	/* Compute the currently _active_ config */
+	for_each_intel_crtc(dev, crtc) {
+		const struct intel_pipe_wm *wm = &crtc->wm.active.ilk;
+
+		if (!wm->pipe_enabled)
+			continue;
+
+		config->sprites_enabled |= wm->sprites_enabled;
+		config->sprites_scaled |= wm->sprites_scaled;
+		config->num_pipes_active++;
+	}
+}
+
 static void ilk_program_watermarks(struct drm_i915_private *dev_priv)
 {
 	struct drm_device *dev = dev_priv->dev;
 	struct intel_pipe_wm lp_wm_1_2 = {}, lp_wm_5_6 = {}, *best_lp_wm;
 	struct ilk_wm_maximums max;
-	struct intel_wm_config *config = &dev_priv->wm.config;
+	struct intel_wm_config config = {};
 	struct ilk_wm_values results = {};
 	enum intel_ddb_partitioning partitioning;
 
-	ilk_compute_wm_maximums(dev, 1, config, INTEL_DDB_PART_1_2, &max);
-	ilk_wm_merge(dev, config, &max, &lp_wm_1_2);
+	ilk_compute_wm_config(dev, &config);
+
+	ilk_compute_wm_maximums(dev, 1, &config, INTEL_DDB_PART_1_2, &max);
+	ilk_wm_merge(dev, &config, &max, &lp_wm_1_2);
 
 	/* 5/6 split only in single pipe config on IVB+ */
 	if (INTEL_INFO(dev)->gen >= 7 &&
-	    config->num_pipes_active == 1 && config->sprites_enabled) {
-		ilk_compute_wm_maximums(dev, 1, config, INTEL_DDB_PART_5_6, &max);
-		ilk_wm_merge(dev, config, &max, &lp_wm_5_6);
+	    config.num_pipes_active == 1 && config.sprites_enabled) {
+		ilk_compute_wm_maximums(dev, 1, &config, INTEL_DDB_PART_5_6, &max);
+		ilk_wm_merge(dev, &config, &max, &lp_wm_5_6);
 
 		best_lp_wm = ilk_find_best_result(dev, &lp_wm_1_2, &lp_wm_5_6);
 	} else {
@@ -3628,29 +3731,28 @@ static void ilk_program_watermarks(struct drm_i915_private *dev_priv)
 	ilk_write_wm_values(dev_priv, &results);
 }
 
-static void ilk_update_wm(struct drm_crtc *crtc)
+static void ilk_initial_watermarks(struct intel_crtc_state *cstate)
 {
-	struct drm_i915_private *dev_priv = to_i915(crtc->dev);
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct intel_crtc_state *cstate = to_intel_crtc_state(crtc->state);
+	struct drm_i915_private *dev_priv = to_i915(cstate->base.crtc->dev);
+	struct intel_crtc *intel_crtc = to_intel_crtc(cstate->base.crtc);
 
-	WARN_ON(cstate->base.active != intel_crtc->active);
-
-	/*
-	 * IVB workaround: must disable low power watermarks for at least
-	 * one frame before enabling scaling.  LP watermarks can be re-enabled
-	 * when scaling is disabled.
-	 *
-	 * WaCxSRDisabledForSpriteScaling:ivb
-	 */
-	if (cstate->disable_lp_wm) {
-		ilk_disable_lp_wm(crtc->dev);
-		intel_wait_for_vblank(crtc->dev, intel_crtc->pipe);
-	}
-
-	intel_crtc->wm.active.ilk = cstate->wm.optimal.ilk;
-
+	mutex_lock(&dev_priv->wm.wm_mutex);
+	intel_crtc->wm.active.ilk = cstate->wm.intermediate;
 	ilk_program_watermarks(dev_priv);
+	mutex_unlock(&dev_priv->wm.wm_mutex);
+}
+
+static void ilk_optimize_watermarks(struct intel_crtc_state *cstate)
+{
+	struct drm_i915_private *dev_priv = to_i915(cstate->base.crtc->dev);
+	struct intel_crtc *intel_crtc = to_intel_crtc(cstate->base.crtc);
+
+	mutex_lock(&dev_priv->wm.wm_mutex);
+	if (cstate->wm.need_postvbl_update) {
+		intel_crtc->wm.active.ilk = cstate->wm.optimal.ilk;
+		ilk_program_watermarks(dev_priv);
+	}
+	mutex_unlock(&dev_priv->wm.wm_mutex);
 }
 
 static void skl_pipe_wm_active_state(uint32_t val,
@@ -4509,13 +4611,13 @@ static void intel_print_rc6_info(struct drm_device *dev, u32 mode)
 	}
 	if (HAS_RC6p(dev))
 		DRM_DEBUG_KMS("Enabling RC6 states: RC6 %s RC6p %s RC6pp %s\n",
-			      (mode & GEN6_RC_CTL_RC6_ENABLE) ? "on" : "off",
-			      (mode & GEN6_RC_CTL_RC6p_ENABLE) ? "on" : "off",
-			      (mode & GEN6_RC_CTL_RC6pp_ENABLE) ? "on" : "off");
+			      onoff(mode & GEN6_RC_CTL_RC6_ENABLE),
+			      onoff(mode & GEN6_RC_CTL_RC6p_ENABLE),
+			      onoff(mode & GEN6_RC_CTL_RC6pp_ENABLE));
 
 	else
 		DRM_DEBUG_KMS("Enabling RC6 states: RC6 %s\n",
-			      (mode & GEN6_RC_CTL_RC6_ENABLE) ? "on" : "off");
+			      onoff(mode & GEN6_RC_CTL_RC6_ENABLE));
 }
 
 static int sanitize_rc6_option(const struct drm_device *dev, int enable_rc6)
@@ -4693,8 +4795,7 @@ static void gen9_enable_rc6(struct drm_device *dev)
 	/* 3a: Enable RC6 */
 	if (intel_enable_rc6(dev) & INTEL_RC6_ENABLE)
 		rc6_mask = GEN6_RC_CTL_RC6_ENABLE;
-	DRM_INFO("RC6 %s\n", (rc6_mask & GEN6_RC_CTL_RC6_ENABLE) ?
-			"on" : "off");
+	DRM_INFO("RC6 %s\n", onoff(rc6_mask & GEN6_RC_CTL_RC6_ENABLE));
 	/* WaRsUseTimeoutMode */
 	if (IS_SKL_REVID(dev, 0, SKL_REVID_D0) ||
 	    IS_BXT_REVID(dev, 0, BXT_REVID_A1)) {
@@ -4713,9 +4814,7 @@ static void gen9_enable_rc6(struct drm_device *dev)
 	 * 3b: Enable Coarse Power Gating only when RC6 is enabled.
 	 * WaRsDisableCoarsePowerGating:skl,bxt - Render/Media PG need to be disabled with RC6.
 	 */
-	if (IS_BXT_REVID(dev, 0, BXT_REVID_A1) ||
-	    ((IS_SKL_GT3(dev) || IS_SKL_GT4(dev)) &&
-	     IS_SKL_REVID(dev, 0, SKL_REVID_F0)))
+	if (NEEDS_WaRsDisableCoarsePowerGating(dev))
 		I915_WRITE(GEN9_PG_ENABLE, 0);
 	else
 		I915_WRITE(GEN9_PG_ENABLE, (rc6_mask & GEN6_RC_CTL_RC6_ENABLE) ?
@@ -6980,8 +7079,13 @@ void intel_init_pm(struct drm_device *dev)
 		     dev_priv->wm.spr_latency[1] && dev_priv->wm.cur_latency[1]) ||
 		    (!IS_GEN5(dev) && dev_priv->wm.pri_latency[0] &&
 		     dev_priv->wm.spr_latency[0] && dev_priv->wm.cur_latency[0])) {
-			dev_priv->display.update_wm = ilk_update_wm;
 			dev_priv->display.compute_pipe_wm = ilk_compute_pipe_wm;
+			dev_priv->display.compute_intermediate_wm =
+				ilk_compute_intermediate_wm;
+			dev_priv->display.initial_watermarks =
+				ilk_initial_watermarks;
+			dev_priv->display.optimize_watermarks =
+				ilk_optimize_watermarks;
 		} else {
 			DRM_DEBUG_KMS("Failed to read display plane latency. "
 				      "Disable CxSR\n");
