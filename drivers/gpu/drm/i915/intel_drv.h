@@ -1072,10 +1072,10 @@ void i915_audio_component_cleanup(struct drm_i915_private *dev_priv);
 /* intel_display.c */
 extern const struct drm_plane_funcs intel_plane_funcs;
 unsigned int intel_fb_xy_to_linear(int x, int y,
-				   const struct drm_framebuffer *fb, int plane);
+				   const struct intel_plane_state *state,
+				   int plane);
 void intel_add_fb_offsets(int *x, int *y,
-			  const struct drm_framebuffer *fb, int plane,
-			  unsigned int rotation);
+			  const struct intel_plane_state *state, int plane);
 unsigned int intel_rotation_info_size(const struct intel_rotation_info *rot_info);
 bool intel_has_pending_fb_unpin(struct drm_device *dev);
 int intel_pch_rawclk(struct drm_device *dev);
@@ -1190,8 +1190,7 @@ void assert_pipe(struct drm_i915_private *dev_priv, enum pipe pipe, bool state);
 #define assert_pipe_enabled(d, p) assert_pipe(d, p, true)
 #define assert_pipe_disabled(d, p) assert_pipe(d, p, false)
 u32 intel_compute_tile_offset(int *x, int *y,
-			      const struct drm_framebuffer *fb, int plane,
-			      unsigned int rotation);
+			      const struct intel_plane_state *state, int plane);
 void intel_prepare_reset(struct drm_device *dev);
 void intel_finish_reset(struct drm_device *dev);
 void hsw_enable_pc8(struct drm_i915_private *dev_priv);
