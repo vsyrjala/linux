@@ -255,8 +255,8 @@ skl_update_plane(struct drm_plane *drm_plane,
 		src_h = drm_rect_height(&r);
 	}
 
-	intel_add_fb_offsets(&x, &y, fb, 0, rotation);
-	surf_addr = intel_compute_tile_offset(&x, &y, fb, 0, rotation);
+	intel_add_fb_offsets(&x, &y, plane_state, 0);
+	surf_addr = intel_compute_tile_offset(&x, &y, plane_state, 0);
 
 	/* Sizes are 0 based */
 	src_w--;
@@ -435,8 +435,8 @@ vlv_update_plane(struct drm_plane *dplane,
 	crtc_w--;
 	crtc_h--;
 
-	intel_add_fb_offsets(&x, &y, fb, 0, rotation);
-	sprsurf_offset = intel_compute_tile_offset(&x, &y, fb, 0, rotation);
+	intel_add_fb_offsets(&x, &y, plane_state, 0);
+	sprsurf_offset = intel_compute_tile_offset(&x, &y, plane_state, 0);
 
 	if (rotation == BIT(DRM_ROTATE_180)) {
 		sprctl |= SP_ROTATE_180;
@@ -445,7 +445,7 @@ vlv_update_plane(struct drm_plane *dplane,
 		y += src_h;
 	}
 
-	linear_offset = intel_fb_xy_to_linear(x, y, fb, 0);
+	linear_offset = intel_fb_xy_to_linear(x, y, plane_state, 0);
 
 	if (key->flags) {
 		I915_WRITE(SPKEYMINVAL(pipe, plane), key->min_value);
@@ -566,8 +566,8 @@ ivb_update_plane(struct drm_plane *plane,
 	if (crtc_w != src_w || crtc_h != src_h)
 		sprscale = SPRITE_SCALE_ENABLE | (src_w << 16) | src_h;
 
-	intel_add_fb_offsets(&x, &y, fb, 0, rotation);
-	sprsurf_offset = intel_compute_tile_offset(&x, &y, fb, 0, rotation);
+	intel_add_fb_offsets(&x, &y, plane_state, 0);
+	sprsurf_offset = intel_compute_tile_offset(&x, &y, plane_state, 0);
 
 	if (rotation == BIT(DRM_ROTATE_180)) {
 		sprctl |= SPRITE_ROTATE_180;
@@ -579,7 +579,7 @@ ivb_update_plane(struct drm_plane *plane,
 		}
 	}
 
-	linear_offset = intel_fb_xy_to_linear(x, y, fb, 0);
+	linear_offset = intel_fb_xy_to_linear(x, y, plane_state, 0);
 
 	if (key->flags) {
 		I915_WRITE(SPRKEYVAL(pipe), key->min_value);
@@ -701,8 +701,8 @@ ilk_update_plane(struct drm_plane *plane,
 	if (crtc_w != src_w || crtc_h != src_h)
 		dvsscale = DVS_SCALE_ENABLE | (src_w << 16) | src_h;
 
-	intel_add_fb_offsets(&x, &y, fb, 0, rotation);
-	dvssurf_offset = intel_compute_tile_offset(&x, &y, fb, 0, rotation);
+	intel_add_fb_offsets(&x, &y, plane_state, 0);
+	dvssurf_offset = intel_compute_tile_offset(&x, &y, plane_state, 0);
 
 	if (rotation == BIT(DRM_ROTATE_180)) {
 		dvscntr |= DVS_ROTATE_180;
@@ -711,7 +711,7 @@ ilk_update_plane(struct drm_plane *plane,
 		y += src_h;
 	}
 
-	linear_offset = intel_fb_xy_to_linear(x, y, fb, 0);
+	linear_offset = intel_fb_xy_to_linear(x, y, plane_state, 0);
 
 	if (key->flags) {
 		I915_WRITE(DVSKEYVAL(pipe), key->min_value);
