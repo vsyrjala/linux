@@ -193,13 +193,10 @@ static struct i915_vma *eb_get_vma(struct eb_vmas *eb, unsigned long handle)
 		return eb->lut[handle];
 	} else {
 		struct hlist_head *head;
-		struct hlist_node *node;
+		struct i915_vma *vma;
 
 		head = &eb->buckets[handle & eb->and];
-		hlist_for_each(node, head) {
-			struct i915_vma *vma;
-
-			vma = hlist_entry(node, struct i915_vma, exec_node);
+		hlist_for_each_entry(vma, head, exec_node) {
 			if (vma->exec_handle == handle)
 				return vma;
 		}
@@ -1308,6 +1305,9 @@ i915_gem_ringbuffer_submission(struct i915_execbuffer_params *params,
 	exec_len   = args->batch_len;
 	exec_start = params->batch_obj_vm_offset +
 		     params->args_batch_start_offset;
+
+	if (exec_len == 0)
+		exec_len = params->batch_obj->base.size;
 
 	ret = ring->dispatch_execbuffer(params->request,
 					exec_start, exec_len,

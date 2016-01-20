@@ -855,31 +855,31 @@ enum skl_disp_power_wells {
  *
  * Note: DDI0 is digital port B, DD1 is digital port C, and DDI2 is
  * digital port D (CHV) or port A (BXT).
- */
-/*
- * Dual channel PHY (VLV/CHV/BXT)
- * ---------------------------------
- * |      CH0      |      CH1      |
- * |  CMN/PLL/REF  |  CMN/PLL/REF  |
- * |---------------|---------------| Display PHY
- * | PCS01 | PCS23 | PCS01 | PCS23 |
- * |-------|-------|-------|-------|
- * |TX0|TX1|TX2|TX3|TX0|TX1|TX2|TX3|
- * ---------------------------------
- * |     DDI0      |     DDI1      | DP/HDMI ports
- * ---------------------------------
  *
- * Single channel PHY (CHV/BXT)
- * -----------------
- * |      CH0      |
- * |  CMN/PLL/REF  |
- * |---------------| Display PHY
- * | PCS01 | PCS23 |
- * |-------|-------|
- * |TX0|TX1|TX2|TX3|
- * -----------------
- * |     DDI2      | DP/HDMI port
- * -----------------
+ *
+ *     Dual channel PHY (VLV/CHV/BXT)
+ *     ---------------------------------
+ *     |      CH0      |      CH1      |
+ *     |  CMN/PLL/REF  |  CMN/PLL/REF  |
+ *     |---------------|---------------| Display PHY
+ *     | PCS01 | PCS23 | PCS01 | PCS23 |
+ *     |-------|-------|-------|-------|
+ *     |TX0|TX1|TX2|TX3|TX0|TX1|TX2|TX3|
+ *     ---------------------------------
+ *     |     DDI0      |     DDI1      | DP/HDMI ports
+ *     ---------------------------------
+ *
+ *     Single channel PHY (CHV/BXT)
+ *     -----------------
+ *     |      CH0      |
+ *     |  CMN/PLL/REF  |
+ *     |---------------| Display PHY
+ *     | PCS01 | PCS23 |
+ *     |-------|-------|
+ *     |TX0|TX1|TX2|TX3|
+ *     -----------------
+ *     |     DDI2      | DP/HDMI port
+ *     -----------------
  */
 #define DPIO_DEVFN			0
 
@@ -1710,6 +1710,11 @@ enum skl_disp_power_wells {
 
 #define FPGA_DBG		_MMIO(0x42300)
 #define   FPGA_DBG_RM_NOCLAIM	(1<<31)
+
+#define CLAIM_ER		_MMIO(VLV_DISPLAY_BASE + 0x2028)
+#define   CLAIM_ER_CLR		(1 << 31)
+#define   CLAIM_ER_OVERFLOW	(1 << 16)
+#define   CLAIM_ER_CTR_MASK	0xffff
 
 #define DERRMR		_MMIO(0x44050)
 /* Note that HBLANK events are reserved on bdw+ */

@@ -93,11 +93,13 @@ struct intel_ring_hangcheck {
 	int score;
 	enum intel_ring_hangcheck_action action;
 	int deadlock;
+	u32 instdone[I915_NUM_INSTDONE_REG];
 };
 
 struct intel_ringbuffer {
 	struct drm_i915_gem_object *obj;
 	void __iomem *virtual_start;
+	struct i915_vma *vma;
 
 	struct intel_engine_cs *ring;
 	struct list_head link;
@@ -268,6 +270,8 @@ struct  intel_engine_cs {
 	struct list_head execlist_queue;
 	struct list_head execlist_retired_req_list;
 	u8 next_context_status_buffer;
+	bool disable_lite_restore_wa;
+	u32 ctx_desc_template;
 	u32             irq_keep_mask; /* bitmask for interrupts that should not be masked */
 	int		(*emit_request)(struct drm_i915_gem_request *request);
 	int		(*emit_flush)(struct drm_i915_gem_request *request,
@@ -406,7 +410,7 @@ intel_write_status_page(struct intel_engine_cs *ring,
 	ring->status_page.page_addr[reg] = value;
 }
 
-/**
+/*
  * Reads a dword out of the status page, which is written to from the command
  * queue by automatic updates, MI_REPORT_HEAD, MI_STORE_DATA_INDEX, or
  * MI_STORE_DATA_IMM.

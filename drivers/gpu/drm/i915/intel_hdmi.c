@@ -2033,6 +2033,11 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 	enum port port = intel_dig_port->port;
 	uint8_t alternate_ddc_pin;
 
+	if (WARN(intel_dig_port->max_lanes < 4,
+		 "Not enough lanes (%d) for HDMI on port %c\n",
+		 intel_dig_port->max_lanes, port_name(port)))
+		return;
+
 	drm_connector_init(dev, connector, &intel_hdmi_connector_funcs,
 			   DRM_MODE_CONNECTOR_HDMIA);
 	drm_connector_helper_add(connector, &intel_hdmi_connector_helper_funcs);
@@ -2164,7 +2169,7 @@ void intel_hdmi_init(struct drm_device *dev,
 	intel_encoder = &intel_dig_port->base;
 
 	drm_encoder_init(dev, &intel_encoder->base, &intel_hdmi_enc_funcs,
-			 DRM_MODE_ENCODER_TMDS);
+			 DRM_MODE_ENCODER_TMDS, NULL);
 
 	intel_encoder->compute_config = intel_hdmi_compute_config;
 	if (HAS_PCH_SPLIT(dev)) {
@@ -2218,6 +2223,7 @@ void intel_hdmi_init(struct drm_device *dev,
 	dev_priv->dig_port_map[port] = intel_encoder;
 	intel_dig_port->hdmi.hdmi_reg = hdmi_reg;
 	intel_dig_port->dp.output_reg = INVALID_MMIO_REG;
+	intel_dig_port->max_lanes = 4;
 
 	intel_hdmi_init_connector(intel_dig_port, intel_connector);
 }
