@@ -390,6 +390,22 @@ On Confidence, Complexity, and Transparency
   you have involved enough people to feel comfortable if the justification for
   the commit is questioned afterwards.
 
+* Make sure pre-merge testing is completed successfully.
+
+
+Pre-Merge Testing
+-----------------
+
+Our CI infrastructure is being built up and currently requirements for pre-merge
+testing are fairly simple:
+
+* All patches must past IGT Basic Acceptance Tests (BAT) on all the CI machines
+  without causing regressions.  The CI bots will send results to intel-gfx for
+  any patches tracked by patchwork. Check CI failures and make sure any sporadic
+  failures are a) pre-existing b) tracked in bugzilla. If there's anything
+  dubious that you can't track down to pre-existing&tracked issues please don't
+  push, but instead figure out what's going on.
+
 Tooling
 =======
 
