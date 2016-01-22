@@ -346,6 +346,10 @@ An inexhaustive list of details to check:
 
 * The patch does not introduce new `sparse` warnings.
 
+* When pushing someone else's patch you must add your own signed-off per
+  http://developercertificate.org/. dim apply-branch should do this
+  automatically for you.
+
 On Confidence, Complexity, and Transparency
 -------------------------------------------
 

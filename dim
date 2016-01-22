@@ -34,6 +34,9 @@
 # - add option to check-patch to check stdin
 # - integrate ninja-check? Or too much checkers considered harmful?
 #   https://lists.linuxfoundation.org/pipermail/ksummit-discuss/2014-May/000554.html
+# - add patchwork Link: also after manually resolving conflicts in drm
+#   apply-resolved
+# - pull in dim extract-tags tool from Ville
 
 # fail on any goof-up
 set -e
