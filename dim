@@ -555,7 +555,7 @@ function prep_pull_mail
 	prep_pull_mail_signature >> ~/tmp/dim-pull-request
 }
 
-function create_workdir
+function dim_create_workdir
 {
 	cd $DIM_PREFIX
 	local branches
@@ -763,7 +763,7 @@ case "$subcommand" in
 		update_rerere_cache
 		;;
 	create-workdir)
-		create_workdir $1
+		dim_create_workdir $1
 		;;
 	for-each-workdirs|fw)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
