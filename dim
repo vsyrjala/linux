@@ -486,7 +486,7 @@ function checkpatch_commit
 	shell_checkpatch "git show $commit --pretty=email"
 }
 
-function dim_checkrange
+function dim_checkpatch
 {
 	local range
 
@@ -856,8 +856,8 @@ case "$subcommand" in
 		git log -1 $sha1 "--pretty=format:Fixes: %H (\"%s\")%n" | \
 			sed -e 's/\([0-f]\{12\}\)[0-f]*/\1/'
 		;;
-	check-patch|cp)
-		dim_checkrange $@
+	checkpatch|check-patch|cp)
+		dim_checkpatch $@
 		;;
 	cherry-pick)
 		if [[ "x$1" = "x" ]]; then
