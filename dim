@@ -349,8 +349,13 @@ function update_nightly
 
 # push branch $1, rebuild nightly. the rest of the arguments are passed to git
 # push.
-function dim_push
+function dim_push_branch
 {
+	if [[ "x$1" = "x" ]]; then
+		echo "usage: $0 $subcommand branch"
+		exit 1
+	fi
+
 	branch=$1
 	shift
 
@@ -773,20 +778,16 @@ case "$subcommand" in
 		cat > `cat .fixup_file_path`
 		;;
 	push-branch)
-		if [[ "x$1" = "x" ]]; then
-			echo "usage: $0 $subcommand branch"
-			exit 1
-		fi
-		dim_push "$@"
+		dim_push_branch "$@"
 		;;
 	push-queued|pq)
-		dim_push drm-intel-next-queued "$@"
+		dim_push_branch drm-intel-next-queued "$@"
 		;;
 	push-next-fixes|pnf)
-		dim_push drm-intel-next-fixes "$@"
+		dim_push_branch drm-intel-next-fixes "$@"
 		;;
 	push-fixes|pf)
-		dim_push drm-intel-fixes "$@"
+		dim_push_branch drm-intel-fixes "$@"
 		;;
 	checkout|co)
 		if [[ "x$1" = "x" ]]; then
