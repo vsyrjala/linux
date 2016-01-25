@@ -386,7 +386,7 @@ function dim_apply_branch
 
 	local message_id=$(message_get_id $file)
 
-	dim_shell_checkpatch "cat $file"
+	shell_checkpatch "cat $file"
 
 	local commiter_email=$(git config --get user.email)
 	local patch_from=$(grep "From:" "$file" | head -1)
@@ -466,7 +466,7 @@ function check_repo_clean
 }
 
 # $1 is the shell command to display the patch/commit
-function dim_shell_checkpatch
+function shell_checkpatch
 {
 	local cmd=$1
 
@@ -483,7 +483,7 @@ function dim_checkpatch
 	local commit=$1
 
 	git --no-pager log --oneline -1 $commit
-	dim_shell_checkpatch "git show $commit --pretty=email"
+	shell_checkpatch "git show $commit --pretty=email"
 }
 
 function dim_checkrange
