@@ -591,6 +591,11 @@ function dim_create_workdir
 # dim_pull_request branch upstream
 function dim_pull_request
 {
+	if [[ "x$1" = "x" || "x$2" = "x" ]]; then
+		echo "usage: $0 $subcommand branch upstream"
+		exit 1
+	fi
+
 	branch=$1
 	upstream=$2
 
@@ -874,10 +879,6 @@ case "$subcommand" in
 		$DRY git cherry-pick $1
 		;;
 	pull-request)
-		if [[ "x$1" = "x" || "x$2" = "x" ]]; then
-			echo "usage: $0 $subcommand branch upstream"
-			exit 1
-		fi
 		dim_pull_request $*
 		;;
 	pull-request-next)
