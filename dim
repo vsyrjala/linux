@@ -478,7 +478,7 @@ function shell_checkpatch
 }
 
 # $1 is the git sha1 to check
-function dim_checkpatch
+function checkpatch_commit
 {
 	local commit=$1
 
@@ -499,7 +499,7 @@ function dim_checkrange
 	fi
 
 	for commit in $(git rev-list --reverse $range); do
-		dim_checkpatch $commit || true
+		checkpatch_commit $commit || true
 	done
 }
 
@@ -820,7 +820,7 @@ case "$subcommand" in
 		;;
 	apply-resolved|ar)
 		make -j 20 && git add -u && git am --resolved
-		dim_checkpatch HEAD
+		checkpatch_commit HEAD
 		git commit --amend &
 		;;
 	apply-igt|ai)
