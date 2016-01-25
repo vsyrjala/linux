@@ -406,7 +406,7 @@ function dim_apply_branch
 	eval $DRY $DIM_POST_APPLY_ACTION
 }
 
-function magic_patch
+function dim_magic_patch
 {
 	if [[ "$1" = "-a" ]]; then
 		cd `cat ~/.dim-last-path`
@@ -828,7 +828,7 @@ case "$subcommand" in
 		git am --whitespace=fix -3 -s
 		;;
 	magic-patch|mp)
-		magic_patch "$@"
+		dim_magic_patch "$@"
 		;;
 	magic-rebase-resolve|mrr)
 		git diff HEAD | patch -p1 -R
