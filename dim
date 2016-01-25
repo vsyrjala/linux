@@ -369,7 +369,7 @@ function dim_push_branch
 
 # ensure we're on branch $1, and apply patches. the rest of the arguments are
 # passed to git am.
-function dim_apply
+function dim_apply_branch
 {
 	local branch=$1
 	shift
@@ -806,16 +806,16 @@ case "$subcommand" in
 		dim_co drm-intel-next-fixes
 		;;
 	apply-branch|ab|sob)
-		dim_apply "$@"
+		dim_apply_branch "$@"
 		;;
 	apply-queued|aq)
-		dim_apply drm-intel-next-queued "$@"
+		dim_apply_branch drm-intel-next-queued "$@"
 		;;
 	apply-fixes|af)
-		dim_apply drm-intel-fixes "$@"
+		dim_apply_branch drm-intel-fixes "$@"
 		;;
 	apply-next-fixes|anf)
-		dim_apply drm-intel-next-fixes "$@"
+		dim_apply_branch drm-intel-next-fixes "$@"
 		;;
 	apply-resolved|ar)
 		make -j 20 && git add -u && git am --resolved
