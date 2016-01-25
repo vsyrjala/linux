@@ -440,8 +440,13 @@ function dim_cd
 	cd $path
 }
 
-function dim_co
+function dim_checkout
 {
+	if [[ "x$1" = "x" ]]; then
+		echo "usage: $0 $subcommand branch"
+		exit 1
+	fi
+
 	dim_cd $1
 	if ! git branch | grep $1 > /dev/null ; then
 		git checkout -t $DIM_DRM_INTEL_REMOTE/$1
@@ -744,14 +749,14 @@ case "$subcommand" in
 		check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
 
 		for branch in $dim_branches ; do
-			dim_co $branch
+			dim_checkout $branch
 			if git diff --quiet $DIM_DRM_INTEL_REMOTE/$branch; then
 				$DRY git rebase
 			else
 				$DRY git rebase -i
 			fi
 		done
-		dim_co drm-intel-next
+		dim_checkout drm-intel-next
 		$DRY git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
 		# TODO: Restore -nightly merge state from the rerere-cache
 		# branch
@@ -790,20 +795,16 @@ case "$subcommand" in
 		dim_push_branch drm-intel-fixes "$@"
 		;;
 	checkout|co)
-		if [[ "x$1" = "x" ]]; then
-			echo "usage: $0 $subcommand branch"
-			exit 1
-		fi
-		dim_co "$@"
+		dim_checkout "$@"
 		;;
 	conq)
-		dim_co drm-intel-next-queued
+		dim_checkout drm-intel-next-queued
 		;;
 	cof)
-		dim_co drm-intel-fixes
+		dim_checkout drm-intel-fixes
 		;;
 	conf)
-		dim_co drm-intel-next-fixes
+		dim_checkout drm-intel-next-fixes
 		;;
 	apply-branch|ab|sob)
 		dim_apply_branch "$@"
