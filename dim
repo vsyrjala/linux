@@ -234,7 +234,7 @@ function update_rerere_cache
 	cd -
 }
 
-function update_nightly
+function dim_rebuild_nightly
 {
 	local integration_branch=drm-intel-nightly
 	local specfile=`mktemp`
@@ -363,7 +363,7 @@ function dim_push_branch
 
 	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE $branch "$@"
 
-	update_nightly
+	dim_rebuild_nightly
 	update_linux_next
 }
 
@@ -776,7 +776,7 @@ case "$subcommand" in
 		done
 		;;
 	rebuild-nightly)
-		update_nightly
+		dim_rebuild_nightly
 		;;
 	cat-to-fixup)
 		cd $DIM_PREFIX/drm-intel-nightly
