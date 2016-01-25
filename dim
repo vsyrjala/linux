@@ -380,7 +380,14 @@ function dim_apply
 
 	dim_shell_checkpatch "cat $file"
 
-	cat $file | git am -3 "$@"
+	local commiter_email=$(git config --get user.email)
+	local patch_from=$(grep "From:" "$file" | head -1)
+	local sob
+	if [[ "$patch_from" != *"$commiter_email"* ]] ; then
+		sob=-s
+	fi
+
+	cat $file | git am -3 $sob "$@"
 
 	if [ -n "$message_id" ]; then
 		commit_add_tag "Link" "http://patchwork.freedesktop.org/patch/msgid/$message_id"
