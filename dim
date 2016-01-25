@@ -625,7 +625,7 @@ function dim_pull_request
 		"$addr_drm_maintainer"
 }
 
-function setup_dim
+function dim_setup
 {
 	if [ ! -d $DIM_PREFIX ]; then
 		echo "please set up your repository directory with:"
@@ -734,7 +734,7 @@ function assert_branch
 
 case "$subcommand" in
 	setup)
-		setup_dim
+		dim_setup
 		;;
 	nightly-forget)
 		cd $DIM_PREFIX/drm-intel-nightly
