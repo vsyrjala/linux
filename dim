@@ -603,6 +603,19 @@ function dim_create_workdir
 	done
 }
 
+dim_alias_fw=for-each-workdirs
+function dim_for_each_workdirs
+{
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
+	$@
+	for branch in $dim_branches ; do
+		if [[ -d $DIM_PREFIX/$branch ]] ; then
+			cd $DIM_PREFIX/$branch
+			$@
+		fi
+	done
+}
+
 # dim_pull_request branch upstream
 function dim_pull_request
 {
@@ -787,7 +800,6 @@ dim_alias_ai=apply-igt
 dim_alias_anf=apply-next-fixes
 dim_alias_aq=apply-queued
 dim_alias_ar=apply-resolved
-dim_alias_fw=for-each-workdirs
 dim_alias_mrr=magic-rebase-resolve
 dim_alias_pf=push-fixes
 dim_alias_pnf=push-next-fixes
@@ -808,16 +820,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	for-each-workdirs)
-		cd $DIM_PREFIX/$DIM_DRM_INTEL
-		$@
-		for branch in $dim_branches ; do
-			if [[ -d $DIM_PREFIX/$branch ]] ; then
-				cd $DIM_PREFIX/$branch
-				$@
-			fi
-		done
-		;;
 	cat-to-fixup)
 		cd $DIM_PREFIX/drm-intel-nightly
 		cat > `cat .fixup_file_path`
