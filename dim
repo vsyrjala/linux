@@ -369,6 +369,8 @@ function dim_push_branch
 
 # ensure we're on branch $1, and apply patches. the rest of the arguments are
 # passed to git am.
+dim_alias_ab=apply-branch
+dim_alias_sob=apply-branch
 function dim_apply_branch
 {
 	local branch=$1
@@ -406,6 +408,7 @@ function dim_apply_branch
 	eval $DRY $DIM_POST_APPLY_ACTION
 }
 
+dim_alias_mp=magic-patch
 function dim_magic_patch
 {
 	if [[ "$1" = "-a" ]]; then
@@ -440,6 +443,7 @@ function dim_cd
 	cd $path
 }
 
+dim_alias_co=checkout
 function dim_checkout
 {
 	if [[ "x$1" = "x" ]]; then
@@ -486,6 +490,8 @@ function checkpatch_commit
 	shell_checkpatch "git show $commit --pretty=email"
 }
 
+dim_alias_check_patch=checkpatch
+dim_alias_cp=checkpatch
 function dim_checkpatch
 {
 	local range
@@ -737,7 +743,25 @@ function assert_branch
 	fi
 }
 
-case "$subcommand" in
+# dim subcommand aliases
+dim_alias_af=apply-fixes
+dim_alias_ai=apply-igt
+dim_alias_anf=apply-next-fixes
+dim_alias_aq=apply-queued
+dim_alias_ar=apply-resolved
+dim_alias_fw=for-each-workdirs
+dim_alias_mrr=magic-rebase-resolve
+dim_alias_pf=push-fixes
+dim_alias_pnf=push-next-fixes
+dim_alias_pq=push-queued
+dim_alias_ub=update-branches
+
+declare -n subcmd=dim_alias_${subcommand//-/_}
+if [ -z "$subcmd" ]; then
+	subcmd="$subcommand"
+fi
+
+case "$subcmd" in
 	setup)
 		dim_setup
 		;;
@@ -748,7 +772,7 @@ case "$subcommand" in
 		git merge origin/drm-intel-fixes
 		git rerere forget
 		;;
-	update-branches|ub)
+	update-branches)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		git fetch $DIM_DRM_INTEL_REMOTE
 		check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
@@ -770,7 +794,7 @@ case "$subcommand" in
 	create-workdir)
 		dim_create_workdir $1
 		;;
-	for-each-workdirs|fw)
+	for-each-workdirs)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		$@
 		for branch in $dim_branches ; do
@@ -790,16 +814,16 @@ case "$subcommand" in
 	push-branch)
 		dim_push_branch "$@"
 		;;
-	push-queued|pq)
+	push-queued)
 		dim_push_branch drm-intel-next-queued "$@"
 		;;
-	push-next-fixes|pnf)
+	push-next-fixes)
 		dim_push_branch drm-intel-next-fixes "$@"
 		;;
-	push-fixes|pf)
+	push-fixes)
 		dim_push_branch drm-intel-fixes "$@"
 		;;
-	checkout|co)
+	checkout)
 		dim_checkout "$@"
 		;;
 	conq)
@@ -811,31 +835,31 @@ case "$subcommand" in
 	conf)
 		dim_checkout drm-intel-next-fixes
 		;;
-	apply-branch|ab|sob)
+	apply-branch)
 		dim_apply_branch "$@"
 		;;
-	apply-queued|aq)
+	apply-queued)
 		dim_apply_branch drm-intel-next-queued "$@"
 		;;
-	apply-fixes|af)
+	apply-fixes)
 		dim_apply_branch drm-intel-fixes "$@"
 		;;
-	apply-next-fixes|anf)
+	apply-next-fixes)
 		dim_apply_branch drm-intel-next-fixes "$@"
 		;;
-	apply-resolved|ar)
+	apply-resolved)
 		make -j 20 && git add -u && git am --resolved
 		checkpatch_commit HEAD
 		git commit --amend &
 		;;
-	apply-igt|ai)
+	apply-igt)
 		cd ~/xorg/intel-gpu-tools/
 		git am --whitespace=fix -3 -s
 		;;
-	magic-patch|mp)
+	magic-patch)
 		dim_magic_patch "$@"
 		;;
-	magic-rebase-resolve|mrr)
+	magic-rebase-resolve)
 		git diff HEAD | patch -p1 -R
 		cat .git/rebase-merge/patch | dim mp
 		make -j 20
@@ -861,7 +885,7 @@ case "$subcommand" in
 		git log -1 $sha1 "--pretty=format:Fixes: %H (\"%s\")%n" | \
 			sed -e 's/\([0-f]\{12\}\)[0-f]*/\1/'
 		;;
-	checkpatch|check-patch|cp)
+	checkpatch)
 		dim_checkpatch $@
 		;;
 	cherry-pick)
