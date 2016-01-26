@@ -761,10 +761,16 @@ if [ -z "$subcmd" ]; then
 	subcmd="$subcommand"
 fi
 
+# if there's a function by the subcommand name, call it
+subcmd_func=dim_${subcmd//-/_}
+if declare -f $subcmd_func >/dev/null; then
+	$subcmd_func "$@"
+	exit 0
+fi
+
+# XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
+# into an else branch in the above check for functions.
 case "$subcmd" in
-	setup)
-		dim_setup
-		;;
 	nightly-forget)
 		cd $DIM_PREFIX/drm-intel-nightly
 		git fetch origin >& /dev/null
@@ -791,9 +797,6 @@ case "$subcmd" in
 		# branch
 		update_rerere_cache
 		;;
-	create-workdir)
-		dim_create_workdir $1
-		;;
 	for-each-workdirs)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		$@
@@ -804,15 +807,9 @@ case "$subcmd" in
 			fi
 		done
 		;;
-	rebuild-nightly)
-		dim_rebuild_nightly
-		;;
 	cat-to-fixup)
 		cd $DIM_PREFIX/drm-intel-nightly
 		cat > `cat .fixup_file_path`
-		;;
-	push-branch)
-		dim_push_branch "$@"
 		;;
 	push-queued)
 		dim_push_branch drm-intel-next-queued "$@"
@@ -823,9 +820,6 @@ case "$subcmd" in
 	push-fixes)
 		dim_push_branch drm-intel-fixes "$@"
 		;;
-	checkout)
-		dim_checkout "$@"
-		;;
 	conq)
 		dim_checkout drm-intel-next-queued
 		;;
@@ -834,9 +828,6 @@ case "$subcmd" in
 		;;
 	conf)
 		dim_checkout drm-intel-next-fixes
-		;;
-	apply-branch)
-		dim_apply_branch "$@"
 		;;
 	apply-queued)
 		dim_apply_branch drm-intel-next-queued "$@"
@@ -855,9 +846,6 @@ case "$subcmd" in
 	apply-igt)
 		cd ~/xorg/intel-gpu-tools/
 		git am --whitespace=fix -3 -s
-		;;
-	magic-patch)
-		dim_magic_patch "$@"
 		;;
 	magic-rebase-resolve)
 		git diff HEAD | patch -p1 -R
@@ -885,9 +873,6 @@ case "$subcmd" in
 		git log -1 $sha1 "--pretty=format:Fixes: %H (\"%s\")%n" | \
 			sed -e 's/\([0-f]\{12\}\)[0-f]*/\1/'
 		;;
-	checkpatch)
-		dim_checkpatch $@
-		;;
 	cherry-pick)
 		if [[ "x$1" = "x" ]]; then
 			echo "usage: $0 $subcommand commit-ish"
@@ -901,9 +886,6 @@ case "$subcmd" in
 		echo Possible fixup patches for your cherry-pick:
 		git log --grep=$sha_short --pretty=oneline $sha..$DIM_DRM_INTEL_REMOTE/drm-intel-nightly
 		$DRY git cherry-pick $1
-		;;
-	pull-request)
-		dim_pull_request $*
 		;;
 	pull-request-next)
 		upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
