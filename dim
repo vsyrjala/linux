@@ -645,6 +645,28 @@ function dim_pull_request
 		"$addr_drm_maintainer"
 }
 
+dim_alias_ub=update-branches
+function dim_update_branches
+{
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
+	git fetch $DIM_DRM_INTEL_REMOTE
+	check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
+
+	for branch in $dim_branches ; do
+		dim_checkout $branch
+		if git diff --quiet $DIM_DRM_INTEL_REMOTE/$branch; then
+			$DRY git rebase
+		else
+			$DRY git rebase -i
+		fi
+	done
+	dim_checkout drm-intel-next
+	$DRY git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
+	# TODO: Restore -nightly merge state from the rerere-cache
+	# branch
+	update_rerere_cache
+}
+
 function dim_setup
 {
 	if [ ! -d $DIM_PREFIX ]; then
@@ -770,7 +792,6 @@ dim_alias_mrr=magic-rebase-resolve
 dim_alias_pf=push-fixes
 dim_alias_pnf=push-next-fixes
 dim_alias_pq=push-queued
-dim_alias_ub=update-branches
 
 declare -n subcmd=dim_alias_${subcommand//-/_}
 if [ -z "$subcmd" ]; then
@@ -787,25 +808,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	update-branches)
-		cd $DIM_PREFIX/$DIM_DRM_INTEL
-		git fetch $DIM_DRM_INTEL_REMOTE
-		check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
-
-		for branch in $dim_branches ; do
-			dim_checkout $branch
-			if git diff --quiet $DIM_DRM_INTEL_REMOTE/$branch; then
-				$DRY git rebase
-			else
-				$DRY git rebase -i
-			fi
-		done
-		dim_checkout drm-intel-next
-		$DRY git reset --hard $DIM_DRM_INTEL_REMOTE/drm-intel-next
-		# TODO: Restore -nightly merge state from the rerere-cache
-		# branch
-		update_rerere_cache
-		;;
 	for-each-workdirs)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		$@
