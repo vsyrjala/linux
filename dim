@@ -376,6 +376,24 @@ function dim_push_branch
 	update_linux_next
 }
 
+dim_alias_pq=push-queued
+function dim_push_queued
+{
+	dim_push_branch drm-intel-next-queued "$@"
+}
+
+dim_alias_pnf=push-next-fixes
+function dim_push_next_fixes
+{
+	dim_push_branch drm-intel-next-fixes "$@"
+}
+
+dim_alias_pf=push-fixes
+function dim_push_fixes
+{
+	dim_push_branch drm-intel-fixes "$@"
+}
+
 # ensure we're on branch $1, and apply patches. the rest of the arguments are
 # passed to git am.
 dim_alias_ab=apply-branch
@@ -801,9 +819,6 @@ dim_alias_anf=apply-next-fixes
 dim_alias_aq=apply-queued
 dim_alias_ar=apply-resolved
 dim_alias_mrr=magic-rebase-resolve
-dim_alias_pf=push-fixes
-dim_alias_pnf=push-next-fixes
-dim_alias_pq=push-queued
 
 declare -n subcmd=dim_alias_${subcommand//-/_}
 if [ -z "$subcmd" ]; then
@@ -823,15 +838,6 @@ case "$subcmd" in
 	cat-to-fixup)
 		cd $DIM_PREFIX/drm-intel-nightly
 		cat > `cat .fixup_file_path`
-		;;
-	push-queued)
-		dim_push_branch drm-intel-next-queued "$@"
-		;;
-	push-next-fixes)
-		dim_push_branch drm-intel-next-fixes "$@"
-		;;
-	push-fixes)
-		dim_push_branch drm-intel-fixes "$@"
 		;;
 	conq)
 		dim_checkout drm-intel-next-queued
