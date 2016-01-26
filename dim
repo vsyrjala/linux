@@ -347,6 +347,15 @@ function dim_rebuild_nightly
 
 }
 
+function dim_nightly_forget
+{
+	cd $DIM_PREFIX/drm-intel-nightly
+	git fetch origin >& /dev/null
+	git reset --hard origin/drm-intel-next-queued >& /dev/null
+	git merge origin/drm-intel-fixes
+	git rerere forget
+}
+
 # push branch $1, rebuild nightly. the rest of the arguments are passed to git
 # push.
 function dim_push_branch
@@ -778,13 +787,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	nightly-forget)
-		cd $DIM_PREFIX/drm-intel-nightly
-		git fetch origin >& /dev/null
-		git reset --hard origin/drm-intel-next-queued >& /dev/null
-		git merge origin/drm-intel-fixes
-		git rerere forget
-		;;
 	update-branches)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		git fetch $DIM_DRM_INTEL_REMOTE
