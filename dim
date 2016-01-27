@@ -435,6 +435,39 @@ function dim_apply_branch
 	eval $DRY $DIM_POST_APPLY_ACTION
 }
 
+dim_alias_aq=apply-queued
+function dim_apply_queued
+{
+	dim_apply_branch drm-intel-next-queued "$@"
+}
+
+dim_alias_af=apply-fixes
+function dim_apply_fixes
+{
+	dim_apply_branch drm-intel-fixes "$@"
+}
+
+dim_alias_anf=apply-next-fixes
+function dim_apply_next_fixes
+{
+	dim_apply_branch drm-intel-next-fixes "$@"
+}
+
+dim_alias_ar=apply-resolved
+function dim_apply_resolved
+{
+	make -j 20 && git add -u && git am --resolved
+	checkpatch_commit HEAD
+	git commit --amend &
+}
+
+dim_alias_ai=apply-igt
+function dim_apply_igt
+{
+	cd ~/xorg/intel-gpu-tools/
+	git am --whitespace=fix -3 -s
+}
+
 dim_alias_mp=magic-patch
 function dim_magic_patch
 {
@@ -828,11 +861,6 @@ function dim_alias
 }
 
 # dim subcommand aliases
-dim_alias_af=apply-fixes
-dim_alias_ai=apply-igt
-dim_alias_anf=apply-next-fixes
-dim_alias_aq=apply-queued
-dim_alias_ar=apply-resolved
 dim_alias_mrr=magic-rebase-resolve
 
 declare -n subcmd=dim_alias_${subcommand//-/_}
@@ -853,24 +881,6 @@ case "$subcmd" in
 	cat-to-fixup)
 		cd $DIM_PREFIX/drm-intel-nightly
 		cat > `cat .fixup_file_path`
-		;;
-	apply-queued)
-		dim_apply_branch drm-intel-next-queued "$@"
-		;;
-	apply-fixes)
-		dim_apply_branch drm-intel-fixes "$@"
-		;;
-	apply-next-fixes)
-		dim_apply_branch drm-intel-next-fixes "$@"
-		;;
-	apply-resolved)
-		make -j 20 && git add -u && git am --resolved
-		checkpatch_commit HEAD
-		git commit --amend &
-		;;
-	apply-igt)
-		cd ~/xorg/intel-gpu-tools/
-		git am --whitespace=fix -3 -s
 		;;
 	magic-rebase-resolve)
 		git diff HEAD | patch -p1 -R
