@@ -461,6 +461,16 @@ function dim_apply_resolved
 	git commit --amend &
 }
 
+dim_alias_mrr=magic-rebase-resolve
+function dim_magic_rebase_resolve
+{
+	git diff HEAD | patch -p1 -R
+	cat .git/rebase-merge/patch | dim mp
+	make -j 20
+	git add -u
+	git rebase --continue
+}
+
 dim_alias_ai=apply-igt
 function dim_apply_igt
 {
@@ -861,8 +871,6 @@ function dim_alias
 }
 
 # dim subcommand aliases
-dim_alias_mrr=magic-rebase-resolve
-
 declare -n subcmd=dim_alias_${subcommand//-/_}
 if [ -z "$subcmd" ]; then
 	subcmd="$subcommand"
@@ -881,13 +889,6 @@ case "$subcmd" in
 	cat-to-fixup)
 		cd $DIM_PREFIX/drm-intel-nightly
 		cat > `cat .fixup_file_path`
-		;;
-	magic-rebase-resolve)
-		git diff HEAD | patch -p1 -R
-		cat .git/rebase-merge/patch | dim mp
-		make -j 20
-		git add -u
-		git rebase --continue
 		;;
 	tc)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
