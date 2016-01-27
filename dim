@@ -486,6 +486,21 @@ function dim_checkout
 	fi
 }
 
+function dim_conq
+{
+	dim_checkout drm-intel-next-queued "$@"
+}
+
+function dim_cof
+{
+	dim_checkout drm-intel-fixes "$@"
+}
+
+function dim_conf
+{
+	dim_checkout drm-intel-next-fixes "$@"
+}
+
 function check_repo_clean
 {
 	cd $1
@@ -838,15 +853,6 @@ case "$subcmd" in
 	cat-to-fixup)
 		cd $DIM_PREFIX/drm-intel-nightly
 		cat > `cat .fixup_file_path`
-		;;
-	conq)
-		dim_checkout drm-intel-next-queued
-		;;
-	cof)
-		dim_checkout drm-intel-fixes
-		;;
-	conf)
-		dim_checkout drm-intel-next-fixes
 		;;
 	apply-queued)
 		dim_apply_branch drm-intel-next-queued "$@"
