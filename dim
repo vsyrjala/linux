@@ -453,6 +453,22 @@ function dim_apply_next_fixes
 	dim_apply_branch drm-intel-next-fixes "$@"
 }
 
+function dim_cherry_pick
+{
+	if [[ "x$1" = "x" ]]; then
+		echo "usage: $0 $subcommand commit-ish"
+		exit 1
+	fi
+	sha=`git rev-parse $1`
+	sha_short=${sha:0:8}
+
+	# need latest -nightly
+	git fetch $DIM_DRM_INTEL_REMOTE
+	echo Possible fixup patches for your cherry-pick:
+	git log --grep=$sha_short --pretty=oneline $sha..$DIM_DRM_INTEL_REMOTE/drm-intel-nightly
+	$DRY git cherry-pick $1
+}
+
 dim_alias_ar=apply-resolved
 function dim_apply_resolved
 {
@@ -915,20 +931,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	cherry-pick)
-		if [[ "x$1" = "x" ]]; then
-			echo "usage: $0 $subcommand commit-ish"
-			exit 1
-		fi
-		sha=`git rev-parse $1`
-		sha_short=${sha:0:8}
-
-		# need latest -nightly
-		git fetch $DIM_DRM_INTEL_REMOTE
-		echo Possible fixup patches for your cherry-pick:
-		git log --grep=$sha_short --pretty=oneline $sha..$DIM_DRM_INTEL_REMOTE/drm-intel-nightly
-		$DRY git cherry-pick $1
-		;;
 	pull-request-next)
 		upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
 		dim_pull_request drm-intel-next $upstream
