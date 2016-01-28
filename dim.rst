@@ -273,6 +273,11 @@ for-each-workdir|fw *command*
 Run the given command in all active workdirs including the main repository under
 \$DIM_DRM_INTEL.
 
+alias
+-----
+
+List all aliases for the subcommand names.
+
 help
 ----
 Show this help. Install **rst2man(1)** for best results.

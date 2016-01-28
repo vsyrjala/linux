@@ -743,6 +743,13 @@ function assert_branch
 	fi
 }
 
+function dim_alias
+{
+	# use posix mode to omit functions in set output
+	( set -o posix; set ) | grep "^dim_alias_[a-zA-Z0-9_]*=" |\
+		sed 's/^dim_alias_/\t/;s/=/\t/'
+}
+
 # dim subcommand aliases
 dim_alias_af=apply-fixes
 dim_alias_ai=apply-igt
