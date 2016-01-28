@@ -278,6 +278,10 @@ struct intel_plane_state {
 	struct drm_rect src;
 	struct drm_rect dst;
 	struct drm_rect clip;
+	struct {
+		u32 offset;
+		int x, y;
+	} main;
 	bool visible;
 
 	/*
@@ -1237,6 +1241,7 @@ u32 skl_plane_ctl_tiling(uint64_t fb_modifier);
 u32 skl_plane_ctl_rotation(unsigned int rotation);
 u32 skl_plane_stride(const struct drm_framebuffer *fb, int plane,
 		     unsigned int rotation);
+int skl_check_plane_surface(struct intel_plane_state *plane_state);
 
 /* intel_csr.c */
 void intel_csr_ucode_init(struct drm_i915_private *);
