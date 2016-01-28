@@ -772,6 +772,24 @@ function dim_update_next
 	     "$addr_intel_qa2"
 }
 
+function dim_tag_next
+{
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
+	git fetch $DIM_DRM_INTEL_REMOTE
+
+	if [ $(git rev-parse drm-intel-next) == $(git rev-parse drm-intel-next@{u}) ] ; then
+		echo "Tagging current drm-intel-next"
+
+		tag=drm-intel-next-$today
+		$DRY git tag -f $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
+		git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
+	else
+		echo "drm-intel-next not up-to-date, aborting"
+		exit
+	fi
+
+}
+
 # dim_pull_request branch upstream
 function dim_pull_request
 {
@@ -1013,22 +1031,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	tag-next)
-		cd $DIM_PREFIX/$DIM_DRM_INTEL
-		git fetch $DIM_DRM_INTEL_REMOTE
-
-		if [ $(git rev-parse drm-intel-next) == $(git rev-parse drm-intel-next@{u}) ] ; then
-			echo "Tagging current drm-intel-next"
-
-			tag=drm-intel-next-$today
-			$DRY git tag -f $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
-			git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
-		else
-			echo "drm-intel-next not up-to-date, aborting"
-			exit
-		fi
-
-		;;
 	create-branch)
 		if [[ "x$1" = "x" ]]; then
 			echo "usage: $0 $subcommand branch [commit-ish]"
