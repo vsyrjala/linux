@@ -2619,8 +2619,11 @@ static u32 _intel_compute_tile_offset(const struct drm_i915_private *dev_priv,
 		offset = *y * pitch + *x * cpp;
 		offset_aligned = offset & ~alignment;
 
+		DRM_DEBUG_KMS("x = %d y = %d -> offset = %d, align=%d misaligned=%d\n",
+			      *x, *y, offset, alignment, offset & alignment);
 		*y = (offset & alignment) / pitch;
 		*x = ((offset & alignment) - *y * pitch) / cpp;
+		DRM_DEBUG_KMS("-> x = %d y = %d\n", *x, *y);
 	}
 
 	return offset_aligned;
@@ -2692,7 +2695,13 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 		width = drm_format_plane_width(fb->width, format, i);
 		height = drm_format_plane_height(fb->height, format, i);
 
+		DRM_DEBUG_KMS("w = %d h = %d, cpp=%d fmt=%x\n", width, height, cpp,
+			      fb->pixel_format);
+		DRM_DEBUG_KMS("offset %d mod=%llx\n", fb->offsets[i], fb->modifier[i]);
+
 		intel_fb_offset_to_xy(&x, &y, fb, i);
+
+		DRM_DEBUG_KMS("as x = %d y = %d\n", x, y);
 
 		/*
 		 * The fence (if used) is aligned to the start of the object
@@ -2705,8 +2714,8 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 		 */
 		if (intel_fb->obj->tiling_mode != I915_TILING_NONE &&
 		    (x + width) * cpp > fb->pitches[i]) {
-			DRM_DEBUG("bad fb plane %d offset: 0x%x\n",
-				  i, fb->offsets[i]);
+			DRM_DEBUG_KMS("bad fb plane %d offset: 0x%x\n",
+				      i, fb->offsets[i]);
 			return -EINVAL;
 		}
 
@@ -2721,6 +2730,8 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 						    fb, 0, fb->pitches[i],
 						    BIT(DRM_ROTATE_0), tile_size);
 		offset /= tile_size;
+		DRM_DEBUG_KMS("offset %u tiles\n", offset);
+		DRM_DEBUG_KMS("leftover x = %d y = %d\n", x, y);
 
 		if (fb->modifier[i] != DRM_FORMAT_MOD_NONE) {
 			unsigned int tile_width, tile_height;
@@ -2783,14 +2794,16 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 			size = DIV_ROUND_UP((y + height) * fb->pitches[i] +
 					    x * cpp, tile_size);
 		}
+		DRM_DEBUG_KMS("%d offset %u, size %u, stride %u, height %u\n",
+			      i, offset, size, rot_info->plane[i].stride, rot_info->plane[i].height);
 
 		/* how many tiles in total needed in the bo */
 		max_size = max(max_size, offset + size);
 	}
 
 	if (max_size * tile_size > to_intel_framebuffer(fb)->obj->base.size) {
-		DRM_DEBUG("fb too big for bo (need %u bytes, have %zu bytes)\n",
-			  max_size * tile_size, to_intel_framebuffer(fb)->obj->base.size);
+		DRM_DEBUG_KMS("fb too big for bo (need %u bytes, have %zu bytes)\n",
+			      max_size * tile_size, to_intel_framebuffer(fb)->obj->base.size);
 		return -EINVAL;
 	}
 
@@ -3119,6 +3132,8 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 	plane_state->main.x = x;
 	plane_state->main.y = y;
 
+	DRM_DEBUG_KMS("plane 0 surf=%x %dx%d+%d+%d\n", offset, w, h, x, y);
+
 	return 0;
 }
 
@@ -3147,6 +3162,8 @@ static int skl_check_nv12_aux_surface(struct intel_plane_state *plane_state)
 	plane_state->aux.offset = offset;
 	plane_state->aux.x = x;
 	plane_state->aux.y = y;
+
+	DRM_DEBUG_KMS("plane 1 surf=%x %dx%d+%d+%d\n", offset, w, h, x, y);
 
 	return 0;
 }
@@ -3179,6 +3196,11 @@ int skl_check_plane_surface(struct intel_plane_state *plane_state)
 	ret = skl_check_main_surface(plane_state);
 	if (ret)
 		return ret;
+
+	DRM_DEBUG_KMS("dst %dx%d+%d+%d\n",
+		      drm_rect_width(&plane_state->dst),
+		      drm_rect_height(&plane_state->dst),
+		      plane_state->dst.x1, plane_state->dst.y1);
 
 	return 0;
 }
@@ -15162,8 +15184,8 @@ static int intel_fb_check_offsets(const struct drm_mode_fb_cmd2 *mode_cmd)
 		}
 
 		if (mode_cmd->offsets[i] % cpp) {
-			DRM_DEBUG("fb plane %d offset 0x%08x not (macro)pixel aligned\n",
-				  i, mode_cmd->offsets[i]);
+			DRM_DEBUG_KMS("fb plane %d offset 0x%08x not (macro)pixel aligned\n",
+				      i, mode_cmd->offsets[i]);
 			return -EINVAL;
 		}
 	}
