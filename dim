@@ -892,6 +892,13 @@ function dim_tc
 	fi
 }
 
+function dim_fixes
+{
+	sha1=$1
+	git log -1 $sha1 "--pretty=format:Fixes: %H (\"%s\")%n" | \
+		sed -e 's/\([0-f]\{12\}\)[0-f]*/\1/'
+}
+
 # dim subcommand aliases
 declare -n subcmd=dim_alias_${subcommand//-/_}
 if [ -z "$subcmd" ]; then
@@ -908,11 +915,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	fixes)
-		sha1=$1
-		git log -1 $sha1 "--pretty=format:Fixes: %H (\"%s\")%n" | \
-			sed -e 's/\([0-f]\{12\}\)[0-f]*/\1/'
-		;;
 	cherry-pick)
 		if [[ "x$1" = "x" ]]; then
 			echo "usage: $0 $subcommand commit-ish"
