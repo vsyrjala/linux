@@ -662,6 +662,13 @@ function dim_checkpatch
 	done
 }
 
+function dim_checker
+{
+	rm drivers/gpu/drm/i915/*.o &> /dev/null || true
+	rm drivers/gpu/drm/i915/*.ko &> /dev/null || true
+	make C=1 drivers/gpu/drm/i915/i915.ko
+}
+
 function prep_pull_mail_greetings
 {
 	if [ -r $DIM_TEMPLATE_HELLO ]; then
@@ -1083,11 +1090,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	checker)
-		rm drivers/gpu/drm/i915/*.o &> /dev/null || true
-		rm drivers/gpu/drm/i915/*.ko &> /dev/null || true
-		make C=1 drivers/gpu/drm/i915/i915.ko
-		;;
 	help|*)
 		manpage=$DIM_PREFIX/maintainer-tools/dim.rst
 		if [ ! -e "$manpage" ]; then
