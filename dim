@@ -107,6 +107,7 @@ DRY_RUN=
 INTERACTIVE=
 DRY=
 FORCE=
+HELP=
 
 function warn_or_fail
 {
@@ -118,7 +119,7 @@ function warn_or_fail
 	fi
 }
 
-while getopts dfi opt; do
+while getopts hdfi opt; do
 	case "$opt" in
 		d)
 			DRY_RUN=--dry-run
@@ -130,15 +131,18 @@ while getopts dfi opt; do
 		i)
 			INTERACTIVE='eval read -rsp "Press any key to continue..." -n1 key2; echo'
 			;;
+		h)
+			HELP=1
+			;;
 		*)
-			echo "Try 'dim help' for more information. $opt"
+			echo "See '$0 help' for more information." >&2
 			exit
 	esac
 done
 shift `expr $OPTIND - 1`
 
 # first positional argument is the subcommand
-if [ "$#" = "0" ]; then
+if [ -n "$HELP" -o "$#" = "0" ]; then
     subcommand="usage"
 else
     subcommand="$1"
