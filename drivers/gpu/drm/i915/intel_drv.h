@@ -355,6 +355,10 @@ struct intel_plane_state {
 		u32 offset;
 		int x, y;
 	} main;
+	struct {
+		u32 offset;
+		int x, y;
+	} aux;
 	bool visible;
 
 	/*
