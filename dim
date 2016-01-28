@@ -870,6 +870,12 @@ function dim_alias
 		sed 's/^dim_alias_/\t/;s/=/\t/'
 }
 
+function dim_cat_to_fixup
+{
+	cd $DIM_PREFIX/drm-intel-nightly
+	cat > `cat .fixup_file_path`
+}
+
 # dim subcommand aliases
 declare -n subcmd=dim_alias_${subcommand//-/_}
 if [ -z "$subcmd" ]; then
@@ -886,10 +892,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	cat-to-fixup)
-		cd $DIM_PREFIX/drm-intel-nightly
-		cat > `cat .fixup_file_path`
-		;;
 	tc)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
