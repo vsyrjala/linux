@@ -708,6 +708,70 @@ function dim_for_each_workdirs
 	done
 }
 
+function dim_update_next
+{
+	assert_branch drm-intel-next-queued
+
+	git pull --ff-only
+
+	if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-fixes &> /dev/null ; then
+		echo "drm-intel-fixes not merged into -nigthly, please update!"
+		exit 2
+	fi
+	if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-next-queued &> /dev/null ; then
+		echo "drm-intel-next-queued not merged into -nigthly, please update!"
+		exit 2
+	fi
+
+	driver_date=`date +%Y%m%d`
+	$DRY sed -i -e "s/^#define DRIVER_DATE.*\"[0-9]*\"$/#define DRIVER_DATE\t\t\"$driver_date\"/" \
+	     drivers/gpu/drm/i915/i915_drv.h
+	$DRY git add drivers/gpu/drm/i915/i915_drv.h
+	echo -e "drm/i915: Update DRIVER_DATE to $driver_date\n\nSigned-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>" | \
+		git commit -s -F -
+
+	gitk drm-intel-next-queued ^$DIM_DRM_UPSTREAM_REMOTE/drm-next &
+
+	# try to push dinq first in case someone raced
+	dim push-queued
+
+	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
+	tag=drm-intel-next-$today
+	$DRY git tag -f -a $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
+	git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
+
+	echo "Updating -testing to latest -nightly"
+	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$DIM_DRM_INTEL_REMOTE/drm-intel-nightly:drm-intel-testing
+	$DRY git tag -f drm-intel-testing-$today $DIM_DRM_INTEL_REMOTE/drm-intel-testing
+	$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-testing-$today
+
+	cat > ~/tmp/test-request <<-HERE
+		Hi all,
+
+		New -testing cycle with cool stuff:
+		HERE
+	obj=`git rev-parse $tag`
+	if [[ `git cat-file -t $obj` == "tag" ]] ; then
+		git cat-file -p $obj | tail -n+6 >> ~/tmp/test-request
+	else
+		echo "<tag doesn't contain a changelog overview, fix this>" >> ~/tmp/test-request
+	fi
+	cat >> ~/tmp/test-request <<-HERE
+
+		Happy testing!
+
+		Cheers, Daniel
+		HERE
+
+	$DRY $DIM_MUA -s "Updated drm-intel-testing" \
+	     -i ~/tmp/test-request \
+	     -c "$addr_intel_gfx" \
+	     -c "$addr_intel_gfx_maintainer1" \
+	     -c "$addr_intel_gfx_maintainer2" \
+	     "$addr_intel_qa1" \
+	     "$addr_intel_qa2"
+}
+
 # dim_pull_request branch upstream
 function dim_pull_request
 {
@@ -949,68 +1013,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	update-next)
-		assert_branch drm-intel-next-queued
-
-		git pull --ff-only
-
-		if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-fixes &> /dev/null ; then
-			echo "drm-intel-fixes not merged into -nigthly, please update!"
-			exit 2
-		fi
-		if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-next-queued &> /dev/null ; then
-			echo "drm-intel-next-queued not merged into -nigthly, please update!"
-			exit 2
-		fi
-
-		driver_date=`date +%Y%m%d`
-		$DRY sed -i -e "s/^#define DRIVER_DATE.*\"[0-9]*\"$/#define DRIVER_DATE\t\t\"$driver_date\"/" \
-			drivers/gpu/drm/i915/i915_drv.h
-		$DRY git add drivers/gpu/drm/i915/i915_drv.h
-		echo -e "drm/i915: Update DRIVER_DATE to $driver_date\n\nSigned-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>" | \
-			git commit -s -F -
-
-		gitk drm-intel-next-queued ^$DIM_DRM_UPSTREAM_REMOTE/drm-next &
-
-		# try to push dinq first in case someone raced
-		dim push-queued
-
-		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
-		tag=drm-intel-next-$today
-		$DRY git tag -f -a $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
-		git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
-
-		echo "Updating -testing to latest -nightly"
-		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$DIM_DRM_INTEL_REMOTE/drm-intel-nightly:drm-intel-testing
-		$DRY git tag -f drm-intel-testing-$today $DIM_DRM_INTEL_REMOTE/drm-intel-testing
-		$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-testing-$today
-
-		cat > ~/tmp/test-request <<-HERE
-		Hi all,
-
-		New -testing cycle with cool stuff:
-		HERE
-		obj=`git rev-parse $tag`
-		if [[ `git cat-file -t $obj` == "tag" ]] ; then
-			git cat-file -p $obj | tail -n+6 >> ~/tmp/test-request
-		else
-			echo "<tag doesn't contain a changelog overview, fix this>" >> ~/tmp/test-request
-		fi
-		cat >> ~/tmp/test-request <<-HERE
-
-		Happy testing!
-
-		Cheers, Daniel
-		HERE
-
-		$DRY $DIM_MUA -s "Updated drm-intel-testing" \
-			-i ~/tmp/test-request \
-			-c "$addr_intel_gfx" \
-			-c "$addr_intel_gfx_maintainer1" \
-			-c "$addr_intel_gfx_maintainer2" \
-			"$addr_intel_qa1" \
-			"$addr_intel_qa2"
-		;;
 	tag-next)
 		cd $DIM_PREFIX/$DIM_DRM_INTEL
 		git fetch $DIM_DRM_INTEL_REMOTE
