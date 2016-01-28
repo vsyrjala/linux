@@ -750,6 +750,24 @@ function dim_pull_request
 		"$addr_drm_maintainer"
 }
 
+function dim_pull_request_next
+{
+	upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
+	dim_pull_request drm-intel-next $upstream
+}
+
+function dim_pull_request_fixes
+{
+	upstream=${1:-origin/master}
+	dim_pull_request drm-intel-fixes $upstream
+}
+
+function dim_pull_request_next_fixes
+{
+	upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
+	dim_pull_request drm-intel-next-fixes $upstream
+}
+
 dim_alias_ub=update-branches
 function dim_update_branches
 {
@@ -931,18 +949,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	pull-request-next)
-		upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
-		dim_pull_request drm-intel-next $upstream
-		;;
-	pull-request-fixes)
-		upstream=${1:-origin/master}
-		dim_pull_request drm-intel-fixes $upstream
-		;;
-	pull-request-next-fixes)
-		upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
-		dim_pull_request drm-intel-next-fixes $upstream
-		;;
 	update-next)
 		assert_branch drm-intel-next-queued
 
