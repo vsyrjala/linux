@@ -515,6 +515,58 @@ function dim_magic_patch
 	done
 }
 
+function dim_create_branch
+{
+	if [[ "x$1" = "x" ]]; then
+		echo "usage: $0 $subcommand branch [commit-ish]"
+		exit 1
+	fi
+	branch=$1
+	if [[ "x$2" = "x" ]]; then
+		start=HEAD
+	else
+		start=$2
+	fi
+
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
+
+	$DRY git branch $branch $start
+	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$branch --set-upstream
+	cd $DIM_PREFIX/drm-intel-rerere
+	$DRY echo "nightly_branches=\"\$nightly_branches origin/$branch\"" \
+	     >> nightly.conf
+	$DRY git add nightly.conf
+	$DRY git commit --quiet -m "Adding $branch to -nightly"
+}
+
+function dim_remove_branch
+{
+	if [[ "x$1" = "x" ]]; then
+		echo "usage: $0 $subcommand branch"
+		exit 1
+	fi
+	branch=$1
+
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
+
+	if ! $DRY git branch -d $branch ; then
+		warn_or_fail "Can't remove $branch in working repo"
+	fi
+
+	if [[ -d $DIM_PREFIX/$branch ]] ; then
+		rm -R $DIM_PREFIX/$branch
+	fi
+
+	cd $DIM_PREFIX/drm-intel-nightly
+	git push $DRY_RUN origin --delete $branch
+	$DRY git fetch origin --prune
+	cd $DIM_PREFIX/drm-intel-rerere
+	full_branch="origin/$branch"
+	$DRY sed -e "/${full_branch//\//\\\/}/d" -i nightly.conf
+	$DRY git add nightly.conf
+	$DRY git commit --quiet -m "Deleted $branch and removed from -nightly"
+}
+
 function dim_cd
 {
 	local path
@@ -1031,54 +1083,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	create-branch)
-		if [[ "x$1" = "x" ]]; then
-			echo "usage: $0 $subcommand branch [commit-ish]"
-			exit 1
-		fi
-		branch=$1
-		if [[ "x$2" = "x" ]]; then
-			start=HEAD
-		else
-			start=$2
-		fi
-
-		cd $DIM_PREFIX/$DIM_DRM_INTEL
-
-		$DRY git branch $branch $start
-		git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$branch --set-upstream
-		cd $DIM_PREFIX/drm-intel-rerere
-		$DRY echo "nightly_branches=\"\$nightly_branches origin/$branch\"" \
-			>> nightly.conf
-		$DRY git add nightly.conf
-		$DRY git commit --quiet -m "Adding $branch to -nightly"
-		;;
-	remove-branch)
-		if [[ "x$1" = "x" ]]; then
-			echo "usage: $0 $subcommand branch"
-			exit 1
-		fi
-		branch=$1
-
-		cd $DIM_PREFIX/$DIM_DRM_INTEL
-
-		if ! $DRY git branch -d $branch ; then
-			warn_or_fail "Can't remove $branch in working repo"
-		fi
-
-		if [[ -d $DIM_PREFIX/$branch ]] ; then
-			rm -R $DIM_PREFIX/$branch
-		fi
-
-		cd $DIM_PREFIX/drm-intel-nightly
-		git push $DRY_RUN origin --delete $branch
-		$DRY git fetch origin --prune
-		cd $DIM_PREFIX/drm-intel-rerere
-		full_branch="origin/$branch"
-		$DRY sed -e "/${full_branch//\//\\\/}/d" -i nightly.conf
-		$DRY git add nightly.conf
-		$DRY git commit --quiet -m "Deleted $branch and removed from -nightly"
-		;;
 	checker)
 		rm drivers/gpu/drm/i915/*.o &> /dev/null || true
 		rm drivers/gpu/drm/i915/*.ko &> /dev/null || true
