@@ -139,7 +139,7 @@ shift `expr $OPTIND - 1`
 
 # first positional argument is the subcommand
 if [ "$#" = "0" ]; then
-    subcommand="help"
+    subcommand="usage"
 else
     subcommand="$1"
     shift
@@ -149,7 +149,7 @@ fi
 # Sanity checks.
 #
 
-if [ "$subcommand" != "setup" -a "$subcommand" != "help" ]; then
+if [ "$subcommand" != "setup" -a "$subcommand" != "help" -a "$subcommand" != "usage" ]; then
 	for d in $DIM_PREFIX $DIM_PREFIX/$DIM_DRM_INTEL $DIM_PREFIX/drm-intel-rerere $DIM_PREFIX/drm-intel-nightly; do
 		if [ ! -d $d ]; then
 			echo "$d is missing, please check your configuration and/or run dim setup"
@@ -1096,6 +1096,16 @@ function dim_help
 	$renderer < $manpage | $pager
 }
 
+function dim_usage
+{
+	echo "usage: $0 [OPTIONS] SUBCOMMAND [ARGUMENTS]"
+	echo
+	echo "The available subcommands are:"
+	declare -F | grep -o " dim_[a-zA-Z_]*" | sed 's/^ dim_/\t/'
+	echo
+	echo "See '$0 help' for more information."
+}
+
 # dim subcommand aliases
 declare -n subcmd=dim_alias_${subcommand//-/_}
 if [ -z "$subcmd" ]; then
@@ -1107,5 +1117,6 @@ subcmd_func=dim_${subcmd//-/_}
 if declare -f $subcmd_func >/dev/null; then
 	$subcmd_func "$@"
 else
-	dim_help
+	echo "$0: '$subcommand' is not a dim command." >&2
+	dim_usage
 fi
