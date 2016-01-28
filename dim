@@ -1074,6 +1074,28 @@ function dim_fixes
 		sed -e 's/\([0-f]\{12\}\)[0-f]*/\1/'
 }
 
+function dim_help
+{
+	manpage=$DIM_PREFIX/maintainer-tools/dim.rst
+	if [ ! -e "$manpage" ]; then
+		manpage=$(dirname $(readlink -f $0))/dim.rst
+		if [ ! -e "$manpage" ]; then
+			echo "Can't find the man page. See http://cgit.freedesktop.org/drm-intel/tree/dim.rst?h=maintainer-tools"
+			exit 1
+		fi
+	fi
+
+	if hash rst2man 2>/dev/null; then
+		renderer=rst2man
+		pager="man -l -"
+	else
+		renderer=cat
+		pager=${PAGER:-cat}
+	fi
+
+	$renderer < $manpage | $pager
+}
+
 # dim subcommand aliases
 declare -n subcmd=dim_alias_${subcommand//-/_}
 if [ -z "$subcmd" ]; then
@@ -1084,30 +1106,6 @@ fi
 subcmd_func=dim_${subcmd//-/_}
 if declare -f $subcmd_func >/dev/null; then
 	$subcmd_func "$@"
-	exit 0
+else
+	dim_help
 fi
-
-# XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
-# into an else branch in the above check for functions.
-case "$subcmd" in
-	help|*)
-		manpage=$DIM_PREFIX/maintainer-tools/dim.rst
-		if [ ! -e "$manpage" ]; then
-			manpage=$(dirname $(readlink -f $0))/dim.rst
-			if [ ! -e "$manpage" ]; then
-				echo "Can't find the man page. See http://cgit.freedesktop.org/drm-intel/tree/dim.rst?h=maintainer-tools"
-				exit 1
-			fi
-		fi
-
-		if hash rst2man 2>/dev/null; then
-			renderer=rst2man
-			pager="man -l -"
-		else
-			renderer=cat
-			pager=${PAGER:-cat}
-		fi
-
-		$renderer < $manpage | $pager
-		;;
-esac
