@@ -876,6 +876,22 @@ function dim_cat_to_fixup
 	cat > `cat .fixup_file_path`
 }
 
+function dim_tc
+{
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
+	tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
+	if [[ -n "$tag" ]]; then
+		echo "$tag"
+	else
+		# not in a tagged release, show upstream branches
+		git branch -r --contains $1 \
+		    $DIM_DRM_INTEL_REMOTE/* \
+		    $DIM_DRM_UPSTREAM_REMOTE/drm-next \
+		    $DIM_DRM_UPSTREAM_REMOTE/drm-fixes \
+		    origin/master | sed 's/^ *//'
+	fi
+}
+
 # dim subcommand aliases
 declare -n subcmd=dim_alias_${subcommand//-/_}
 if [ -z "$subcmd" ]; then
@@ -892,20 +908,6 @@ fi
 # XXX: abscract each case to a dim_ prefixed function, and turn the help|*) case
 # into an else branch in the above check for functions.
 case "$subcmd" in
-	tc)
-		cd $DIM_PREFIX/$DIM_DRM_INTEL
-		tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
-		if [[ -n "$tag" ]]; then
-			echo "$tag"
-		else
-			# not in a tagged release, show upstream branches
-			git branch -r --contains $1 \
-			    $DIM_DRM_INTEL_REMOTE/* \
-			    $DIM_DRM_UPSTREAM_REMOTE/drm-next \
-			    $DIM_DRM_UPSTREAM_REMOTE/drm-fixes \
-			    origin/master | sed 's/^ *//'
-		fi
-		;;
 	fixes)
 		sha1=$1
 		git log -1 $sha1 "--pretty=format:Fixes: %H (\"%s\")%n" | \
