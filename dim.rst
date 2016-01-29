@@ -196,6 +196,16 @@ mentions of the cherry-picked commit. Should be used when cherry-pick from -next
 to -fixes to make sure all fixups are picked, too. In dry-run mode/-d only the
 patch list is generated.
 
+cherry-pick-fixes
+-----------------
+
+cherry-pick-next-fixes
+----------------------
+
+Look for non-upstreamed fixes (commits tagged Cc: stable@vger.kernel.org or Cc:
+drm-intel-fixes@lists.freedesktop.org) in drm-intel-next-queued, and try to
+cherry-pick them to drm-intel-fixes or drm-intel-next-fixes.
+
 pull-request *branch* *upstream*
 --------------------------------
 Fetch the *upstream* remote to make sure it's up-to-date, create and push a date

@@ -473,6 +473,64 @@ function dim_cherry_pick
 	$DRY git cherry-pick $1
 }
 
+function dim_cherry_pick_branch
+{
+	# Look for commits in dinq tagged as fixes.
+	for commit in $(git log --reverse --format=format:%h --grep="drm-intel-fixes@lists.freedesktop.org" --grep="stable@vger.kernel.org" origin/master..$DIM_DRM_INTEL_REMOTE/drm-intel-next-queued -- drivers/gpu/drm/i915); do
+		echo "Considering $(git --no-pager log --oneline -1 $commit)"
+		log=$(mktemp)
+
+		# Look at history for already cherry-picked fixes.
+		# Note: use *local* branches to account for unpushed commits.
+		git log drm-intel-fixes --after=12months --oneline \
+		    --grep="cherry picked .* $commit" > $log
+		if [ "$(cat $log)" = "" ]; then
+			git log drm-intel-next-fixes --after=12months --oneline \
+			    --grep="cherry picked .* $commit" > $log
+		fi
+
+		if [ "$(cat $log)" = "" ]; then
+			# Try cherry-pick, offer options on fail.
+			if ! git cherry-pick -e -x -s $commit; then
+				select choice in "Diff" "Resolve" "Skip" "Abort"; do
+					case $choice in
+						Diff)
+							git diff
+							;;
+						Resolve)
+							exit
+							;;
+						Skip)
+							git cherry-pick --abort
+							break
+							;;
+						Abort)
+							git cherry-pick --abort
+							exit
+							;;
+					esac
+				done
+			fi
+		else
+			echo "Already backported as:"
+			sed 's/^/\t/' < $log
+		fi
+		rm -f $log
+	done
+}
+
+function dim_cherry_pick_fixes
+{
+	assert_branch drm-intel-fixes
+	dim_cherry_pick_branch "$@"
+}
+
+function dim_cherry_pick_next_fixes
+{
+	assert_branch drm-intel-next-fixes
+	dim_cherry_pick_branch "$@"
+}
+
 dim_alias_ar=apply-resolved
 function dim_apply_resolved
 {
