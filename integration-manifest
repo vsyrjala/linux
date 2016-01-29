@@ -1,0 +1,26 @@
+origin/drm-intel-fixes f2e305108faba0c85eb4ba4066599decb675117e
+	drm/i915: refine qemu south bridge detection
+drm-upstream/drm-fixes d8b8eb829d4c30cd1e41a1ddc308a0e7c22169da
+	Merge branch 'drm-rockchip-next-fixes-2016-01-22' of https://github.com/markyzq/kernel-drm-rockchip into drm-fixes
+origin/drm-intel-next-fixes 48ea1e32c39db94c59b63580b965222c7782112f
+	drm/i915/gen9: Set PIN_ZONE_4G end to 4GB - 1 page
+origin/drm-intel-next-queued dc5a9037141924c0867eb4a6e5220479dcda84f9
+	drm/i915: Sink CRC: tune down error message at stop to debug_kms.
+drm-upstream/drm-next 1df59b8497f47495e873c23abd6d3d290c730505
+	Merge tag 'drm-intel-next-fixes-2016-01-14' of git://anongit.freedesktop.org/drm-intel into drm-next
+sound-upstream/for-next 1f5e35636cc2737ccf1f67815cb33b978621f0f6
+	ALSA: doc: Update option descriptions for snd-usb-audio
+sound-upstream/for-linus f1d51595a2a54d725cd6a21dd54508335a14ab90
+	ALSA: emu10k1: correctly handling failed thread creation
+origin/topic/drm-fixes 5481c8fb1da2a573861095fbea078f30c664d0bd
+	drm/atomic-helper: Check encoder/crtc constraints
+origin/topic/drm-misc 15b6b804b6e43297d9c05306554a39d8891966f9
+	drm/vmwgfx: fix a NULL dereference
+origin/topic/kerneldoc 418645fdcc72b92df6817ec249e216700baa757a
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/core-for-CI c20a7f9009d15c7250517c079075f3917d121566
+	component: add support for releasing match data
