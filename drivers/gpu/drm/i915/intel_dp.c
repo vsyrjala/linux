@@ -2743,10 +2743,15 @@ static void intel_enable_dp(struct intel_encoder *encoder)
 	pps_unlock(intel_dp);
 
 	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)) {
-		unsigned int lane_mask = 0x0;
+		unsigned int lane_mask;
+		int lane_count;
 
 		if (IS_CHERRYVIEW(dev))
-			lane_mask = intel_dp_unused_lane_mask(crtc->config->lane_count);
+			lane_count = crtc->config->lane_count;
+		else
+			lane_count = dp_to_dig_port(intel_dp)->max_lanes;
+
+		lane_mask = intel_dp_unused_lane_mask(lane_count);
 
 		vlv_wait_port_ready(dev_priv, dp_to_dig_port(intel_dp),
 				    lane_mask);
