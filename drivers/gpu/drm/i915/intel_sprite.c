@@ -359,7 +359,6 @@ vlv_update_plane(struct drm_plane *dplane,
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_plane *intel_plane = to_intel_plane(dplane);
 	struct drm_framebuffer *fb = plane_state->base.fb;
-	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
 	int pipe = intel_plane->pipe;
 	int plane = intel_plane->plane;
 	u32 sprctl;
@@ -426,7 +425,7 @@ vlv_update_plane(struct drm_plane *dplane,
 	 */
 	sprctl |= SP_GAMMA_ENABLE;
 
-	if (obj->tiling_mode != I915_TILING_NONE)
+	if (fb->modifier[0] == I915_FORMAT_MOD_X_TILED)
 		sprctl |= SP_TILED;
 
 	/* Sizes are 0 based */
@@ -462,7 +461,7 @@ vlv_update_plane(struct drm_plane *dplane,
 	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
 	I915_WRITE(SPPOS(pipe, plane), (crtc_y << 16) | crtc_x);
 
-	if (obj->tiling_mode != I915_TILING_NONE)
+	if (fb->modifier[0] == I915_FORMAT_MOD_X_TILED)
 		I915_WRITE(SPTILEOFF(pipe, plane), (y << 16) | x);
 	else
 		I915_WRITE(SPLINOFF(pipe, plane), linear_offset);
@@ -500,7 +499,6 @@ ivb_update_plane(struct drm_plane *plane,
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	struct drm_framebuffer *fb = plane_state->base.fb;
-	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
 	enum pipe pipe = intel_plane->pipe;
 	u32 sprctl, sprscale = 0;
 	u32 sprsurf_offset, linear_offset;
@@ -546,7 +544,7 @@ ivb_update_plane(struct drm_plane *plane,
 	 */
 	sprctl |= SPRITE_GAMMA_ENABLE;
 
-	if (obj->tiling_mode != I915_TILING_NONE)
+	if (fb->modifier[0] == I915_FORMAT_MOD_X_TILED)
 		sprctl |= SPRITE_TILED;
 
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
@@ -599,7 +597,7 @@ ivb_update_plane(struct drm_plane *plane,
 	 * register */
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
 		I915_WRITE(SPROFFSET(pipe), (y << 16) | x);
-	else if (obj->tiling_mode != I915_TILING_NONE)
+	else if (fb->modifier[0] == I915_FORMAT_MOD_X_TILED)
 		I915_WRITE(SPRTILEOFF(pipe), (y << 16) | x);
 	else
 		I915_WRITE(SPRLINOFF(pipe), linear_offset);
@@ -639,7 +637,6 @@ ilk_update_plane(struct drm_plane *plane,
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	struct drm_framebuffer *fb = plane_state->base.fb;
-	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
 	int pipe = intel_plane->pipe;
 	u32 dvscntr, dvsscale;
 	u32 dvssurf_offset, linear_offset;
@@ -685,7 +682,7 @@ ilk_update_plane(struct drm_plane *plane,
 	 */
 	dvscntr |= DVS_GAMMA_ENABLE;
 
-	if (obj->tiling_mode != I915_TILING_NONE)
+	if (fb->modifier[0] == I915_FORMAT_MOD_X_TILED)
 		dvscntr |= DVS_TILED;
 
 	if (IS_GEN6(dev))
@@ -727,7 +724,7 @@ ilk_update_plane(struct drm_plane *plane,
 	I915_WRITE(DVSSTRIDE(pipe), fb->pitches[0]);
 	I915_WRITE(DVSPOS(pipe), (crtc_y << 16) | crtc_x);
 
-	if (obj->tiling_mode != I915_TILING_NONE)
+	if (fb->modifier[0] == I915_FORMAT_MOD_X_TILED)
 		I915_WRITE(DVSTILEOFF(pipe), (y << 16) | x);
 	else
 		I915_WRITE(DVSLINOFF(pipe), linear_offset);
