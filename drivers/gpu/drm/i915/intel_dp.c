@@ -1233,6 +1233,7 @@ static void
 skl_edp_set_pll_config(struct intel_crtc_state *pipe_config)
 {
 	u32 ctrl1;
+	u32 vco = 8100;
 
 	memset(&pipe_config->dpll_hw_state, 0,
 	       sizeof(pipe_config->dpll_hw_state));
@@ -1265,13 +1266,16 @@ skl_edp_set_pll_config(struct intel_crtc_state *pipe_config)
 	case 108000:
 		ctrl1 |= DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_1080,
 					      SKL_DPLL0);
+		vco = 8640;
 		break;
 	case 216000:
 		ctrl1 |= DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_2160,
 					      SKL_DPLL0);
+		vco = 8640;
 		break;
-
 	}
+
+	to_intel_atomic_state(pipe_config->base.state)->cdclk_pll_vco = vco;
 	pipe_config->dpll_hw_state.ctrl1 = ctrl1;
 }
 

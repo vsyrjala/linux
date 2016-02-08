@@ -3003,7 +3003,7 @@ void intel_ddi_pll_init(struct drm_device *dev)
 		int cdclk_freq;
 
 		cdclk_freq = dev_priv->display.get_display_clock_speed(dev);
-		dev_priv->skl_boot_cdclk = cdclk_freq;
+		dev_priv->skl_vco_freq = skl_cdclk_get_vco(cdclk_freq);
 		if (skl_sanitize_cdclk(dev_priv))
 			DRM_DEBUG_KMS("Sanitized cdclk programmed by pre-os\n");
 		if (!(I915_READ(LCPLL1_CTL) & LCPLL_PLL_ENABLE))
