@@ -1,0 +1,24 @@
+origin/drm-intel-fixes ed3f9fd1e865975ceefdb2a43b453e090b1fd787
+	drm/i915: fix error path in intel_setup_gmbus()
+drm-upstream/drm-fixes c92a428f408b23215d1a27f652742094bfc50577
+	Merge branch 'drm-fixes-4.5' of git://people.freedesktop.org/~agd5f/linux into drm-fixes
+origin/drm-intel-next-fixes 48ea1e32c39db94c59b63580b965222c7782112f
+	drm/i915/gen9: Set PIN_ZONE_4G end to 4GB - 1 page
+origin/drm-intel-next-queued ebb7c78d358b2ea45c7d997423e6feb42e5ce4ef
+	agp/intel-gtt: Only register fake agp driver for gen1
+drm-upstream/drm-next 5443ce86fa37e7d3cc63d2067d05e3388fdeec17
+	drm: virtio-gpu: set atomic flag
+sound-upstream/for-linus 86c2ee16704522a546c0ee1e8238096e3c391468
+	Merge tag 'asoc-fix-v4.5-rc4' of git://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound into for-linus
+origin/topic/drm-fixes 3725af8869d64d1a912e21aebe76d42b32862463
+	drm/qxl: fix cursor position with non-zero hotspot
+origin/topic/drm-misc e94cb37b34eb8a88fe847438dba55c3f18bf024a
+	drm/dp: Add a drm_aux-dev module for reading/writing dpcd registers.
+origin/topic/kerneldoc 418645fdcc72b92df6817ec249e216700baa757a
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/crc-pmic 04cbfe68c3190f23bcfec230bfd832b533f35554
+	mfd: Add GPIOLIB dependency if INTEL_SOC_PMIC is to be enabled
+origin/topic/connector-locking 3fdefa399e4644399ce3e74e65a75122d52dba6a
+	drm: gc now dead mode_group code
+origin/topic/core-for-CI 9a726b58594b3c60b4244a15cae8a93a8319ccf8
+	Revert "ALSA: hda - build chmap kctl based on pcm in hdmi audio"
