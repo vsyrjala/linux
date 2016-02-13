@@ -452,7 +452,9 @@ struct intel_crtc_state {
 	 */
 	int port_clock;
 
-	int dotclock_low; /* for DRRS */
+	/* for DRRS */
+	int crtc_clock_low;
+	int port_clock_low;
 
 	/* Used by SDVO (and if we ever fix it, HDMI). */
 	unsigned pixel_multiplier;
@@ -1187,8 +1189,9 @@ void intel_dp_get_m2_n2(struct intel_crtc *crtc,
 void intel_dp_set_m_n(struct intel_crtc *crtc, const struct intel_link_m_n *m_n);
 int intel_dotclock_calculate(int link_freq, const struct intel_link_m_n *m_n);
 void
-ironlake_check_encoder_dotclock(const struct intel_crtc_state *pipe_config,
-				int dotclock);
+ironlake_check_fdi_encoder_dotclock(struct drm_i915_private *dev_priv,
+				    const struct intel_link_m_n *fdi_m_n,
+				    int dotclock);
 bool bxt_find_best_dpll(struct intel_crtc_state *crtc_state, int target_clock,
 			intel_clock_t *best_clock);
 int chv_calc_dpll_params(int refclk, intel_clock_t *pll_clock);

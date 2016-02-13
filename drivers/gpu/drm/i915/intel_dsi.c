@@ -719,7 +719,10 @@ static void intel_dsi_get_config(struct intel_encoder *encoder,
 		return;
 
 	pipe_config->base.adjusted_mode.crtc_clock = pclk;
+	pipe_config->crtc_clock_low = pclk;
+
 	pipe_config->port_clock = pclk;
+	pipe_config->port_clock_low = pclk;
 }
 
 static enum drm_mode_status

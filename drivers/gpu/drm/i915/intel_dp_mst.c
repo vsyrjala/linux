@@ -55,7 +55,6 @@ static bool intel_dp_mst_compute_config(struct intel_encoder *encoder,
 	 */
 	lane_count = drm_dp_max_lane_count(intel_dp->dpcd);
 
-
 	pipe_config->lane_count = lane_count;
 
 	pipe_config->pipe_bpp = 24;
@@ -90,6 +89,8 @@ static bool intel_dp_mst_compute_config(struct intel_encoder *encoder,
 			       &pipe_config->dp_m_n);
 
 	pipe_config->dp_m_n.tu = slots;
+
+	pipe_config->dp_m2_n2 = pipe_config->dp_m_n;
 
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
 		hsw_dp_set_ddi_pll_sel(pipe_config);
@@ -296,6 +297,7 @@ static void intel_dp_mst_enc_get_config(struct intel_encoder *encoder,
 		((temp & DDI_PORT_WIDTH_MASK) >> DDI_PORT_WIDTH_SHIFT) + 1;
 
 	intel_dp_get_m_n(crtc, pipe_config);
+	pipe_config->dp_m2_n2 = pipe_config->dp_m_n;
 
 	intel_ddi_clock_get(&intel_dig_port->base, pipe_config);
 }

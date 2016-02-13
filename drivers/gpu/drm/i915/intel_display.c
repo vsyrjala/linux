@@ -87,8 +87,9 @@ static const uint32_t intel_cursor_formats[] = {
 
 static void intel_crtc_update_cursor(struct drm_crtc *crtc, bool on);
 
-static void i9xx_crtc_clock_get(struct intel_crtc *crtc,
-				struct intel_crtc_state *pipe_config);
+static int i9xx_crtc_clock_get(struct intel_crtc *crtc,
+			       const struct intel_crtc_state *pipe_config,
+			       bool rate_select_fp1);
 static void ironlake_pch_clock_get(struct intel_crtc *crtc,
 				   struct intel_crtc_state *pipe_config);
 
@@ -228,10 +229,9 @@ static void intel_update_czclk(struct drm_i915_private *dev_priv)
 }
 
 static inline u32 /* units of 100MHz */
-intel_fdi_link_freq(struct drm_device *dev)
+intel_fdi_link_freq(struct drm_i915_private *dev_priv)
 {
-	if (IS_GEN5(dev)) {
-		struct drm_i915_private *dev_priv = dev->dev_private;
+	if (IS_GEN5(dev_priv)) {
 		return (I915_READ(FDI_PLL_BIOS_0) & FDI_PLL_FB_CLOCK_MASK) + 2;
 	} else
 		return 27;
@@ -6688,7 +6688,7 @@ retry:
 	 * Hence the bw of each lane in terms of the mode signal
 	 * is:
 	 */
-	link_bw = intel_fdi_link_freq(dev) * MHz(100)/KHz(1)/10;
+	link_bw = intel_fdi_link_freq(to_i915(dev)) * MHz(100)/KHz(1)/10;
 
 	fdi_dotclock = adjusted_mode->crtc_clock;
 
@@ -6700,9 +6700,9 @@ retry:
 	intel_link_compute_m_n(pipe_config->pipe_bpp, lane, fdi_dotclock,
 			       link_bw, &pipe_config->fdi_m_n);
 
-	if (pipe_config->dotclock_low)
+	if (!HAS_DDI(dev))
 		intel_link_compute_m_n(pipe_config->pipe_bpp, lane,
-				       pipe_config->dotclock_low,
+				       pipe_config->crtc_clock_low,
 				       link_bw, &pipe_config->fdi_m2_n2);
 
 	ret = ironlake_check_fdi_lanes(intel_crtc->base.dev,
@@ -8099,8 +8099,11 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 			return -EINVAL;
 		}
 
-		if (crtc_state->dotclock_low &&
-		    !intel_crtc_has_dp_encoder(crtc_state)) {
+		/*
+		 * eDP downclocking doesn't involve the DPLL,
+		 * whereas LVDS downclocking does.
+		 */
+		if (crtc_state->port_clock_low != crtc_state->port_clock) {
 			/*
 			 * Ensure we match the reduced clock's P to the target
 			 * clock.  If the clocks don't match, we can't switch
@@ -8109,17 +8112,19 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 			 */
 			has_reduced_clock =
 				dev_priv->display.find_dpll(limit, crtc_state,
-							    crtc_state->dotclock_low,
+							    crtc_state->port_clock_low,
 							    refclk, &clock,
 							    &reduced_clock);
 
-			intel_pll_dump_clock(crtc_state->dotclock_low,
+			intel_pll_dump_clock(crtc_state->port_clock_low,
 					     &reduced_clock, has_reduced_clock);
 
 			if (!has_reduced_clock) {
 				DRM_DEBUG_DRIVER("Couldn't find PLL settings for reduced clock (%d kHz)\n",
-						 crtc_state->dotclock_low);
-				crtc_state->dotclock_low = 0;
+						 crtc_state->port_clock_low);
+				crtc_state->port_clock_low = crtc_state->port_clock;
+				crtc_state->crtc_clock_low =
+					crtc_state->base.adjusted_mode.crtc_clock;
 			}
 		}
 
@@ -8175,8 +8180,8 @@ static void i9xx_get_pfit_config(struct intel_crtc *crtc,
 			I915_READ(LVDS) & LVDS_BORDER_ENABLE;
 }
 
-static void vlv_crtc_clock_get(struct intel_crtc *crtc,
-			       struct intel_crtc_state *pipe_config)
+static int vlv_crtc_clock_get(struct intel_crtc *crtc,
+			      struct intel_crtc_state *pipe_config)
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -8187,7 +8192,7 @@ static void vlv_crtc_clock_get(struct intel_crtc *crtc,
 
 	/* In case of MIPI DPLL will not even be used */
 	if (!(pipe_config->dpll_hw_state.dpll & DPLL_VCO_ENABLE))
-		return;
+		return 0;
 
 	mutex_lock(&dev_priv->sb_lock);
 	mdiv = vlv_dpio_read(dev_priv, pipe, VLV_PLL_DW3(pipe));
@@ -8199,7 +8204,7 @@ static void vlv_crtc_clock_get(struct intel_crtc *crtc,
 	clock.p1 = (mdiv >> DPIO_P1_SHIFT) & 7;
 	clock.p2 = (mdiv >> DPIO_P2_SHIFT) & 0x1f;
 
-	pipe_config->port_clock = vlv_calc_dpll_params(refclk, &clock);
+	return vlv_calc_dpll_params(refclk, &clock);
 }
 
 static void
@@ -8271,8 +8276,8 @@ i9xx_get_initial_plane_config(struct intel_crtc *crtc,
 	plane_config->fb = intel_fb;
 }
 
-static void chv_crtc_clock_get(struct intel_crtc *crtc,
-			       struct intel_crtc_state *pipe_config)
+static int chv_crtc_clock_get(struct intel_crtc *crtc,
+			      struct intel_crtc_state *pipe_config)
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -8298,7 +8303,7 @@ static void chv_crtc_clock_get(struct intel_crtc *crtc,
 	clock.p1 = (cmn_dw13 >> DPIO_CHV_P1_DIV_SHIFT) & 0x7;
 	clock.p2 = (cmn_dw13 >> DPIO_CHV_P2_DIV_SHIFT) & 0x1f;
 
-	pipe_config->port_clock = chv_calc_dpll_params(refclk, &clock);
+	return chv_calc_dpll_params(refclk, &clock);
 }
 
 static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
@@ -8382,12 +8387,18 @@ static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 						     DPLL_PORTB_READY_MASK);
 	}
 
-	if (IS_CHERRYVIEW(dev))
-		chv_crtc_clock_get(crtc, pipe_config);
-	else if (IS_VALLEYVIEW(dev))
-		vlv_crtc_clock_get(crtc, pipe_config);
-	else
-		i9xx_crtc_clock_get(crtc, pipe_config);
+	if (IS_CHERRYVIEW(dev)) {
+		pipe_config->port_clock = chv_crtc_clock_get(crtc, pipe_config);
+		pipe_config->port_clock_low = pipe_config->port_clock;
+	} else if (IS_VALLEYVIEW(dev)) {
+		pipe_config->port_clock = vlv_crtc_clock_get(crtc, pipe_config);
+		pipe_config->port_clock_low = pipe_config->port_clock;
+	} else  {
+		pipe_config->port_clock =
+			i9xx_crtc_clock_get(crtc, pipe_config, false);
+		pipe_config->port_clock_low =
+			i9xx_crtc_clock_get(crtc, pipe_config, true);
+	}
 
 	/*
 	 * Normally the dotclock is filled in by the encoder .get_config()
@@ -8396,6 +8407,8 @@ static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 	 */
 	pipe_config->base.adjusted_mode.crtc_clock =
 		pipe_config->port_clock / pipe_config->pixel_multiplier;
+	pipe_config->crtc_clock_low =
+		pipe_config->port_clock_low / pipe_config->pixel_multiplier;
 
 	return true;
 }
@@ -9137,32 +9150,38 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 			return -EINVAL;
 		}
 
-		if (crtc_state->dotclock_low &&
-		    !intel_crtc_has_dp_encoder(crtc_state)) {
+		/*
+		 * eDP downclocking doesn't involve the DPLL,
+		 * whereas LVDS downclocking does.
+		 */
+		if (crtc_state->port_clock_low != crtc_state->port_clock) {
 			/*
 			 * Ensure we match the reduced clock's P to the target clock.
 			 * If the clocks don't match, we can't switch the display clock
 			 * by using the FP0/FP1. In such case we will disable the LVDS
 			 * downclock feature.
 			 */
+			/*
+			 * FIXME should really compute FDI M/N (among other things)
+			 * after the DPLL, so that we'd actually compute things
+			 * based on the actual DPLL output frequency.
+			 */
 			has_reduced_clock =
 				dev_priv->display.find_dpll(limit, crtc_state,
-							    crtc_state->dotclock_low,
+							    crtc_state->port_clock_low,
 							    refclk, &clock,
 							    &reduced_clock);
 
-			intel_pll_dump_clock(crtc_state->dotclock_low,
+			intel_pll_dump_clock(crtc_state->port_clock_low,
 					     &reduced_clock, has_reduced_clock);
 
 			if (!has_reduced_clock) {
 				DRM_DEBUG_DRIVER("Couldn't find PLL settings for reduced clock (%d kHz)\n",
-						 crtc_state->dotclock_low);
-				crtc_state->dotclock_low = 0;
-				/* FIXME should really compute FDI M/N after the
-				 * DPLL, and using the actual DPLL output frequency as
-				 * the FDI dotclock.
-				 */
-				memset(&crtc_state->fdi_m2_n2, 0, sizeof(crtc_state->fdi_m2_n2));
+						 crtc_state->port_clock_low);
+				crtc_state->port_clock_low = crtc_state->port_clock;
+				crtc_state->crtc_clock_low =
+					crtc_state->base.adjusted_mode.crtc_clock;
+				crtc_state->fdi_m2_n2 = crtc_state->fdi_m_n;
 			}
 		}
 
@@ -10770,8 +10789,9 @@ static int ironlake_pll_refclk(struct drm_device *dev,
 }
 
 /* Returns the clock of the currently programmed mode of the given pipe. */
-static void i9xx_crtc_clock_get(struct intel_crtc *crtc,
-				struct intel_crtc_state *pipe_config)
+static int i9xx_crtc_clock_get(struct intel_crtc *crtc,
+			       const struct intel_crtc_state *pipe_config,
+			       bool rate_select_fp1)
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -10787,10 +10807,10 @@ static void i9xx_crtc_clock_get(struct intel_crtc *crtc,
 	else
 		refclk = i9xx_pll_refclk(dev, pipe_config);
 
-	if ((dpll & DISPLAY_RATE_SELECT_FPA1) == 0)
-		fp = pipe_config->dpll_hw_state.fp0;
-	else
+	if (rate_select_fp1)
 		fp = pipe_config->dpll_hw_state.fp1;
+	else
+		fp = pipe_config->dpll_hw_state.fp0;
 
 	clock.m1 = (fp & FP_M1_DIV_MASK) >> FP_M1_DIV_SHIFT;
 	if (IS_PINEVIEW(dev)) {
@@ -10821,7 +10841,7 @@ static void i9xx_crtc_clock_get(struct intel_crtc *crtc,
 		default:
 			DRM_DEBUG_KMS("Unknown DPLL mode %08x in programmed "
 				  "mode\n", (int)(dpll & DPLL_MODE_MASK));
-			return;
+			return 0;
 		}
 
 		if (IS_PINEVIEW(dev))
@@ -10856,12 +10876,7 @@ static void i9xx_crtc_clock_get(struct intel_crtc *crtc,
 		port_clock = i9xx_calc_dpll_params(refclk, &clock);
 	}
 
-	/*
-	 * This value includes pixel_multiplier. We will use
-	 * port_clock to compute adjusted_mode.crtc_clock in the
-	 * encoder's get_config() function.
-	 */
-	pipe_config->port_clock = port_clock;
+	return port_clock;
 }
 
 int intel_dotclock_calculate(int link_freq,
@@ -10886,20 +10901,31 @@ int intel_dotclock_calculate(int link_freq,
 static void ironlake_pch_clock_get(struct intel_crtc *crtc,
 				   struct intel_crtc_state *pipe_config)
 {
-	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	/* read out port_clock from the DPLL */
-	i9xx_crtc_clock_get(crtc, pipe_config);
+	/*
+	 * Read out port_clock from the DPLL
+	 * This value includes pixel_multiplier. We will use
+	 * port_clock to compute adjusted_mode.crtc_clock in the
+	 * encoder's get_config() function.
+	 */
+	pipe_config->port_clock =
+		i9xx_crtc_clock_get(crtc, pipe_config, false);
+	pipe_config->port_clock_low =
+		i9xx_crtc_clock_get(crtc, pipe_config, true);
 
 	/*
 	 * This value does not include pixel_multiplier.
-	 * We will check that port_clock and adjusted_mode.crtc_clock
-	 * agree once we know their relationship in the encoder's
-	 * get_config() function.
+	 * We will check that port_clock and crtc_clock
+	 * agree once we know their relationship in the
+	 * encoder's get_config() function.
 	 */
 	pipe_config->base.adjusted_mode.crtc_clock =
-		intel_dotclock_calculate(intel_fdi_link_freq(dev) * 10000,
+		intel_dotclock_calculate(intel_fdi_link_freq(dev_priv) * 10000,
 					 &pipe_config->fdi_m_n);
+	pipe_config->crtc_clock_low =
+		intel_dotclock_calculate(intel_fdi_link_freq(dev_priv) * 10000,
+					 &pipe_config->fdi_m2_n2);
 }
 
 /** Returns the currently programmed mode of the given pipe. */
@@ -10933,7 +10959,10 @@ struct drm_display_mode *intel_crtc_mode_get(struct drm_device *dev,
 	pipe_config.dpll_hw_state.dpll = I915_READ(DPLL(pipe));
 	pipe_config.dpll_hw_state.fp0 = I915_READ(FP0(pipe));
 	pipe_config.dpll_hw_state.fp1 = I915_READ(FP1(pipe));
-	i9xx_crtc_clock_get(intel_crtc, &pipe_config);
+
+	pipe_config.port_clock =
+		i9xx_crtc_clock_get(intel_crtc, &pipe_config,
+				    pipe_config.dpll_hw_state.dpll & DISPLAY_RATE_SELECT_FPA1);
 
 	mode->clock = pipe_config.port_clock / pipe_config.pixel_multiplier;
 	mode->hdisplay = (htot & 0xffff) + 1;
@@ -12312,8 +12341,9 @@ static void intel_dump_pipe_config(struct intel_crtc *crtc,
 	DRM_DEBUG_KMS("adjusted mode:\n");
 	drm_mode_debug_printmodeline(&pipe_config->base.adjusted_mode);
 	intel_dump_crtc_timings(&pipe_config->base.adjusted_mode);
+	DRM_DEBUG_KMS("dot clock low: %d\n", pipe_config->crtc_clock_low);
 	DRM_DEBUG_KMS("port clock: %d\n", pipe_config->port_clock);
-	DRM_DEBUG_KMS("dot clock low: %d\n", pipe_config->dotclock_low);
+	DRM_DEBUG_KMS("port clock low: %d\n", pipe_config->port_clock_low);
 	DRM_DEBUG_KMS("pipe src size: %dx%d\n",
 		      pipe_config->pipe_src_w, pipe_config->pipe_src_h);
 	DRM_DEBUG_KMS("num_scalers: %d, scaler_users: 0x%x, scaler_id: %d\n",
@@ -12530,7 +12560,8 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 encoder_retry:
 	/* Ensure the port clock defaults are reset when retrying. */
 	pipe_config->port_clock = 0;
-	pipe_config->dotclock_low = 0;
+	pipe_config->port_clock_low = 0;
+	pipe_config->crtc_clock_low = 0;
 	pipe_config->pixel_multiplier = 1;
 
 	/* Fill in default crtc timings, allow encoders to overwrite them. */
@@ -12555,17 +12586,28 @@ encoder_retry:
 		}
 	}
 
+	/* Set default low dotclock if not overwritten by the encoder. Needs to be
+	 * done afterwards in case the encoder adjusts the mode. */
+	if (!pipe_config->crtc_clock_low)
+		pipe_config->crtc_clock_low =
+			pipe_config->base.adjusted_mode.crtc_clock;
+
 	/* Set default port clock if not overwritten by the encoder. Needs to be
 	 * done afterwards in case the encoder adjusts the mode. */
 	if (!pipe_config->port_clock)
 		pipe_config->port_clock = pipe_config->base.adjusted_mode.crtc_clock
 			* pipe_config->pixel_multiplier;
+	if (!pipe_config->port_clock_low)
+		pipe_config->port_clock_low = pipe_config->port_clock;
 
 	ret = intel_crtc_compute_config(to_intel_crtc(crtc), pipe_config);
 	if (ret < 0) {
 		DRM_DEBUG_KMS("CRTC fixup failed\n");
 		goto fail;
 	}
+
+	WARN_ON(pipe_config->crtc_clock_low > pipe_config->base.adjusted_mode.crtc_clock);
+	WARN_ON(pipe_config->port_clock_low > pipe_config->port_clock);
 
 	if (ret == RETRY) {
 		if (WARN(!retry, "loop in pipe configuration computation\n")) {
@@ -12906,7 +12948,7 @@ intel_pipe_config_compare(struct drm_device *dev,
 
 	PIPE_CONF_CHECK_CLOCK_FUZZY(base.adjusted_mode.crtc_clock);
 	PIPE_CONF_CHECK_CLOCK_FUZZY(port_clock);
-	/* FIXME check dotclock_low? need readout first */
+	/* FIXME check crtc_clock_low? need readout first */
 
 #undef PIPE_CONF_CHECK_X
 #undef PIPE_CONF_CHECK_I
@@ -13166,16 +13208,20 @@ intel_modeset_check_state(struct drm_device *dev,
 	check_shared_dpll_state(dev);
 }
 
-void ironlake_check_encoder_dotclock(const struct intel_crtc_state *pipe_config,
-				     int dotclock)
+void ironlake_check_fdi_encoder_dotclock(struct drm_i915_private *dev_priv,
+					 const struct intel_link_m_n *fdi_m_n,
+					 int dotclock)
 {
+	int fdi_dotclock = intel_dotclock_calculate(intel_fdi_link_freq(dev_priv) * 10000,
+						    fdi_m_n);
+
 	/*
 	 * FDI already provided one idea for the dotclock.
 	 * Yell if the encoder disagrees.
 	 */
-	WARN(!intel_fuzzy_clock_check(pipe_config->base.adjusted_mode.crtc_clock, dotclock),
+	WARN(!intel_fuzzy_clock_check(fdi_dotclock, dotclock),
 	     "FDI dotclock and encoder dotclock mismatch, fdi: %i, encoder: %i\n",
-	     pipe_config->base.adjusted_mode.crtc_clock, dotclock);
+	     fdi_dotclock, dotclock);
 }
 
 static void update_scanline_offset(struct intel_crtc *crtc)

@@ -3286,6 +3286,8 @@ static void drrs_status_per_crtc(struct seq_file *m,
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
+	const struct intel_crtc_state *pipe_config =
+		to_intel_crtc_state(crtc->base.state);
 
 	if (dev_priv->vbt.drrs_type == STATIC_DRRS_SUPPORT)
 		seq_puts(m, "\tVBT: DRRS_type: Static");
@@ -3298,7 +3300,8 @@ static void drrs_status_per_crtc(struct seq_file *m,
 
 	seq_puts(m, "\n\n");
 
-	if (to_intel_crtc_state(crtc->base.state)->dotclock_low) {
+	if (pipe_config->crtc_clock_low !=
+	    pipe_config->base.adjusted_mode.crtc_clock) {
 		mutex_lock(&dev_priv->drrs.mutex);
 		/* DRRS Supported */
 		seq_puts(m, "\tDRRS Supported: Yes\n");

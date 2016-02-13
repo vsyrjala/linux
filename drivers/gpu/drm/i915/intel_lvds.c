@@ -100,7 +100,7 @@ static void intel_lvds_get_config(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_lvds_encoder *lvds_encoder = to_lvds_encoder(&encoder->base);
 	u32 tmp, flags = 0;
-	int dotclock;
+	int dotclock, dotclock_low;
 
 	tmp = I915_READ(lvds_encoder->reg);
 	if (tmp & LVDS_HSYNC_POLARITY)
@@ -122,11 +122,19 @@ static void intel_lvds_get_config(struct intel_encoder *encoder,
 	}
 
 	dotclock = pipe_config->port_clock;
+	dotclock_low = pipe_config->port_clock_low;
 
-	if (HAS_PCH_SPLIT(dev_priv->dev))
-		ironlake_check_encoder_dotclock(pipe_config, dotclock);
+	if (HAS_PCH_SPLIT(dev_priv->dev)) {
+		ironlake_check_fdi_encoder_dotclock(dev_priv,
+						    &pipe_config->fdi_m_n,
+						    dotclock);
+		ironlake_check_fdi_encoder_dotclock(dev_priv,
+						    &pipe_config->fdi_m2_n2,
+						    dotclock_low);
+	}
 
 	pipe_config->base.adjusted_mode.crtc_clock = dotclock;
+	pipe_config->crtc_clock_low = dotclock_low;
 }
 
 static void intel_pre_enable_lvds(struct intel_encoder *encoder)
@@ -344,11 +352,10 @@ static bool intel_lvds_compute_config(struct intel_encoder *intel_encoder,
 	} else {
 		intel_gmch_panel_fitting(intel_crtc, pipe_config,
 					 intel_connector->panel.fitting_mode);
-
 	}
 
 	if (downclock_mode)
-		pipe_config->dotclock_low = downclock_mode->clock;
+		pipe_config->crtc_clock_low = downclock_mode->clock;
 
 	/*
 	 * XXX: It would be nice to support lower refresh rates on the

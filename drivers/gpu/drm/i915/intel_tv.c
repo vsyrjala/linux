@@ -912,6 +912,7 @@ intel_tv_get_config(struct intel_encoder *encoder,
 		    struct intel_crtc_state *pipe_config)
 {
 	pipe_config->base.adjusted_mode.crtc_clock = pipe_config->port_clock;
+	pipe_config->crtc_clock_low = pipe_config->port_clock;
 }
 
 static bool

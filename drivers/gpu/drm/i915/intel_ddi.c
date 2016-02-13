@@ -1033,7 +1033,7 @@ static int skl_calc_wrpll_link(struct drm_i915_private *dev_priv,
 
 static void ddi_dotclock_get(struct intel_crtc_state *pipe_config)
 {
-	int dotclock;
+	int dotclock, dotclock_low;
 
 	if (pipe_config->has_pch_encoder)
 		dotclock = intel_dotclock_calculate(pipe_config->port_clock,
@@ -1046,10 +1046,19 @@ static void ddi_dotclock_get(struct intel_crtc_state *pipe_config)
 	else
 		dotclock = pipe_config->port_clock;
 
-	if (pipe_config->pixel_multiplier)
+	if (intel_crtc_has_dp_encoder(pipe_config))
+		dotclock_low = intel_dotclock_calculate(pipe_config->port_clock,
+							&pipe_config->dp_m2_n2);
+	else
+		dotclock_low = dotclock;
+
+	if (pipe_config->pixel_multiplier) {
 		dotclock /= pipe_config->pixel_multiplier;
+		dotclock_low /= pipe_config->pixel_multiplier;
+	}
 
 	pipe_config->base.adjusted_mode.crtc_clock = dotclock;
+	pipe_config->crtc_clock_low = dotclock_low;
 }
 
 static void skl_ddi_clock_get(struct intel_encoder *encoder,
@@ -1096,6 +1105,7 @@ static void skl_ddi_clock_get(struct intel_encoder *encoder,
 	}
 
 	pipe_config->port_clock = link_clock;
+	pipe_config->port_clock_low = pipe_config->port_clock;
 
 	ddi_dotclock_get(pipe_config);
 }
@@ -1143,6 +1153,7 @@ static void hsw_ddi_clock_get(struct intel_encoder *encoder,
 	}
 
 	pipe_config->port_clock = link_clock * 2;
+	pipe_config->port_clock_low = pipe_config->port_clock;
 
 	ddi_dotclock_get(pipe_config);
 }
@@ -1180,6 +1191,7 @@ static void bxt_ddi_clock_get(struct intel_encoder *encoder,
 	uint32_t dpll = port;
 
 	pipe_config->port_clock = bxt_calc_pll_link(dev_priv, dpll);
+	pipe_config->port_clock_low = pipe_config->port_clock_low;
 
 	ddi_dotclock_get(pipe_config);
 }
@@ -3181,6 +3193,8 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 		intel_dp_get_m_n(intel_crtc, pipe_config);
 		if (IS_HASWELL(dev_priv) && cpu_transcoder == TRANSCODER_EDP)
 			intel_dp_get_m2_n2(intel_crtc, pipe_config);
+		else
+			pipe_config->dp_m2_n2 = pipe_config->dp_m_n;
 		break;
 	default:
 		break;

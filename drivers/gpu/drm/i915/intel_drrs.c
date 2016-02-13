@@ -128,7 +128,8 @@ void intel_crtc_drrs_enable(struct intel_crtc *crtc)
 	if (!i915.drrs)
 		return;
 
-	if (crtc->config->dotclock_low == 0)
+	if (crtc->config->crtc_clock_low ==
+	    crtc->config->base.adjusted_mode.crtc_clock)
 		return;
 
 	DRM_DEBUG_KMS("enabling DRRS for pipe %c\n", pipe_name(crtc->pipe));

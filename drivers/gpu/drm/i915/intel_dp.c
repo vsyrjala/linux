@@ -1520,8 +1520,6 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	enum port port = dp_to_dig_port(intel_dp)->port;
 	struct intel_crtc *intel_crtc = to_intel_crtc(pipe_config->base.crtc);
 	struct intel_connector *intel_connector = intel_dp->attached_connector;
-	const struct drm_display_mode *downclock_mode =
-		intel_connector->panel.downclock_mode;
 	int lane_count, clock;
 	int min_lane_count = 1;
 	int max_lane_count = intel_dp_max_lane_count(intel_dp);
@@ -1652,11 +1650,19 @@ found:
 			       pipe_config->port_clock,
 			       &pipe_config->dp_m_n);
 
-	if (downclock_mode) {
-		pipe_config->dotclock_low = downclock_mode->clock;
+	if (!IS_G4X(dev_priv)) {
+		const struct drm_display_mode *downclock_mode =
+			intel_connector->panel.downclock_mode;
+
+		if (downclock_mode)
+			pipe_config->crtc_clock_low = downclock_mode->clock;
+		else
+			pipe_config->crtc_clock_low = adjusted_mode->crtc_clock;
+
+		WARN_ON(pipe_config->crtc_clock_low > adjusted_mode->crtc_clock);
 
 		intel_link_compute_m_n(bpp, lane_count,
-				       pipe_config->dotclock_low,
+				       pipe_config->crtc_clock_low,
 				       pipe_config->port_clock,
 				       &pipe_config->dp_m2_n2);
 	}
@@ -2444,24 +2450,36 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 	pipe_config->lane_count =
 		((tmp & DP_PORT_WIDTH_MASK) >> DP_PORT_WIDTH_SHIFT) + 1;
 
-	intel_dp_get_m_n(crtc, pipe_config);
-	if (!IS_G4X(dev_priv))
-		intel_dp_get_m2_n2(crtc, pipe_config);
-
 	if (port == PORT_A) {
 		if ((I915_READ(DP_A) & DP_PLL_FREQ_MASK) == DP_PLL_FREQ_162MHZ)
 			pipe_config->port_clock = 162000;
 		else
 			pipe_config->port_clock = 270000;
+		pipe_config->port_clock_low = pipe_config->port_clock;
 	}
 
-	dotclock = intel_dotclock_calculate(pipe_config->port_clock,
-					    &pipe_config->dp_m_n);
+	intel_dp_get_m_n(crtc, pipe_config);
 
-	if (HAS_PCH_SPLIT(dev_priv->dev) && port != PORT_A)
-		ironlake_check_encoder_dotclock(pipe_config, dotclock);
+	pipe_config->base.adjusted_mode.crtc_clock =
+		intel_dotclock_calculate(pipe_config->port_clock,
+					 &pipe_config->dp_m_n);
 
-	pipe_config->base.adjusted_mode.crtc_clock = dotclock;
+	if (!IS_G4X(dev_priv)) {
+		intel_dp_get_m2_n2(crtc, pipe_config);
+
+		pipe_config->crtc_clock_low =
+			intel_dotclock_calculate(pipe_config->port_clock,
+						 &pipe_config->dp_m2_n2);
+	}
+
+	if (pipe_config->has_pch_encoder) {
+		ironlake_check_fdi_encoder_dotclock(dev_priv,
+						    &pipe_config->fdi_m_n,
+						    pipe_config->base.adjusted_mode.crtc_clock);
+		ironlake_check_fdi_encoder_dotclock(dev_priv,
+						    &pipe_config->fdi_m2_n2,
+						    pipe_config->crtc_clock_low);
+	}
 
 	if (is_edp(intel_dp) && dev_priv->vbt.edp_bpp &&
 	    pipe_config->pipe_bpp > dev_priv->vbt.edp_bpp) {
