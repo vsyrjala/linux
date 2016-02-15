@@ -1,0 +1,20 @@
+origin/drm-intel-fixes ed3f9fd1e865975ceefdb2a43b453e090b1fd787
+	drm/i915: fix error path in intel_setup_gmbus()
+drm-upstream/drm-fixes bdbe58e6c60e49930d9c33e7d2b9a7789ed8c1a9
+	Merge tag 'drm-intel-fixes-2016-02-12' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes 48ea1e32c39db94c59b63580b965222c7782112f
+	drm/i915/gen9: Set PIN_ZONE_4G end to 4GB - 1 page
+origin/drm-intel-next-queued 1db6e2e7dc2739181bd55c3c41263634803b3cc9
+	drm/i915: Check for get_pages instead of shmem (filp)
+drm-upstream/drm-next 5443ce86fa37e7d3cc63d2067d05e3388fdeec17
+	drm: virtio-gpu: set atomic flag
+sound-upstream/for-linus 0b8c82190c12e530eb6003720dac103bf63e146e
+	ALSA: hda - Cancel probe work instead of flush at remove
+origin/topic/drm-fixes 3725af8869d64d1a912e21aebe76d42b32862463
+	drm/qxl: fix cursor position with non-zero hotspot
+origin/topic/drm-misc 15fce29da39150cc08980299ed3700a07a1cb0a6
+	drm/fb_helper: Use add_one_connector in add_all_connectors.
+origin/topic/kerneldoc 418645fdcc72b92df6817ec249e216700baa757a
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 093cf24ea4063f758e4229f383b6274d4ec40922
+	kernel/cpu: Use lockref for online CPU reference counting
