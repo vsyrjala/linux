@@ -458,6 +458,9 @@ int i915_gem_init_stolen(struct drm_device *dev)
 		return 0;
 	}
 
+	dev_priv->gtt.stolen_reserved_base = reserved_base;
+	dev_priv->gtt.stolen_reserved_size = reserved_size;
+
 	/* It is possible for the reserved area to end before the end of stolen
 	 * memory, so just consider the start. */
 	reserved_total = stolen_top - reserved_base;
@@ -569,6 +572,9 @@ _i915_gem_object_create_stolen(struct drm_device *dev,
 	if (obj->pages == NULL)
 		goto cleanup;
 
+	obj->get_page.sg = obj->pages->sgl;
+	obj->get_page.last = 0;
+
 	i915_gem_object_pin_pages(obj);
 	obj->stolen = stolen;
 
@@ -631,6 +637,8 @@ i915_gem_object_create_stolen_for_preallocated(struct drm_device *dev,
 
 	if (!drm_mm_initialized(&dev_priv->mm.stolen))
 		return NULL;
+
+	lockdep_assert_held(&dev->struct_mutex);
 
 	DRM_DEBUG_KMS("creating preallocated stolen object: stolen_offset=%x, gtt_offset=%x, size=%x\n",
 			stolen_offset, gtt_offset, size);
