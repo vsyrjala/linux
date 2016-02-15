@@ -17,6 +17,7 @@
 #include <linux/kthread.h>
 #include <linux/stop_machine.h>
 #include <linux/mutex.h>
+#include <linux/lockref.h>
 #include <linux/gfp.h>
 #include <linux/suspend.h>
 #include <linux/lockdep.h>
@@ -62,13 +63,10 @@ static struct {
 	struct task_struct *active_writer;
 	/* wait queue to wake up the active_writer */
 	wait_queue_head_t wq;
-	/* verifies that no writer will get active while readers are active */
-	struct mutex lock;
-	/*
-	 * Also blocks the new readers during
-	 * an ongoing cpu hotplug operation.
-	 */
-	atomic_t refcount;
+	/* wait queue to wake up readers */
+	wait_queue_head_t reader_wq;
+	/* track online CPU users */
+	struct lockref lockref;
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map dep_map;
@@ -76,7 +74,7 @@ static struct {
 } cpu_hotplug = {
 	.active_writer = NULL,
 	.wq = __WAIT_QUEUE_HEAD_INITIALIZER(cpu_hotplug.wq),
-	.lock = __MUTEX_INITIALIZER(cpu_hotplug.lock),
+	.reader_wq = __WAIT_QUEUE_HEAD_INITIALIZER(cpu_hotplug.reader_wq),
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	.dep_map = {.name = "cpu_hotplug.lock" },
 #endif
@@ -92,52 +90,64 @@ static struct {
 
 void get_online_cpus(void)
 {
-	might_sleep();
+	DEFINE_WAIT(wait);
+
 	if (cpu_hotplug.active_writer == current)
 		return;
+
 	cpuhp_lock_acquire_read();
-	mutex_lock(&cpu_hotplug.lock);
-	atomic_inc(&cpu_hotplug.refcount);
-	mutex_unlock(&cpu_hotplug.lock);
+
+	/* First to get might have to wait over a hotplug operation. */
+	while (!lockref_get_or_lock(&cpu_hotplug.lockref)) {
+		if (cpu_hotplug.lockref.count == 0) {
+			cpu_hotplug.lockref.count++;
+			spin_unlock(&cpu_hotplug.lockref.lock);
+			break;
+		}
+		spin_unlock(&cpu_hotplug.lockref.lock);
+
+		prepare_to_wait(&cpu_hotplug.reader_wq, &wait, TASK_UNINTERRUPTIBLE);
+		schedule();
+		finish_wait(&cpu_hotplug.reader_wq, &wait);
+	}
 }
 EXPORT_SYMBOL_GPL(get_online_cpus);
 
 void put_online_cpus(void)
 {
-	int refcount;
-
 	if (cpu_hotplug.active_writer == current)
 		return;
 
-	refcount = atomic_dec_return(&cpu_hotplug.refcount);
-	if (WARN_ON(refcount < 0)) /* try to fix things up */
-		atomic_inc(&cpu_hotplug.refcount);
+	/* Last to release might have to wake queued hotplug operation. */
+	if (!lockref_put_or_lock(&cpu_hotplug.lockref)) {
+		WARN_ON(cpu_hotplug.lockref.count <= 0);
+		cpu_hotplug.lockref.count = 0;
+		spin_unlock(&cpu_hotplug.lockref.lock);
 
-	if (refcount <= 0 && waitqueue_active(&cpu_hotplug.wq))
-		wake_up(&cpu_hotplug.wq);
+		if (waitqueue_active(&cpu_hotplug.wq))
+			wake_up(&cpu_hotplug.wq);
+	}
 
 	cpuhp_lock_release();
-
 }
 EXPORT_SYMBOL_GPL(put_online_cpus);
 
 /*
  * This ensures that the hotplug operation can begin only when the
- * refcount goes to zero.
+ * cpu_hotplug.lockref goes to zero.
  *
  * Note that during a cpu-hotplug operation, the new readers, if any,
- * will be blocked by the cpu_hotplug.lock
+ * will be blocked by the cpu_hotplug.lockref being dead.
  *
  * Since cpu_hotplug_begin() is always called after invoking
  * cpu_maps_update_begin(), we can be sure that only one writer is active.
  *
  * Note that theoretically, there is a possibility of a livelock:
- * - Refcount goes to zero, last reader wakes up the sleeping
+ * - Lockref goes to zero, last reader wakes up the sleeping
  *   writer.
- * - Last reader unlocks the cpu_hotplug.lock.
- * - A new reader arrives at this moment, bumps up the refcount.
- * - The writer acquires the cpu_hotplug.lock finds the refcount
- *   non zero and goes to sleep again.
+ * - A new reader arrives at this moment, bumps up the lockref.
+ * - The woken up writer finds the lockref non-zero and goes
+ *   to sleep again.
  *
  * However, this is very difficult to achieve in practice since
  * get_online_cpus() not an api which is called all that often.
@@ -151,20 +161,31 @@ void cpu_hotplug_begin(void)
 	cpuhp_lock_acquire();
 
 	for (;;) {
-		mutex_lock(&cpu_hotplug.lock);
+		spin_lock(&cpu_hotplug.lockref.lock);
+		if (cpu_hotplug.lockref.count <= 0)
+			break;
+		spin_unlock(&cpu_hotplug.lockref.lock);
+
 		prepare_to_wait(&cpu_hotplug.wq, &wait, TASK_UNINTERRUPTIBLE);
-		if (likely(!atomic_read(&cpu_hotplug.refcount)))
-				break;
-		mutex_unlock(&cpu_hotplug.lock);
 		schedule();
+		finish_wait(&cpu_hotplug.wq, &wait);
 	}
-	finish_wait(&cpu_hotplug.wq, &wait);
+
+	WARN_ON(__lockref_is_dead(&cpu_hotplug.lockref));
+	lockref_mark_dead(&cpu_hotplug.lockref);
+	spin_unlock(&cpu_hotplug.lockref.lock);
 }
 
 void cpu_hotplug_done(void)
 {
+	WARN_ON(!__lockref_is_dead(&cpu_hotplug.lockref));
+	cpu_hotplug.lockref.count = 0;
+	spin_unlock(&cpu_hotplug.lockref.lock);
+
+	if (waitqueue_active(&cpu_hotplug.reader_wq))
+		wake_up(&cpu_hotplug.reader_wq);
+
 	cpu_hotplug.active_writer = NULL;
-	mutex_unlock(&cpu_hotplug.lock);
 	cpuhp_lock_release();
 }
 
