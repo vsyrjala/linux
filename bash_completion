@@ -44,20 +44,26 @@ _dim ()
 		return 0
 	fi
 
+	# complete aliases like the actual command
+	local aliasref=$(dim list-aliases | sed -n "s/^${arg}\t\(.*\)/\1/p")
+	if [[ -n "$aliasref" ]]; then
+		arg="$aliasref"
+	fi
+
 	case "${arg}" in
 		push-branch)
 			COMPREPLY=( $( compgen -W "-f $nightly_branches" -- $cur ) )
 			;;
-		push-queued|pq|push-fixes|pf|push-next-fixes|pnf)
+		push-queued|push-fixes|push-next-fixes)
 			COMPREPLY=( $( compgen -W "-f" -- $cur ) )
 			;;
-		apply-branch|ab|sob)
+		apply-branch)
 			COMPREPLY=( $( compgen -W "-s $nightly_branches" -- $cur ) )
 			;;
-		apply-queued|aq|apply-fixes|af|apply-next-fixes|anf)
+		apply-queued|apply-fixes|apply-next-fixes)
 			COMPREPLY=( $( compgen -W "-s" -- $cur ) )
 			;;
-		magic-patch|mp)
+		magic-patch)
 			if [[ $args == 2 ]]; then
 				COMPREPLY=( $( compgen -o nospace -W "-a" -- $cur ) )
 			fi
@@ -65,7 +71,7 @@ _dim ()
 		tc|fixes)
 			# FIXME needs a git sha1
 			;;
-		check-patch|cp)
+		checkpatch)
 			# FIXME needs a git sha1
 			;;
 		pull-request)
@@ -85,7 +91,7 @@ _dim ()
 				COMPREPLY=( $( compgen -o nospace -W "drm- topic/" -- $cur ) )
 			fi
 			;;
-		checkout|co)
+		checkout)
 			if [[ $args == 2 ]]; then
 				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
 			fi
