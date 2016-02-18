@@ -972,6 +972,12 @@ function dim_pull_request_next_fixes
 	dim_pull_request drm-intel-next-fixes $upstream
 }
 
+# Note: used by bash completion
+function dim_list_branches
+{
+	echo $dim_branches | sed 's/ /\n/g'
+}
+
 dim_alias_ub=update-branches
 function dim_update_branches
 {
