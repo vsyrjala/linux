@@ -11,7 +11,21 @@ dim ()
 
 _dim ()
 {
-	local cur cmds opts i
+	local args arg cur prev words cword split
+	local cmds
+
+	# require bash-completion with _init_completion
+	type -t _init_completion >/dev/null 2>&1 || return
+
+	_init_completion || return
+
+	COMPREPLY=()
+
+	# arg = subcommand
+	_get_first_arg
+
+	# args = number of arguments
+	_count_args
 
 	if [ -f ~/linux/drm-intel-rerere/nightly.conf ] ; then
 		local nightly_branches=`(source ~/linux/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
@@ -35,27 +49,21 @@ _dim ()
 	cmds="$cmds create-branch remove-branch create-workdir for-each-workdirs fw"
 	cmds="$cmds tag-next checker"
 
-	opts="-d -f -i"
-
-	i=1
-
-	COMPREPLY=()   # Array variable storing the possible completions.
-	cur=${COMP_WORDS[COMP_CWORD]}
-
-	for comp in "${COMP_WORDS[@]}" ; do
-		for opt in $opts ; do
-			if [[ $opt = $comp ]] ; then
-				i=$((i+1))
-			fi
-		done
-	done
-
-	if [[ $COMP_CWORD == "$i" ]] ; then
-		COMPREPLY=( $( compgen -W "$cmds $opts" -- $cur ) )
+	if [ -z "${arg}" ]; then
+		# top level completion
+		case "${cur}" in
+			-*)
+				local opts="-d -f -i"
+				COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+				;;
+			*)
+				COMPREPLY=( $(compgen -W "${cmds}" -- ${cur}) )
+				;;
+		esac
 		return 0
 	fi
 
-	case "${COMP_WORDS[i]}" in
+	case "${arg}" in
 		push-branch)
 			COMPREPLY=( $( compgen -W "-f $nightly_branches" -- $cur ) )
 			;;
@@ -69,7 +77,7 @@ _dim ()
 			COMPREPLY=( $( compgen -W "-s" -- $cur ) )
 			;;
 		magic-patch|mp)
-			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
+			if [[ $args == 2 ]]; then
 				COMPREPLY=( $( compgen -o nospace -W "-a" -- $cur ) )
 			fi
 			;;
@@ -80,34 +88,34 @@ _dim ()
 			# FIXME needs a git sha1
 			;;
 		pull-request)
-			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
+			if [[ $args == 2 ]]; then
 				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
-			elif [[ $COMP_CWORD == "$((i+2))" ]] ; then
+			elif [[ $args == 3 ]]; then
 				COMPREPLY=( $( compgen -W "$upstream_branches" -- $cur ) )
 			fi
 			;;
 		pull-request-next|pull-request-fixes|pull-request-next-fixes)
-			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
+			if [[ $args == 2 ]]; then
 				COMPREPLY=( $( compgen -W "$upstream_branches" -- $cur ) )
 			fi
 			;;
 		create-branch)
-			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
+			if [[ $args == 2 ]]; then
 				COMPREPLY=( $( compgen -o nospace -W "drm- topic/" -- $cur ) )
 			fi
 			;;
 		checkout|co)
-			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
+			if [[ $args == 2 ]]; then
 				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
 			fi
 			;;
 		remove-branch)
-			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
+			if [[ $args == 2 ]]; then
 				COMPREPLY=( $( compgen -W "$nightly_branches" -- $cur ) )
 			fi
 			;;
 		create-workdir)
-			if [[ $COMP_CWORD == "$((i+1))" ]] ; then
+			if [[ $args == 2 ]]; then
 				COMPREPLY=( $( compgen -W "$nightly_branches all" -- $cur ) )
 			fi
 			;;
