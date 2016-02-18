@@ -27,13 +27,8 @@ _dim ()
 	# args = number of arguments
 	_count_args
 
-	if [ -f ~/linux/drm-intel-rerere/nightly.conf ] ; then
-		local nightly_branches=`(source ~/linux/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
-			xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
-	else
-		local nightly_branches=""
-	fi
-	local upstream_branches="origin/master airlied/drm-next airlied/drm-fixes"
+	local nightly_branches="$(dim list-branches)"
+	local upstream_branches="$(dim list-upstreams)"
 
 	cmds="setup nightly-forget update-branches"
 	cmds="$cmds rebuild-nightly cat-to-fixup"
