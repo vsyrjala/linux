@@ -1115,6 +1115,12 @@ function assert_branch
 	fi
 }
 
+# Note: used by bash completion
+function dim_list_commands
+{
+	declare -F | grep -o " dim_[a-zA-Z_]*" | sed 's/^ dim_//;s/_/-/g'
+}
+
 function dim_alias
 {
 	# use posix mode to omit functions in set output
@@ -1178,7 +1184,7 @@ function dim_usage
 	echo "usage: $0 [OPTIONS] SUBCOMMAND [ARGUMENTS]"
 	echo
 	echo "The available subcommands are:"
-	declare -F | grep -o " dim_[a-zA-Z_]*" | sed 's/^ dim_/\t/'
+	dim_list_commands | sed 's/^/\t/'
 	echo
 	echo "See '$0 help' for more information."
 }
