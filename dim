@@ -973,6 +973,14 @@ function dim_pull_request_next_fixes
 }
 
 # Note: used by bash completion
+function dim_list_upstreams
+{
+	echo origin/master
+	echo $DIM_DRM_UPSTREAM_REMOTE/drm-next
+	echo $DIM_DRM_UPSTREAM_REMOTE/drm-fixes
+}
+
+# Note: used by bash completion
 function dim_list_branches
 {
 	echo $dim_branches | sed 's/ /\n/g'
