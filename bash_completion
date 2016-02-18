@@ -12,7 +12,6 @@ dim ()
 _dim ()
 {
 	local args arg cur prev words cword split
-	local cmds
 
 	# require bash-completion with _init_completion
 	type -t _init_completion >/dev/null 2>&1 || return
@@ -30,20 +29,6 @@ _dim ()
 	local nightly_branches="$(dim list-branches)"
 	local upstream_branches="$(dim list-upstreams)"
 
-	cmds="setup nightly-forget update-branches"
-	cmds="$cmds rebuild-nightly cat-to-fixup"
-	cmds="$cmds push-queued pq push-fixes pf push-next-fixes pnf push-branch"
-	cmds="$cmds checkout co conq cof conf"
-	cmds="$cmds apply-branch ab sob apply-queued aq apply-fixes af apply-next-fixes anf"
-	cmds="$cmds magic-patch mp cd"
-	cmds="$cmds magic-rebase-resolve mrr"
-	cmds="$cmds apply-igt ai"
-	cmds="$cmds apply-resolved ar tc fixes check-patch cp cherry-pick"
-	cmds="$cmds pull-request pull-request-fixes pull-request-next pull-request-next-fixes"
-	cmds="$cmds update-next"
-	cmds="$cmds create-branch remove-branch create-workdir for-each-workdirs fw"
-	cmds="$cmds tag-next checker"
-
 	if [ -z "${arg}" ]; then
 		# top level completion
 		case "${cur}" in
@@ -52,6 +37,7 @@ _dim ()
 				COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
 				;;
 			*)
+				local cmds="$(dim list-commands) $(dim list-aliases | sed 's/\t.*//')"
 				COMPREPLY=( $(compgen -W "${cmds}" -- ${cur}) )
 				;;
 		esac
