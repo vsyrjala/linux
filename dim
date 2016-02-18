@@ -1121,11 +1121,12 @@ function dim_list_commands
 	declare -F | grep -o " dim_[a-zA-Z_]*" | sed 's/^ dim_//;s/_/-/g'
 }
 
-function dim_alias
+# Note: used by bash completion
+function dim_list_aliases
 {
 	# use posix mode to omit functions in set output
 	( set -o posix; set ) | grep "^dim_alias_[a-zA-Z0-9_]*=" |\
-		sed 's/^dim_alias_/\t/;s/=/\t/'
+		sed 's/^dim_alias_//;s/=/\t/;s/_/-/g'
 }
 
 function dim_cat_to_fixup
