@@ -532,7 +532,8 @@ static void assert_can_enable_dc5(struct drm_i915_private *dev_priv)
 	bool pg2_enabled = intel_display_power_well_is_enabled(dev_priv,
 					SKL_DISP_PW_2);
 
-	WARN_ONCE(!IS_SKYLAKE(dev), "Platform doesn't support DC5.\n");
+	WARN_ONCE(!IS_SKYLAKE(dev) && !IS_KABYLAKE(dev),
+		  "Platform doesn't support DC5.\n");
 	WARN_ONCE(!HAS_RUNTIME_PM(dev), "Runtime PM not enabled.\n");
 	WARN_ONCE(pg2_enabled, "PG2 not disabled to enable DC5.\n");
 
@@ -568,7 +569,8 @@ static void assert_can_enable_dc6(struct drm_i915_private *dev_priv)
 {
 	struct drm_device *dev = dev_priv->dev;
 
-	WARN_ONCE(!IS_SKYLAKE(dev), "Platform doesn't support DC6.\n");
+	WARN_ONCE(!IS_SKYLAKE(dev) && !IS_KABYLAKE(dev),
+		  "Platform doesn't support DC6.\n");
 	WARN_ONCE(!HAS_RUNTIME_PM(dev), "Runtime PM not enabled.\n");
 	WARN_ONCE(I915_READ(UTIL_PIN_CTL) & UTIL_PIN_ENABLE,
 		  "Backlight is not disabled.\n");
@@ -595,7 +597,8 @@ static void gen9_disable_dc5_dc6(struct drm_i915_private *dev_priv)
 {
 	assert_can_disable_dc5(dev_priv);
 
-	if (IS_SKYLAKE(dev_priv) && i915.enable_dc != 0 && i915.enable_dc != 1)
+	if ((IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev_priv)) &&
+	    i915.enable_dc != 0 && i915.enable_dc != 1)
 		assert_can_disable_dc6(dev_priv);
 
 	gen9_set_dc_state(dev_priv, DC_STATE_DISABLE);
@@ -623,7 +626,6 @@ void skl_disable_dc6(struct drm_i915_private *dev_priv)
 static void skl_set_power_well(struct drm_i915_private *dev_priv,
 			struct i915_power_well *power_well, bool enable)
 {
-	struct drm_device *dev = dev_priv->dev;
 	uint32_t tmp, fuse_status;
 	uint32_t req_mask, state_mask;
 	bool is_enabled, enable_requested, check_fuse_status = false;
@@ -667,17 +669,6 @@ static void skl_set_power_well(struct drm_i915_private *dev_priv,
 				!I915_READ(HSW_PWR_WELL_BIOS),
 				"Invalid for power well status to be enabled, unless done by the BIOS, \
 				when request is to disable!\n");
-			if (power_well->data == SKL_DISP_PW_2) {
-				/*
-				 * DDI buffer programming unnecessary during
-				 * driver-load/resume as it's already done
-				 * during modeset initialization then. It's
-				 * also invalid here as encoder list is still
-				 * uninitialized.
-				 */
-				if (!dev_priv->power_domains.initializing)
-					intel_prepare_ddi(dev);
-			}
 			I915_WRITE(HSW_PWR_WELL_DRIVER, tmp | req_mask);
 		}
 
@@ -783,7 +774,8 @@ static void gen9_dc_off_power_well_enable(struct drm_i915_private *dev_priv,
 static void gen9_dc_off_power_well_disable(struct drm_i915_private *dev_priv,
 					   struct i915_power_well *power_well)
 {
-	if (IS_SKYLAKE(dev_priv) && i915.enable_dc != 0 && i915.enable_dc != 1)
+	if ((IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev_priv)) &&
+	    i915.enable_dc != 0 && i915.enable_dc != 1)
 		skl_enable_dc6(dev_priv);
 	else
 		gen9_enable_dc5(dev_priv);
@@ -795,7 +787,8 @@ static void gen9_dc_off_power_well_sync_hw(struct drm_i915_private *dev_priv,
 	if (power_well->count > 0) {
 		gen9_set_dc_state(dev_priv, DC_STATE_DISABLE);
 	} else {
-		if (IS_SKYLAKE(dev_priv) && i915.enable_dc != 0 &&
+		if ((IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev_priv)) &&
+		    i915.enable_dc != 0 &&
 		    i915.enable_dc != 1)
 			gen9_set_dc_state(dev_priv, DC_STATE_EN_UPTO_DC6);
 		else
@@ -1442,6 +1435,22 @@ static void chv_pipe_power_well_disable(struct drm_i915_private *dev_priv,
 	chv_set_pipe_power_well(dev_priv, power_well, false);
 }
 
+static void
+__intel_display_power_get_domain(struct drm_i915_private *dev_priv,
+				 enum intel_display_power_domain domain)
+{
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+	struct i915_power_well *power_well;
+	int i;
+
+	for_each_power_well(i, power_well, BIT(domain), power_domains) {
+		if (!power_well->count++)
+			intel_power_well_enable(dev_priv, power_well);
+	}
+
+	power_domains->domain_use_count[domain]++;
+}
+
 /**
  * intel_display_power_get - grab a power domain reference
  * @dev_priv: i915 device instance
@@ -1457,24 +1466,53 @@ static void chv_pipe_power_well_disable(struct drm_i915_private *dev_priv,
 void intel_display_power_get(struct drm_i915_private *dev_priv,
 			     enum intel_display_power_domain domain)
 {
-	struct i915_power_domains *power_domains;
-	struct i915_power_well *power_well;
-	int i;
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
 
 	intel_runtime_pm_get(dev_priv);
 
-	power_domains = &dev_priv->power_domains;
+	mutex_lock(&power_domains->lock);
+
+	__intel_display_power_get_domain(dev_priv, domain);
+
+	mutex_unlock(&power_domains->lock);
+}
+
+/**
+ * intel_display_power_get_if_enabled - grab a reference for an enabled display power domain
+ * @dev_priv: i915 device instance
+ * @domain: power domain to reference
+ *
+ * This function grabs a power domain reference for @domain and ensures that the
+ * power domain and all its parents are powered up. Therefore users should only
+ * grab a reference to the innermost power domain they need.
+ *
+ * Any power domain reference obtained by this function must have a symmetric
+ * call to intel_display_power_put() to release the reference again.
+ */
+bool intel_display_power_get_if_enabled(struct drm_i915_private *dev_priv,
+					enum intel_display_power_domain domain)
+{
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+	bool is_enabled;
+
+	if (!intel_runtime_pm_get_if_in_use(dev_priv))
+		return false;
 
 	mutex_lock(&power_domains->lock);
 
-	for_each_power_well(i, power_well, BIT(domain), power_domains) {
-		if (!power_well->count++)
-			intel_power_well_enable(dev_priv, power_well);
+	if (__intel_display_power_is_enabled(dev_priv, domain)) {
+		__intel_display_power_get_domain(dev_priv, domain);
+		is_enabled = true;
+	} else {
+		is_enabled = false;
 	}
 
-	power_domains->domain_use_count[domain]++;
-
 	mutex_unlock(&power_domains->lock);
+
+	if (!is_enabled)
+		intel_runtime_pm_put(dev_priv);
+
+	return is_enabled;
 }
 
 /**
@@ -1851,7 +1889,7 @@ void skl_pw1_misc_io_init(struct drm_i915_private *dev_priv)
 {
 	struct i915_power_well *well;
 
-	if (!IS_SKYLAKE(dev_priv))
+	if (!(IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev_priv)))
 		return;
 
 	well = lookup_power_well(dev_priv, SKL_DISP_PW_1);
@@ -1865,7 +1903,7 @@ void skl_pw1_misc_io_fini(struct drm_i915_private *dev_priv)
 {
 	struct i915_power_well *well;
 
-	if (!IS_SKYLAKE(dev_priv))
+	if (!(IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev_priv)))
 		return;
 
 	well = lookup_power_well(dev_priv, SKL_DISP_PW_1);
@@ -2243,6 +2281,43 @@ void intel_runtime_pm_get(struct drm_i915_private *dev_priv)
 
 	atomic_inc(&dev_priv->pm.wakeref_count);
 	assert_rpm_wakelock_held(dev_priv);
+}
+
+/**
+ * intel_runtime_pm_get_if_in_use - grab a runtime pm reference if device in use
+ * @dev_priv: i915 device instance
+ *
+ * This function grabs a device-level runtime pm reference if the device is
+ * already in use and ensures that it is powered up.
+ *
+ * Any runtime pm reference obtained by this function must have a symmetric
+ * call to intel_runtime_pm_put() to release the reference again.
+ */
+bool intel_runtime_pm_get_if_in_use(struct drm_i915_private *dev_priv)
+{
+	struct drm_device *dev = dev_priv->dev;
+	struct device *device = &dev->pdev->dev;
+	int ret;
+
+	if (!IS_ENABLED(CONFIG_PM))
+		return true;
+
+	ret = pm_runtime_get_if_in_use(device);
+
+	/*
+	 * In cases runtime PM is disabled by the RPM core and we get an
+	 * -EINVAL return value we are not supposed to call this function,
+	 * since the power state is undefined. This applies atm to the
+	 * late/early system suspend/resume handlers.
+	 */
+	WARN_ON_ONCE(ret < 0);
+	if (ret <= 0)
+		return false;
+
+	atomic_inc(&dev_priv->pm.wakeref_count);
+	assert_rpm_wakelock_held(dev_priv);
+
+	return true;
 }
 
 /**
