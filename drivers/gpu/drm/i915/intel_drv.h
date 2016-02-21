@@ -704,6 +704,9 @@ struct cxsr_latency {
 struct intel_hdmi {
 	i915_reg_t hdmi_reg;
 	int ddc_bus;
+	struct {
+		int max_tmds_clock;
+	} dp_dual_mode;
 	bool limited_color_range;
 	bool color_range_auto;
 	bool has_hdmi_sink;
