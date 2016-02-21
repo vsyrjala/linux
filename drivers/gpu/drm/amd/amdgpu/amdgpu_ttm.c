@@ -815,25 +815,6 @@ bool amdgpu_ttm_tt_affect_userptr(struct ttm_tt *ttm, unsigned long start,
 	return true;
 }
 
-bool amdgpu_ttm_tt_affect_userptr(struct ttm_tt *ttm, unsigned long start,
-				  unsigned long end)
-{
-	struct amdgpu_ttm_tt *gtt = (void *)ttm;
-	unsigned long size;
-
-	if (gtt == NULL)
-		return false;
-
-	if (gtt->ttm.ttm.state != tt_bound || !gtt->userptr)
-		return false;
-
-	size = (unsigned long)gtt->ttm.ttm.num_pages * PAGE_SIZE;
-	if (gtt->userptr > end || gtt->userptr + size <= start)
-		return false;
-
-	return true;
-}
-
 bool amdgpu_ttm_tt_is_readonly(struct ttm_tt *ttm)
 {
 	struct amdgpu_ttm_tt *gtt = (void *)ttm;
