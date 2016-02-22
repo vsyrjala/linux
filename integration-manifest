@@ -1,0 +1,22 @@
+origin/drm-intel-fixes 9b18572e83bfd5378b3fcff3acf123f7bddf558a
+	drm/i915/gen9: Verify and enforce dc6 state writes
+drm-upstream/drm-fixes 4fbbed46dca83bcba3a0170205110a06c116a8e6
+	drm/nouveau: use post-decrement in error handling
+origin/drm-intel-next-fixes 48ea1e32c39db94c59b63580b965222c7782112f
+	drm/i915/gen9: Set PIN_ZONE_4G end to 4GB - 1 page
+origin/drm-intel-next-queued 6831f3e3c640ad4ca3f93601a26ee4ecf210aefa
+	drm/i915: Add for_each_pipe_masked()
+drm-upstream/drm-next d2eaa59000c7717e68a75cf2c106f056d2bc30b4
+	Merge branch 'drm-rockchip-next-2016-02-18' of https://github.com/markyzq/kernel-drm-rockchip into drm-next
+sound-upstream/for-linus 67ec1072b053c15564e6090ab30127895dc77a89
+	ALSA: pcm: Fix rwsem deadlock for non-atomic PCM stream
+origin/topic/drm-fixes 3725af8869d64d1a912e21aebe76d42b32862463
+	drm/qxl: fix cursor position with non-zero hotspot
+origin/topic/drm-misc a6ddd2f1b99f1c00b4e00289b13c3e451c7130b0
+	drm/udl: Use module_usb_driver
+origin/topic/kerneldoc 418645fdcc72b92df6817ec249e216700baa757a
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 5d22014f687fa83c7524b49bb2dbc4d1bfff7793
+	kernel/cpu: Distinctive name for cpu_hotplug.dep_map
+origin/topic/mode_fixup-optional cc92da5173fb348668487a7db1004067e78c30a5
+	drm/tilcdc: removed optional dummy encoder mode_fixup function.
