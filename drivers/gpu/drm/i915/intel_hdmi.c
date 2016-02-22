@@ -846,6 +846,13 @@ static void intel_hdmi_prepare(struct intel_encoder *encoder)
 	const struct drm_display_mode *adjusted_mode = &crtc->config->base.adjusted_mode;
 	u32 hdmi_val;
 
+	if (intel_hdmi->dp_dual_mode.tmds_output_control) {
+		struct i2c_adapter *adapter =
+			intel_gmbus_get_adapter(dev_priv, intel_hdmi->ddc_bus);
+
+		drm_dp_dual_mode_set_tmds_output(adapter, true);
+	}
+
 	hdmi_val = SDVO_ENCODING_HDMI;
 	if (!HAS_PCH_SPLIT(dev) && crtc->config->limited_color_range)
 		hdmi_val |= HDMI_COLOR_RANGE_16_235;
@@ -1144,6 +1151,13 @@ static void intel_disable_hdmi(struct intel_encoder *encoder)
 	}
 
 	intel_hdmi->set_infoframes(&encoder->base, false, NULL);
+
+	if (intel_hdmi->dp_dual_mode.tmds_output_control) {
+		struct i2c_adapter *adapter =
+			intel_gmbus_get_adapter(dev_priv, intel_hdmi->ddc_bus);
+
+		drm_dp_dual_mode_set_tmds_output(adapter, false);
+	}
 }
 
 static void g4x_disable_hdmi(struct intel_encoder *encoder)
@@ -1369,6 +1383,7 @@ intel_hdmi_unset_edid(struct drm_connector *connector)
 	intel_hdmi->rgb_quant_range_selectable = false;
 
 	intel_hdmi->dp_dual_mode.max_tmds_clock = 0;
+	intel_hdmi->dp_dual_mode.tmds_output_control = false;
 
 	kfree(to_intel_connector(connector)->detect_edid);
 	to_intel_connector(connector)->detect_edid = NULL;
@@ -1392,15 +1407,23 @@ intel_hdmi_dp_dual_mode_detect(struct drm_connector *connector)
 	 */
 	if (type == DRM_DP_DUAL_MODE_TYPE2_DVI ||
 	    type == DRM_DP_DUAL_MODE_TYPE2_HDMI) {
+		bool tmds_enabled;
+
 		hdmi->dp_dual_mode.max_tmds_clock =
 			drm_dp_dual_mode_max_tmds_clock(adapter);
+
+		hdmi->dp_dual_mode.tmds_output_control =
+			drm_dp_dual_mode_get_tmds_output(adapter, &tmds_enabled) == 0 &&
+			drm_dp_dual_mode_set_tmds_output(adapter, tmds_enabled) == 0;
 	} else {
 		hdmi->dp_dual_mode.max_tmds_clock = 165000;
+		hdmi->dp_dual_mode.tmds_output_control = false;
 	}
 
-	DRM_DEBUG_KMS("DP dual mode adaptor (%s) detected (max TMDS clock: %d kHz)\n",
+	DRM_DEBUG_KMS("DP dual mode adaptor (%s) detected (max TMDS clock: %d kHz, TMDS OE# control: %s)\n",
 		      drm_dp_get_dual_mode_type_name(type),
-		      hdmi->dp_dual_mode.max_tmds_clock);
+		      hdmi->dp_dual_mode.max_tmds_clock,
+		      yesno(hdmi->dp_dual_mode.tmds_output_control));
 }
 
 static bool
