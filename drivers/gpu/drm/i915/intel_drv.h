@@ -706,6 +706,7 @@ struct intel_hdmi {
 	int ddc_bus;
 	struct {
 		int max_tmds_clock;
+		bool tmds_output_control;
 	} dp_dual_mode;
 	bool limited_color_range;
 	bool color_range_auto;
