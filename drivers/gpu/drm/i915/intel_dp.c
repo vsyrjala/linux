@@ -5068,9 +5068,8 @@ put_power:
 }
 
 /* check the VBT to see whether the eDP is on another port */
-bool intel_dp_is_edp(struct drm_device *dev, enum port port)
+bool intel_dp_is_edp(struct drm_i915_private *dev_priv, enum port port)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
 	union child_device_config *p_child;
 	int i;
 	static const short port_mapping[] = {
@@ -5084,7 +5083,7 @@ bool intel_dp_is_edp(struct drm_device *dev, enum port port)
 	 * eDP not supported on g4x. so bail out early just
 	 * for a bit extra safety in case the VBT is bonkers.
 	 */
-	if (INTEL_INFO(dev)->gen < 5)
+	if (INTEL_INFO(dev_priv)->gen < 5)
 		return false;
 
 	if (port == PORT_A)
@@ -5901,7 +5900,7 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 	intel_dp->DP = I915_READ(intel_dp->output_reg);
 	intel_dp->attached_connector = intel_connector;
 
-	if (intel_dp_is_edp(dev, port))
+	if (intel_dp_is_edp(dev_priv, port))
 		type = DRM_MODE_CONNECTOR_eDP;
 	else
 		type = DRM_MODE_CONNECTOR_DisplayPort;

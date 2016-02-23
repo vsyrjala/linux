@@ -14453,7 +14453,7 @@ static void intel_setup_outputs(struct drm_device *dev)
 
 	} else if (HAS_PCH_SPLIT(dev)) {
 		int found;
-		dpd_is_edp = intel_dp_is_edp(dev, PORT_D);
+		dpd_is_edp = intel_dp_is_edp(dev_priv, PORT_D);
 
 		if (has_edp_a(dev))
 			intel_dp_init(dev, DP_A, PORT_A);
@@ -14489,17 +14489,17 @@ static void intel_setup_outputs(struct drm_device *dev)
 		 * detect eDP ports.
 		 */
 		if (I915_READ(VLV_HDMIB) & SDVO_DETECTED &&
-		    !intel_dp_is_edp(dev, PORT_B))
+		    !intel_dp_is_edp(dev_priv, PORT_B))
 			intel_hdmi_init(dev, VLV_HDMIB, PORT_B);
 		if (I915_READ(VLV_DP_B) & DP_DETECTED ||
-		    intel_dp_is_edp(dev, PORT_B))
+		    intel_dp_is_edp(dev_priv, PORT_B))
 			intel_dp_init(dev, VLV_DP_B, PORT_B);
 
 		if (I915_READ(VLV_HDMIC) & SDVO_DETECTED &&
-		    !intel_dp_is_edp(dev, PORT_C))
+		    !intel_dp_is_edp(dev_priv, PORT_C))
 			intel_hdmi_init(dev, VLV_HDMIC, PORT_C);
 		if (I915_READ(VLV_DP_C) & DP_DETECTED ||
-		    intel_dp_is_edp(dev, PORT_C))
+		    intel_dp_is_edp(dev_priv, PORT_C))
 			intel_dp_init(dev, VLV_DP_C, PORT_C);
 
 		if (IS_CHERRYVIEW(dev)) {
