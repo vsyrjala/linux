@@ -471,7 +471,7 @@ function dim_cherry_pick
 	git fetch $DIM_DRM_INTEL_REMOTE
 	echo Possible fixup patches for your cherry-pick:
 	git log --grep=$sha_short --pretty=oneline $sha..$DIM_DRM_INTEL_REMOTE/drm-intel-nightly
-	$DRY git cherry-pick $1
+	$DRY git cherry-pick -s -x -e $1
 }
 
 function dim_cherry_pick_branch
