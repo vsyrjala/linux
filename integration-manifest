@@ -1,0 +1,24 @@
+origin/drm-intel-fixes eda908967feecf7575a8ab74f1695b0445cf324e
+	drm/i915: Balance assert_rpm_wakelock_held() for !IS_ENABLED(CONFIG_PM)
+drm-upstream/drm-fixes 2d02b8bdba322b527c5f5168ce1ca10c2d982a78
+	drm/ast: Fix incorrect register check for DRAM width
+origin/drm-intel-next-fixes 48ea1e32c39db94c59b63580b965222c7782112f
+	drm/i915/gen9: Set PIN_ZONE_4G end to 4GB - 1 page
+origin/drm-intel-next-queued ca377809d657ea3ba249e97d073a7373e383ab6a
+	drm/i915: Avoid snooping with userptr where not supported
+drm-upstream/drm-next 42e85606784376e4f2d5355694b0b241dc8c29ae
+	Merge tag 'imx-drm-next-20160301' of git://git.pengutronix.de/git/pza/linux into drm-next
+sound-upstream/for-next d10a80de04a3a8c0d7c1567cbc0a8d2e1181c10a
+	ALSA: hda - hdmi_find_pcm_slot return value bug fix
+sound-upstream/for-linus 197b958c1e76a575d77038cc98b4bebc2134279f
+	ALSA: seq: oss: Don't drain at closing a client
+origin/topic/drm-fixes 3725af8869d64d1a912e21aebe76d42b32862463
+	drm/qxl: fix cursor position with non-zero hotspot
+origin/topic/drm-misc 327097930d655de5964fcb843b2b412ab68a9bac
+	drm/crtc: Use drm_mode_object_put() in __drm_framebuffer_unregister()
+origin/topic/kerneldoc 418645fdcc72b92df6817ec249e216700baa757a
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 1d05ec51bfcbb93e60795a68b5b473abe0d55fac
+	intel_pstate: Update frequencies of policy->cpus only from ->set_policy()
+origin/topic/mode_fixup-optional cc92da5173fb348668487a7db1004067e78c30a5
+	drm/tilcdc: removed optional dummy encoder mode_fixup function.
