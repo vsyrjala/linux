@@ -5724,7 +5724,6 @@ skl_dpll0_enable(struct drm_i915_private *dev_priv, unsigned int required_vco)
 	/* select the minimum CDCLK before enabling DPLL 0 */
 	val = CDCLK_FREQ_337_308 | skl_cdclk_decimal(min_freq);
 	I915_WRITE(CDCLK_CTL, val);
-	POSTING_READ(CDCLK_CTL);
 
 	/*
 	 * We always enable DPLL0 with the lowest link rate possible, but still
@@ -5748,10 +5747,8 @@ skl_dpll0_enable(struct drm_i915_private *dev_priv, unsigned int required_vco)
 					    SKL_DPLL0);
 
 	I915_WRITE(DPLL_CTRL1, val);
-	POSTING_READ(DPLL_CTRL1);
 
 	I915_WRITE(LCPLL1_CTL, I915_READ(LCPLL1_CTL) | LCPLL_PLL_ENABLE);
-
 	if (wait_for(I915_READ(LCPLL1_CTL) & LCPLL_PLL_LOCK, 5))
 		DRM_ERROR("DPLL0 not locked\n");
 }
