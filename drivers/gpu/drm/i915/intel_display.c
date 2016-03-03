@@ -5453,6 +5453,10 @@ static void intel_update_cdclk(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	dev_priv->cdclk_freq = dev_priv->display.get_display_clock_speed(dev);
+
+	if (IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev_priv))
+		DRM_DEBUG_KMS("Current CD clock PLL VCO frequency %d MHz\n",
+			      dev_priv->skl_vco_freq);
 	DRM_DEBUG_DRIVER("Current CD clock rate: %d kHz\n",
 			 dev_priv->cdclk_freq);
 
