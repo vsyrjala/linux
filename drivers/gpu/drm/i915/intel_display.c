@@ -5653,6 +5653,30 @@ void broxton_uninit_cdclk(struct drm_device *dev)
 	intel_display_power_put(dev_priv, POWER_DOMAIN_PLLS);
 }
 
+static int skl_calc_cdclk(int max_pixclk, int vco)
+{
+	if (vco == 8640) {
+		if (max_pixclk > 540000)
+			return 617140;
+		else if (max_pixclk > 432000)
+			return 540000;
+		else if (max_pixclk > 308570)
+			return 432000;
+		else
+			return 308570;
+	} else {
+		/* VCO 8100 */
+		if (max_pixclk > 540000)
+			return 675000;
+		else if (max_pixclk > 450000)
+			return 540000;
+		else if (max_pixclk > 337500)
+			return 450000;
+		else
+			return 337500;
+	}
+}
+
 static const struct skl_cdclk_entry {
 	unsigned int freq;
 	unsigned int vco;
@@ -5688,18 +5712,13 @@ unsigned int skl_cdclk_get_vco(unsigned int freq)
 static void
 skl_dpll0_enable(struct drm_i915_private *dev_priv, unsigned int required_vco)
 {
-	unsigned int min_freq;
+	unsigned int min_freq = skl_calc_cdclk(0, required_vco);
 	u32 val;
 
 	/* select the minimum CDCLK before enabling DPLL 0 */
 	val = I915_READ(CDCLK_CTL);
 	val &= ~CDCLK_FREQ_SEL_MASK | ~CDCLK_FREQ_DECIMAL_MASK;
 	val |= CDCLK_FREQ_337_308;
-
-	if (required_vco == 8640)
-		min_freq = 308570;
-	else
-		min_freq = 337500;
 
 	val = CDCLK_FREQ_337_308 | skl_cdclk_decimal(min_freq);
 
@@ -5842,7 +5861,7 @@ void skl_init_cdclk(struct drm_i915_private *dev_priv)
 		if (dev_priv->skl_vco_freq != 8640)
 			dev_priv->skl_vco_freq = 8100;
 		skl_dpll0_enable(dev_priv, dev_priv->skl_vco_freq);
-		cdclk = ((dev_priv->skl_vco_freq == 8100) ? 337500 : 308570);
+		cdclk = skl_calc_cdclk(0, dev_priv->skl_vco_freq);
 	} else {
 		cdclk = dev_priv->cdclk_freq;
 	}
@@ -9834,34 +9853,14 @@ static int skl_modeset_calc_cdclk(struct drm_atomic_state *state)
 	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
 	struct drm_i915_private *dev_priv = to_i915(state->dev);
 	const int max_pixclk = ilk_max_pixel_rate(state);
+	int vco = intel_state->cdclk_pll_vco;
 	int cdclk;
 
 	/*
 	 * FIXME should also account for plane ratio
 	 * once 64bpp pixel formats are supported.
 	 */
-
-	if (to_intel_atomic_state(state)->cdclk_pll_vco == 8640) {
-		/* vco 8640 */
-		if (max_pixclk > 540000)
-			cdclk = 617140;
-		else if (max_pixclk > 432000)
-			cdclk = 540000;
-		else if (max_pixclk > 308570)
-			cdclk = 432000;
-		else
-			cdclk = 308570;
-	} else {
-		/* VCO 8100 */
-		if (max_pixclk > 540000)
-			cdclk = 675000;
-		else if (max_pixclk > 450000)
-			cdclk = 540000;
-		else if (max_pixclk > 337500)
-			cdclk = 450000;
-		else
-			cdclk = 337500;
-	}
+	cdclk = skl_calc_cdclk(max_pixclk, vco);
 
 	/*
 	 * FIXME move the cdclk caclulation to
@@ -9875,7 +9874,7 @@ static int skl_modeset_calc_cdclk(struct drm_atomic_state *state)
 
 	intel_state->cdclk = intel_state->dev_cdclk = cdclk;
 	if (!intel_state->active_crtcs)
-		intel_state->dev_cdclk = 337500;
+		intel_state->dev_cdclk = skl_calc_cdclk(0, vco);
 
 	return 0;
 }
