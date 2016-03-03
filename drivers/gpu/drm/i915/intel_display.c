@@ -5677,36 +5677,38 @@ static int skl_calc_cdclk(int max_pixclk, int vco)
 	}
 }
 
-static const struct skl_cdclk_entry {
-	unsigned int freq;
-	unsigned int vco;
-} skl_cdclk_frequencies[] = {
-	{ .freq = 308570, .vco = 8640 },
-	{ .freq = 337500, .vco = 8100 },
-	{ .freq = 432000, .vco = 8640 },
-	{ .freq = 450000, .vco = 8100 },
-	{ .freq = 540000, .vco = 8100 },
-	{ .freq = 617140, .vco = 8640 },
-	{ .freq = 675000, .vco = 8100 },
-};
-
 static unsigned int skl_cdclk_decimal(unsigned int freq)
 {
 	return (freq - 1000) / 500;
 }
 
-unsigned int skl_cdclk_get_vco(unsigned int freq)
+static int
+skl_get_dpll0_vco(struct drm_i915_private *dev_priv)
 {
-	unsigned int i;
+	u32 val;
 
-	for (i = 0; i < ARRAY_SIZE(skl_cdclk_frequencies); i++) {
-		const struct skl_cdclk_entry *e = &skl_cdclk_frequencies[i];
+	val = I915_READ(LCPLL1_CTL);
+	if ((val & LCPLL_PLL_ENABLE) == 0)
+		return 0;
 
-		if (e->freq == freq)
-			return e->vco;
+	val = I915_READ(DPLL_CTRL1);
+	if ((val & DPLL_CTRL1_OVERRIDE(SKL_DPLL0)) == 0)
+		return 0;
+
+	switch (val & DPLL_CTRL1_LINK_RATE_MASK(SKL_DPLL0)) {
+	case DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_2700, SKL_DPLL0):
+	case DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_1350, SKL_DPLL0):
+	case DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_810, SKL_DPLL0):
+	case DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_1620, SKL_DPLL0):
+		return 8100;
+	case DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_1080, SKL_DPLL0):
+	case DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_2160, SKL_DPLL0):
+		return 8640;
+	default:
+		MISSING_CASE(val & DPLL_CTRL1_LINK_RATE_MASK(SKL_DPLL0));
 	}
 
-	return 8100;
+	return 0;
 }
 
 static void
@@ -6743,43 +6745,40 @@ static int intel_crtc_compute_config(struct intel_crtc *crtc,
 static int skylake_get_display_clock_speed(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	uint32_t lcpll1 = I915_READ(LCPLL1_CTL);
-	uint32_t cdctl = I915_READ(CDCLK_CTL);
-	uint32_t linkrate;
+	uint32_t cdctl;
 
-	if (!(lcpll1 & LCPLL_PLL_ENABLE))
+	dev_priv->skl_vco_freq = skl_get_dpll0_vco(dev_priv);
+
+	if (dev_priv->skl_vco_freq == 0)
 		return 24000; /* 24MHz is the cd freq with NSSC ref */
 
-	if ((cdctl & CDCLK_FREQ_SEL_MASK) == CDCLK_FREQ_540)
-		return 540000;
+	cdctl = I915_READ(CDCLK_CTL);
 
-	linkrate = (I915_READ(DPLL_CTRL1) &
-		    DPLL_CTRL1_LINK_RATE_MASK(SKL_DPLL0)) >> 1;
-
-	if (linkrate == DPLL_CTRL1_LINK_RATE_2160 ||
-	    linkrate == DPLL_CTRL1_LINK_RATE_1080) {
-		/* vco 8640 */
+	if (dev_priv->skl_vco_freq == 8640) {
 		switch (cdctl & CDCLK_FREQ_SEL_MASK) {
 		case CDCLK_FREQ_450_432:
 			return 432000;
 		case CDCLK_FREQ_337_308:
 			return 308570;
+		case CDCLK_FREQ_540:
+			return 540000;
 		case CDCLK_FREQ_675_617:
 			return 617140;
 		default:
-			WARN(1, "Unknown cd freq selection\n");
+			MISSING_CASE(cdctl & CDCLK_FREQ_SEL_MASK);
 		}
 	} else {
-		/* vco 8100 */
 		switch (cdctl & CDCLK_FREQ_SEL_MASK) {
 		case CDCLK_FREQ_450_432:
 			return 450000;
 		case CDCLK_FREQ_337_308:
 			return 337500;
+		case CDCLK_FREQ_540:
+			return 540000;
 		case CDCLK_FREQ_675_617:
 			return 675000;
 		default:
-			WARN(1, "Unknown cd freq selection\n");
+			MISSING_CASE(cdctl & CDCLK_FREQ_SEL_MASK);
 		}
 	}
 
