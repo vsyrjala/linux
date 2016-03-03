@@ -5716,9 +5716,9 @@ skl_get_dpll0_vco(struct drm_i915_private *dev_priv)
 }
 
 static void
-skl_dpll0_enable(struct drm_i915_private *dev_priv, unsigned int required_vco)
+skl_dpll0_enable(struct drm_i915_private *dev_priv, int vco)
 {
-	int min_cdclk = skl_calc_cdclk(0, required_vco);
+	int min_cdclk = skl_calc_cdclk(0, vco);
 	u32 val;
 
 	/* select the minimum CDCLK before enabling DPLL 0 */
@@ -5739,7 +5739,7 @@ skl_dpll0_enable(struct drm_i915_private *dev_priv, unsigned int required_vco)
 	val &= ~(DPLL_CTRL1_HDMI_MODE(SKL_DPLL0) | DPLL_CTRL1_SSC(SKL_DPLL0) |
 		 DPLL_CTRL1_LINK_RATE_MASK(SKL_DPLL0));
 	val |= DPLL_CTRL1_OVERRIDE(SKL_DPLL0);
-	if (required_vco == 8640)
+	if (vco == 8640)
 		val |= DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_1080,
 					    SKL_DPLL0);
 	else
