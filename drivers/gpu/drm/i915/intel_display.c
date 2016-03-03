@@ -5448,7 +5448,7 @@ static void intel_update_max_cdclk(struct drm_device *dev)
 			 dev_priv->max_dotclk_freq);
 }
 
-static void intel_update_cdclk(struct drm_device *dev)
+void intel_update_cdclk(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 

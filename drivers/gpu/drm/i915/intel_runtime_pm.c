@@ -2071,6 +2071,7 @@ static void skl_display_core_init(struct drm_i915_private *dev_priv,
 	if (!resume)
 		return;
 
+	intel_update_cdclk(dev_priv->dev);
 	skl_init_cdclk(dev_priv);
 
 	if (dev_priv->csr.dmc_payload)
