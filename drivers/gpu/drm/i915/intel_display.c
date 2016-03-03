@@ -5721,6 +5721,8 @@ skl_dpll0_enable(struct drm_i915_private *dev_priv, int vco)
 	int min_cdclk = skl_calc_cdclk(0, vco);
 	u32 val;
 
+	WARN_ON(vco != 8100 && vco != 8640);
+
 	/* select the minimum CDCLK before enabling DPLL 0 */
 	val = CDCLK_FREQ_337_308 | skl_cdclk_decimal(min_cdclk);
 	I915_WRITE(CDCLK_CTL, val);
@@ -5753,6 +5755,12 @@ skl_dpll0_enable(struct drm_i915_private *dev_priv, int vco)
 		DRM_ERROR("DPLL0 not locked\n");
 
 	dev_priv->skl_vco_freq = vco;
+
+	/*
+	 * We'll want to keep using the current vco from now on,
+	 * unless forced to change.
+	 */
+	dev_priv->skl_default_vco_freq = vco;
 }
 
 static void
@@ -5869,7 +5877,9 @@ void skl_init_cdclk(struct drm_i915_private *dev_priv)
 		int cdclk, vco;
 
 		/* set CDCLK to the lowest frequency, Modeset follows */
-		vco = 8100;
+		vco = dev_priv->skl_default_vco_freq;
+		if (vco == 0)
+			vco = 8100;
 		cdclk = skl_calc_cdclk(0, vco);
 
 		skl_set_cdclk(dev_priv, cdclk, vco);
@@ -13285,6 +13295,8 @@ static int intel_modeset_checks(struct drm_atomic_state *state)
 	if (dev_priv->display.modeset_calc_cdclk) {
 		if (!intel_state->cdclk_pll_vco)
 			intel_state->cdclk_pll_vco = dev_priv->skl_vco_freq;
+		if (!intel_state->cdclk_pll_vco)
+			intel_state->cdclk_pll_vco = dev_priv->skl_default_vco_freq;
 
 		ret = dev_priv->display.modeset_calc_cdclk(state);
 		if (ret < 0)
