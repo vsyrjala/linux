@@ -4720,6 +4720,8 @@ static void gen6_init_rps_frequencies(struct drm_device *dev)
 	u32 ddcc_status = 0;
 	int ret;
 
+	mutex_lock(&dev_priv->rps.hw_lock);
+
 	/* All of these values are in units of 50MHz */
 	dev_priv->rps.cur_freq		= 0;
 	/* static values from HW: RP0 > RP1 > RPn (min_freq) */
@@ -4777,6 +4779,8 @@ static void gen6_init_rps_frequencies(struct drm_device *dev)
 			dev_priv->rps.min_freq_softlimit =
 				dev_priv->rps.min_freq;
 	}
+
+	mutex_unlock(&dev_priv->rps.hw_lock);
 }
 
 /* See the Gen9_GT_PM_Programming_Guide doc for the below */
@@ -4785,8 +4789,6 @@ static void gen9_enable_rps(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
-
-	gen6_init_rps_frequencies(dev);
 
 	/* WaGsvDisableTurbo: Workaround to disable turbo on BXT A* */
 	if (IS_BXT_REVID(dev, 0, BXT_REVID_A1)) {
@@ -4898,9 +4900,6 @@ static void gen8_enable_rps(struct drm_device *dev)
 	/* 2a: Disable RC states. */
 	I915_WRITE(GEN6_RC_CONTROL, 0);
 
-	/* Initialize rps frequencies */
-	gen6_init_rps_frequencies(dev);
-
 	/* 2b: Program RC6 thresholds.*/
 	I915_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 40 << 16);
 	I915_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000); /* 12500 * 1280ns */
@@ -4989,9 +4988,6 @@ static void gen6_enable_rps(struct drm_device *dev)
 	}
 
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
-
-	/* Initialize rps frequencies */
-	gen6_init_rps_frequencies(dev);
 
 	/* disable the counters and set deterministic thresholds */
 	I915_WRITE(GEN6_RC_CONTROL, 0);
@@ -6196,6 +6192,8 @@ void intel_init_gt_powersave(struct drm_device *dev)
 		cherryview_init_gt_powersave(dev);
 	else if (IS_VALLEYVIEW(dev))
 		valleyview_init_gt_powersave(dev);
+	else if (INTEL_INFO(dev_priv)->gen >= 6)
+		gen6_init_rps_frequencies(dev);
 }
 
 void intel_cleanup_gt_powersave(struct drm_device *dev)

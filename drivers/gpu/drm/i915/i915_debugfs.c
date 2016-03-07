@@ -4896,8 +4896,6 @@ i915_max_freq_get(void *data, u64 *val)
 	if (INTEL_INFO(dev)->gen < 6)
 		return -ENODEV;
 
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
-
 	*val = intel_gpu_freq(dev_priv, dev_priv->rps.max_freq_softlimit);
 
 	return 0;
@@ -4956,8 +4954,6 @@ i915_min_freq_get(void *data, u64 *val)
 
 	if (INTEL_INFO(dev)->gen < 6)
 		return -ENODEV;
-
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
 
 	*val = intel_gpu_freq(dev_priv, dev_priv->rps.min_freq_softlimit);
 
