@@ -283,14 +283,37 @@ for-each-workdir|fw *command*
 Run the given command in all active workdirs including the main repository under
 \$DIM_DRM_INTEL.
 
-alias
------
+list-aliases
+------------
 
-List all aliases for the subcommand names.
+List all aliases for the subcommand names. Useful for autocompletion scripts.
+
+list-branches
+-------------
+
+List all branches (main and topic) managed by dim. Useful for autocompletion
+scripts.
+
+list-commands
+-------------
+
+List all subcommand names, including aliases. Useful for autocompletion scripts.
+
+list-upstreams
+--------------
+
+List of all upstreams commonly used for pull requests. Useful for autocompletion
+scripts.
 
 help
 ----
 Show this help. Install **rst2man(1)** for best results.
+
+usage
+-----
+
+Short form usage help listening all subcommands. Run by default or if an unknown
+subcommand was passed on the cmdline.
 
 ENVIRONMENT
 ===========

@@ -283,7 +283,7 @@ Committer Guidelines
 ====================
 
 This section describes the guidelines for pushing patches. Strict rules covering
-all cases are impossible write and follow. We put a lot of trust in the sound
+all cases are impossible to write and follow. We put a lot of trust in the sound
 judgement of the people with commit access, and that only develops with
 experience. These guidelines are primarily for the committers to aid in making
 the right decisions, and for others to set their the expectations right.
@@ -327,9 +327,9 @@ An inexhaustive list of details to check:
   `details on testing requirements
   <http://blog.ffwll.ch/2013/11/testing-requirements-for-drmi915.html>`_.
 
-* An open source userspace, reviewed and released by the upstream project, must
-  be available for new kernel ABI. Please see `details on upstreaming
-  requirements
+* An open source userspace, reviewed and ready for merging by the upstream
+  project, must be available for new kernel ABI. Please see `details on
+  upstreaming requirements
   <http://blog.ffwll.ch/2015/05/gfx-kernel-upstreaming-requirements.html>`_.
 
 * Relevant documentation must be updated as part of the patch or series.
