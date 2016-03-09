@@ -350,6 +350,10 @@ An inexhaustive list of details to check:
   http://developercertificate.org/. dim apply-branch should do this
   automatically for you.
 
+* For patches that move around lots of code (file rename or extraction) please
+  coordinate with maintainers to avoid unnecessary pain with conflicts. Usually
+  some explicit merges are needed to avoid git getting lost.
+
 On Confidence, Complexity, and Transparency
 -------------------------------------------
 
