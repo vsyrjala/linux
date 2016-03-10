@@ -67,6 +67,11 @@ struct i915_params i915 __read_mostly = {
 	.enable_gvt = false,
 };
 
+module_param_named(cdclk, i915.cdclk, int, 0600);
+MODULE_PARM_DESC(cdclk,
+		 "Force a higher cdclk frquency (in kHz) "
+		 "(0=calculate base on actual pixel rate etc.)");
+
 module_param_named(modeset, i915.modeset, int, 0400);
 MODULE_PARM_DESC(modeset,
 	"Use kernel modesetting [KMS] (0=disable, "

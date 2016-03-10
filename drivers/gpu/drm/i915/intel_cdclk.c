@@ -1597,6 +1597,7 @@ static int hsw_modeset_calc_cdclk(struct drm_atomic_state *state)
 	int max_pixclk = intel_max_pixel_rate(state);
 	int cdclk;
 
+	max_pixclk = max(max_pixclk, i915.cdclk);
 	cdclk = hsw_calc_cdclk(dev_priv, max_pixclk);
 
 	if (cdclk > dev_priv->max_cdclk_freq) {
@@ -1627,6 +1628,7 @@ static int vlv_modeset_calc_cdclk(struct drm_atomic_state *state)
 		to_intel_atomic_state(state);
 	int cdclk;
 
+	max_pixclk = max(max_pixclk, i915.cdclk);
 	cdclk = vlv_calc_cdclk(dev_priv, max_pixclk);
 
 	if (cdclk > dev_priv->max_cdclk_freq) {
@@ -1660,6 +1662,7 @@ static int bdw_modeset_calc_cdclk(struct drm_atomic_state *state)
 	 * FIXME should also account for plane ratio
 	 * once 64bpp pixel formats are supported.
 	 */
+	max_pixclk = max(max_pixclk, i915.cdclk);
 	cdclk = bdw_calc_cdclk(max_pixclk);
 
 	if (cdclk > dev_priv->max_cdclk_freq) {
@@ -1686,7 +1689,7 @@ static int skl_modeset_calc_cdclk(struct drm_atomic_state *state)
 {
 	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
 	struct drm_i915_private *dev_priv = to_i915(state->dev);
-	const int max_pixclk = intel_max_pixel_rate(state);
+	int max_pixclk = intel_max_pixel_rate(state);
 	int cdclk, vco;
 
 	vco = intel_state->cdclk.logical.vco;
@@ -1697,6 +1700,7 @@ static int skl_modeset_calc_cdclk(struct drm_atomic_state *state)
 	 * FIXME should also account for plane ratio
 	 * once 64bpp pixel formats are supported.
 	 */
+	max_pixclk = max(max_pixclk, i915.cdclk);
 	cdclk = skl_calc_cdclk(max_pixclk, vco);
 
 	if (cdclk > dev_priv->max_cdclk_freq) {
@@ -1728,6 +1732,8 @@ static int bxt_modeset_calc_cdclk(struct drm_atomic_state *state)
 	struct intel_atomic_state *intel_state =
 		to_intel_atomic_state(state);
 	int cdclk, vco;
+
+	max_pixclk = max(max_pixclk, i915.cdclk);
 
 	if (IS_GEMINILAKE(dev_priv)) {
 		cdclk = glk_calc_cdclk(max_pixclk);
