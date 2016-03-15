@@ -991,7 +991,9 @@ dim_alias_ub=update-branches
 function dim_update_branches
 {
 	cd $DIM_PREFIX/$DIM_DRM_INTEL
-	git fetch $DIM_DRM_INTEL_REMOTE
+	for remote in $DIM_DRM_INTEL_REMOTE $DIM_DRM_UPSTREAM_REMOTE origin; do
+		git fetch $remote
+	done
 	check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
 
 	for branch in $dim_branches ; do
