@@ -421,8 +421,6 @@ function dim_apply_branch
 
 	local message_id=$(message_get_id $file)
 
-	shell_checkpatch "cat $file"
-
 	local commiter_email=$(git config --get user.email)
 	local patch_from=$(grep "From:" "$file" | head -1)
 	local sob
@@ -437,6 +435,8 @@ function dim_apply_branch
 	else
 		echo "No message-id found in the patch file."
 	fi
+
+	checkpatch_commit HEAD
 
 	eval $DRY $DIM_POST_APPLY_ACTION
 }
@@ -686,25 +686,17 @@ function check_repo_clean
 
 }
 
-# $1 is the shell command to display the patch/commit
-function shell_checkpatch
-{
-	local cmd=$1
-
-	$cmd | scripts/checkpatch.pl -q --strict - || true
-	if $cmd | grep '^\+.*\WBUG' > /dev/null; then
-		warn_or_fail "New BUG macro added"
-	fi
-	$cmd | grep '^\+.*drm_i915_private_t' > /dev/null && echo "WARNING: New drm_i915_private_t added" || true
-}
-
 # $1 is the git sha1 to check
 function checkpatch_commit
 {
 	local commit=$1
 
 	git --no-pager log --oneline -1 $commit
-	shell_checkpatch "git show $commit --pretty=email"
+	git show $commit --pretty=email | scripts/checkpatch.pl -q --emacs --strict - || true
+
+	if git show $commit --pretty=email | grep '^\+.*\WBUG' > /dev/null; then
+		warn_or_fail "New BUG macro added"
+	fi
 }
 
 dim_alias_check_patch=checkpatch
