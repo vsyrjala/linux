@@ -411,11 +411,7 @@ function dim_apply_branch
 	local file=`mktemp`
 
 	assert_branch $branch
-
-	if [[ -n `git status --porcelain --untracked-files=no` ]] ; then
-		echo Repository not clean, aborting
-		exit 2
-	fi
+	assert_repo_clean
 
 	cat > $file
 
@@ -674,16 +670,6 @@ function dim_cof
 function dim_conf
 {
 	dim_checkout drm-intel-next-fixes "$@"
-}
-
-function check_repo_clean
-{
-	cd $1
-	if ! git diff-index --quiet HEAD ; then
-		echo $2 repo not clean, aborting
-		exit 1
-	fi
-
 }
 
 # $1 is the git sha1 to check
@@ -986,7 +972,8 @@ function dim_update_branches
 	for remote in $DIM_DRM_INTEL_REMOTE $DIM_DRM_UPSTREAM_REMOTE origin; do
 		git fetch $remote
 	done
-	check_repo_clean $DIM_PREFIX/$DIM_DRM_INTEL Kernel
+
+	assert_repo_clean
 
 	for branch in $dim_branches ; do
 		dim_checkout $branch
@@ -1107,6 +1094,14 @@ function assert_branch
 	else
 		echo "You're on the wrong branch, expected $branch in $PWD"
 		return 1
+	fi
+}
+
+function assert_repo_clean
+{
+	if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+		echo "Repository not clean, aborting."
+		exit 1
 	fi
 }
 
