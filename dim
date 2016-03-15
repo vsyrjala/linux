@@ -348,8 +348,10 @@ function dim_rebuild_nightly
 		git push $DRY_RUN origin HEAD >& /dev/null && echo "Done."
 	else
 		echo "Fail: Branch setup for the rerere-cache is borked."
+		exit 1
 	fi
 
+	update_linux_next
 }
 
 function dim_nightly_forget
@@ -378,7 +380,6 @@ function dim_push_branch
 	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE $branch "$@"
 
 	dim_rebuild_nightly
-	update_linux_next
 }
 
 dim_alias_pq=push-queued
