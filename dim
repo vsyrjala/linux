@@ -693,19 +693,23 @@ function checkpatch_commit
 	fi
 }
 
+# turn $1 in to a git commit range
+function rangeish()
+{
+	if [ -z "$1" ]; then
+		echo "HEAD^..HEAD"
+	elif [ -n "`echo $1 | grep '\.\.'`" ]; then
+		echo "$1"
+	else
+		echo "$1..HEAD"
+	fi
+}
+
 dim_alias_check_patch=checkpatch
 dim_alias_cp=checkpatch
 function dim_checkpatch
 {
-	local range
-
-	if [ -z "$1" ]; then
-		range="HEAD^..HEAD"
-	elif [ -n "`echo $1 | grep '\.\.'`" ]; then
-		range="$1"
-	else
-		range="$1..HEAD"
-	fi
+	local range=$(rangeish "$1")
 
 	for commit in $(git rev-list --reverse $range); do
 		checkpatch_commit $commit || true
