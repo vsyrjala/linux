@@ -188,15 +188,16 @@ if message_id is not None:
 EOF
 }
 
-# append a new tag at the end of the commit message of HEAD
-# $1 = tag, $2 = value
-commit_add_tag ()
+# append all arguments as tags at the end of the commit message of HEAD
+function dim_commit_add_tag
 {
-	# the first sed deletes all trailing blank lines at the end
-	git log -1 --pretty=%B | \
-		sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' | \
-		sed "\$a$1: $2" | \
-		git commit --amend -F-
+	for arg; do
+		# the first sed deletes all trailing blank lines at the end
+		git log -1 --pretty=%B | \
+			sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' | \
+			sed "\$a${arg}" | \
+			git commit --amend -F-
+	done
 }
 
 function update_linux_next
@@ -432,7 +433,7 @@ function dim_apply_branch
 	cat $file | git am -3 $sob "$@"
 
 	if [ -n "$message_id" ]; then
-		commit_add_tag "Link" "http://patchwork.freedesktop.org/patch/msgid/$message_id"
+		dim_commit_add_tag "Link: http://patchwork.freedesktop.org/patch/msgid/$message_id"
 	else
 		echo "No message-id found in the patch file."
 	fi
