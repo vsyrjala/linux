@@ -681,11 +681,13 @@ function dim_conf
 function checkpatch_commit
 {
 	local commit=$1
+	local cmd="git show --pretty=email $commit"
 
 	git --no-pager log --oneline -1 $commit
-	git show $commit --pretty=email | scripts/checkpatch.pl -q --emacs --strict - || true
+	$cmd | scripts/checkpatch.pl -q --emacs --strict - || true
 
-	if git show $commit --pretty=email | grep '^\+.*\WBUG' > /dev/null; then
+	local bug_lines=$($cmd | grep -m 1 -B 1 '^\+.*\WBUG' | grep -c '^[+-].*\WBUG')
+	if test "$bug_lines" -eq 1; then
 		warn_or_fail "New BUG macro added"
 	fi
 }
