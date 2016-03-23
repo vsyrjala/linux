@@ -171,6 +171,8 @@ recommended format please generate the Fixes: line using ::
 
         $ dim fixes $regressing_commit
 
+This will also add the correct Cc: line if one is needed.
+
 If the Cc: or Fixes: was forgotten, you can still reply to the list with that,
 just like any other tags, and they should be picked up by whoever pushes the
 patch.

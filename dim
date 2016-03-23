@@ -1147,7 +1147,7 @@ function dim_cat_to_fixup
 function dim_tc
 {
 	cd $DIM_PREFIX/$DIM_DRM_INTEL
-	tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
+	local tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
 	if [[ -n "$tag" ]]; then
 		echo "$tag"
 	else
@@ -1162,9 +1162,32 @@ function dim_tc
 
 function dim_fixes
 {
-	sha1=$1
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
+	local sha1=$1
+
 	git log -1 $sha1 "--pretty=format:Fixes: %H (\"%s\")%n" | \
 		sed -e 's/\([0-f]\{12\}\)[0-f]*/\1/'
+
+	local tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
+	if [[ -n "$tag" ]]; then
+		if echo "$tag" | grep -e "-rc" &> /dev/null ; then
+			echo Cc: drm-intel-fixes@lists.freedesktop.org
+		else
+			echo Cc: stable@vger.kernel.org
+		fi
+	else
+		git fetch $DIM_DRM_INTEL_REMOTE
+		# Check whether it's already in a feature pile tag
+		if git merge-base --is-ancestor $sha1 $DIM_DRM_INTEL_REMOTE/drm-intel-next ; then
+			# Make sure we're in the critical window where we might
+			# need to cherry-pick to dinf. critical window is -rc5
+			# up to end of merge window, hence exclude if in -rc1
+			# through rc-4.
+			if ! git tag | grep ^v | sort -V | tail -n1 | grep -e "-rc[1-4]$" &> /dev/null ; then
+				echo Cc: drm-intel-fixes@lists.freedesktop.org
+			fi
+		fi
+	fi
 }
 
 function dim_help
