@@ -12090,22 +12090,22 @@ static void
 connected_sink_compute_bpp(struct intel_connector *connector,
 			   struct intel_crtc_state *pipe_config)
 {
+	const struct drm_display_info *info = &connector->base.display_info;
 	int bpp = pipe_config->pipe_bpp;
 
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s] checking for sink bpp constrains\n",
-		connector->base.base.id,
-		connector->base.name);
+		      connector->base.base.id,
+		      connector->base.name);
 
 	/* Don't use an invalid EDID bpc value */
-	if (connector->base.display_info.bpc &&
-	    connector->base.display_info.bpc * 3 < bpp) {
+	if (info->bpc != 0 && info->bpc * 3 < bpp) {
 		DRM_DEBUG_KMS("clamping display bpp (was %d) to EDID reported max of %d\n",
-			      bpp, connector->base.display_info.bpc*3);
-		pipe_config->pipe_bpp = connector->base.display_info.bpc*3;
+			      bpp, info->bpc * 3);
+		pipe_config->pipe_bpp = info->bpc * 3;
 	}
 
 	/* Clamp bpp to default limit on screens without EDID 1.4 */
-	if (connector->base.display_info.bpc == 0) {
+	if (info->bpc == 0) {
 		int type = connector->base.connector_type;
 		int clamp_bpp = 24;
 
