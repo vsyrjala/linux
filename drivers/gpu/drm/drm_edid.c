@@ -3732,17 +3732,15 @@ EXPORT_SYMBOL(drm_rgb_quant_range_selectable);
  * drm_assign_hdmi_deep_color_info - detect whether monitor supports
  * hdmi deep color modes and update drm_display_info if so.
  * @edid: monitor EDID information
- * @info: Updated with maximum supported deep color bpc and color format
- *        if deep color supported.
  * @connector: DRM connector, used only for debug output
  *
  * Parse the CEA extension according to CEA-861-B.
  * Return true if HDMI deep color supported, false if not or unknown.
  */
 static bool drm_assign_hdmi_deep_color_info(struct edid *edid,
-                                            struct drm_display_info *info,
                                             struct drm_connector *connector)
 {
+	struct drm_display_info *info = &connector->display_info;
 	u8 *edid_ext, *hdmi;
 	int i;
 	int start_offset, end_offset;
@@ -3832,7 +3830,6 @@ static bool drm_assign_hdmi_deep_color_info(struct edid *edid,
 /**
  * drm_add_display_info - pull display info out if present
  * @edid: EDID data
- * @info: display info (attached to connector)
  * @connector: connector whose edid is used to build display info
  *
  * Grab any available display info and stuff it into the drm_display_info
@@ -3840,9 +3837,9 @@ static bool drm_assign_hdmi_deep_color_info(struct edid *edid,
  * color spaces.
  */
 static void drm_add_display_info(struct edid *edid,
-                                 struct drm_display_info *info,
                                  struct drm_connector *connector)
 {
+	struct drm_display_info *info = &connector->display_info;
 	u8 *edid_ext;
 
 	info->width_mm = edid->width_cm * 10;
@@ -3872,7 +3869,7 @@ static void drm_add_display_info(struct edid *edid,
 	}
 
 	/* HDMI deep color modes supported? Assign to info, if so */
-	drm_assign_hdmi_deep_color_info(edid, info, connector);
+	drm_assign_hdmi_deep_color_info(edid, connector);
 
 	/* Only defined for 1.4 with digital displays */
 	if (edid->revision < 4)
@@ -4092,7 +4089,7 @@ int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
 	if (quirks & (EDID_QUIRK_PREFER_LARGE_60 | EDID_QUIRK_PREFER_LARGE_75))
 		edid_fixup_preferred(connector, quirks);
 
-	drm_add_display_info(edid, &connector->display_info, connector);
+	drm_add_display_info(edid, connector);
 
 	if (quirks & EDID_QUIRK_FORCE_8BPC)
 		connector->display_info.bpc = 8;
