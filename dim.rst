@@ -368,7 +368,7 @@ Run::
 
     $ dim help
 
-for tons of details about this thing works. Adjust your .dimrc to match your
+for tons of details about how this thing works. Adjust your .dimrc to match your
 setup and then run::
 
     $ dim setup
