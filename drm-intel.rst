@@ -246,9 +246,9 @@ when it's tricky or something fails in the below procedure.
         $ git diff # shows three-way diff of conflict
         $ gitk --merge # lists all commits git believes to be relevant
 
-   If the conflict is simple and created by one of the patches fix things up and
-   compile/test the resulting kernel. In case of doubt just ping authors of
-   other patches or maintainers on IRC.
+   If the conflict is simple and created by one of the patches you pushed fix
+   things up and compile/test the resulting kernel. In case of doubt just ping
+   authors of other patches or maintainers on IRC.
 
 4. When you're happy with the resolution commit it with ::
 
