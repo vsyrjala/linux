@@ -108,8 +108,6 @@ struct intel_sdvo {
 	 */
 	bool is_tv;
 
-	enum port port;
-
 	/**
 	 * This is set if we treat the device as HDMI, instead of DVI.
 	 */
@@ -240,7 +238,7 @@ static void intel_sdvo_write_sdvox(struct intel_sdvo *intel_sdvo, u32 val)
 		return;
 	}
 
-	if (intel_sdvo->port == PORT_B)
+	if (intel_sdvo->base.port == PORT_B)
 		cval = I915_READ(GEN3_SDVOC);
 	else
 		bval = I915_READ(GEN3_SDVOB);
@@ -403,7 +401,7 @@ static const struct _sdvo_cmd_name {
 	SDVO_CMD_NAME_ENTRY(SDVO_CMD_GET_HBUF_DATA),
 };
 
-#define SDVO_NAME(svdo) ((svdo)->port == PORT_B ? "SDVOB" : "SDVOC")
+#define SDVO_NAME(encoder) ((encoder)->base.port == PORT_B ? "SDVOB" : "SDVOC")
 
 static void intel_sdvo_debug_write(struct intel_sdvo *intel_sdvo, u8 cmd,
 				   const void *args, int args_len)
@@ -1125,6 +1123,7 @@ static bool intel_sdvo_compute_config(struct intel_encoder *encoder,
 		to_intel_sdvo_connector_state(conn_state);
 	struct drm_display_mode *adjusted_mode = &pipe_config->base.adjusted_mode;
 	struct drm_display_mode *mode = &pipe_config->base.mode;
+	enum port port = encoder->port;
 
 	DRM_DEBUG_KMS("forcing bpc to 8 for SDVO\n");
 	pipe_config->pipe_bpp = 8*3;
@@ -1161,22 +1160,26 @@ static bool intel_sdvo_compute_config(struct intel_encoder *encoder,
 	pipe_config->pixel_multiplier =
 		intel_sdvo_get_pixel_multiplier(adjusted_mode);
 
-	if (intel_sdvo_state->base.force_audio != HDMI_AUDIO_OFF_DVI)
-		pipe_config->has_hdmi_sink = intel_sdvo->has_hdmi_monitor;
+	if (intel_sdvo_state->base.force_audio != HDMI_AUDIO_OFF_DVI &&
+	    intel_sdvo->has_hdmi_monitor)
+		pipe_config->hdmi_ports |= BIT(port);
 
 	if (intel_sdvo_state->base.force_audio == HDMI_AUDIO_ON ||
 	    (intel_sdvo_state->base.force_audio == HDMI_AUDIO_AUTO && intel_sdvo->has_hdmi_audio))
-		pipe_config->has_audio = true;
+		pipe_config->audio_ports |= BIT(port);
+
+	if (intel_sdvo->has_hdmi_monitor)
+		pipe_config->hdmi_ports |= BIT(port);
 
 	if (intel_sdvo_state->base.broadcast_rgb == INTEL_BROADCAST_RGB_AUTO) {
 		/* See CEA-861-E - 5.1 Default Encoding Parameters */
 		/* FIXME: This bit is only valid when using TMDS encoding and 8
 		 * bit per color mode. */
-		if (pipe_config->has_hdmi_sink &&
+		if (intel_sdvo->has_hdmi_monitor &&
 		    drm_match_cea_mode(adjusted_mode) > 1)
 			pipe_config->limited_color_range = true;
 	} else {
-		if (pipe_config->has_hdmi_sink &&
+		if (pipe_config->infoframe_ports & BIT(port) &&
 		    intel_sdvo_state->base.broadcast_rgb == INTEL_BROADCAST_RGB_LIMITED)
 			pipe_config->limited_color_range = true;
 	}
@@ -1265,6 +1268,7 @@ static void intel_sdvo_pre_enable(struct intel_encoder *intel_encoder,
 		to_intel_sdvo_connector_state(conn_state);
 	const struct drm_display_mode *mode = &crtc_state->base.mode;
 	struct intel_sdvo *intel_sdvo = to_sdvo(intel_encoder);
+	enum port port = intel_encoder->port;
 	u32 sdvox;
 	struct intel_sdvo_in_out_map in_out;
 	struct intel_sdvo_dtd input_dtd, output_dtd;
@@ -1304,13 +1308,16 @@ static void intel_sdvo_pre_enable(struct intel_encoder *intel_encoder,
 	if (!intel_sdvo_set_target_input(intel_sdvo))
 		return;
 
-	if (crtc_state->has_hdmi_sink) {
+	if (crtc_state->hdmi_ports & BIT(port))
 		intel_sdvo_set_encode(intel_sdvo, SDVO_ENCODE_HDMI);
+	else
+		intel_sdvo_set_encode(intel_sdvo, SDVO_ENCODE_DVI);
+
+	if (crtc_state->infoframe_ports & BIT(port)) {
 		intel_sdvo_set_colorimetry(intel_sdvo,
 					   SDVO_COLORIMETRY_RGB256);
 		intel_sdvo_set_avi_infoframe(intel_sdvo, crtc_state);
-	} else
-		intel_sdvo_set_encode(intel_sdvo, SDVO_ENCODE_DVI);
+	}
 
 	if (intel_sdvo->is_tv &&
 	    !intel_sdvo_set_tv_format(intel_sdvo, conn_state))
@@ -1345,7 +1352,7 @@ static void intel_sdvo_pre_enable(struct intel_encoder *intel_encoder,
 			sdvox |= SDVO_BORDER_ENABLE;
 	} else {
 		sdvox = I915_READ(intel_sdvo->sdvo_reg);
-		if (intel_sdvo->port == PORT_B)
+		if (port == PORT_B)
 			sdvox &= SDVOB_PRESERVE_MASK;
 		else
 			sdvox &= SDVOC_PRESERVE_MASK;
@@ -1357,7 +1364,7 @@ static void intel_sdvo_pre_enable(struct intel_encoder *intel_encoder,
 	else
 		sdvox |= SDVO_PIPE_SEL(crtc->pipe);
 
-	if (crtc_state->has_audio) {
+	if (crtc_state->audio_ports & BIT(port)) {
 		WARN_ON_ONCE(INTEL_GEN(dev_priv) < 4);
 		sdvox |= SDVO_AUDIO_ENABLE;
 	}
@@ -1424,6 +1431,7 @@ static void intel_sdvo_get_config(struct intel_encoder *encoder,
 	struct intel_sdvo *intel_sdvo = to_sdvo(encoder);
 	struct intel_sdvo_dtd dtd;
 	int encoder_pixel_multiplier = 0;
+	enum port port = encoder->port;
 	int dotclock;
 	u32 flags = 0, sdvox;
 	u8 val;
@@ -1491,12 +1499,12 @@ static void intel_sdvo_get_config(struct intel_encoder *encoder,
 		pipe_config->limited_color_range = true;
 
 	if (sdvox & SDVO_AUDIO_ENABLE)
-		pipe_config->has_audio = true;
+		pipe_config->audio_ports |= BIT(port);
 
 	if (intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_ENCODE,
 				 &val, 1)) {
 		if (val == SDVO_ENCODE_HDMI)
-			pipe_config->has_hdmi_sink = true;
+			pipe_config->hdmi_ports |= BIT(intel_sdvo->base.port);
 	}
 
 	WARN(encoder_pixel_multiplier != pipe_config->pixel_multiplier,
@@ -2312,7 +2320,7 @@ intel_sdvo_select_ddc_bus(struct drm_i915_private *dev_priv,
 {
 	struct sdvo_device_mapping *mapping;
 
-	if (sdvo->port == PORT_B)
+	if (sdvo->base.port == PORT_B)
 		mapping = &dev_priv->vbt.sdvo_mappings[0];
 	else
 		mapping = &dev_priv->vbt.sdvo_mappings[1];
@@ -2330,7 +2338,7 @@ intel_sdvo_select_i2c_bus(struct drm_i915_private *dev_priv,
 	struct sdvo_device_mapping *mapping;
 	u8 pin;
 
-	if (sdvo->port == PORT_B)
+	if (sdvo->base.port == PORT_B)
 		mapping = &dev_priv->vbt.sdvo_mappings[0];
 	else
 		mapping = &dev_priv->vbt.sdvo_mappings[1];
@@ -2368,7 +2376,7 @@ intel_sdvo_get_slave_addr(struct drm_i915_private *dev_priv,
 {
 	struct sdvo_device_mapping *my_mapping, *other_mapping;
 
-	if (sdvo->port == PORT_B) {
+	if (sdvo->base.port == PORT_B) {
 		my_mapping = &dev_priv->vbt.sdvo_mappings[0];
 		other_mapping = &dev_priv->vbt.sdvo_mappings[1];
 	} else {
@@ -2393,7 +2401,7 @@ intel_sdvo_get_slave_addr(struct drm_i915_private *dev_priv,
 	/* No SDVO device info is found for another DVO port,
 	 * so use mapping assumption we had before BIOS parsing.
 	 */
-	if (sdvo->port == PORT_B)
+	if (sdvo->base.port == PORT_B)
 		return 0x70;
 	else
 		return 0x72;
@@ -3024,7 +3032,6 @@ bool intel_sdvo_init(struct drm_i915_private *dev_priv,
 		return false;
 
 	intel_sdvo->sdvo_reg = sdvo_reg;
-	intel_sdvo->port = port;
 	intel_sdvo->slave_addr =
 		intel_sdvo_get_slave_addr(dev_priv, intel_sdvo) >> 1;
 	intel_sdvo_select_i2c_bus(dev_priv, intel_sdvo);
@@ -3079,7 +3086,7 @@ bool intel_sdvo_init(struct drm_i915_private *dev_priv,
 	 * hotplug lines.
 	 */
 	if (intel_sdvo->hotplug_active) {
-		if (intel_sdvo->port == PORT_B)
+		if (intel_encoder->port == PORT_B)
 			intel_encoder->hpd_pin = HPD_SDVO_B;
 		else
 			intel_encoder->hpd_pin = HPD_SDVO_C;

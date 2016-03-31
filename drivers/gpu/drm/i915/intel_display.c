@@ -5652,7 +5652,7 @@ static u64 get_crtc_power_domains(struct drm_crtc *crtc,
 		mask |= BIT_ULL(intel_encoder->power_domain);
 	}
 
-	if (HAS_DDI(dev_priv) && crtc_state->has_audio)
+	if (HAS_DDI(dev_priv) && crtc_state->audio_ports)
 		mask |= BIT(POWER_DOMAIN_AUDIO);
 
 	if (crtc_state->shared_dpll)
@@ -5938,6 +5938,12 @@ static void intel_crtc_disable_noatomic(struct drm_crtc *crtc,
 
 	dev_priv->active_crtcs &= ~(1 << intel_crtc->pipe);
 	dev_priv->min_cdclk[intel_crtc->pipe] = 0;
+
+	crtc_state = to_intel_crtc_state(crtc->state);
+	dev_priv->infoframe_ports &= ~crtc_state->infoframe_ports;
+	dev_priv->audio_ports &= ~crtc_state->audio_ports;
+	crtc_state->infoframe_ports = 0;
+	crtc_state->audio_ports = 0;
 }
 
 /*
@@ -10649,8 +10655,10 @@ static void intel_dump_pipe_config(struct intel_crtc *crtc,
 					      &pipe_config->dp_m2_n2);
 	}
 
-	DRM_DEBUG_KMS("audio: %i, infoframes: %i\n",
-		      pipe_config->has_audio, pipe_config->has_infoframe);
+	DRM_DEBUG_KMS("hdmi: 0x%x, audio: 0x%x, infoframes: 0x%x\n",
+		      pipe_config->hdmi_ports,
+		      pipe_config->audio_ports,
+		      pipe_config->infoframe_ports);
 
 	DRM_DEBUG_KMS("requested mode:\n");
 	drm_mode_debug_printmodeline(&pipe_config->base.mode);
@@ -11204,18 +11212,17 @@ intel_pipe_config_compare(struct drm_i915_private *dev_priv,
 	PIPE_CONF_CHECK_I(base.adjusted_mode.crtc_vsync_start);
 	PIPE_CONF_CHECK_I(base.adjusted_mode.crtc_vsync_end);
 
+	PIPE_CONF_CHECK_X(hdmi_ports);
+	PIPE_CONF_CHECK_X(infoframe_ports);
+	PIPE_CONF_CHECK_X(audio_ports);
+
 	PIPE_CONF_CHECK_I(pixel_multiplier);
-	PIPE_CONF_CHECK_I(has_hdmi_sink);
 	if ((INTEL_GEN(dev_priv) < 8 && !IS_HASWELL(dev_priv)) ||
 	    IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
 		PIPE_CONF_CHECK_I(limited_color_range);
-
 	PIPE_CONF_CHECK_I(hdmi_scrambling);
 	PIPE_CONF_CHECK_I(hdmi_high_tmds_clock_ratio);
-	PIPE_CONF_CHECK_I(has_infoframe);
 	PIPE_CONF_CHECK_I(ycbcr420);
-
-	PIPE_CONF_CHECK_I(has_audio);
 
 	PIPE_CONF_CHECK_FLAGS(base.adjusted_mode.flags,
 			      DRM_MODE_FLAG_INTERLACE);
@@ -11978,6 +11985,32 @@ static int calc_watermark_data(struct drm_atomic_state *state)
 	return 0;
 }
 
+static void intel_clear_old_port_masks(struct intel_atomic_state *state)
+{
+	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
+	struct intel_crtc_state *old_crtc_state, *new_crtc_state;
+	struct intel_crtc *crtc;
+	int i;
+
+	state->infoframe_ports = dev_priv->infoframe_ports;
+	state->audio_ports = dev_priv->audio_ports;
+
+	for_each_oldnew_intel_crtc_in_state(state, crtc,
+					    old_crtc_state,
+					    new_crtc_state, i) {
+		if (!needs_modeset(&new_crtc_state->base))
+			continue;
+
+		state->infoframe_ports &= ~old_crtc_state->infoframe_ports;
+		state->audio_ports &= ~old_crtc_state->audio_ports;
+	}
+
+	DRM_DEBUG_KMS("infoframe ports initial state 0x%x -> 0x%x\n",
+		      dev_priv->infoframe_ports, state->infoframe_ports);
+	DRM_DEBUG_KMS("audio ports initial state 0x%x -> 0x%x\n",
+		      dev_priv->audio_ports, state->audio_ports);
+}
+
 /**
  * intel_atomic_check - validate state object
  * @dev: drm device
@@ -11996,6 +12029,13 @@ static int intel_atomic_check(struct drm_device *dev,
 	ret = drm_atomic_helper_check_modeset(dev, state);
 	if (ret)
 		return ret;
+
+	/*
+	 * clear infoframe_ports and audio_ports for any port
+	 * taking part in the modeset must be done before
+	 * the encoder->compute_config() hooks are called
+	 */
+	intel_clear_old_port_masks(intel_state);
 
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, crtc_state, i) {
 		struct intel_crtc_state *pipe_config =
@@ -12252,8 +12292,9 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 
 	drm_atomic_helper_wait_for_dependencies(state);
 
-	if (intel_state->modeset)
+	if (intel_state->modeset) {
 		intel_display_power_get(dev_priv, POWER_DOMAIN_MODESET);
+	}
 
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 		struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
@@ -12520,6 +12561,23 @@ static int intel_atomic_commit(struct drm_device *dev,
 		dev_priv->active_crtcs = intel_state->active_crtcs;
 		dev_priv->cdclk.logical = intel_state->cdclk.logical;
 		dev_priv->cdclk.actual = intel_state->cdclk.actual;
+
+		dev_priv->infoframe_ports = intel_state->infoframe_ports;
+		dev_priv->audio_ports = intel_state->audio_ports;
+
+		DRM_DEBUG_KMS("infoframe ports final state 0x%x -> 0x%x\n",
+			      dev_priv->infoframe_ports, intel_state->infoframe_ports);
+		DRM_DEBUG_KMS("audio ports final state 0x%x -> 0x%x\n",
+			      dev_priv->audio_ports, intel_state->audio_ports);
+
+		WARN(IS_G4X(dev_priv) && dev_priv->infoframe_ports &&
+		     !is_power_of_2(dev_priv->infoframe_ports),
+		     "Multiple ports have infoframes enabled (0x%x)\n",
+		     dev_priv->infoframe_ports);
+		WARN(IS_G4X(dev_priv) && dev_priv->audio_ports &&
+		     !is_power_of_2(dev_priv->audio_ports),
+		     "Multiple ports have audio enabled (0x%x)\n",
+		     dev_priv->audio_ports);
 	}
 
 	drm_atomic_state_get(state);
@@ -14348,6 +14406,10 @@ void intel_modeset_init_hw(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
 
+	/* make sure our bitmasks are sufficient */
+	BUILD_BUG_ON(I915_MAX_PIPES > 8);
+	BUILD_BUG_ON(I915_MAX_PORTS > 16);
+
 	intel_update_cdclk(dev_priv);
 	dev_priv->cdclk.logical = dev_priv->cdclk.actual = dev_priv->cdclk.hw;
 
@@ -14893,6 +14955,8 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 	int i;
 
 	dev_priv->active_crtcs = 0;
+	dev_priv->infoframe_ports = 0;
+	dev_priv->audio_ports = 0;
 
 	for_each_intel_crtc(dev, crtc) {
 		struct intel_crtc_state *crtc_state =
@@ -14950,6 +15014,9 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 			encoder->base.crtc = &crtc->base;
 			crtc_state->output_types |= 1 << encoder->type;
 			encoder->get_config(encoder, crtc_state);
+
+			dev_priv->infoframe_ports |= crtc_state->infoframe_ports;
+			dev_priv->audio_ports |= crtc_state->audio_ports;
 		} else {
 			encoder->base.crtc = NULL;
 		}
@@ -14990,6 +15057,9 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 			      enableddisabled(connector->base.encoder));
 	}
 	drm_connector_list_iter_end(&conn_iter);
+
+	DRM_DEBUG_KMS("infoframe ports takeover state 0x%x\n", dev_priv->infoframe_ports);
+	DRM_DEBUG_KMS("audio ports takeover state 0x%x\n", dev_priv->audio_ports);
 
 	for_each_intel_crtc(dev, crtc) {
 		struct intel_crtc_state *crtc_state =

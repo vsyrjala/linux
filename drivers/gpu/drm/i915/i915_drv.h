@@ -577,6 +577,14 @@ struct i915_hotplug {
 	     (__i)++) \
 		for_each_if (crtc)
 
+#define for_each_oldnew_intel_crtc_in_state(__state, crtc, old_crtc_state, new_crtc_state, __i) \
+	for ((__i) = 0; \
+	     (__i) < (__state)->base.dev->mode_config.num_crtc && \
+		     ((crtc) = to_intel_crtc((__state)->base.crtcs[__i].ptr), \
+		      (old_crtc_state) = to_intel_crtc_state((__state)->base.crtcs[__i].old_state), \
+		      (new_crtc_state) = to_intel_crtc_state((__state)->base.crtcs[__i].new_state), 1); \
+	     (__i)++) \
+		for_each_if (crtc)
 
 #define for_each_oldnew_intel_plane_in_state(__state, plane, old_plane_state, new_plane_state, __i) \
 	for ((__i) = 0; \
@@ -2415,6 +2423,10 @@ struct drm_i915_private {
 	unsigned int active_crtcs;
 	/* minimum acceptable cdclk for each pipe */
 	int min_cdclk[I915_MAX_PIPES];
+
+	/* track which ports are sending infoframes/audio */
+	u16 infoframe_ports;
+	u16 audio_ports;
 
 	int dpio_phy_iosf_port[I915_NUM_PHYS_VLV];
 

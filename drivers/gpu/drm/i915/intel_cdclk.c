@@ -1775,7 +1775,7 @@ int intel_crtc_compute_min_cdclk(const struct intel_crtc_state *crtc_state)
 	 * restriction for GLK is 316.8 MHz.
 	 */
 	if (intel_crtc_has_dp_encoder(crtc_state) &&
-	    crtc_state->has_audio &&
+	    crtc_state->audio_ports &&
 	    crtc_state->port_clock >= 540000 &&
 	    crtc_state->lane_count == 4) {
 		if (IS_CANNONLAKE(dev_priv) || IS_GEMINILAKE(dev_priv)) {
@@ -1790,7 +1790,7 @@ int intel_crtc_compute_min_cdclk(const struct intel_crtc_state *crtc_state)
 	/* According to BSpec, "The CD clock frequency must be at least twice
 	 * the frequency of the Azalia BCLK." and BCLK is 96 MHz by default.
 	 */
-	if (crtc_state->has_audio && INTEL_GEN(dev_priv) >= 9)
+	if (crtc_state->audio_ports && INTEL_GEN(dev_priv) >= 9)
 		min_cdclk = max(2 * 96000, min_cdclk);
 
 	if (min_cdclk > dev_priv->max_cdclk_freq) {

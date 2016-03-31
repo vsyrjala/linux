@@ -67,7 +67,7 @@ static bool intel_dp_mst_compute_config(struct intel_encoder *encoder,
 	pipe_config->port_clock = intel_dp_max_link_rate(intel_dp);
 
 	if (drm_dp_mst_port_has_audio(&intel_dp->mst_mgr, connector->port))
-		pipe_config->has_audio = true;
+		pipe_config->audio_ports = BIT(encoder->port);
 
 	mst_pbn = drm_dp_calc_pbn_mode(adjusted_mode->crtc_clock, bpp);
 	pipe_config->pbn = mst_pbn;
@@ -141,7 +141,8 @@ static void intel_mst_disable_dp(struct intel_encoder *encoder,
 	if (ret) {
 		DRM_ERROR("failed to update payload %d\n", ret);
 	}
-	if (old_crtc_state->has_audio)
+
+	if (old_crtc_state->audio_ports & BIT(encoder->port))
 		intel_audio_codec_disable(encoder);
 }
 
@@ -246,7 +247,8 @@ static void intel_mst_enable_dp(struct intel_encoder *encoder,
 	ret = drm_dp_check_act_status(&intel_dp->mst_mgr);
 
 	ret = drm_dp_update_payload_part2(&intel_dp->mst_mgr);
-	if (pipe_config->has_audio)
+
+	if (pipe_config->audio_ports & BIT(port))
 		intel_audio_codec_enable(encoder, pipe_config, conn_state);
 }
 
@@ -270,8 +272,8 @@ static void intel_dp_mst_enc_get_config(struct intel_encoder *encoder,
 	enum transcoder cpu_transcoder = pipe_config->cpu_transcoder;
 	u32 temp, flags = 0;
 
-	pipe_config->has_audio =
-		intel_ddi_is_audio_enabled(dev_priv, crtc);
+	if (intel_ddi_is_audio_enabled(dev_priv, crtc))
+		pipe_config->audio_ports |= BIT(encoder->port);
 
 	temp = I915_READ(TRANS_DDI_FUNC_CTL(cpu_transcoder));
 	if (temp & TRANS_DDI_PHSYNC)

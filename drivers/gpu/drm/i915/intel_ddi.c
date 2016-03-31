@@ -1284,7 +1284,8 @@ static void ddi_dotclock_get(struct intel_crtc_state *pipe_config)
 	else if (intel_crtc_has_dp_encoder(pipe_config))
 		dotclock = intel_dotclock_calculate(pipe_config->port_clock,
 						    &pipe_config->dp_m_n);
-	else if (pipe_config->has_hdmi_sink && pipe_config->pipe_bpp == 36)
+	else if (intel_crtc_has_type(pipe_config, INTEL_OUTPUT_HDMI) &&
+		 pipe_config->pipe_bpp == 36)
 		dotclock = pipe_config->port_clock * 2 / 3;
 	else
 		dotclock = pipe_config->port_clock;
@@ -1610,7 +1611,7 @@ void intel_ddi_enable_transcoder_func(const struct intel_crtc_state *crtc_state)
 	}
 
 	if (type == INTEL_OUTPUT_HDMI) {
-		if (crtc_state->has_hdmi_sink)
+		if (crtc_state->hdmi_ports & BIT(encoder->port))
 			temp |= TRANS_DDI_MODE_SELECT_HDMI;
 		else
 			temp |= TRANS_DDI_MODE_SELECT_DVI;
@@ -2234,9 +2235,9 @@ static void intel_ddi_pre_enable_hdmi(struct intel_encoder *encoder,
 	if (IS_GEN9_BC(dev_priv))
 		skl_ddi_set_iboost(encoder, level, INTEL_OUTPUT_HDMI);
 
-	intel_dig_port->set_infoframes(&encoder->base,
-				       crtc_state->has_infoframe,
-				       crtc_state, conn_state);
+	if (crtc_state->infoframe_ports & BIT(port))
+		intel_dig_port->set_infoframes(&encoder->base, true,
+					       crtc_state, conn_state);
 }
 
 static void intel_ddi_pre_enable(struct intel_encoder *encoder,
@@ -2321,8 +2322,9 @@ static void intel_ddi_post_disable_hdmi(struct intel_encoder *encoder,
 
 	intel_disable_ddi_buf(encoder);
 
-	dig_port->set_infoframes(&encoder->base, false,
-				 old_crtc_state, old_conn_state);
+	if (old_crtc_state->infoframe_ports & BIT(encoder->port))
+		dig_port->set_infoframes(&encoder->base, false,
+					 old_crtc_state, old_conn_state);
 
 	intel_display_power_put(dev_priv, dig_port->ddi_io_power_domain);
 
@@ -2398,7 +2400,7 @@ static void intel_enable_ddi_dp(struct intel_encoder *encoder,
 	intel_psr_enable(intel_dp, crtc_state);
 	intel_edp_drrs_enable(intel_dp, crtc_state);
 
-	if (crtc_state->has_audio)
+	if (crtc_state->audio_ports & BIT(port))
 		intel_audio_codec_enable(encoder, crtc_state, conn_state);
 }
 
@@ -2422,7 +2424,7 @@ static void intel_enable_ddi_hdmi(struct intel_encoder *encoder,
 	I915_WRITE(DDI_BUF_CTL(port),
 		   dig_port->saved_port_bits | DDI_BUF_CTL_ENABLE);
 
-	if (crtc_state->has_audio)
+	if (crtc_state->audio_ports & BIT(port))
 		intel_audio_codec_enable(encoder, crtc_state, conn_state);
 }
 
@@ -2442,7 +2444,7 @@ static void intel_disable_ddi_dp(struct intel_encoder *encoder,
 {
 	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
 
-	if (old_crtc_state->has_audio)
+	if (old_crtc_state->audio_ports & BIT(encoder->port))
 		intel_audio_codec_disable(encoder);
 
 	intel_edp_drrs_disable(intel_dp, old_crtc_state);
@@ -2454,7 +2456,7 @@ static void intel_disable_ddi_hdmi(struct intel_encoder *encoder,
 				   const struct intel_crtc_state *old_crtc_state,
 				   const struct drm_connector_state *old_conn_state)
 {
-	if (old_crtc_state->has_audio)
+	if (old_crtc_state->audio_ports & BIT(encoder->port))
 		intel_audio_codec_disable(encoder);
 
 	intel_hdmi_handle_sink_scrambling(encoder,
@@ -2547,6 +2549,7 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	enum transcoder cpu_transcoder = pipe_config->cpu_transcoder;
 	struct intel_digital_port *intel_dig_port;
+	enum port port = encoder->port;
 	u32 temp, flags = 0;
 
 	/* XXX: DSI transcoder paranoia */
@@ -2584,19 +2587,19 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 
 	switch (temp & TRANS_DDI_MODE_SELECT_MASK) {
 	case TRANS_DDI_MODE_SELECT_HDMI:
-		pipe_config->has_hdmi_sink = true;
+		pipe_config->hdmi_ports |= BIT(port);
+		/* fall through */
+	case TRANS_DDI_MODE_SELECT_DVI:
 		intel_dig_port = enc_to_dig_port(&encoder->base);
 
 		if (intel_dig_port->infoframe_enabled(&encoder->base, pipe_config))
-			pipe_config->has_infoframe = true;
+			pipe_config->infoframe_ports |= BIT(port);
 
 		if ((temp & TRANS_DDI_HDMI_SCRAMBLING_MASK) ==
 			TRANS_DDI_HDMI_SCRAMBLING_MASK)
 			pipe_config->hdmi_scrambling = true;
 		if (temp & TRANS_DDI_HIGH_TMDS_CHAR_RATE)
 			pipe_config->hdmi_high_tmds_clock_ratio = true;
-		/* fall through */
-	case TRANS_DDI_MODE_SELECT_DVI:
 		pipe_config->lane_count = 4;
 		break;
 	case TRANS_DDI_MODE_SELECT_FDI:
@@ -2611,8 +2614,8 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 		break;
 	}
 
-	pipe_config->has_audio =
-		intel_ddi_is_audio_enabled(dev_priv, intel_crtc);
+	if (intel_ddi_is_audio_enabled(dev_priv, intel_crtc))
+		pipe_config->audio_ports |= BIT(port);
 
 	if (encoder->type == INTEL_OUTPUT_EDP && dev_priv->vbt.edp.bpp &&
 	    pipe_config->pipe_bpp > dev_priv->vbt.edp.bpp) {

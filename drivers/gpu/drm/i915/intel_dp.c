@@ -1645,6 +1645,7 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	uint8_t link_bw, rate_select;
 	bool reduce_m_n = drm_dp_has_quirk(&intel_dp->desc,
 					   DP_DPCD_QUIRK_LIMITED_M_N);
+	bool has_audio;
 
 	common_len = intel_dp_common_len_rate_limit(intel_dp,
 						    intel_dp->max_link_rate);
@@ -1658,12 +1659,16 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 		pipe_config->has_pch_encoder = true;
 
 	pipe_config->has_drrs = false;
+
 	if (port == PORT_A)
-		pipe_config->has_audio = false;
+		has_audio = false;
 	else if (intel_conn_state->force_audio == HDMI_AUDIO_AUTO)
-		pipe_config->has_audio = intel_dp->has_audio;
+		has_audio = intel_dp->has_audio;
 	else
-		pipe_config->has_audio = intel_conn_state->force_audio == HDMI_AUDIO_ON;
+		has_audio = intel_conn_state->force_audio == HDMI_AUDIO_ON;
+
+	if (has_audio)
+		pipe_config->audio_ports |= BIT(port);
 
 	if (intel_dp_is_edp(intel_dp) && intel_connector->panel.fixed_mode) {
 		struct drm_display_mode *panel_mode =
@@ -2605,7 +2610,8 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 
 	tmp = I915_READ(intel_dp->output_reg);
 
-	pipe_config->has_audio = tmp & DP_AUDIO_OUTPUT_ENABLE && port != PORT_A;
+	if (port != PORT_A && tmp & DP_AUDIO_OUTPUT_ENABLE)
+		pipe_config->audio_ports |= BIT(port);
 
 	if (HAS_PCH_CPT(dev_priv) && port != PORT_A) {
 		u32 trans_dp = I915_READ(TRANS_DP_CTL(crtc->pipe));
@@ -2679,7 +2685,7 @@ static void intel_disable_dp(struct intel_encoder *encoder,
 {
 	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
 
-	if (old_crtc_state->has_audio)
+	if (old_crtc_state->audio_ports & BIT(encoder->port))
 		intel_audio_codec_disable(encoder);
 
 	/* Make sure the panel is off before trying to change the mode. But also
@@ -2850,8 +2856,9 @@ _intel_dp_set_link_train(struct intel_dp *intel_dp,
 }
 
 static void intel_dp_enable_port(struct intel_dp *intel_dp,
-				 const struct intel_crtc_state *old_crtc_state)
+				 const struct intel_crtc_state *crtc_state)
 {
+	enum port port = dp_to_dig_port(intel_dp)->base.port;
 	struct drm_device *dev = intel_dp_to_dev(intel_dp);
 	struct drm_i915_private *dev_priv = to_i915(dev);
 
@@ -2866,7 +2873,7 @@ static void intel_dp_enable_port(struct intel_dp *intel_dp,
 	 * fail when the power sequencer is freshly used for this port.
 	 */
 	intel_dp->DP |= DP_PORT_EN;
-	if (old_crtc_state->has_audio)
+	if (crtc_state->audio_ports & BIT(port))
 		intel_dp->DP |= DP_AUDIO_OUTPUT_ENABLE;
 
 	I915_WRITE(intel_dp->output_reg, intel_dp->DP);
@@ -2914,7 +2921,7 @@ static void intel_enable_dp(struct intel_encoder *encoder,
 	intel_dp_start_link_train(intel_dp);
 	intel_dp_stop_link_train(intel_dp);
 
-	if (pipe_config->has_audio) {
+	if (pipe_config->audio_ports & BIT(encoder->port)) {
 		DRM_DEBUG_DRIVER("Enabling DP audio on pipe %c\n",
 				 pipe_name(pipe));
 		intel_audio_codec_enable(encoder, pipe_config, conn_state);
@@ -4674,13 +4681,16 @@ static void
 intel_dp_set_edid(struct intel_dp *intel_dp)
 {
 	struct intel_connector *intel_connector = intel_dp->attached_connector;
+	struct drm_i915_private *dev_priv = to_i915(intel_connector->base.dev);
 	struct edid *edid;
 
 	intel_dp_unset_edid(intel_dp);
 	edid = intel_dp_get_edid(intel_dp);
 	intel_connector->detect_edid = edid;
 
-	intel_dp->has_audio = drm_detect_monitor_audio(edid);
+	/* no DP audio on g4x */
+	if (!IS_G4X(dev_priv))
+		intel_dp->has_audio = drm_detect_monitor_audio(edid);
 }
 
 static void
@@ -5153,7 +5163,10 @@ intel_dp_add_properties(struct intel_dp *intel_dp, struct drm_connector *connect
 {
 	struct drm_i915_private *dev_priv = to_i915(connector->dev);
 
-	intel_attach_force_audio_property(connector);
+	/* no DP audio on g4x */
+	if (!IS_G4X(dev_priv))
+		intel_attach_force_audio_property(connector);
+
 	intel_attach_broadcast_rgb_property(connector);
 
 	if (intel_dp_is_edp(intel_dp)) {
@@ -5166,7 +5179,6 @@ intel_dp_add_properties(struct intel_dp *intel_dp, struct drm_connector *connect
 		drm_connector_attach_scaling_mode_property(connector, allowed_scalers);
 
 		connector->state->scaling_mode = DRM_MODE_SCALE_ASPECT;
-
 	}
 }
 

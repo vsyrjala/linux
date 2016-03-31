@@ -387,6 +387,11 @@ struct intel_atomic_state {
 	/* minimum acceptable cdclk for each pipe */
 	int min_cdclk[I915_MAX_PIPES];
 
+	/* sending information to these ports */
+	u16 infoframe_ports;
+	/* sending audio to these ports */
+	u16 audio_ports;
+
 	struct intel_shared_dpll_state shared_dpll[I915_NUM_PLLS];
 
 	/*
@@ -642,9 +647,6 @@ struct intel_crtc_state {
 	 * between pch encoders and cpu encoders. */
 	bool has_pch_encoder;
 
-	/* Are we sending infoframes on the attached port */
-	bool has_infoframe;
-
 	/* CPU Transcoder for the pipe. Currently this can only differ from the
 	 * pipe on Haswell and later (where we have a special eDP transcoder)
 	 * and Broxton (where we have special DSI transcoders). */
@@ -661,12 +663,12 @@ struct intel_crtc_state {
 	 */
 	unsigned int output_types;
 
-	/* Whether we should send NULL infoframes. Required for audio. */
-	bool has_hdmi_sink;
-
-	/* Audio enabled on this pipe. Only valid if either has_hdmi_sink or
-	 * has_dp_encoder is set. */
-	bool has_audio;
+	/* Sending NULL infoframes to these ports (aka. HDMI mode). Required for audio. */
+	u16 hdmi_ports;
+	/* Sending infoframes to these ports */
+	u16 infoframe_ports;
+	/* Sending audio to these ports */
+	u16 audio_ports;
 
 	/*
 	 * Enable dithering, used when the selected pipe bpp doesn't match the
