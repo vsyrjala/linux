@@ -763,11 +763,8 @@ static int i915_interrupt_info(struct seq_file *m, void *data)
 	struct drm_device *dev = node->minor->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_engine_cs *engine;
-	int ret, i, pipe;
+	int i, pipe;
 
-	ret = mutex_lock_interruptible(&dev->struct_mutex);
-	if (ret)
-		return ret;
 	intel_runtime_pm_get(dev_priv);
 
 	if (IS_CHERRYVIEW(dev)) {
@@ -943,7 +940,6 @@ static int i915_interrupt_info(struct seq_file *m, void *data)
 		i915_ring_seqno_info(m, engine);
 	}
 	intel_runtime_pm_put(dev_priv);
-	mutex_unlock(&dev->struct_mutex);
 
 	return 0;
 }
@@ -1392,11 +1388,7 @@ static int ironlake_drpc_info(struct seq_file *m)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 rgvmodectl, rstdbyctl;
 	u16 crstandvid;
-	int ret;
 
-	ret = mutex_lock_interruptible(&dev->struct_mutex);
-	if (ret)
-		return ret;
 	intel_runtime_pm_get(dev_priv);
 
 	rgvmodectl = I915_READ(MEMMODECTL);
@@ -1404,7 +1396,6 @@ static int ironlake_drpc_info(struct seq_file *m)
 	crstandvid = I915_READ16(CRSTANDVID);
 
 	intel_runtime_pm_put(dev_priv);
-	mutex_unlock(&dev->struct_mutex);
 
 	seq_printf(m, "HD boost: %s\n", yesno(rgvmodectl & MEMMODE_BOOST_EN));
 	seq_printf(m, "Boost freq: %d\n",
@@ -1519,11 +1510,8 @@ static int gen6_drpc_info(struct seq_file *m)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 rpmodectl1, gt_core_status, rcctl1, rc6vids = 0;
 	unsigned forcewake_count;
-	int count = 0, ret;
+	int count = 0;
 
-	ret = mutex_lock_interruptible(&dev->struct_mutex);
-	if (ret)
-		return ret;
 	intel_runtime_pm_get(dev_priv);
 
 	spin_lock_irq(&dev_priv->uncore.lock);
@@ -1545,7 +1533,7 @@ static int gen6_drpc_info(struct seq_file *m)
 
 	rpmodectl1 = I915_READ(GEN6_RP_CONTROL);
 	rcctl1 = I915_READ(GEN6_RC_CONTROL);
-	mutex_unlock(&dev->struct_mutex);
+
 	mutex_lock(&dev_priv->rps.hw_lock);
 	sandybridge_pcode_read(dev_priv, GEN6_PCODE_READ_RC6VIDS, &rc6vids);
 	mutex_unlock(&dev_priv->rps.hw_lock);
@@ -2175,11 +2163,7 @@ static int i915_swizzle_info(struct seq_file *m, void *data)
 	struct drm_info_node *node = m->private;
 	struct drm_device *dev = node->minor->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int ret;
 
-	ret = mutex_lock_interruptible(&dev->struct_mutex);
-	if (ret)
-		return ret;
 	intel_runtime_pm_get(dev_priv);
 
 	seq_printf(m, "bit6 swizzle for X-tiling = %s\n",
@@ -2219,7 +2203,6 @@ static int i915_swizzle_info(struct seq_file *m, void *data)
 		seq_puts(m, "L-shaped memory detected\n");
 
 	intel_runtime_pm_put(dev_priv);
-	mutex_unlock(&dev->struct_mutex);
 
 	return 0;
 }
@@ -5032,20 +5015,15 @@ i915_cache_sharing_get(void *data, u64 *val)
 	struct drm_device *dev = data;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 snpcr;
-	int ret;
 
 	if (!(IS_GEN6(dev) || IS_GEN7(dev)))
 		return -ENODEV;
 
-	ret = mutex_lock_interruptible(&dev->struct_mutex);
-	if (ret)
-		return ret;
 	intel_runtime_pm_get(dev_priv);
 
 	snpcr = I915_READ(GEN6_MBCUNIT_SNPCR);
 
 	intel_runtime_pm_put(dev_priv);
-	mutex_unlock(&dev_priv->dev->struct_mutex);
 
 	*val = (snpcr & GEN6_MBC_SNPCR_MASK) >> GEN6_MBC_SNPCR_SHIFT;
 
