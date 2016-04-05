@@ -1194,10 +1194,6 @@ static int i915_frequency_info(struct seq_file *m, void *unused)
 		}
 
 		/* RPSTAT1 is in the GT power well */
-		ret = mutex_lock_interruptible(&dev->struct_mutex);
-		if (ret)
-			goto out;
-
 		intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
 		reqf = I915_READ(GEN6_RPNSWREQ);
@@ -1232,7 +1228,6 @@ static int i915_frequency_info(struct seq_file *m, void *unused)
 		cagf = intel_gpu_freq(dev_priv, cagf);
 
 		intel_uncore_forcewake_put(dev_priv, FORCEWAKE_ALL);
-		mutex_unlock(&dev->struct_mutex);
 
 		if (IS_GEN6(dev) || IS_GEN7(dev)) {
 			pm_ier = I915_READ(GEN6_PMIER);
@@ -1322,7 +1317,6 @@ static int i915_frequency_info(struct seq_file *m, void *unused)
 	seq_printf(m, "Max CD clock frequency: %d kHz\n", dev_priv->max_cdclk_freq);
 	seq_printf(m, "Max pixel clock frequency: %d kHz\n", dev_priv->max_dotclk_freq);
 
-out:
 	intel_runtime_pm_put(dev_priv);
 	return ret;
 }
