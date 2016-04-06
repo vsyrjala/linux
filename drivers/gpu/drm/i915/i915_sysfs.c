@@ -491,6 +491,8 @@ static ssize_t gt_rp_mhz_show(struct device *kdev, struct device_attribute *attr
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 val;
 
+	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
+
 	if (attr == &dev_attr_gt_RP0_freq_mhz)
 		val = intel_gpu_freq(dev_priv, dev_priv->rps.rp0_freq);
 	else if (attr == &dev_attr_gt_RP1_freq_mhz)
