@@ -1,0 +1,22 @@
+origin/drm-intel-fixes 9dbaab56ac09f07a73fe83bf69bec3e31060080a
+	drm/i915: Exit cherryview_irq_handler() after one pass
+drm-upstream/drm-fixes 30aab1897b9592ae40123bc83888d23af06261eb
+	Merge branch 'linux-4.6' of git://github.com/skeggsb/linux into drm-fixes
+origin/drm-intel-next-fixes 94669e6ba1ada133394ec8295d773df8b9238d08
+	drm/i915: Handle -EDEADLK in drm_atomic_commit from load-detect.
+origin/drm-intel-next-queued d252bf68b75792108ae2821c3a6e1cdc58e88cb9
+	drm/i915: Set invert bit for hpd based on VBT
+drm-upstream/drm-next d00b39c17573ece6f5fb1385314877d29f540db8
+	Merge branch 'drm-next-analogix-dp-v2' of github.com:yakir-Yang/linux into drm-next
+sound-upstream/for-next 4926c8046549cc3c9689e8050e303c016a0b0cba
+	ALSA: intel8x0: Drop superfluous VM checks
+sound-upstream/for-linus f03b24a851d32ca85dacab01785b24a7ee717d37
+	ALSA: usb-audio: Add a sample rate quirk for Phoenix Audio TMX320
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 249c4f538b1aae55d41699f8bafc6cb762a7f48f
+	drm: Add new DCS commands in the enum list
+origin/topic/kerneldoc 418645fdcc72b92df6817ec249e216700baa757a
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 6954af8b55f3b00b08f7759f479c41388fbe364f
+	kernfs: Move faulting copy_user operations outside of the mutex
