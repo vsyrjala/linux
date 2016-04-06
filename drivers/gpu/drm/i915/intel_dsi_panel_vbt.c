@@ -198,7 +198,7 @@ static const u8 *mipi_exec_delay(struct intel_dsi *intel_dsi, const u8 *data)
 
 static const u8 *mipi_exec_gpio(struct intel_dsi *intel_dsi, const u8 *data)
 {
-	u8 gpio, action;
+	u8 gpio_source, gpio_index, action, port;
 	u16 function, pad;
 	u32 val;
 	struct drm_device *dev = intel_dsi->base.base.dev;
@@ -207,13 +207,19 @@ static const u8 *mipi_exec_gpio(struct intel_dsi *intel_dsi, const u8 *data)
 	if (dev_priv->vbt.dsi.seq_version >= 3)
 		data++;
 
-	gpio = *data++;
+	gpio_index = *data++;
+
+	/* gpio source in sequence v2 only */
+	if (dev_priv->vbt.dsi.seq_version == 2)
+		gpio_source = (*data >> 1) & 3;
+	else
+		gpio_source = 0;
 
 	/* pull up/down */
 	action = *data++ & 1;
 
-	if (gpio >= ARRAY_SIZE(gtable)) {
-		DRM_DEBUG_KMS("unknown gpio %u\n", gpio);
+	if (gpio_index >= ARRAY_SIZE(gtable)) {
+		DRM_DEBUG_KMS("unknown gpio index %u\n", gpio_index);
 		goto out;
 	}
 
@@ -225,24 +231,32 @@ static const u8 *mipi_exec_gpio(struct intel_dsi *intel_dsi, const u8 *data)
 	if (dev_priv->vbt.dsi.seq_version >= 3) {
 		DRM_DEBUG_KMS("GPIO element v3 not supported\n");
 		goto out;
+	} else {
+		if (gpio_source == 0) {
+			port = IOSF_PORT_GPIO_NC;
+		} else if (gpio_source == 1) {
+			port = IOSF_PORT_GPIO_SC;
+		} else {
+			DRM_DEBUG_KMS("unknown gpio source %u\n", gpio_source);
+			goto out;
+		}
 	}
 
-	function = gtable[gpio].function_reg;
-	pad = gtable[gpio].pad_reg;
+	function = gtable[gpio_index].function_reg;
+	pad = gtable[gpio_index].pad_reg;
 
 	mutex_lock(&dev_priv->sb_lock);
-	if (!gtable[gpio].init) {
+	if (!gtable[gpio_index].init) {
 		/* program the function */
 		/* FIXME: remove constant below */
-		vlv_iosf_sb_write(dev_priv, IOSF_PORT_GPIO_NC, function,
-				  0x2000CC00);
-		gtable[gpio].init = 1;
+		vlv_iosf_sb_write(dev_priv, port, function, 0x2000CC00);
+		gtable[gpio_index].init = 1;
 	}
 
 	val = 0x4 | action;
 
 	/* pull up/down */
-	vlv_iosf_sb_write(dev_priv, IOSF_PORT_GPIO_NC, pad, val);
+	vlv_iosf_sb_write(dev_priv, port, pad, val);
 	mutex_unlock(&dev_priv->sb_lock);
 
 out:
@@ -412,6 +426,25 @@ static const struct drm_panel_funcs vbt_panel_funcs = {
 	.get_modes = vbt_panel_get_modes,
 };
 
+/* XXX: This should be done when parsing the VBT in intel_bios.c */
+static enum mipi_dsi_pixel_format pixel_format_from_vbt(u32 fmt)
+{
+	/* It just so happens the VBT matches register contents. */
+	switch (fmt) {
+	case VID_MODE_FORMAT_RGB888:
+		return MIPI_DSI_FMT_RGB888;
+	case VID_MODE_FORMAT_RGB666:
+		return MIPI_DSI_FMT_RGB666;
+	case VID_MODE_FORMAT_RGB666_PACKED:
+		return MIPI_DSI_FMT_RGB666_PACKED;
+	case VID_MODE_FORMAT_RGB565:
+		return MIPI_DSI_FMT_RGB565;
+	default:
+		MISSING_CASE(fmt);
+		return MIPI_DSI_FMT_RGB666;
+	}
+}
+
 struct drm_panel *vbt_panel_init(struct intel_dsi *intel_dsi, u16 panel_id)
 {
 	struct drm_device *dev = intel_dsi->base.base.dev;
@@ -420,7 +453,7 @@ struct drm_panel *vbt_panel_init(struct intel_dsi *intel_dsi, u16 panel_id)
 	struct mipi_pps_data *pps = dev_priv->vbt.dsi.pps;
 	struct drm_display_mode *mode = dev_priv->vbt.lfp_lvds_vbt_mode;
 	struct vbt_panel *vbt_panel;
-	u32 bits_per_pixel = 24;
+	u32 bpp;
 	u32 tlpx_ns, extra_byte_count, bitrate, tlpx_ui;
 	u32 ui_num, ui_den;
 	u32 prepare_cnt, exit_zero_cnt, clk_zero_cnt, trail_cnt;
@@ -436,12 +469,11 @@ struct drm_panel *vbt_panel_init(struct intel_dsi *intel_dsi, u16 panel_id)
 	intel_dsi->eotp_pkt = mipi_config->eot_pkt_disabled ? 0 : 1;
 	intel_dsi->clock_stop = mipi_config->enable_clk_stop ? 1 : 0;
 	intel_dsi->lane_count = mipi_config->lane_cnt + 1;
-	intel_dsi->pixel_format = mipi_config->videomode_color_format << 7;
+	intel_dsi->pixel_format = pixel_format_from_vbt(mipi_config->videomode_color_format << 7);
+	bpp = mipi_dsi_pixel_format_to_bpp(intel_dsi->pixel_format);
+
 	intel_dsi->dual_link = mipi_config->dual_link;
 	intel_dsi->pixel_overlap = mipi_config->pixel_overlap;
-
-	bits_per_pixel = dsi_pixel_format_bpp(intel_dsi->pixel_format);
-
 	intel_dsi->operation_mode = mipi_config->is_cmd_mode;
 	intel_dsi->video_mode_format = mipi_config->video_transfer_mode;
 	intel_dsi->escape_clk_div = mipi_config->byte_clk_sel;
@@ -475,8 +507,7 @@ struct drm_panel *vbt_panel_init(struct intel_dsi *intel_dsi, u16 panel_id)
 	 */
 	if (intel_dsi->video_mode_format == VIDEO_MODE_BURST) {
 		if (mipi_config->target_burst_mode_freq) {
-			computed_ddr =
-				(pclk * bits_per_pixel) / intel_dsi->lane_count;
+			computed_ddr = (pclk * bpp) / intel_dsi->lane_count;
 
 			if (mipi_config->target_burst_mode_freq <
 								computed_ddr) {
@@ -499,7 +530,7 @@ struct drm_panel *vbt_panel_init(struct intel_dsi *intel_dsi, u16 panel_id)
 	intel_dsi->burst_mode_ratio = burst_mode_ratio;
 	intel_dsi->pclk = pclk;
 
-	bitrate = (pclk * bits_per_pixel) / intel_dsi->lane_count;
+	bitrate = (pclk * bpp) / intel_dsi->lane_count;
 
 	switch (intel_dsi->escape_clk_div) {
 	case 0:
