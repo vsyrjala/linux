@@ -5,7 +5,9 @@
  */
 #include <linux/pci.h>
 #include <linux/acpi.h>
+#include <acpi/video.h>
 #include <drm/drmP.h>
+#include <drm/drm_edid.h>
 #include "i915_drv.h"
 
 #define INTEL_DSM_REVISION_ID 1 /* For Calpella anyway... */
@@ -161,4 +163,48 @@ void intel_register_dsm_handler(void)
 
 void intel_unregister_dsm_handler(void)
 {
+}
+
+static int acpi_get_edid_block(void *data, u8 *buf, unsigned int block, size_t len)
+{
+	struct acpi_device *acpidev = data;
+	void *edid;
+	int ret;
+
+	ret = acpi_video_get_edid(acpidev, ACPI_VIDEO_DISPLAY_LCD, -1, &edid);
+	if (ret < 0)
+		return ret;
+
+	if (ret < block * EDID_LENGTH + len)
+		return -ENOMEM;
+
+	memcpy(buf, edid, len);
+
+	return 0;
+}
+
+void *intel_acpi_get_edid(struct drm_connector *connector)
+{
+	struct acpi_device *acpidev;
+	acpi_handle handle;
+	int ret;
+
+	switch (connector->connector_type) {
+	case DRM_MODE_CONNECTOR_LVDS:
+	case DRM_MODE_CONNECTOR_eDP:
+		break;
+	default:
+		MISSING_CASE(connector->connector_type);
+		return NULL;
+	}
+
+	handle = ACPI_HANDLE(&connector->dev->pdev->dev);
+	if (!handle)
+		return NULL;
+
+	ret = acpi_bus_get_device(handle, &acpidev);
+	if (ret)
+		return NULL;
+
+	return drm_do_get_edid(connector, acpi_get_edid_block, acpidev);
 }

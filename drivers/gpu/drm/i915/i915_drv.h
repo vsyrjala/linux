@@ -3649,9 +3649,11 @@ static inline int intel_opregion_get_panel_type(struct drm_i915_private *dev)
 #ifdef CONFIG_ACPI
 extern void intel_register_dsm_handler(void);
 extern void intel_unregister_dsm_handler(void);
+extern void *intel_acpi_get_edid(struct drm_connector *connector);
 #else
 static inline void intel_register_dsm_handler(void) { return; }
 static inline void intel_unregister_dsm_handler(void) { return; }
+static inline void *intel_acpi_get_edid(struct drm_connector *connector) { return NULL };
 #endif /* CONFIG_ACPI */
 
 /* intel_device_info.c */

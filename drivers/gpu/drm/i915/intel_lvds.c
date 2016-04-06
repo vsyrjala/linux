@@ -1112,6 +1112,8 @@ void intel_lvds_init(struct drm_device *dev)
 	else
 		edid = drm_get_edid(connector,
 				    intel_gmbus_get_adapter(dev_priv, pin));
+	if (!edid)
+		edid = intel_acpi_get_edid(connector);
 	if (edid) {
 		if (drm_add_edid_modes(connector, edid)) {
 			drm_mode_connector_update_edid_property(connector,
