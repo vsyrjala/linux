@@ -1150,6 +1150,8 @@ static int i915_frequency_info(struct seq_file *m, void *unused)
 
 		mutex_lock(&dev_priv->rps.hw_lock);
 		freq_sts = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
+		mutex_unlock(&dev_priv->rps.hw_lock);
+
 		seq_printf(m, "PUNIT_REG_GPU_FREQ_STS: 0x%08x\n", freq_sts);
 		seq_printf(m, "DDR freq: %d MHz\n", dev_priv->mem_freq);
 
@@ -1171,7 +1173,6 @@ static int i915_frequency_info(struct seq_file *m, void *unused)
 		seq_printf(m,
 			   "efficient (RPe) frequency: %d MHz\n",
 			   intel_gpu_freq(dev_priv, dev_priv->rps.efficient_freq));
-		mutex_unlock(&dev_priv->rps.hw_lock);
 	} else if (INTEL_INFO(dev)->gen >= 6) {
 		u32 rp_state_limits;
 		u32 gt_perf_status;
