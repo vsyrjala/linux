@@ -1694,7 +1694,14 @@ struct intel_wm_config {
 	bool sprites_scaled;
 };
 
+struct wait_for_histogram {
+	int ms_bin[101];
+	int us_bin[101];
+};
+
 struct drm_i915_private {
+	struct wait_for_histogram hist;
+
 	struct drm_device *dev;
 	struct kmem_cache *objects;
 	struct kmem_cache *vmas;

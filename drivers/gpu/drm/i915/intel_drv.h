@@ -52,6 +52,7 @@
 #define _wait_for(COND, US, W) ({ \
 	unsigned long timeout__ = jiffies + usecs_to_jiffies(US) + 1;	\
 	int ret__ = 0;							\
+	int n__ = 0;							\
 	if (!(COND)) {							\
 	while (!(COND)) {						\
 		if (time_after(jiffies, timeout__)) {			\
@@ -61,11 +62,17 @@
 		}							\
 		if ((W) && drm_can_sleep()) {				\
 			usleep_range((W), (W)*2);			\
+			n__++;						\
 		} else {						\
 			cpu_relax();					\
 		}							\
 	}								\
 	}								\
+	if ((W) > 1) {							\
+		dev_priv->hist.ms_bin[clamp(n__, 0, 101)]++;		\
+		WARN(n__ >= 20, "waited %d times\n", n__);		\
+	} else								\
+		dev_priv->hist.us_bin[clamp(n__, 0, 101)]++;		\
 	ret__;								\
 })
 

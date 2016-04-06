@@ -5303,6 +5303,25 @@ static int i915_debugfs_create(struct dentry *root,
 	return drm_add_fake_info_node(minor, ent, fops);
 }
 
+static int i915_wait_for_histogram(struct seq_file *m, void *data)
+{
+	struct drm_info_node *node = m->private;
+	struct drm_device *dev = node->minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int i;
+
+	seq_printf(m, "millisecond wait_for iterations:\n");
+	for (i = 0; i < ARRAY_SIZE(dev_priv->hist.ms_bin); i++)
+		seq_printf(m, "%4d: %d\n", i, dev_priv->hist.ms_bin[i]);
+	seq_printf(m, "\n");
+
+	seq_printf(m, "microsecond wait_for iterations:\n");
+	for (i = 0; i < ARRAY_SIZE(dev_priv->hist.us_bin); i++)
+		seq_printf(m, "%4d: %d\n", i, dev_priv->hist.us_bin[i]);
+
+	return 0;
+}
+
 static const struct drm_info_list i915_debugfs_list[] = {
 	{"i915_capabilities", i915_capabilities, 0},
 	{"i915_gem_objects", i915_gem_object_info, 0},
@@ -5358,6 +5377,7 @@ static const struct drm_info_list i915_debugfs_list[] = {
 	{"i915_sseu_status", i915_sseu_status, 0},
 	{"i915_drrs_status", i915_drrs_status, 0},
 	{"i915_rps_boost_info", i915_rps_boost_info, 0},
+	{"i915_wait_for_histogram", i915_wait_for_histogram, 0},
 };
 #define I915_DEBUGFS_ENTRIES ARRAY_SIZE(i915_debugfs_list)
 

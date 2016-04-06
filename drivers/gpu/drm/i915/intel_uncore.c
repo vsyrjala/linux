@@ -1435,6 +1435,8 @@ static int i915_reset_complete(struct drm_device *dev)
 
 static int i915_do_reset(struct drm_device *dev, unsigned engine_mask)
 {
+	struct drm_i915_private *dev_priv = to_i915(dev);
+
 	/* assert reset for at least 20 usec */
 	pci_write_config_byte(dev->pdev, I915_GDRST, GRDOM_RESET_ENABLE);
 	udelay(20);
@@ -1452,6 +1454,8 @@ static int g4x_reset_complete(struct drm_device *dev)
 
 static int g33_do_reset(struct drm_device *dev, unsigned engine_mask)
 {
+	struct drm_i915_private *dev_priv = to_i915(dev);
+
 	pci_write_config_byte(dev->pdev, I915_GDRST, GRDOM_RESET_ENABLE);
 	return wait_for(g4x_reset_complete(dev), 500);
 }
