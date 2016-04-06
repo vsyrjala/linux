@@ -5077,6 +5077,8 @@ static void __gen6_update_ring_freq(struct drm_device *dev)
 	int scaling_factor = 180;
 	struct cpufreq_policy *policy;
 
+	ktime_t pre = ktime_get();
+
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
 	policy = cpufreq_cpu_get(0);
@@ -5150,6 +5152,8 @@ static void __gen6_update_ring_freq(struct drm_device *dev)
 					ring_freq << GEN6_PCODE_FREQ_RING_RATIO_SHIFT |
 					gpu_freq);
 	}
+
+	printk(KERN_CRIT "ring freq init took %lld us\n", ktime_us_delta(ktime_get(), pre));
 }
 
 void gen6_update_ring_freq(struct drm_device *dev)
@@ -6192,8 +6196,11 @@ void intel_init_gt_powersave(struct drm_device *dev)
 		cherryview_init_gt_powersave(dev);
 	else if (IS_VALLEYVIEW(dev))
 		valleyview_init_gt_powersave(dev);
-	else if (INTEL_INFO(dev_priv)->gen >= 6)
+	else if (INTEL_INFO(dev_priv)->gen >= 6) {
+		ktime_t pre = ktime_get();
 		gen6_init_rps_frequencies(dev);
+		printk(KERN_CRIT "freq init took %lld us\n", ktime_us_delta(ktime_get(), pre));
+	}
 }
 
 void intel_cleanup_gt_powersave(struct drm_device *dev)
@@ -6269,6 +6276,7 @@ static void intel_gen6_powersave_work(struct work_struct *work)
 		container_of(work, struct drm_i915_private,
 			     rps.delayed_resume_work.work);
 	struct drm_device *dev = dev_priv->dev;
+	ktime_t pre = ktime_get();
 
 	mutex_lock(&dev_priv->rps.hw_lock);
 
@@ -6304,6 +6312,8 @@ static void intel_gen6_powersave_work(struct work_struct *work)
 	mutex_unlock(&dev_priv->rps.hw_lock);
 
 	intel_runtime_pm_put(dev_priv);
+
+	printk(KERN_CRIT "delayed rps init took %lld us\n", ktime_us_delta(ktime_get(), pre));
 }
 
 void intel_enable_gt_powersave(struct drm_device *dev)
