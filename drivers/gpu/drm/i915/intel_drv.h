@@ -69,7 +69,7 @@
 	ret__;								\
 })
 
-#define wait_for(COND, MS)	  	_wait_for((COND), (MS) * 1000, 1000)
+#define wait_for(COND, MS)	  	_wait_for((COND), (MS) * 1000, 100)
 #define wait_for_us(COND, US)	  	_wait_for((COND), (US), 1)
 
 /* If CONFIG_PREEMPT_COUNT is disabled, in_atomic() always reports false. */
