@@ -52,6 +52,7 @@
 #define _wait_for(COND, US, W) ({ \
 	unsigned long timeout__ = jiffies + usecs_to_jiffies(US) + 1;	\
 	int ret__ = 0;							\
+	if (!(COND)) {							\
 	while (!(COND)) {						\
 		if (time_after(jiffies, timeout__)) {			\
 			if (!(COND))					\
@@ -63,6 +64,7 @@
 		} else {						\
 			cpu_relax();					\
 		}							\
+	}								\
 	}								\
 	ret__;								\
 })
