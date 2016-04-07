@@ -1116,16 +1116,23 @@ static void intel_wait_for_pipe_off(struct intel_crtc *crtc)
 	enum transcoder cpu_transcoder = crtc->config->cpu_transcoder;
 	enum pipe pipe = crtc->pipe;
 
+	/*
+	 * We expect these waits to take several milliseconds
+	 * on averge, which is why we use a large timeout and
+	 * polling interval.
+	 */
+
 	if (INTEL_INFO(dev)->gen >= 4) {
 		i915_reg_t reg = PIPECONF(cpu_transcoder);
 
 		/* Wait for the Pipe State to go off */
-		if (wait_for((I915_READ(reg) & I965_PIPECONF_ACTIVE) == 0,
-			     100))
+		if (_wait_for((I915_READ(reg) & I965_PIPECONF_ACTIVE) == 0,
+			      100 * 1000, 1000))
 			WARN(1, "pipe_off wait timed out\n");
 	} else {
 		/* Wait for the display line to settle */
-		if (wait_for(pipe_dsl_stopped(dev, pipe), 100))
+		if (_wait_for(pipe_dsl_stopped(dev, pipe),
+			      100 * 1000, 1000))
 			WARN(1, "pipe_off wait timed out\n");
 	}
 }
