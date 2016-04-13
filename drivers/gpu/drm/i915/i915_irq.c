@@ -3355,6 +3355,9 @@ static void valleyview_irq_preinstall(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	I915_WRITE(VLV_MASTER_IER, 0);
+	POSTING_READ(VLV_MASTER_IER);
+
 	gen5_gt_irq_reset(dev);
 
 	spin_lock_irq(&dev_priv->irq_lock);
@@ -3724,6 +3727,7 @@ static int valleyview_irq_postinstall(struct drm_device *dev)
 	spin_unlock_irq(&dev_priv->irq_lock);
 
 	I915_WRITE(VLV_MASTER_IER, MASTER_INTERRUPT_ENABLE);
+	POSTING_READ(VLV_MASTER_IER);
 
 	return 0;
 }
@@ -3854,6 +3858,7 @@ static void valleyview_irq_uninstall(struct drm_device *dev)
 		return;
 
 	I915_WRITE(VLV_MASTER_IER, 0);
+	POSTING_READ(VLV_MASTER_IER);
 
 	gen5_gt_irq_reset(dev);
 
