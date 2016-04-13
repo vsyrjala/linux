@@ -1,0 +1,22 @@
+origin/drm-intel-fixes 42bf7b46a5de03c8e2dd28a1f105bc28b6485243
+	drm/i915: fix deadlock on lid open
+drm-upstream/drm-fixes 928815245cbdaa611873424759d5e7a7293dd18b
+	Merge tag 'drm-intel-fixes-2016-04-07' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes 94669e6ba1ada133394ec8295d773df8b9238d08
+	drm/i915: Handle -EDEADLK in drm_atomic_commit from load-detect.
+origin/drm-intel-next-queued 3cb26e26edd12b11b98bbe2b8c89c3a0da79e390
+	drm/i915/opregion: remove unnecessary ifdefs on CONFIG_ACPI
+drm-upstream/drm-next d00b39c17573ece6f5fb1385314877d29f540db8
+	Merge branch 'drm-next-analogix-dp-v2' of github.com:yakir-Yang/linux into drm-next
+sound-upstream/for-next 191227d99a281333b50aaf82ab4152fbfa249c19
+	ALSA: usb-audio: allow clock source validity interrupts
+sound-upstream/for-linus adcdd0d5a1cb779f6d455ae70882c19c527627a8
+	ALSA: usb-audio: Skip volume controls triggers hangup on Dell USB Dock
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc f35034f8ac72925591ae96841fcbeebad1af1dc8
+	drm/core: Fix ordering in drm_mode_config_cleanup.
+origin/topic/kerneldoc 418645fdcc72b92df6817ec249e216700baa757a
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 6954af8b55f3b00b08f7759f479c41388fbe364f
+	kernfs: Move faulting copy_user operations outside of the mutex
