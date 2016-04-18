@@ -282,12 +282,15 @@ static bool intel_ironlake_crt_detect_hotplug(struct drm_connector *connector)
 	/* The first time through, trigger an explicit detection cycle */
 	if (crt->force_hotplug_required) {
 		bool turn_off_dac = HAS_PCH_SPLIT(dev);
+		bool enable_hpd;
 		u32 save_adpa;
 
 		crt->force_hotplug_required = 0;
 
 		save_adpa = adpa = I915_READ(crt->adpa_reg);
 		DRM_DEBUG_KMS("trigger hotplug detect cycle: adpa=0x%x\n", adpa);
+
+		enable_hpd = intel_hpd_disable(dev_priv, crt->base.hpd_pin);
 
 		adpa |= ADPA_CRT_HOTPLUG_FORCE_TRIGGER;
 		if (turn_off_dac)
@@ -303,6 +306,9 @@ static bool intel_ironlake_crt_detect_hotplug(struct drm_connector *connector)
 			I915_WRITE(crt->adpa_reg, save_adpa);
 			POSTING_READ(crt->adpa_reg);
 		}
+
+		if (enable_hpd)
+			intel_hpd_enable(dev_priv, crt->base.hpd_pin);
 	}
 
 	/* Check the status to see if both blue and green are on now */
