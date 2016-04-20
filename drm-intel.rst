@@ -399,7 +399,8 @@ On Confidence, Complexity, and Transparency
   separate author, reviewer and committer. Make sure you have experienced
   reviewers. Involve the domain expert(s). Possibly involve people across
   team/group boundaries. Possibly involve the maintainers. Give people more time
-  to voice their concerns.
+  to voice their concerns. Aim for what's described below in more detail as
+  "rough consensus".
 
 * Most patches fall somewhere in between. You have to be the judge, and ensure
   you have involved enough people to feel comfortable if the justification for
@@ -407,6 +408,49 @@ On Confidence, Complexity, and Transparency
 
 * Make sure pre-merge testing is completed successfully.
 
+On Rough Consensus
+------------------
+
+For really big features with a lot of impact on the code, new cross-driver ABI
+(like new atomic properties), or features that will take a few patch series (and
+maybe a few kernel releases) aim for rough consensus among a wide group of
+stakeholders. There's three components for that:
+
+* Identify stakeholders beyond just the patch author and reviewers. This
+  includes contributors with experience in code ancillary to your feature,
+  domain experts, maybe maintainers. Also include maintainers and reviewers of
+  the userspace component for new ABI, which often means non-Intel people. In
+  case of doubt ask maintainers for a reasonable list of people. Make sure you
+  gather their input actively, don't expect them to deliver it on their on -
+  most are really busy.
+
+* Have agreement among all these stakeholders what the code should look like in
+  the end. Generally disagreement on the end state is considered a blocker, and
+  overruling such disagreement by maintainers is done only in exceptional cases.
+  Generally what happens is that maintainers instead do all the work of
+  soliciting input, which doesn't scale and should be the patch author's and
+  reviewer's duty. Try to document this consensus somewhere, either in a summary
+  email, interface patch to describe the data structures and vfuncs. Or maybe
+  even a more formal design spec, although in the past that didn't work out when
+  non-Intel people are involved, and the actually merged interface differed from
+  the spec a lot. Just assumed consensus on IRC tends to result in
+  misunderstandings.
+
+* Have a concrete plan how to get to the agreed end state in the codebase. Often
+  it makes sense to have an intermediate patch set merged first, and then polish
+  it in tree. Or merge new ABI in stages. Usually this means that a new feature
+  or ABI is disabled by default at first. For the actual plan some unhappiness
+  from stakeholders about the execution is acceptable, as long as the overall
+  stability and other ongoing work isn't negatively affected. As a rule of thumb
+  new ABI or features should never be in a partial/limbo stage for more than 2-3
+  kernel releases. If that seems unlikely, more work should happen pre-merge.
+
+
+Try to reach rough consensus before spending months writing code you might need
+to throw away or at least entirely rewrite again. Also make sure that all
+discussions happen in public forums, and make sure there's a searchable
+permanent record of any discussions for later references. This means that for
+most things internal meetings are not the most suitable venue.
 
 Pre-Merge Testing
 -----------------
