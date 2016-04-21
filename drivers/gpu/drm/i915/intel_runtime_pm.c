@@ -994,6 +994,12 @@ static void vlv_display_power_well_init(struct drm_i915_private *dev_priv)
 			intel_crt_reset(&encoder->base);
 	}
 
+	/*
+	 * Inject a fake HPD so that we'll notice if anything got
+	 * (dis)connected while the hpd interrupts were not enabled.
+	 */
+	intel_hpd_inject(dev_priv);
+
 	i915_redisable_vga_power_on(dev_priv->dev);
 }
 

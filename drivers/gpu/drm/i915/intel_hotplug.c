@@ -364,6 +364,7 @@ void intel_hpd_irq_handler(struct drm_device *dev,
 			   u32 pin_mask, u32 long_mask)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	unsigned long irqflags;
 	int i;
 	enum port port;
 	bool storm_detected = false;
@@ -373,7 +374,7 @@ void intel_hpd_irq_handler(struct drm_device *dev,
 	if (!pin_mask)
 		return;
 
-	spin_lock(&dev_priv->irq_lock);
+	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 	for_each_hpd_pin(i) {
 		if (!(BIT(i) & pin_mask))
 			continue;
@@ -428,7 +429,7 @@ void intel_hpd_irq_handler(struct drm_device *dev,
 
 	if (storm_detected)
 		dev_priv->display.hpd_irq_setup(dev);
-	spin_unlock(&dev_priv->irq_lock);
+	spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
 
 	/*
 	 * Our hotplug handler can grab modeset locks (by calling down into the
@@ -537,4 +538,28 @@ void intel_hpd_enable(struct drm_i915_private *dev_priv, enum hpd_pin pin)
 	spin_lock_irq(&dev_priv->irq_lock);
 	dev_priv->hotplug.stats[pin].state = HPD_ENABLED;
 	spin_unlock_irq(&dev_priv->irq_lock);
+}
+
+static u32 intel_hpd_enabled_pin_mask(struct drm_i915_private *dev_priv)
+{
+	u32 pin_mask = 0;
+	int i;
+
+	spin_lock_irq(&dev_priv->irq_lock);
+
+	for_each_hpd_pin(i) {
+		if (dev_priv->hotplug.stats[i].state == HPD_ENABLED)
+			pin_mask |= BIT(i);
+	}
+
+	spin_unlock_irq(&dev_priv->irq_lock);
+
+	return pin_mask;
+}
+
+void intel_hpd_inject(struct drm_i915_private *dev_priv)
+{
+	u32 pin_mask = intel_hpd_enabled_pin_mask(dev_priv);
+
+	intel_hpd_irq_handler(dev_priv->dev, pin_mask, pin_mask);
 }
