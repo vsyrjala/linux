@@ -955,6 +955,8 @@ static void vlv_display_power_well_init(struct drm_i915_private *dev_priv)
 	struct intel_encoder *encoder;
 	enum pipe pipe;
 
+	del_timer_sync(&dev_priv->hpd.poll_timer);
+
 	/*
 	 * Enable the CRI clock source so we can get at the
 	 * display and the reference clock for VGA
@@ -1013,6 +1015,8 @@ static void vlv_display_power_well_deinit(struct drm_i915_private *dev_priv)
 	synchronize_irq(dev_priv->dev->irq);
 
 	vlv_power_sequencer_reset(dev_priv);
+
+	mod_timer(&dev_priv->hpd.poll_timer, jiffies + HZ * 5);
 }
 
 static void vlv_display_power_well_enable(struct drm_i915_private *dev_priv,
@@ -2095,6 +2099,15 @@ static uint32_t get_allowed_dc_mask(const struct drm_i915_private *dev_priv,
 	(power_domains)->power_well_count = ARRAY_SIZE(__power_wells);	\
 })
 
+static void intel_hpd_poll_timer(unsigned long data)
+{
+	struct drm_i915_private *dev_priv = (void *)data;
+
+	intel_hpd_inject(dev_priv);
+
+	mod_timer(&dev_priv->hpd.poll_timer, jiffies + HZ * 5);
+}
+
 /**
  * intel_power_domains_init - initializes the power domain structures
  * @dev_priv: i915 device instance
@@ -2114,6 +2127,9 @@ int intel_power_domains_init(struct drm_i915_private *dev_priv)
 	BUILD_BUG_ON(POWER_DOMAIN_NUM > 31);
 
 	mutex_init(&power_domains->lock);
+
+	setup_timer(&dev_priv->hpd.poll_timer, intel_hpd_poll_timer,
+		    (unsigned long)dev_priv);
 
 	/*
 	 * The enabling order will be from lower to higher indexed wells,
