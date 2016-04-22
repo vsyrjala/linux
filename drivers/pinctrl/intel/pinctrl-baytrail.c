@@ -21,6 +21,7 @@
 #include <linux/bitops.h>
 #include <linux/interrupt.h>
 #include <linux/gpio/driver.h>
+#include <linux/gpio/machine.h>
 #include <linux/acpi.h>
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
@@ -543,6 +544,15 @@ static void byt_gpio_irq_init_hw(struct byt_gpio *vg)
 	}
 }
 
+static struct gpiod_lookup_table ddi_hpd_gpio_table = {
+	.dev_id = "0000:00:02.0", /* i915 */
+	.table = {
+		GPIO_LOOKUP_IDX("INT33FC:01", 0, "ddi_hpd", 0, GPIO_ACTIVE_LOW),
+		GPIO_LOOKUP_IDX("INT33FC:01", 6, "ddi_hpd", 1, GPIO_ACTIVE_LOW),
+		{ }
+	},
+};
+
 static int byt_gpio_probe(struct platform_device *pdev)
 {
 	struct byt_gpio *vg;
@@ -625,6 +635,9 @@ static int byt_gpio_probe(struct platform_device *pdev)
 					     (unsigned)irq_rc->start,
 					     byt_gpio_irq_handler);
 	}
+
+	if (!strcmp(vg->range->name, BYT_NCORE_ACPI_UID))
+		gpiod_add_lookup_table(&ddi_hpd_gpio_table);
 
 	pm_runtime_enable(dev);
 
@@ -722,6 +735,9 @@ MODULE_DEVICE_TABLE(acpi, byt_gpio_acpi_match);
 static int byt_gpio_remove(struct platform_device *pdev)
 {
 	struct byt_gpio *vg = platform_get_drvdata(pdev);
+
+	if (!strcmp(vg->range->name, BYT_NCORE_ACPI_UID))
+		gpiod_remove_lookup_table(&ddi_hpd_gpio_table);
 
 	pm_runtime_disable(&pdev->dev);
 	gpiochip_remove(&vg->chip);

@@ -19,6 +19,7 @@
 #include <linux/types.h>
 #include <linux/gpio.h>
 #include <linux/gpio/driver.h>
+#include <linux/gpio/machine.h>
 #include <linux/acpi.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
@@ -1476,6 +1477,16 @@ fail:
 	return ret;
 }
 
+static struct gpiod_lookup_table ddi_hpd_gpio_table = {
+	.dev_id = "0000:00:02.0", /* i915 */
+	.table = {
+		GPIO_LOOKUP_IDX("INT33FF:01", 47, "ddi_hpd", 0, GPIO_ACTIVE_LOW),
+		GPIO_LOOKUP_IDX("INT33FF:01", 50, "ddi_hpd", 1, GPIO_ACTIVE_LOW),
+		GPIO_LOOKUP_IDX("INT33FF:01", 54, "ddi_hpd", 2, GPIO_ACTIVE_LOW),
+		{ }
+	},
+};
+
 static int chv_pinctrl_probe(struct platform_device *pdev)
 {
 	struct chv_pinctrl *pctrl;
@@ -1540,12 +1551,18 @@ static int chv_pinctrl_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pctrl);
 
+	if (pctrl->community == &north_community)
+		gpiod_add_lookup_table(&ddi_hpd_gpio_table);
+
 	return 0;
 }
 
 static int chv_pinctrl_remove(struct platform_device *pdev)
 {
 	struct chv_pinctrl *pctrl = platform_get_drvdata(pdev);
+
+	if (pctrl->community == &north_community)
+		gpiod_remove_lookup_table(&ddi_hpd_gpio_table);
 
 	gpiochip_remove(&pctrl->chip);
 	pinctrl_unregister(pctrl->pctldev);

@@ -1689,4 +1689,8 @@ int intel_color_check(struct drm_crtc *crtc, struct drm_crtc_state *state);
 void intel_color_set_csc(struct drm_crtc_state *crtc_state);
 void intel_color_load_luts(struct drm_crtc_state *crtc_state);
 
+void intel_gpio_hpd_init(struct drm_i915_private *dev_priv);
+void intel_gpio_hpd_enable(struct drm_i915_private *dev_priv);
+void intel_gpio_hpd_disable(struct drm_i915_private *dev_priv);
+
 #endif /* __INTEL_DRV_H__ */

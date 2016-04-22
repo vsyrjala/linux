@@ -561,5 +561,22 @@ void intel_hpd_inject(struct drm_i915_private *dev_priv)
 {
 	u32 pin_mask = intel_hpd_enabled_pin_mask(dev_priv);
 
-	intel_hpd_irq_handler(dev_priv->dev, pin_mask, pin_mask);
+	if (pin_mask)
+		intel_hpd_irq_handler(dev_priv->dev, pin_mask, pin_mask);
+}
+
+void intel_hpd_inject_one(struct drm_i915_private *dev_priv,
+			  enum hpd_pin pin)
+{
+	u32 pin_mask = 0;
+
+	spin_lock_irq(&dev_priv->irq_lock);
+
+	if (dev_priv->hotplug.stats[pin].state == HPD_ENABLED)
+		pin_mask |= BIT(pin);
+
+	spin_unlock_irq(&dev_priv->irq_lock);
+
+	if (pin_mask)
+		intel_hpd_irq_handler(dev_priv->dev, pin_mask, pin_mask);
 }

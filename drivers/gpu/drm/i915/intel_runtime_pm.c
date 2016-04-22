@@ -957,6 +957,8 @@ static void vlv_display_power_well_init(struct drm_i915_private *dev_priv)
 
 	del_timer_sync(&dev_priv->hpd.poll_timer);
 
+	intel_gpio_hpd_disable(dev_priv);
+
 	/*
 	 * Enable the CRI clock source so we can get at the
 	 * display and the reference clock for VGA
@@ -1000,7 +1002,7 @@ static void vlv_display_power_well_init(struct drm_i915_private *dev_priv)
 	 * Inject a fake HPD so that we'll notice if anything got
 	 * (dis)connected while the hpd interrupts were not enabled.
 	 */
-	intel_hpd_inject(dev_priv);
+	//intel_hpd_inject(dev_priv);
 
 	i915_redisable_vga_power_on(dev_priv->dev);
 }
@@ -1016,7 +1018,8 @@ static void vlv_display_power_well_deinit(struct drm_i915_private *dev_priv)
 
 	vlv_power_sequencer_reset(dev_priv);
 
-	mod_timer(&dev_priv->hpd.poll_timer, jiffies + HZ * 5);
+	intel_gpio_hpd_enable(dev_priv);
+	//mod_timer(&dev_priv->hpd.poll_timer, jiffies + HZ * 5);
 }
 
 static void vlv_display_power_well_enable(struct drm_i915_private *dev_priv,
@@ -2453,10 +2456,12 @@ void intel_power_domains_init_hw(struct drm_i915_private *dev_priv, bool resume)
 		bxt_display_core_init(dev_priv, resume);
 	} else if (IS_CHERRYVIEW(dev)) {
 		mutex_lock(&power_domains->lock);
+		intel_gpio_hpd_init(dev_priv);
 		chv_phy_control_init(dev_priv);
 		mutex_unlock(&power_domains->lock);
 	} else if (IS_VALLEYVIEW(dev)) {
 		mutex_lock(&power_domains->lock);
+		intel_gpio_hpd_init(dev_priv);
 		vlv_cmnlane_wa(dev_priv);
 		mutex_unlock(&power_domains->lock);
 	}

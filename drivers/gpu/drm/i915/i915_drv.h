@@ -1998,6 +1998,12 @@ struct drm_i915_private {
 
 	struct {
 		struct timer_list poll_timer;
+		struct gpio_desc *gpio_desc[3];
+		int gpio_irq[3];
+		u32 gpio_pad_cfg0[3];
+		u32 gpio_pad_cfg1[3];
+		u32 gpio_pad_intsel[3];
+		bool gpio_state[3];
 	} hpd;
 
 	/*
@@ -2784,6 +2790,7 @@ bool intel_hpd_pin_to_port(enum hpd_pin pin, enum port *port);
 bool intel_hpd_disable(struct drm_i915_private *dev_priv, enum hpd_pin pin);
 void intel_hpd_enable(struct drm_i915_private *dev_priv, enum hpd_pin pin);
 void intel_hpd_inject(struct drm_i915_private *dev_priv);
+void intel_hpd_inject_one(struct drm_i915_private *dev_priv, enum hpd_pin pin);
 
 /* i915_irq.c */
 void i915_queue_hangcheck(struct drm_device *dev);

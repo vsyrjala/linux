@@ -8324,4 +8324,45 @@ enum skl_disp_power_wells {
 #define   GEN9_L3_LRA_1_GPGPU_DEFAULT_VALUE_SKL  0x67F1427F /*    "        " */
 #define   GEN9_L3_LRA_1_GPGPU_DEFAULT_VALUE_BXT  0x5FF101FF /*    "        " */
 
+#define CHV_GPIO_PAD_CFG0(f, i)	                (0x4400 + (f) * 0x400 + (i) * 8)
+#define  CHV_GPIO_INTSEL(x)			((x) << 28)
+#define  CHV_GPIO_INTSEL_MASK			(0xf << 28)
+#define  CHV_GPIO_GFCFG_RX			(2 << 26)
+#define  CHV_GPIO_GFCFG_EDGE			(1 << 26)
+#define  CHV_GPIO_GPIOPM(val)			((val) << 16)
+#define  CHV_GPIO_GPIOPM_MASK			(0xf << 16)
+#define  CHV_GPIO_GPIOEN			(1 << 15)
+#define  CHV_GPIO_GPIOCFG_GPIO			(0 << 8)
+#define  CHV_GPIO_GPIOCFG_GPO			(1 << 8)
+#define  CHV_GPIO_GPIOCFG_GPI			(2 << 8)
+#define  CHV_GPIO_GPIOCFG_HIZ			(3 << 8)
+#define  CHV_GPIO_GPIOCFG_MASK			(3 << 8)
+#define  CHV_GPIO_GPIOTXSTATE(state)		((!!(state)) << 1)
+#define  CHV_GPIO_GPIORXSTATE			(1 << 0)
+
+#define CHV_GPIO_PAD_CFG1(f, i)			(0x4400 + (f) * 0x400 + (i) * 8 + 4)
+#define  CHV_GPIO_CFGLOCK			(1 << 31)
+#define  CHV_GPIO_INTWAKECFG_EDGE		(3 << 0)
+#define  CHV_GPIO_INTWAKECFG_MASK		(7 << 0)
+
+#define VLV_GPIO_NC_0_HV_DDI0_HPD	0x4130
+#define VLV_GPIO_NC_6_HV_DDI1_HPD	0x4180
+
+#define VLV_GPIO_PCONF0(base_offset)	(base_offset)
+#define VLV_GPIO_PCONF1(base_offset)	((base_offset) + 4)
+#define  VLV_GPIO_GD_TNE		(1 << 26)
+#define  VLV_GPIO_GD_TPE		(1 << 25)
+#define  VLV_GPIO_GD_LEVEL		(1 << 24)
+#define  VLV_GPIO_FILTER_EN		(1 << 19)
+#define  VLV_GPIO_FILTER_SLOW		(1 << 18)
+#define  VLV_GPIO_SLOW_CLKGATE		(1 << 17)
+#define  VLV_GPIO_FAST_CLKGATE		(1 << 16)
+#define  VLV_GPIO_FUNC_PIN_MUX(x)	((x) << 0)
+#define  VLV_GPIO_FUNC_PIN_MUX_MASK	(0x7 << 0)
+
+#define VLV_GPIO_PAD_VAL(base_offset)	((base_offset) + 8)
+#define  VLV_GPIO_IINENB	(1 << 2)
+#define  VLV_GPIO_IOUTENB	(1 << 1)
+#define  VLV_GPIO_PAD_VALUE	(1 << 0)
+
 #endif /* _I915_REG_H_ */

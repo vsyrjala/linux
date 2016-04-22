@@ -31,6 +31,7 @@
 #include <linux/sysrq.h>
 #include <linux/slab.h>
 #include <linux/circ_buf.h>
+#include <linux/gpio/consumer.h>
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
@@ -4760,4 +4761,353 @@ void intel_runtime_pm_enable_interrupts(struct drm_i915_private *dev_priv)
 	dev_priv->pm.irqs_enabled = true;
 	dev_priv->dev->driver->irq_preinstall(dev_priv->dev);
 	dev_priv->dev->driver->irq_postinstall(dev_priv->dev);
+}
+
+static const uint16_t vlv_nc_hpd_pad_base[] = { VLV_GPIO_NC_0_HV_DDI0_HPD,
+						VLV_GPIO_NC_6_HV_DDI1_HPD, };
+static const uint8_t chv_n_hpd_pad[] = { 1, 4, 8, };
+static const uint8_t chv_n_pad_count[] = { 9, 13, 12, 12, 13, };
+
+static int vlv_gpio_pad_index(struct drm_i915_private *dev_priv, int irq)
+{
+	int npads = IS_CHERRYVIEW(dev_priv) ? 3 : 2;
+	int i;
+
+	for (i = 0; i < npads; i++) {
+		if (dev_priv->hpd.gpio_irq[i] == irq)
+			return i;
+	}
+
+	return -ENODEV;
+}
+
+static irqreturn_t vlv_gpio_irq_handler(int irq, void *arg)
+{
+	struct drm_i915_private *dev_priv = arg;
+	bool state;
+	int i;
+
+	i = vlv_gpio_pad_index(dev_priv, irq);
+	if (i < 0)
+		return IRQ_NONE;
+
+	printk_ratelimited("DDI%d HPD gpio irq\n", i);
+
+	state = gpiod_get_value_cansleep(dev_priv->hpd.gpio_desc[i]);
+
+	if (dev_priv->hpd.gpio_state[i] != state) {
+		dev_priv->hpd.gpio_state[i] = state;
+		intel_hpd_inject_one(dev_priv, HPD_PORT_B + i);
+	}
+
+	return IRQ_HANDLED;
+}
+
+static void chv_dump_pad_regs(struct drm_i915_private *dev_priv,
+			      const char *str, int i)
+{
+	DRM_DEBUG_KMS("%s: DDI%d cfg0 0x%04x = 0x%08x\n",
+		      str, i, CHV_GPIO_PAD_CFG0(4, chv_n_hpd_pad[i]),
+		      vlv_iosf_sb_read(dev_priv, CHV_IOSF_PORT_GPIO_N,
+				       CHV_GPIO_PAD_CFG0(4, chv_n_hpd_pad[i])));
+	DRM_DEBUG_KMS("%s: DDI%d cfg1 0x%04x = 0x%08x\n",
+		      str, i, CHV_GPIO_PAD_CFG1(4, chv_n_hpd_pad[i]),
+		      vlv_iosf_sb_read(dev_priv, CHV_IOSF_PORT_GPIO_N,
+				       CHV_GPIO_PAD_CFG1(4, chv_n_hpd_pad[i])));
+}
+
+static bool chv_gpio_is_hpd(u32 cfg0)
+{
+	return (cfg0 & CHV_GPIO_GPIOEN) == 0 &&
+		(cfg0 & CHV_GPIO_GPIOPM_MASK) == CHV_GPIO_GPIOPM(0x1);
+}
+
+static void chv_gpio_hpd_init(struct drm_i915_private *dev_priv)
+{
+	int npads = IS_CHERRYVIEW(dev_priv) ? 3 : 2;
+	u16 int_mask_free = 0xffff;
+	int i, f, p;
+
+	/* Find a free interrupt line for each pad */
+	mutex_lock(&dev_priv->sb_lock);
+
+	for (f = 0; f < 5; f++) {
+		for (p = 0; p < chv_n_pad_count[f]; p++) {
+			u32 cfg0;
+
+			cfg0 = vlv_iosf_sb_read(dev_priv, CHV_IOSF_PORT_GPIO_N,
+						CHV_GPIO_PAD_CFG0(f, p));
+
+			if ((cfg0 & CHV_GPIO_GPIOEN) == 0)
+				continue;
+
+			int_mask_free &= ~(1 << ((cfg0 & CHV_GPIO_INTSEL_MASK) >> 28));
+		}
+	}
+
+	mutex_unlock(&dev_priv->sb_lock);
+
+	if (hweight16(int_mask_free) < 3) {
+		DRM_ERROR("not enough free GPIO north interrupt lines\n");
+		return;
+	}
+
+	for (i = 0; i < npads; i++) {
+		int intsel = ffs(int_mask_free) - 1;
+
+		dev_priv->hpd.gpio_pad_intsel[i] = CHV_GPIO_INTSEL(intsel);
+		int_mask_free &= ~(1 << intsel);
+	}
+
+	mutex_lock(&dev_priv->sb_lock);
+
+	for (i = 0; i < npads; i++) {
+		u32 cfg0, cfg1;
+
+		cfg0 = vlv_iosf_sb_read(dev_priv, CHV_IOSF_PORT_GPIO_N,
+					CHV_GPIO_PAD_CFG0(4, chv_n_hpd_pad[i]));
+		cfg1 = vlv_iosf_sb_read(dev_priv, CHV_IOSF_PORT_GPIO_N,
+					CHV_GPIO_PAD_CFG1(4, chv_n_hpd_pad[i]));
+
+		chv_dump_pad_regs(dev_priv, "original", i);
+
+		if (!chv_gpio_is_hpd(cfg0))
+			continue;
+
+		dev_priv->hpd.gpio_pad_cfg0[i] = cfg0;
+		dev_priv->hpd.gpio_pad_cfg1[i] = cfg1;
+	}
+
+	mutex_unlock(&dev_priv->sb_lock);
+}
+
+static void vlv_dump_pad_regs(struct drm_i915_private *dev_priv,
+			      const char *str, int i)
+{
+	DRM_DEBUG_KMS("%s: DDI%d pconf0 0x%04x = 0x%08x\n",
+		      str, i, VLV_GPIO_PCONF0(vlv_nc_hpd_pad_base[i]),
+		      vlv_iosf_sb_read(dev_priv, IOSF_PORT_GPIO_NC,
+				       VLV_GPIO_PCONF0(vlv_nc_hpd_pad_base[i])));
+	DRM_DEBUG_KMS("%s: DDI%d pconf1 0x%04x = 0x%08x\n",
+		      str, i, VLV_GPIO_PCONF1(vlv_nc_hpd_pad_base[i]),
+		      vlv_iosf_sb_read(dev_priv, IOSF_PORT_GPIO_NC,
+				       VLV_GPIO_PCONF1(vlv_nc_hpd_pad_base[i])));
+	DRM_DEBUG_KMS("%s: DDI%d pad_val 0x%04x = 0x%08x\n",
+		      str, i, VLV_GPIO_PAD_VAL(vlv_nc_hpd_pad_base[i]),
+		      vlv_iosf_sb_read(dev_priv, IOSF_PORT_GPIO_NC,
+				       VLV_GPIO_PAD_VAL(vlv_nc_hpd_pad_base[i])));
+}
+
+static bool vlv_gpio_is_hpd(u32 pconf0)
+{
+	return (pconf0 & VLV_GPIO_FUNC_PIN_MUX_MASK) == VLV_GPIO_FUNC_PIN_MUX(0x2);
+}
+
+static void vlv_gpio_hpd_init(struct drm_i915_private *dev_priv)
+{
+	int npads = IS_CHERRYVIEW(dev_priv) ? 3 : 2;
+	int i;
+
+	mutex_lock(&dev_priv->sb_lock);
+
+	for (i = 0; i < npads; i++) {
+		u32 pconf0, pad_val;
+
+		pconf0 = vlv_iosf_sb_read(dev_priv, IOSF_PORT_GPIO_NC,
+					  VLV_GPIO_PCONF0(vlv_nc_hpd_pad_base[i]));
+		pad_val = vlv_iosf_sb_read(dev_priv, IOSF_PORT_GPIO_NC,
+					   VLV_GPIO_PAD_VAL(vlv_nc_hpd_pad_base[i]));
+
+		vlv_dump_pad_regs(dev_priv, "original", i);
+
+		if (!vlv_gpio_is_hpd(pconf0))
+			continue;
+
+		dev_priv->hpd.gpio_pad_cfg0[i] = pconf0;
+		dev_priv->hpd.gpio_pad_cfg1[i] = pad_val;
+	}
+
+	mutex_unlock(&dev_priv->sb_lock);
+}
+
+void intel_gpio_hpd_init(struct drm_i915_private *dev_priv)
+{
+	if (IS_CHERRYVIEW(dev_priv))
+		chv_gpio_hpd_init(dev_priv);
+	else if (IS_VALLEYVIEW(dev_priv))
+		vlv_gpio_hpd_init(dev_priv);
+}
+
+static void chv_gpio_hpd_enable(struct drm_i915_private *dev_priv, int i)
+{
+	u32 cfg0, cfg1;
+
+	cfg0 = dev_priv->hpd.gpio_pad_cfg0[i];
+	cfg0 &= ~(CHV_GPIO_GPIOCFG_MASK | CHV_GPIO_INTSEL_MASK);
+	cfg0 |= CHV_GPIO_GPIOEN | CHV_GPIO_GPIOCFG_GPI;
+	cfg0 |= CHV_GPIO_GFCFG_EDGE | CHV_GPIO_GFCFG_RX;
+	cfg0 |= dev_priv->hpd.gpio_pad_intsel[i];
+
+	cfg1 = dev_priv->hpd.gpio_pad_cfg1[i];
+	cfg1 &= ~CHV_GPIO_CFGLOCK;
+	cfg1 |= CHV_GPIO_INTWAKECFG_EDGE;
+
+	mutex_lock(&dev_priv->sb_lock);
+
+	vlv_iosf_sb_write(dev_priv, CHV_IOSF_PORT_GPIO_N,
+			  CHV_GPIO_PAD_CFG1(4, chv_n_hpd_pad[i]), cfg1);
+	vlv_iosf_sb_write(dev_priv, CHV_IOSF_PORT_GPIO_N,
+			  CHV_GPIO_PAD_CFG0(4, chv_n_hpd_pad[i]), cfg0);
+
+	chv_dump_pad_regs(dev_priv, "dsp->gpio", i);
+
+	mutex_unlock(&dev_priv->sb_lock);
+}
+
+static void vlv_gpio_hpd_enable(struct drm_i915_private *dev_priv, int i)
+{
+	u32 pconf0, pad_val;
+
+	pconf0 = dev_priv->hpd.gpio_pad_cfg0[i];
+	pconf0 &= ~VLV_GPIO_FUNC_PIN_MUX_MASK;
+	pconf0 |= VLV_GPIO_GD_TNE;
+	pconf0 |= VLV_GPIO_GD_TPE;
+	pconf0 &= ~VLV_GPIO_GD_LEVEL;
+#if 0
+	/* FIXME enabling the filter seems to break it. Why? */
+	pconf0 |= VLV_GPIO_FILTER_EN;
+	pconf0 |= VLV_GPIO_FILTER_SLOW;
+#endif
+	pconf0 |= VLV_GPIO_SLOW_CLKGATE;
+	pconf0 |= VLV_GPIO_FAST_CLKGATE;
+
+	pad_val = dev_priv->hpd.gpio_pad_cfg1[i];
+	pad_val &= ~VLV_GPIO_IINENB;
+	pad_val |= VLV_GPIO_IOUTENB;
+	pad_val &= VLV_GPIO_PAD_VALUE;
+
+	mutex_lock(&dev_priv->sb_lock);
+
+	vlv_iosf_sb_write(dev_priv, IOSF_PORT_GPIO_NC,
+			  VLV_GPIO_PAD_VAL(vlv_nc_hpd_pad_base[i]), pad_val);
+	vlv_iosf_sb_write(dev_priv, IOSF_PORT_GPIO_NC,
+			  VLV_GPIO_PCONF0(vlv_nc_hpd_pad_base[i]), pconf0);
+
+	vlv_dump_pad_regs(dev_priv, "dsp->gpio", i);
+
+	mutex_unlock(&dev_priv->sb_lock);
+}
+
+void intel_gpio_hpd_enable(struct drm_i915_private *dev_priv)
+{
+	int npads = IS_CHERRYVIEW(dev_priv) ? 3 : 2;
+	int i;
+
+	for (i = 0; i < npads; i++) {
+		struct gpio_desc *desc;
+		int ret, irq;
+
+		if (dev_priv->hpd.gpio_pad_cfg0[i] == 0)
+			continue;
+
+		if (WARN_ON(dev_priv->hpd.gpio_desc[i]))
+			continue;
+
+		if (IS_CHERRYVIEW(dev_priv))
+			chv_gpio_hpd_enable(dev_priv, i);
+		else
+			vlv_gpio_hpd_enable(dev_priv, i);
+
+		desc = gpiod_get_index(dev_priv->dev->dev,
+				       "ddi_hpd", i, GPIOD_IN);
+		if (IS_ERR(desc)) {
+			DRM_ERROR("Unable to get gpio for DDI%d HPD\n", i);
+			continue;
+		}
+
+		dev_priv->hpd.gpio_desc[i] = desc;
+
+		dev_priv->hpd.gpio_state[i] =
+			gpiod_get_value_cansleep(desc);
+
+		irq = gpiod_to_irq(desc);
+
+		DRM_DEBUG_KMS("ddi%d hpd gpio irq = %d\n", i, irq);
+
+		ret = request_threaded_irq(irq, NULL, vlv_gpio_irq_handler,
+					   IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING |
+					   IRQF_ONESHOT, "i915 gpio hpd", dev_priv);
+		if (ret) {
+			DRM_ERROR("Unable to enable gpio irq for DDI%d HPD\n", i);
+			continue;
+		}
+
+		dev_priv->hpd.gpio_irq[i] = irq;
+	}
+}
+
+static void chv_gpio_hpd_disable(struct drm_i915_private *dev_priv, int i)
+{
+	u32 cfg0 = dev_priv->hpd.gpio_pad_cfg0[i];
+	u32 cfg1 = dev_priv->hpd.gpio_pad_cfg1[i];
+
+	mutex_lock(&dev_priv->sb_lock);
+
+	vlv_iosf_sb_write(dev_priv, CHV_IOSF_PORT_GPIO_N,
+			  CHV_GPIO_PAD_CFG1(4, chv_n_hpd_pad[i]),
+			  cfg1 & ~CHV_GPIO_CFGLOCK);
+
+	vlv_iosf_sb_write(dev_priv, CHV_IOSF_PORT_GPIO_N,
+			  CHV_GPIO_PAD_CFG0(4, chv_n_hpd_pad[i]), cfg0);
+
+	vlv_iosf_sb_write(dev_priv, CHV_IOSF_PORT_GPIO_N,
+			  CHV_GPIO_PAD_CFG1(4, chv_n_hpd_pad[i]), cfg1);
+
+	chv_dump_pad_regs(dev_priv, "gpio->dsp", i);
+
+	mutex_unlock(&dev_priv->sb_lock);
+}
+
+static void vlv_gpio_hpd_disable(struct drm_i915_private *dev_priv, int i)
+{
+	u32 pconf0 = dev_priv->hpd.gpio_pad_cfg0[i];
+	u32 pad_val = dev_priv->hpd.gpio_pad_cfg1[i];
+
+	mutex_lock(&dev_priv->sb_lock);
+
+	vlv_iosf_sb_write(dev_priv, IOSF_PORT_GPIO_NC,
+			  VLV_GPIO_PCONF0(vlv_nc_hpd_pad_base[i]), pconf0);
+
+	vlv_iosf_sb_write(dev_priv, IOSF_PORT_GPIO_NC,
+			  VLV_GPIO_PAD_VAL(vlv_nc_hpd_pad_base[i]), pad_val);
+
+	vlv_dump_pad_regs(dev_priv, "gpio->dsp", i);
+
+	mutex_unlock(&dev_priv->sb_lock);
+}
+
+void intel_gpio_hpd_disable(struct drm_i915_private *dev_priv)
+{
+	int npads = IS_CHERRYVIEW(dev_priv) ? 3 : 2;
+	int i;
+
+	for (i = 0; i < npads; i++) {
+		if (dev_priv->hpd.gpio_pad_cfg0[i] == 0)
+			continue;
+
+		if (dev_priv->hpd.gpio_irq[i]) {
+			free_irq(dev_priv->hpd.gpio_irq[i], dev_priv);
+			dev_priv->hpd.gpio_irq[i] = 0;
+		}
+
+		if (dev_priv->hpd.gpio_desc[i]) {
+			gpiod_put(dev_priv->hpd.gpio_desc[i]);
+			dev_priv->hpd.gpio_desc[i] = NULL;
+		}
+
+		if (IS_CHERRYVIEW(dev_priv))
+			chv_gpio_hpd_disable(dev_priv, i);
+		else
+			vlv_gpio_hpd_disable(dev_priv, i);
+	}
 }
