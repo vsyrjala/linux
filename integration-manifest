@@ -1,0 +1,22 @@
+origin/drm-intel-fixes 31318a922395ec9e78d6e2ddf70779355afc7594
+	drm/i915: Use fw_domains_put_with_fifo() on HSW
+drm-upstream/drm-fixes 18cdfe751f26ffa610f2a7b59775c5cc4c1c9619
+	Merge branch 'drm-fixes-4.6' of git://people.freedesktop.org/~agd5f/linux into drm-fixes
+origin/drm-intel-next-fixes 94669e6ba1ada133394ec8295d773df8b9238d08
+	drm/i915: Handle -EDEADLK in drm_atomic_commit from load-detect.
+origin/drm-intel-next-queued 8a292d016d1cc4938ff14b4df25328230b08a408
+	drm/i915: Make RPS EI/thresholds multiple of 25 on SNB-BDW
+drm-upstream/drm-next 027b3f8ba9277410c3191d72d1ed2c6146d8a668
+	drm/modes: stop handling framebuffer special
+sound-upstream/for-next 0c7dcdad0c4ebeef8c1cddd827d46cdf29e78546
+	ALSA: hrtimer: Use manual start/stop in callback
+sound-upstream/for-linus 3194ed497939c6448005542e3ca4fa2386968fa0
+	ALSA: hda - Fix possible race on regmap bypass flip
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc c251d85df1d537511a703feb71c6e7c999a95111
+	drm: rcar-du: Fix compilation warning
+origin/topic/kerneldoc 418645fdcc72b92df6817ec249e216700baa757a
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 3ea48cc412c5ecba970b228f3e23d147d7d5527b
+	kernfs: Move faulting copy_user operations outside of the mutex
