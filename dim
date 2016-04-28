@@ -691,6 +691,17 @@ function checkpatch_commit
 	if test "$bug_lines" -eq 1; then
 		warn_or_fail "New BUG macro added"
 	fi
+
+        if [ "$branch" = "drm-intel-next-queued" ]; then
+		local non_i915_files=$(git diff-tree --no-commit-id --name-only -r $commit | \
+			grep -v "^\(drivers/gpu/drm/i915/\|include/drm/i915\|include/uapi/drm/i915\)")
+
+		if [ -n "$non_i915_files" ]; then
+			echo -e "The following files are outside of i915 maintenance scope:\n"
+			echo "$non_i915_files"
+			echo -e "\nConfirm you have appropriate Acked-by and Reviewed-by for above files."
+		fi
+	fi
 }
 
 # turn $1 in to a git commit range
