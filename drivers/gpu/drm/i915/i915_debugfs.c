@@ -1946,7 +1946,7 @@ static int i915_gem_framebuffer_info(struct seq_file *m, void *data)
                          fbdev_fb->base.depth,
                          fbdev_fb->base.bits_per_pixel,
                          fbdev_fb->base.modifier[0],
-                         atomic_read(&fbdev_fb->base.refcount.refcount));
+                         drm_framebuffer_read_refcount(&fbdev_fb->base));
                describe_obj(m, fbdev_fb->obj);
                seq_putc(m, '\n');
        }
@@ -1964,7 +1964,7 @@ static int i915_gem_framebuffer_info(struct seq_file *m, void *data)
 			   fb->base.depth,
 			   fb->base.bits_per_pixel,
 			   fb->base.modifier[0],
-			   atomic_read(&fb->base.refcount.refcount));
+			   drm_framebuffer_read_refcount(&fb->base));
 		describe_obj(m, fb->obj);
 		seq_putc(m, '\n');
 	}
@@ -3473,7 +3473,8 @@ static int i915_dp_mst_info(struct seq_file *m, void *unused)
 		intel_dig_port = enc_to_dig_port(encoder);
 		if (!intel_dig_port->dp.can_mst)
 			continue;
-
+		seq_printf(m, "MST Source Port %c\n",
+			   port_name(intel_dig_port->port));
 		drm_dp_mst_dump_topology(m, &intel_dig_port->dp.mst_mgr);
 	}
 	drm_modeset_unlock_all(dev);
