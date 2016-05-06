@@ -685,6 +685,49 @@ static int drm_dp_i2c_drain_msg(struct drm_dp_aux *aux, struct drm_dp_aux_msg *o
 	return ret;
 }
 
+static void drm_dp_set_i2c_speed(struct drm_dp_aux *aux, int speed_khz)
+{
+	static const short i2c_speeds[] = { 1, 5, 10, 100, 400, 1000, };
+	u8 cap = 0, ctrl;
+	int bit;
+
+	drm_dp_dpcd_read(aux, DP_I2C_SPEED_CAP, &cap, 1);
+
+	/* i2c speed control not supported? */
+	if (cap == 0)
+		return;
+
+	for (bit = 0; bit < ARRAY_SIZE(i2c_speeds); bit++) {
+		if (speed_khz == i2c_speeds[bit])
+			break;
+	}
+	if (WARN_ON_ONCE(bit == ARRAY_SIZE(i2c_speeds)))
+		return;
+
+	/* pick the fastest supported speed, no greater than 'speed_khz' */
+	bit = fls(cap & ((1 << (bit + 1)) - 1)) - 1;
+
+	if (bit >= 0)
+		ctrl = 1 << bit;
+	else
+		ctrl = 0xff; /* fall back to lowest supported speed */
+
+	drm_dp_dpcd_write(aux, DP_I2C_SPEED_CONTROL_STATUS, &ctrl, 1);
+}
+
+#define DDC_CI_ADDR 0x37
+
+static bool has_ddc_ci_msgs(const struct i2c_msg *msgs, int num)
+{
+	int i;
+
+	for (i = 0; i < num; i++)
+		if (msgs[i].addr == DDC_CI_ADDR)
+			return true;
+
+	return false;
+}
+
 /*
  * Bizlink designed DP->DVI-D Dual Link adapters require the I2C over AUX
  * packets to be as large as possible. If not, the I2C transactions never
@@ -699,6 +742,7 @@ static int drm_dp_i2c_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs,
 			   int num)
 {
 	struct drm_dp_aux *aux = adapter->algo_data;
+	bool has_ddc_ci = has_ddc_ci_msgs(msgs, num);
 	unsigned int i, j;
 	unsigned transfer_size;
 	struct drm_dp_aux_msg msg;
@@ -709,6 +753,13 @@ static int drm_dp_i2c_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs,
 	memset(&msg, 0, sizeof(msg));
 
 	mutex_lock(&aux->hw_mutex);
+
+	/*
+	 * Drop to 10kHz for DDC/CI as many monitors
+	 * don't appear to handle 100 kHz gracefully
+	 */
+	if (has_ddc_ci)
+		drm_dp_set_i2c_speed(aux, 10);
 
 	for (i = 0; i < num; i++) {
 		msg.address = msgs[i].addr;
@@ -763,6 +814,9 @@ static int drm_dp_i2c_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs,
 	msg.buffer = NULL;
 	msg.size = 0;
 	(void)drm_dp_i2c_do_msg(aux, &msg);
+
+	if (has_ddc_ci)
+		drm_dp_set_i2c_speed(aux, 100);
 
 	mutex_unlock(&aux->hw_mutex);
 
