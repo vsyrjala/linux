@@ -102,8 +102,6 @@ bool intel_gmbus_is_valid_pin(struct drm_i915_private *dev_priv,
 
 /* Intel GPIO access functions */
 
-#define I2C_RISEFALL_TIME 10
-
 static inline struct intel_gmbus *
 to_intel_gmbus(struct i2c_adapter *i2c)
 {
@@ -210,13 +208,14 @@ intel_gpio_pre_xfer(struct i2c_adapter *adapter)
 	struct intel_gmbus *bus = container_of(adapter,
 					       struct intel_gmbus,
 					       adapter);
+	struct i2c_algo_bit_data *algo = &bus->bit_algo;
 	struct drm_i915_private *dev_priv = bus->dev_priv;
 
 	intel_i2c_reset(dev_priv->dev);
 	intel_i2c_quirk_set(dev_priv, true);
 	set_data(bus, 1);
 	set_clock(bus, 1);
-	udelay(I2C_RISEFALL_TIME);
+	udelay(algo->udelay);
 	return 0;
 }
 
@@ -250,7 +249,7 @@ intel_gpio_setup(struct intel_gmbus *bus, unsigned int pin)
 	algo->getscl = get_clock;
 	algo->pre_xfer = intel_gpio_pre_xfer;
 	algo->post_xfer = intel_gpio_post_xfer;
-	algo->udelay = I2C_RISEFALL_TIME;
+	algo->udelay = 10; /* 100 kHz */
 	algo->timeout = usecs_to_jiffies(2200);
 	algo->data = bus;
 }
@@ -585,16 +584,38 @@ out:
 	return ret;
 }
 
+#define DDC_CI_ADDR 0x37
+
+static bool has_ddc_ci_msgs(const struct i2c_msg *msgs, int num)
+{
+	int i;
+
+	for (i = 0; i < num; i++)
+		if (msgs[i].addr == DDC_CI_ADDR)
+			return true;
+
+	return false;
+}
+
+
 static int
 gmbus_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs, int num)
 {
 	struct intel_gmbus *bus = container_of(adapter, struct intel_gmbus,
 					       adapter);
 	struct drm_i915_private *dev_priv = bus->dev_priv;
+	bool has_ddc_ci = has_ddc_ci_msgs(msgs, num);
 	int ret;
 
 	intel_display_power_get(dev_priv, POWER_DOMAIN_GMBUS);
 	mutex_lock(&dev_priv->gmbus_mutex);
+
+	/*
+	 * Drop to 50kHz for DDC/CI as many monitors
+	 * don't appear to handle 100 kHz gracefully
+	 */
+	if (has_ddc_ci)
+		intel_gmbus_set_speed(adapter, GMBUS_RATE_50KHZ);
 
 	if (bus->force_bit) {
 		ret = i2c_bit_algo.master_xfer(adapter, msgs, num);
@@ -605,6 +626,9 @@ gmbus_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs, int num)
 		if (ret == -EAGAIN)
 			bus->force_bit |= GMBUS_FORCE_BIT_RETRY;
 	}
+
+	if (has_ddc_ci)
+		intel_gmbus_set_speed(adapter, GMBUS_RATE_100KHZ);
 
 	mutex_unlock(&dev_priv->gmbus_mutex);
 	intel_display_power_put(dev_priv, POWER_DOMAIN_GMBUS);
@@ -715,8 +739,29 @@ struct i2c_adapter *intel_gmbus_get_adapter(struct drm_i915_private *dev_priv,
 void intel_gmbus_set_speed(struct i2c_adapter *adapter, int speed)
 {
 	struct intel_gmbus *bus = to_intel_gmbus(adapter);
+	struct i2c_algo_bit_data *algo = &bus->bit_algo;
+	int speed_khz;;
 
 	bus->reg0 = (bus->reg0 & ~(0x3 << 8)) | speed;
+
+	switch (speed) {
+	default:
+		MISSING_CASE(speed);
+	case GMBUS_RATE_50KHZ:
+		speed_khz = 50;
+		break;
+	case GMBUS_RATE_100KHZ:
+		speed_khz = 100;
+		break;
+	case GMBUS_RATE_400KHZ:
+		speed_khz = 400;
+		break;
+	case GMBUS_RATE_1MHZ:
+		speed_khz = 1000;
+		break;
+	}
+
+	algo->udelay = DIV_ROUND_UP(1000, speed_khz);
 }
 
 void intel_gmbus_force_bit(struct i2c_adapter *adapter, bool force_bit)
