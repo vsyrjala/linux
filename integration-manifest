@@ -1,0 +1,22 @@
+origin/drm-intel-fixes 26792526cc3e29e3ccbc15c996beb61fa64be5af
+	Revert "drm/i915: start adding dp mst audio"
+drm-upstream/drm-fixes fca097169faf8b9cfe92d8926da7a1fa2d3cd452
+	Merge tag 'drm-intel-fixes-2016-05-02' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes 5b4fd5b1111b1230cd037df3b314e7b36d45d483
+	drm/i915: Update DRIVER_DATE to 20160425
+origin/drm-intel-next-queued 4922d4919596219864686be1e70dcd92c685ec9f
+	drm/i915/kbl: Introduce the first official DMC for Kabylake.
+drm-upstream/drm-next 0552f7651bc233e5407ab06ba97a9d7c25e19580
+	drm/i915/mst: use reference counted connectors. (v3)
+sound-upstream/for-next 57dd5414a087991d427067b32dc3324af61b1c8b
+	ALSA: usb-audio: Limit retrying sample rate reads
+sound-upstream/for-linus 2d2c038a9999f423e820d89db2b5d7774b67ba49
+	ALSA: usb-audio: Quirk for yet another Phoenix Audio devices (v2)
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 8863dc7f5642737e49ff681cbb842d2c614bdcf4
+	drm/i915: Correctly refcount connectors in hw state readou
+origin/topic/kerneldoc 9dcb2eb293d5c7a568472c11ca95e3638d1fce00
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 3ea48cc412c5ecba970b228f3e23d147d7d5527b
+	kernfs: Move faulting copy_user operations outside of the mutex
