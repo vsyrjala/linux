@@ -1,0 +1,22 @@
+origin/drm-intel-fixes 2700818ac9f935d8590715eecd7e8cadbca552b6
+	drm/i915: Bail out of pipe config compute loop on LPT
+drm-upstream/drm-fixes fca097169faf8b9cfe92d8926da7a1fa2d3cd452
+	Merge tag 'drm-intel-fixes-2016-05-02' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes 5b4fd5b1111b1230cd037df3b314e7b36d45d483
+	drm/i915: Update DRIVER_DATE to 20160425
+origin/drm-intel-next-queued ac657f6461e5f7e0e8cb308b46b63ba71a6f6906
+	drm/i915: Introduce IS_GEN macro
+drm-upstream/drm-next 2e726dc4b4e2dd3ae3fe675f9d3af88a2d593ee1
+	Merge tag 'mediatek-drm-2016-05-09' of git://git.pengutronix.de/git/pza/linux into drm-next
+sound-upstream/for-next 8d879be882ba5a8bd4c2bc39bd2c336392564e13
+	ALSA: pcm: Bail out when chmap is already present
+sound-upstream/for-linus 3231e2053eaeee70bdfb216a78a30f11e88e2243
+	ALSA: hda - Fix subwoofer pin on ASUS N751 and N551
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 8863dc7f5642737e49ff681cbb842d2c614bdcf4
+	drm/i915: Correctly refcount connectors in hw state readou
+origin/topic/kerneldoc 9dcb2eb293d5c7a568472c11ca95e3638d1fce00
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 3ea48cc412c5ecba970b228f3e23d147d7d5527b
+	kernfs: Move faulting copy_user operations outside of the mutex
