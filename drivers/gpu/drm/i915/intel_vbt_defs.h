@@ -446,10 +446,16 @@ struct bdb_lfp_backlight_data_entry {
 	u8 obsolete3;
 } __packed;
 
+struct bdb_lfp_backlight_control_method {
+	u8 type:4;
+	u8 controller:4;
+} __packed;
+
 struct bdb_lfp_backlight_data {
 	u8 entry_size;
 	struct bdb_lfp_backlight_data_entry data[16];
 	u8 level[16];
+	struct bdb_lfp_backlight_control_method backlight_control[16];
 } __packed;
 
 struct aimdb_header {
@@ -740,6 +746,7 @@ struct bdb_psr {
 #define	 DEVICE_TYPE_INT_TV	0x1009
 #define	 DEVICE_TYPE_HDMI	0x60D2
 #define	 DEVICE_TYPE_DP		0x68C6
+#define	 DEVICE_TYPE_DP_DUAL_MODE	0x60D6
 #define	 DEVICE_TYPE_eDP	0x78C6
 
 #define  DEVICE_TYPE_CLASS_EXTENSION	(1 << 15)
@@ -772,6 +779,17 @@ struct bdb_psr {
 	 DEVICE_TYPE_TMDS_DVI_SIGNALING | \
 	 DEVICE_TYPE_VIDEO_SIGNALING | \
 	 DEVICE_TYPE_DISPLAYPORT_OUTPUT | \
+	 DEVICE_TYPE_ANALOG_OUTPUT)
+
+#define DEVICE_TYPE_DP_DUAL_MODE_BITS \
+	(DEVICE_TYPE_INTERNAL_CONNECTOR | \
+	 DEVICE_TYPE_MIPI_OUTPUT | \
+	 DEVICE_TYPE_COMPOSITE_OUTPUT | \
+	 DEVICE_TYPE_LVDS_SINGALING | \
+	 DEVICE_TYPE_TMDS_DVI_SIGNALING | \
+	 DEVICE_TYPE_VIDEO_SIGNALING | \
+	 DEVICE_TYPE_DISPLAYPORT_OUTPUT | \
+	 DEVICE_TYPE_DIGITAL_OUTPUT | \
 	 DEVICE_TYPE_ANALOG_OUTPUT)
 
 /* define the DVO port for HDMI output type */

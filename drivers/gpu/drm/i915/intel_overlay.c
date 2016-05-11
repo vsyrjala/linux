@@ -198,7 +198,8 @@ intel_overlay_map_regs(struct intel_overlay *overlay)
 		regs = (struct overlay_registers __iomem *)overlay->reg_bo->phys_handle->vaddr;
 	else
 		regs = io_mapping_map_wc(ggtt->mappable,
-					 i915_gem_obj_ggtt_offset(overlay->reg_bo));
+					 overlay->flip_addr,
+					 PAGE_SIZE);
 
 	return regs;
 }
@@ -1396,8 +1397,8 @@ void intel_setup_overlay(struct drm_device *dev)
 	if (!OVERLAY_NEEDS_PHYSICAL(dev))
 		reg_bo = i915_gem_object_create_stolen(dev, PAGE_SIZE);
 	if (reg_bo == NULL)
-		reg_bo = i915_gem_alloc_object(dev, PAGE_SIZE);
-	if (reg_bo == NULL)
+		reg_bo = i915_gem_object_create(dev, PAGE_SIZE);
+	if (IS_ERR(reg_bo))
 		goto out_free;
 	overlay->reg_bo = reg_bo;
 
@@ -1493,7 +1494,7 @@ intel_overlay_map_regs_atomic(struct intel_overlay *overlay)
 			overlay->reg_bo->phys_handle->vaddr;
 	else
 		regs = io_mapping_map_atomic_wc(ggtt->mappable,
-						i915_gem_obj_ggtt_offset(overlay->reg_bo));
+						overlay->flip_addr);
 
 	return regs;
 }
@@ -1507,9 +1508,8 @@ static void intel_overlay_unmap_regs_atomic(struct intel_overlay *overlay,
 
 
 struct intel_overlay_error_state *
-intel_overlay_capture_error_state(struct drm_device *dev)
+intel_overlay_capture_error_state(struct drm_i915_private *dev_priv)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_overlay *overlay = dev_priv->overlay;
 	struct intel_overlay_error_state *error;
 	struct overlay_registers __iomem *regs;
@@ -1523,10 +1523,7 @@ intel_overlay_capture_error_state(struct drm_device *dev)
 
 	error->dovsta = I915_READ(DOVSTA);
 	error->isr = I915_READ(ISR);
-	if (OVERLAY_NEEDS_PHYSICAL(overlay->dev))
-		error->base = (__force long)overlay->reg_bo->phys_handle->vaddr;
-	else
-		error->base = i915_gem_obj_ggtt_offset(overlay->reg_bo);
+	error->base = overlay->flip_addr;
 
 	regs = intel_overlay_map_regs_atomic(overlay);
 	if (!regs)
