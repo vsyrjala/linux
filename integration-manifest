@@ -1,0 +1,22 @@
+origin/drm-intel-fixes 2700818ac9f935d8590715eecd7e8cadbca552b6
+	drm/i915: Bail out of pipe config compute loop on LPT
+drm-upstream/drm-fixes e02aacb6dec0c656379f0c1ff06c5bbb2bcb1e53
+	Merge branch 'drm-fixes-4.6' of git://people.freedesktop.org/~agd5f/linux into drm-fixes
+origin/drm-intel-next-fixes 5b4fd5b1111b1230cd037df3b314e7b36d45d483
+	drm/i915: Update DRIVER_DATE to 20160425
+origin/drm-intel-next-queued b8e757057d6a1fe2d5fdc195e6a6fc36b349e9cd
+	drm/i915: Eliminate the CDCLK_CTL RMW on BXT
+drm-upstream/drm-next 95306975e9dd38ba2775dd96cb29987ecc7d9360
+	Merge tag 'drm/tegra/for-4.7-rc1' of git://anongit.freedesktop.org/tegra/linux into drm-next
+sound-upstream/for-next 639db596165746ca87bbcb56559b094fd9042890
+	ALSA: au88x0: Fix zero clear of stream->resources
+sound-upstream/for-linus 84add303ef950b8d85f54bc2248c2bc73467c329
+	ALSA: usb-audio: Yet another Phoneix Audio device quirk
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 9ecb549867d7f642f0379f574f0e52870009a8bf
+	drm/atomic: Add drm_atomic_helper_best_encoder()
+origin/topic/kerneldoc 9dcb2eb293d5c7a568472c11ca95e3638d1fce00
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 3ea48cc412c5ecba970b228f3e23d147d7d5527b
+	kernfs: Move faulting copy_user operations outside of the mutex
