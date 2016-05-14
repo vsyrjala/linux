@@ -189,7 +189,7 @@ static i915_reg_t mocs_register(enum intel_engine_id ring, int index)
  */
 int intel_mocs_init_engine(struct intel_engine_cs *engine)
 {
-	struct drm_i915_private *dev_priv = to_i915(engine->dev);
+	struct drm_i915_private *dev_priv = engine->i915;
 	struct drm_i915_mocs_table table;
 	unsigned int index;
 
@@ -239,11 +239,9 @@ static int emit_mocs_control_table(struct drm_i915_gem_request *req,
 	if (WARN_ON(table->size > GEN9_NUM_MOCS_ENTRIES))
 		return -ENODEV;
 
-	ret = intel_logical_ring_begin(req, 2 + 2 * GEN9_NUM_MOCS_ENTRIES);
-	if (ret) {
-		DRM_DEBUG("intel_logical_ring_begin failed %d\n", ret);
+	ret = intel_ring_begin(req, 2 + 2 * GEN9_NUM_MOCS_ENTRIES);
+	if (ret)
 		return ret;
-	}
 
 	intel_logical_ring_emit(ringbuf,
 				MI_LOAD_REGISTER_IMM(GEN9_NUM_MOCS_ENTRIES));
@@ -305,11 +303,9 @@ static int emit_mocs_l3cc_table(struct drm_i915_gem_request *req,
 	if (WARN_ON(table->size > GEN9_NUM_MOCS_ENTRIES))
 		return -ENODEV;
 
-	ret = intel_logical_ring_begin(req, 2 + GEN9_NUM_MOCS_ENTRIES);
-	if (ret) {
-		DRM_DEBUG("intel_logical_ring_begin failed %d\n", ret);
+	ret = intel_ring_begin(req, 2 + GEN9_NUM_MOCS_ENTRIES);
+	if (ret)
 		return ret;
-	}
 
 	intel_logical_ring_emit(ringbuf,
 			MI_LOAD_REGISTER_IMM(GEN9_NUM_MOCS_ENTRIES / 2));
