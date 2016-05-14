@@ -1550,7 +1550,7 @@ void intel_dsi_init(struct drm_device *dev)
 
 	intel_dsi_add_properties(intel_connector);
 
-	drm_connector_register(connector);
+	intel_connector_register(intel_connector);
 
 	intel_panel_setup_backlight(connector, INVALID_PIPE);
 

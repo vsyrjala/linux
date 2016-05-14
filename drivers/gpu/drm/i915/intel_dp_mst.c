@@ -480,7 +480,8 @@ static void intel_dp_register_mst_connector(struct drm_connector *connector)
 	drm_modeset_lock_all(dev);
 	intel_connector_add_to_fbdev(intel_connector);
 	drm_modeset_unlock_all(dev);
-	drm_connector_register(&intel_connector->base);
+
+	intel_connector_register(intel_connector);
 }
 
 static void intel_dp_destroy_mst_connector(struct drm_dp_mst_topology_mgr *mgr,

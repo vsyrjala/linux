@@ -257,6 +257,8 @@ struct intel_connector {
 	struct edid *edid;
 	struct edid *detect_edid;
 
+	struct list_head hotplug_link;
+
 	/* since POLL and HPD connectors may use the same HPD line keep the native
 	   state of connector->polled in case hotplug storm detection changes it */
 	u8 polled;

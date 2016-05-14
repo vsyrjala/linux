@@ -145,15 +145,14 @@ static bool intel_hpd_irq_storm_detect(struct drm_i915_private *dev_priv,
 static void intel_hpd_irq_storm_disable(struct drm_i915_private *dev_priv)
 {
 	struct drm_device *dev = dev_priv->dev;
-	struct drm_mode_config *mode_config = &dev->mode_config;
 	struct intel_connector *connector;
-	enum hpd_pin pin;
 	bool hpd_disabled = false;
 
 	assert_spin_locked(&dev_priv->irq_lock);
 
-	list_for_each_entry(connector, &mode_config->connector_list, base.head) {
+	list_for_each_entry(connector, &dev_priv->hotplug.connector_list, hotplug_link) {
 		struct intel_encoder *encoder = connector->encoder;
+		enum hpd_pin pin;
 
 		if (connector->base.polled != DRM_CONNECTOR_POLL_HPD)
 			continue;
@@ -189,8 +188,6 @@ static void intel_hpd_irq_storm_reenable_work(struct work_struct *work)
 	struct drm_i915_private *dev_priv =
 		container_of(work, typeof(*dev_priv),
 			     hotplug.reenable_work.work);
-	struct drm_device *dev = dev_priv->dev;
-	struct drm_mode_config *mode_config = &dev->mode_config;
 	int i;
 
 	intel_runtime_pm_get(dev_priv);
@@ -204,7 +201,7 @@ static void intel_hpd_irq_storm_reenable_work(struct work_struct *work)
 
 		dev_priv->hotplug.stats[i].state = HPD_ENABLED;
 
-		list_for_each_entry(connector, &mode_config->connector_list, base.head) {
+		list_for_each_entry(connector, &dev_priv->hotplug.connector_list, hotplug_link) {
 			struct intel_encoder *encoder = connector->encoder;
 
 			if (!encoder)
@@ -240,8 +237,7 @@ static bool intel_hpd_irq_event(struct drm_connector *connector)
 		return false;
 
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s] status updated from %s to %s\n",
-		      connector->base.id,
-		      connector->name,
+		      connector->base.id, connector->name,
 		      drm_get_connector_status_name(old_status),
 		      drm_get_connector_status_name(connector->status));
 
@@ -304,12 +300,11 @@ static void i915_hotplug_work_func(struct work_struct *work)
 	struct drm_i915_private *dev_priv =
 		container_of(work, struct drm_i915_private, hotplug.hotplug_work);
 	struct drm_device *dev = dev_priv->dev;
-	struct drm_mode_config *mode_config = &dev->mode_config;
 	struct intel_connector *connector;
 	bool changed = false;
 	u32 hpd_event_bits;
 
-	mutex_lock(&mode_config->mutex);
+	mutex_lock(&dev->mode_config.mutex);
 	DRM_DEBUG_KMS("running encoder hotplug functions\n");
 
 	spin_lock_irq(&dev_priv->irq_lock);
@@ -322,7 +317,7 @@ static void i915_hotplug_work_func(struct work_struct *work)
 
 	spin_unlock_irq(&dev_priv->irq_lock);
 
-	list_for_each_entry(connector, &mode_config->connector_list, base.head) {
+	list_for_each_entry(connector, &dev_priv->hotplug.connector_list, hotplug_link) {
 		struct intel_encoder *encoder = connector->encoder;
 
 		if (!encoder)
@@ -339,12 +334,12 @@ static void i915_hotplug_work_func(struct work_struct *work)
 		if (intel_hpd_irq_event(&connector->base))
 			changed = true;
 	}
-	mutex_unlock(&mode_config->mutex);
+
+	mutex_unlock(&dev->mode_config.mutex);
 
 	if (changed)
 		drm_kms_helper_hotplug_event(dev);
 }
-
 
 /**
  * intel_hpd_irq_handler - main hotplug irq handler
@@ -458,16 +453,17 @@ void intel_hpd_irq_handler(struct drm_i915_private *dev_priv,
 void intel_hpd_init(struct drm_i915_private *dev_priv)
 {
 	struct drm_device *dev = dev_priv->dev;
-	struct drm_mode_config *mode_config = &dev->mode_config;
 	struct intel_connector *connector;
 	int i;
+
+	spin_lock_irq(&dev_priv->irq_lock);
 
 	for_each_hpd_pin(i) {
 		dev_priv->hotplug.stats[i].count = 0;
 		dev_priv->hotplug.stats[i].state = HPD_ENABLED;
 	}
 
-	list_for_each_entry(connector, &mode_config->connector_list, base.head) {
+	list_for_each_entry(connector, &dev_priv->hotplug.connector_list, hotplug_link) {
 		connector->base.polled = connector->polled;
 
 		/* MST has a dynamic intel_connector->encoder and it's reprobing
@@ -480,13 +476,9 @@ void intel_hpd_init(struct drm_i915_private *dev_priv)
 			connector->base.polled = DRM_CONNECTOR_POLL_HPD;
 	}
 
-	/*
-	 * Interrupt setup is already guaranteed to be single-threaded, this is
-	 * just to make the assert_spin_locked checks happy.
-	 */
-	spin_lock_irq(&dev_priv->irq_lock);
 	if (dev_priv->display.hpd_irq_setup)
 		dev_priv->display.hpd_irq_setup(dev_priv);
+
 	spin_unlock_irq(&dev_priv->irq_lock);
 }
 

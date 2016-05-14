@@ -15374,6 +15374,8 @@ void intel_modeset_init(struct drm_device *dev)
 
 	dev->mode_config.funcs = &intel_mode_funcs;
 
+	INIT_LIST_HEAD(&dev_priv->hotplug.connector_list);
+
 	intel_init_quirks(dev);
 
 	intel_init_pm(dev);
@@ -16040,11 +16042,55 @@ void intel_modeset_gem_init(struct drm_device *dev)
 	intel_backlight_register(dev);
 }
 
+int intel_connector_register(struct intel_connector *intel_connector)
+{
+	struct drm_connector *connector = &intel_connector->base;
+	struct drm_device *dev = intel_connector->base.dev;
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	int ret;
+
+	ret = drm_connector_register(connector);
+	if (ret)
+		return ret;
+
+	/*
+	 * mode_config.mutex protects against hotplug processing.
+	 * spinlock against intel_hpd_init() which may be called eg.
+	 * from vlv/chv power display well enable hook, and
+	 * against intel_hpd_irq_storm_reenable_work().
+	 */
+	mutex_lock(&dev->mode_config.mutex);
+	spin_lock_irq(&dev_priv->irq_lock);
+	list_add_tail(&intel_connector->hotplug_link,
+		      &dev_priv->hotplug.connector_list);
+	dev_priv->hotplug.num_connector++;
+	spin_unlock_irq(&dev_priv->irq_lock);
+	mutex_unlock(&dev->mode_config.mutex);
+
+	return 0;
+}
+
 void intel_connector_unregister(struct intel_connector *intel_connector)
 {
 	struct drm_connector *connector = &intel_connector->base;
+	struct drm_device *dev = connector->dev;
+	struct drm_i915_private *dev_priv = to_i915(dev);
+
+	/*
+	 * mode_config.mutex protects against hotplug processing.
+	 * spinlock against intel_hpd_init() which may be called eg.
+	 * from vlv/chv power display well enable hook, and
+	 * against intel_hpd_irq_storm_reenable_work().
+	 */
+	mutex_lock(&dev->mode_config.mutex);
+	spin_lock_irq(&dev_priv->irq_lock);
+	list_del(&intel_connector->hotplug_link);
+	dev_priv->hotplug.num_connector--;
+	spin_unlock_irq(&dev_priv->irq_lock);
+	mutex_unlock(&dev->mode_config.mutex);
 
 	intel_panel_destroy_backlight(connector);
+
 	drm_connector_unregister(connector);
 }
 

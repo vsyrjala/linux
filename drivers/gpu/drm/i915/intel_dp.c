@@ -5457,7 +5457,7 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 			  edp_panel_vdd_work);
 
 	intel_connector_attach_encoder(intel_connector, intel_encoder);
-	drm_connector_register(connector);
+	intel_connector_register(intel_connector);
 
 	if (HAS_DDI(dev))
 		intel_connector->get_hw_state = intel_ddi_connector_get_hw_state;
@@ -5540,7 +5540,7 @@ fail:
 		edp_panel_vdd_off_sync(intel_dp);
 		pps_unlock(intel_dp);
 	}
-	drm_connector_unregister(connector);
+	intel_connector_unregister(intel_connector);
 	drm_connector_cleanup(connector);
 
 	return false;

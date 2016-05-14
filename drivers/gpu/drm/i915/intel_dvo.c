@@ -537,7 +537,7 @@ void intel_dvo_init(struct drm_device *dev)
 			intel_dvo->panel_wants_dither = true;
 		}
 
-		drm_connector_register(connector);
+		intel_connector_register(intel_connector);
 		return;
 	}
 
