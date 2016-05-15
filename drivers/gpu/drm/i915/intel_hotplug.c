@@ -212,14 +212,15 @@ static void intel_hpd_irq_storm_reenable_work(struct work_struct *work)
 			if (!intel_connector->encoder)
 				continue;
 
-			if (intel_connector->encoder->hpd_pin == i) {
-				if (connector->polled != intel_connector->polled)
-					DRM_DEBUG_DRIVER("Reenabling HPD on connector %s\n",
-							 connector->name);
-				connector->polled = intel_connector->polled;
-				if (!connector->polled)
-					connector->polled = DRM_CONNECTOR_POLL_HPD;
-			}
+			if (intel_connector->encoder->hpd_pin != i)
+				continue;
+
+			if (connector->polled != intel_connector->polled)
+				DRM_DEBUG_DRIVER("Reenabling HPD on connector %s\n",
+						 connector->name);
+			connector->polled = intel_connector->polled;
+			if (!connector->polled)
+				connector->polled = DRM_CONNECTOR_POLL_HPD;
 		}
 	}
 	if (dev_priv->display.hpd_irq_setup)
@@ -331,14 +332,15 @@ static void i915_hotplug_work_func(struct work_struct *work)
 		if (!intel_connector->encoder)
 			continue;
 		intel_encoder = intel_connector->encoder;
-		if (hpd_event_bits & (1 << intel_encoder->hpd_pin)) {
-			DRM_DEBUG_KMS("Connector %s (pin %i) received hotplug event.\n",
-				      connector->name, intel_encoder->hpd_pin);
-			if (intel_encoder->hot_plug)
-				intel_encoder->hot_plug(intel_encoder);
-			if (intel_hpd_irq_event(connector))
-				changed = true;
-		}
+		if ((hpd_event_bits & (1 << intel_encoder->hpd_pin)) == 0)
+			continue;
+
+		DRM_DEBUG_KMS("Connector %s (pin %i) received hotplug event.\n",
+			      connector->name, intel_encoder->hpd_pin);
+		if (intel_encoder->hot_plug)
+			intel_encoder->hot_plug(intel_encoder);
+		if (intel_hpd_irq_event(connector))
+			changed = true;
 	}
 	mutex_unlock(&mode_config->mutex);
 
