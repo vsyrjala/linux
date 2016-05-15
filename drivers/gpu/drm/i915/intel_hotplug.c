@@ -21,6 +21,7 @@
  * IN THE SOFTWARE.
  */
 
+#include <linux/async.h>
 #include <linux/kernel.h>
 
 #include <drm/drmP.h>
@@ -292,6 +293,29 @@ static void i915_digport_work_func(struct work_struct *work)
 	}
 }
 
+struct i915_hpd_ctx {
+	struct intel_connector *connector;
+	async_cookie_t cookie;
+	bool changed;
+};
+
+static void i915_hotplug_connector(void *data, async_cookie_t cookie)
+{
+	struct i915_hpd_ctx *ctx = data;
+	struct intel_connector *connector = ctx->connector;
+	struct intel_encoder *encoder = connector->encoder;
+
+	if (!encoder)
+		return;
+
+	DRM_DEBUG_KMS("Connector %s (pin %i) received hotplug event.\n",
+		      connector->base.name, encoder->hpd_pin);
+
+	if (encoder->hot_plug)
+		encoder->hot_plug(encoder);
+	ctx->changed = intel_hpd_irq_event(&connector->base);
+}
+
 /*
  * Handle hotplug events outside the interrupt handler proper.
  */
@@ -303,6 +327,8 @@ static void i915_hotplug_work_func(struct work_struct *work)
 	struct intel_connector *connector;
 	bool changed = false;
 	u32 hpd_event_bits;
+	struct i915_hpd_ctx *ctx;
+	int i, n = 0;
 
 	mutex_lock(&dev->mode_config.mutex);
 	DRM_DEBUG_KMS("running encoder hotplug functions\n");
@@ -317,6 +343,10 @@ static void i915_hotplug_work_func(struct work_struct *work)
 
 	spin_unlock_irq(&dev_priv->irq_lock);
 
+	ctx = kmalloc_array(dev_priv->hotplug.num_connector, sizeof(ctx[0]), GFP_TEMPORARY);
+	if (!ctx)
+		goto out;
+
 	list_for_each_entry(connector, &dev_priv->hotplug.connector_list, hotplug_link) {
 		struct intel_encoder *encoder = connector->encoder;
 
@@ -326,15 +356,19 @@ static void i915_hotplug_work_func(struct work_struct *work)
 		if ((hpd_event_bits & (1 << encoder->hpd_pin)) == 0)
 			continue;
 
-		DRM_DEBUG_KMS("Connector %s (pin %i) received hotplug event.\n",
-			      connector->base.name, encoder->hpd_pin);
-
-		if (encoder->hot_plug)
-			encoder->hot_plug(encoder);
-		if (intel_hpd_irq_event(&connector->base))
-			changed = true;
+		ctx[n].connector = connector;
+		ctx[n].changed = false;
+		ctx[n].cookie = async_schedule(i915_hotplug_connector, &ctx[n]);
+		n++;
 	}
 
+	for (i = 0; i < n; i++) {
+		async_synchronize_cookie(ctx[i].cookie);
+		changed |= ctx[i].changed;
+	}
+
+	kfree(ctx);
+out:
 	mutex_unlock(&dev->mode_config.mutex);
 
 	if (changed)
