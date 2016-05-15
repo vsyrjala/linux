@@ -226,9 +226,9 @@ static void intel_hpd_irq_storm_reenable_work(struct work_struct *work)
 	intel_runtime_pm_put(dev_priv);
 }
 
-static bool intel_hpd_irq_event(struct drm_device *dev,
-				struct drm_connector *connector)
+static bool intel_hpd_irq_event(struct drm_connector *connector)
 {
+	struct drm_device *dev = connector->dev;
 	enum drm_connector_status old_status;
 
 	WARN_ON(!mutex_is_locked(&dev->mode_config.mutex));
@@ -333,7 +333,7 @@ static void i915_hotplug_work_func(struct work_struct *work)
 				      connector->name, intel_encoder->hpd_pin);
 			if (intel_encoder->hot_plug)
 				intel_encoder->hot_plug(intel_encoder);
-			if (intel_hpd_irq_event(dev, connector))
+			if (intel_hpd_irq_event(connector))
 				changed = true;
 		}
 	}
