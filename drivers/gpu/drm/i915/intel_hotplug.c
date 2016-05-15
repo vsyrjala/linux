@@ -209,6 +209,9 @@ static void intel_hpd_irq_storm_reenable_work(struct work_struct *work)
 		list_for_each_entry(connector, &mode_config->connector_list, head) {
 			struct intel_connector *intel_connector = to_intel_connector(connector);
 
+			if (!intel_connector->encoder)
+				continue;
+
 			if (intel_connector->encoder->hpd_pin == i) {
 				if (connector->polled != intel_connector->polled)
 					DRM_DEBUG_DRIVER("Reenabling HPD on connector %s\n",
