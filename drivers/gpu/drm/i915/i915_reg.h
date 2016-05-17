@@ -3228,9 +3228,9 @@ enum skl_disp_power_wells {
 /* Bspec claims those aren't shifted but stay at 0x64800 */
 #define EDP_PSR_IMR				_MMIO(0x64834)
 #define EDP_PSR_IIR				_MMIO(0x64838)
-#define   EDP_PSR_ERROR				(1<<2)
-#define   EDP_PSR_POST_EXIT			(1<<1)
-#define   EDP_PSR_PRE_ENTRY			(1<<0)
+#define   EDP_PSR_ERROR(trans)			(1 << (((trans) * 8 + 10) & 31))
+#define   EDP_PSR_POST_EXIT(trans)		(1 << (((trans) * 8 + 9) & 31))
+#define   EDP_PSR_PRE_ENTRY(trans)		(1 << (((trans) * 8 + 8) & 31))
 
 #define EDP_PSR_AUX_CTL				_MMIO(dev_priv->psr_mmio_base + 0x10)
 #define EDP_PSR_AUX_DATA(i)			_MMIO(dev_priv->psr_mmio_base + 0x14 + (i) * 4) /* 5 registers */
