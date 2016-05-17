@@ -492,7 +492,8 @@ void intel_psr_enable(struct intel_dp *intel_dp)
 		 * issues now we can rely on frontbuffer tracking.
 		 */
 		I915_WRITE(EDP_PSR_DEBUG_CTL, EDP_PSR_DEBUG_MASK_MEMUP |
-			   EDP_PSR_DEBUG_MASK_HPD | EDP_PSR_DEBUG_MASK_LPSP);
+			   EDP_PSR_DEBUG_MASK_HPD | EDP_PSR_DEBUG_MASK_LPSP |
+			   EDP_PSR_DEBUG_MASK_REG_WRITE);
 
 		/* Enable PSR on the panel */
 		hsw_psr_enable_sink(intel_dp);
