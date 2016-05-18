@@ -339,6 +339,27 @@ static bool intel_psr_match_conditions(struct intel_dp *intel_dp)
 	WARN_ON(!drm_modeset_is_locked(&dev->mode_config.connection_mutex));
 	WARN_ON(!drm_modeset_is_locked(&crtc->mutex));
 
+	/* Set link_standby x link_off defaults */
+	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
+		/* HSW and BDW require workarounds that we don't implement. */
+		dev_priv->psr.link_standby = false;
+	else if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
+		/* On VLV and CHV only standby mode is supported. */
+		dev_priv->psr.link_standby = true;
+	else
+		/* For new platforms let's respect VBT back again */
+		dev_priv->psr.link_standby = dev_priv->vbt.psr.full_link;
+
+	/* Override link_standby x link_off defaults */
+	if (i915.enable_psr == 2 && !dev_priv->psr.link_standby) {
+		DRM_DEBUG_KMS("PSR: Forcing link standby\n");
+		dev_priv->psr.link_standby = true;
+	}
+	if (i915.enable_psr == 3 && dev_priv->psr.link_standby) {
+		DRM_DEBUG_KMS("PSR: Forcing main link off\n");
+		dev_priv->psr.link_standby = false;
+	}
+
 	dev_priv->psr.source_ok = false;
 
 	/*
@@ -830,26 +851,6 @@ void intel_psr_init(struct drm_device *dev)
 			i915.enable_psr = 0;
 	}
 
-	/* Set link_standby x link_off defaults */
-	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
-		/* HSW and BDW require workarounds that we don't implement. */
-		dev_priv->psr.link_standby = false;
-	else if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
-		/* On VLV and CHV only standby mode is supported. */
-		dev_priv->psr.link_standby = true;
-	else
-		/* For new platforms let's respect VBT back again */
-		dev_priv->psr.link_standby = dev_priv->vbt.psr.full_link;
-
-	/* Override link_standby x link_off defaults */
-	if (i915.enable_psr == 2 && !dev_priv->psr.link_standby) {
-		DRM_DEBUG_KMS("PSR: Forcing link standby\n");
-		dev_priv->psr.link_standby = true;
-	}
-	if (i915.enable_psr == 3 && dev_priv->psr.link_standby) {
-		DRM_DEBUG_KMS("PSR: Forcing main link off\n");
-		dev_priv->psr.link_standby = false;
-	}
 
 	INIT_DELAYED_WORK(&dev_priv->psr.work, intel_psr_work);
 	mutex_init(&dev_priv->psr.lock);
