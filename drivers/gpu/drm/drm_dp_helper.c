@@ -854,3 +854,17 @@ int drm_dp_psr_setup_time(const u8 psr_cap[EDP_PSR_RECEIVER_CAP_SIZE])
 EXPORT_SYMBOL(drm_dp_psr_setup_time);
 
 #undef PSR_SETUP_TIME
+
+/**
+ * drm_dp_psr_need_train_on_exit() - Indicate whether link training is needed on PSR exit
+ * @psr_cap: PSR capabilities from DPCD
+ *
+ * Returns:
+ * Whether link training is required when exiting PSR main-link off mode.
+ */
+bool drm_dp_psr_need_train_on_exit(const u8 psr_cap[EDP_PSR_RECEIVER_CAP_SIZE])
+{
+	/* DP_PSR_NO_TRAIN_ON_EXIT is "don't care" for PSR2 capable devices */
+	return psr_cap[0] < 0x2 && (psr_cap[1] & DP_PSR_NO_TRAIN_ON_EXIT) == 0;
+}
+EXPORT_SYMBOL(drm_dp_psr_need_train_on_exit);
