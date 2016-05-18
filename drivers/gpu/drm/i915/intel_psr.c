@@ -72,8 +72,8 @@ static bool vlv_is_psr_active_on_pipe(struct drm_device *dev, int pipe)
 	       (val == VLV_EDP_PSR_ACTIVE_SF_UPDATE);
 }
 
-static void intel_psr_write_vsc(struct intel_dp *intel_dp,
-				const struct edp_vsc_psr *vsc_psr)
+static void hsw_psr_write_vsc(struct intel_dp *intel_dp,
+			      const struct edp_vsc_psr *vsc_psr)
 {
 	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
 	struct drm_device *dev = dig_port->base.base.dev;
@@ -121,28 +121,28 @@ static void vlv_psr_setup_vsc(struct intel_dp *intel_dp)
 
 static void skl_psr_setup_su_vsc(struct intel_dp *intel_dp)
 {
-	struct edp_vsc_psr psr_vsc;
-
 	/* Prepare VSC Header for SU as per EDP 1.4 spec, Table 6.11 */
-	memset(&psr_vsc, 0, sizeof(psr_vsc));
-	psr_vsc.sdp_header.HB0 = 0;
-	psr_vsc.sdp_header.HB1 = 0x7;
-	psr_vsc.sdp_header.HB2 = 0x3;
-	psr_vsc.sdp_header.HB3 = 0xb;
-	intel_psr_write_vsc(intel_dp, &psr_vsc);
+	static const struct edp_vsc_psr psr_vsc = {
+		.sdp_header.HB0 = 0,
+		.sdp_header.HB1 = 0x7,
+		.sdp_header.HB2 = 0x3,
+		.sdp_header.HB3 = 0xb,
+	};
+
+	hsw_psr_write_vsc(intel_dp, &psr_vsc);
 }
 
 static void hsw_psr_setup_vsc(struct intel_dp *intel_dp)
 {
-	struct edp_vsc_psr psr_vsc;
-
 	/* Prepare VSC packet as per EDP 1.3 spec, Table 3.10 */
-	memset(&psr_vsc, 0, sizeof(psr_vsc));
-	psr_vsc.sdp_header.HB0 = 0;
-	psr_vsc.sdp_header.HB1 = 0x7;
-	psr_vsc.sdp_header.HB2 = 0x2;
-	psr_vsc.sdp_header.HB3 = 0x8;
-	intel_psr_write_vsc(intel_dp, &psr_vsc);
+	static const struct edp_vsc_psr psr_vsc = {
+		.sdp_header.HB0 = 0,
+		.sdp_header.HB1 = 0x7,
+		.sdp_header.HB2 = 0x2,
+		.sdp_header.HB3 = 0x8,
+	};
+
+	hsw_psr_write_vsc(intel_dp, &psr_vsc);
 }
 
 static void vlv_psr_enable_sink(struct intel_dp *intel_dp)
