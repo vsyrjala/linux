@@ -822,3 +822,31 @@ void drm_dp_aux_unregister(struct drm_dp_aux *aux)
 	i2c_del_adapter(&aux->ddc);
 }
 EXPORT_SYMBOL(drm_dp_aux_unregister);
+
+/**
+ * drm_dp_psr_setup_time() - PSR setup in time usec
+ * @psr_cap: PSR capabilities from DPCD
+ *
+ * Returns:
+ * PSR setup time for the panel in microseconds,  negative
+ * error code on failure.
+ */
+int drm_dp_psr_setup_time(const u8 psr_cap[EDP_PSR_RECEIVER_CAP_SIZE])
+{
+	static const u16 psr_setup_time_us[] = {
+		[DP_PSR_SETUP_TIME_330] = 330,
+		[DP_PSR_SETUP_TIME_275] = 275,
+		[DP_PSR_SETUP_TIME_165] = 165,
+		[DP_PSR_SETUP_TIME_110] = 110,
+		[DP_PSR_SETUP_TIME_55] = 55,
+		[DP_PSR_SETUP_TIME_0] = 0,
+	};
+	int i;
+
+	i = psr_cap[1] & DP_PSR_SETUP_TIME_MASK;
+	if (i >= ARRAY_SIZE(psr_setup_time_us))
+		return -EINVAL;
+
+	return psr_setup_time_us[i];
+}
+EXPORT_SYMBOL(drm_dp_psr_setup_time);
