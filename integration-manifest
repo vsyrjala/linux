@@ -1,0 +1,22 @@
+origin/drm-intel-fixes 2dcd0af568b0cf583645c8a317dd12e344b1c72a
+	Linux 4.6
+drm-upstream/drm-fixes e02aacb6dec0c656379f0c1ff06c5bbb2bcb1e53
+	Merge branch 'drm-fixes-4.6' of git://people.freedesktop.org/~agd5f/linux into drm-fixes
+origin/drm-intel-next-fixes 5b4fd5b1111b1230cd037df3b314e7b36d45d483
+	drm/i915: Update DRIVER_DATE to 20160425
+origin/drm-intel-next-queued af4a879e0cb29b2cf35ff7559d32304783012534
+	drm/i915: Simplify control flow in intel_atomic_check a bit.
+drm-upstream/drm-next 7c10ddf87472c07eabc206e273dc59f77c700858
+	Merge branch 'drm-uapi-extern-c-fixes' of https://github.com/evelikov/linux into drm-next
+sound-upstream/for-next 6971ce4134174b9772ed79ff7747696eab087d30
+	Merge tag 'asoc-v4.7-fix-hdac' of git://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound into for-linus
+sound-upstream/for-linus c7c5856b6f6f30de622bf87947363890b286553f
+	sound: oss: Use setup_timer and mod_timer.
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc e2d800a3ce1b16a9c25fc6ca91f26df5509ca11d
+	drm: Avoid connector reference imbalance on error path
+origin/topic/kerneldoc 9dcb2eb293d5c7a568472c11ca95e3638d1fce00
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 3ea48cc412c5ecba970b228f3e23d147d7d5527b
+	kernfs: Move faulting copy_user operations outside of the mutex
