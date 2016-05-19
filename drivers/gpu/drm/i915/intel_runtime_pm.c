@@ -132,6 +132,8 @@ intel_display_power_domain_str(enum intel_display_power_domain domain)
 		return "INIT";
 	case POWER_DOMAIN_MODESET:
 		return "MODESET";
+	case POWER_DOMAIN_HOTPLUG:
+		return "HOTPLUG";
 	default:
 		MISSING_CASE(domain);
 		return "?";
@@ -1766,6 +1768,7 @@ void intel_display_power_put(struct drm_i915_private *dev_priv,
 	BIT(POWER_DOMAIN_AUX_B) |		\
 	BIT(POWER_DOMAIN_AUX_C) |		\
 	BIT(POWER_DOMAIN_GMBUS) |		\
+	BIT(POWER_DOMAIN_HOTPLUG) |		\
 	BIT(POWER_DOMAIN_INIT))
 
 #define VLV_DPIO_CMN_BC_POWER_DOMAINS (		\
@@ -1816,6 +1819,7 @@ void intel_display_power_put(struct drm_i915_private *dev_priv,
 	BIT(POWER_DOMAIN_AUX_C) |		\
 	BIT(POWER_DOMAIN_AUX_D) |		\
 	BIT(POWER_DOMAIN_GMBUS) |		\
+	BIT(POWER_DOMAIN_HOTPLUG) |		\
 	BIT(POWER_DOMAIN_INIT))
 
 #define CHV_DPIO_CMN_BC_POWER_DOMAINS (		\
@@ -2271,6 +2275,8 @@ void intel_power_domains_fini(struct drm_i915_private *dev_priv)
 	/* Remove the refcount we took to keep power well support disabled. */
 	if (!i915.disable_power_well)
 		intel_display_power_put(dev_priv, POWER_DOMAIN_INIT);
+	if (i915.always_on_hotplug)
+		intel_display_power_put(dev_priv, POWER_DOMAIN_HOTPLUG);
 
 	/*
 	 * Remove the refcount we took in intel_runtime_pm_enable() in case
@@ -2580,6 +2586,8 @@ void intel_power_domains_init_hw(struct drm_i915_private *dev_priv, bool resume)
 	/* Disable power support if the user asked so. */
 	if (!i915.disable_power_well)
 		intel_display_power_get(dev_priv, POWER_DOMAIN_INIT);
+	if (i915.always_on_hotplug)
+		intel_display_power_get(dev_priv, POWER_DOMAIN_HOTPLUG);
 	intel_power_domains_sync_hw(dev_priv);
 	power_domains->initializing = false;
 }
@@ -2599,6 +2607,8 @@ void intel_power_domains_suspend(struct drm_i915_private *dev_priv)
 	 */
 	if (!i915.disable_power_well)
 		intel_display_power_put(dev_priv, POWER_DOMAIN_INIT);
+	if (i915.always_on_hotplug)
+		intel_display_power_put(dev_priv, POWER_DOMAIN_HOTPLUG);
 
 	if (IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev_priv))
 		skl_display_core_uninit(dev_priv);

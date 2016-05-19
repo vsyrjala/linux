@@ -222,3 +222,7 @@ MODULE_PARM_DESC(inject_load_failure,
 module_param_named(enable_dpcd_backlight, i915.enable_dpcd_backlight, bool, 0600);
 MODULE_PARM_DESC(enable_dpcd_backlight,
 	"Enable support for DPCD backlight control (default:false)");
+
+module_param_named(always_on_hotplug, i915.always_on_hotplug, bool, 0400);
+MODULE_PARM_DESC(always_on_hotplug,
+	"Make sure hotplug always works by disallowing deep power states (default:false)");
