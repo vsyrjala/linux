@@ -366,6 +366,9 @@ ibx_get_dpll(struct intel_crtc *crtc, struct intel_crtc_state *crtc_state,
 					     DPLL_ID_PCH_PLL_B);
 	}
 
+	if (!pll)
+		return NULL;
+
 	/* reference the pll */
 	intel_reference_shared_dpll(pll, crtc_state);
 
@@ -1236,9 +1239,6 @@ skl_get_dpll(struct intel_crtc *crtc, struct intel_crtc_state *crtc_state,
 		case 162000:
 			ctrl1 |= DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_1620, 0);
 			break;
-		/* TBD: For DP link rates 2.16 GHz and 4.32 GHz, VCO is 8640 which
-		results in CDCLK change. Need to handle the change of CDCLK by
-		disabling pipes and re-enabling them */
 		case 108000:
 			ctrl1 |= DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_1080, 0);
 			break;
@@ -1508,7 +1508,7 @@ bxt_get_dpll(struct intel_crtc *crtc, struct intel_crtc_state *crtc_state,
 	int clock = crtc_state->port_clock;
 
 	if (encoder->type == INTEL_OUTPUT_HDMI) {
-		intel_clock_t best_clock;
+		struct dpll best_clock;
 
 		/* Calculate HDMI div */
 		/*
@@ -1633,18 +1633,10 @@ static const struct intel_shared_dpll_funcs bxt_ddi_pll_funcs = {
 static void intel_ddi_pll_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	uint32_t val = I915_READ(LCPLL_CTL);
 
-	if (IS_SKYLAKE(dev) || IS_KABYLAKE(dev)) {
-		int cdclk_freq;
+	if (INTEL_GEN(dev_priv) < 9) {
+		uint32_t val = I915_READ(LCPLL_CTL);
 
-		cdclk_freq = dev_priv->display.get_display_clock_speed(dev);
-		dev_priv->skl_boot_cdclk = cdclk_freq;
-		if (skl_sanitize_cdclk(dev_priv))
-			DRM_DEBUG_KMS("Sanitized cdclk programmed by pre-os\n");
-		if (!(I915_READ(LCPLL1_CTL) & LCPLL_PLL_ENABLE))
-			DRM_ERROR("LCPLL1 is disabled\n");
-	} else if (!IS_BROXTON(dev_priv)) {
 		/*
 		 * The LCPLL register should be turned on by the BIOS. For now
 		 * let's just check its state and print errors in case
