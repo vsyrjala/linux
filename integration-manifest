@@ -1,0 +1,22 @@
+origin/drm-intel-fixes 2dcd0af568b0cf583645c8a317dd12e344b1c72a
+	Linux 4.6
+drm-upstream/drm-fixes e02aacb6dec0c656379f0c1ff06c5bbb2bcb1e53
+	Merge branch 'drm-fixes-4.6' of git://people.freedesktop.org/~agd5f/linux into drm-fixes
+origin/drm-intel-next-fixes 157d2c7fad0863222f6f3b11c4690f2a6e74d809
+	drm/i915: Stop automatically retiring requests after a GPU hang
+origin/drm-intel-next-queued f326115630069063eb55db0236c5fedb3a131fdb
+	drm/i915: Reject modeset if the dotclock is too high
+drm-upstream/drm-next a39ed680bddb1ead592e22ed812c7e47286bfc03
+	drm/edid: add displayid detailed 1 timings to the modelist. (v1.1)
+sound-upstream/for-next 86c72d1ce91d804e4fa8d90b316a89597dd220f1
+	ALSA: hda - Fix headset mic detection problem for one Dell machine
+sound-upstream/for-linus 86c72d1ce91d804e4fa8d90b316a89597dd220f1
+	ALSA: hda - Fix headset mic detection problem for one Dell machine
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 14fe29e8ef44a175db2d803a0b7f0aa6c372631a
+	drm/doc: Drop vblank_disable_allow wording
+origin/topic/kerneldoc 9dcb2eb293d5c7a568472c11ca95e3638d1fce00
+	drm: Enable markdown^Wasciidoc for gpu.tmpl
+origin/topic/core-for-CI 3ea48cc412c5ecba970b228f3e23d147d7d5527b
+	kernfs: Move faulting copy_user operations outside of the mutex
