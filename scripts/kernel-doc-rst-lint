@@ -1,0 +1,106 @@
+#!/usr/bin/env python
+# coding=utf-8
+#
+# Copyright © 2016 Intel Corporation
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice (including the next
+# paragraph) shall be included in all copies or substantial portions of the
+# Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+# IN THE SOFTWARE.
+#
+# Authors:
+#    Jani Nikula <jani.nikula@intel.com>
+#
+# Simple kernel-doc and reStructuredText lint tool that can be used
+# independently and as a kernel build CHECK tool to validate kernel-doc
+# comments.
+#
+# Independent usage:
+# $ kernel-doc-rst-lint FILE
+#
+# Kernel CHECK usage:
+# $ make CHECK=scripts/kernel-doc-rst-lint C=1		# (or C=2)
+#
+# Depends on docutils and the rst-lint package
+# https://pypi.python.org/pypi/restructuredtext_lint
+#
+
+import os
+import subprocess
+import sys
+
+from docutils.parsers.rst import directives
+from docutils.parsers.rst import Directive
+from docutils.parsers.rst import roles
+from docutils import nodes, statemachine
+import restructuredtext_lint
+
+class DummyDirective(Directive):
+    required_argument = 1
+    optional_arguments = 0
+    option_spec = { }
+    has_content = True
+
+    def run(self):
+        return []
+
+# Fake the Sphinx C Domain directives and roles
+directives.register_directive('c:function', DummyDirective)
+directives.register_directive('c:type', DummyDirective)
+roles.register_generic_role('c:func', nodes.emphasis)
+roles.register_generic_role('c:type', nodes.emphasis)
+
+# We accept but ignore parameters to be compatible with how the kernel build
+# invokes CHECK.
+if len(sys.argv) < 2:
+    sys.stderr.write('usage: kernel-doc-rst-lint [IGNORED OPTIONS] FILE\n');
+    sys.exit(1)
+
+infile = sys.argv[len(sys.argv) - 1]
+cmd = ['scripts/kernel-doc', '-rst', infile]
+
+try:
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    out, err = p.communicate()
+
+    # python2 needs conversion to unicode.
+    # python3 with universal_newlines=True returns strings.
+    if sys.version_info.major < 3:
+        out, err = unicode(out, 'utf-8'), unicode(err, 'utf-8')
+
+    # kernel-doc errors
+    sys.stderr.write(err)
+    if p.returncode != 0:
+        sys.exit(p.returncode)
+
+    # restructured text errors
+    lines = statemachine.string2lines(out, 8, convert_whitespace=True)
+    lint_errors = restructuredtext_lint.lint(out, infile)
+    for error in lint_errors:
+        # Ignore INFO
+        if error.level <= 1:
+            continue
+
+        print(error.source + ': ' + error.type + ': ' + error.full_message)
+        if error.line is not None:
+            print('Context:')
+            print('\t' + lines[error.line - 1])
+            print('\t' + lines[error.line])
+
+except Exception as e:
+    sys.stderr.write(str(e) + '\n')
+    sys.exit(1)
