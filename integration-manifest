@@ -1,0 +1,22 @@
+origin/drm-intel-fixes 1a695a905c18548062509178b98bc91e67510864
+	Linux 4.7-rc1
+drm-upstream/drm-fixes e02aacb6dec0c656379f0c1ff06c5bbb2bcb1e53
+	Merge branch 'drm-fixes-4.6' of git://people.freedesktop.org/~agd5f/linux into drm-fixes
+origin/drm-intel-next-fixes 157d2c7fad0863222f6f3b11c4690f2a6e74d809
+	drm/i915: Stop automatically retiring requests after a GPU hang
+origin/drm-intel-next-queued 1d577e02eba737ec586303937ce93f17650c2588
+	drm/i915: kill STANDARD/CURSOR plane screams
+drm-upstream/drm-next 92181d47ee74749bdf902f080dab9fa9ef44b37f
+	headers_check: don't warn about c++ guards
+sound-upstream/for-next 6fbae35a3170c3e2b1b9d7b9cc943cbe48771362
+	ALSA: hda/realtek - Add support for new codecs ALC700/ALC701/ALC703
+sound-upstream/for-linus 6fbae35a3170c3e2b1b9d7b9cc943cbe48771362
+	ALSA: hda/realtek - Add support for new codecs ALC700/ALC701/ALC703
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 564dd27e5f765676eb187f7cbe5f0d101b3eecb8
+	drm/mediatek: Use lockless gem BO free callback
+origin/topic/core-for-CI 3ea48cc412c5ecba970b228f3e23d147d7d5527b
+	kernfs: Move faulting copy_user operations outside of the mutex
+origin/topic/sphinx 54cf34fdfa36b4f6ab246fa26dab8cebba05df04
+	Documentation: add gpu document converted from DocBook
