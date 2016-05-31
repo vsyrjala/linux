@@ -211,7 +211,9 @@ static void hsw_psr_enable_sink(struct intel_dp *intel_dp)
 		I915_WRITE(psr_aux_data_reg(dev_priv, port, i >> 2),
 			   intel_dp_pack_aux(&aux_msg[i], sizeof(aux_msg) - i));
 
-	aux_ctl = intel_dp->get_aux_send_ctl(intel_dp, 0, sizeof(aux_msg),
+	aux_ctl = intel_dp->get_aux_send_ctl(intel_dp,
+					     INTEL_GEN(dev_priv) >= 9,
+					     sizeof(aux_msg),
 					     aux_clock_divider);
 	if (INTEL_GEN(dev_priv) < 9)
 		aux_ctl |= EDP_PSR_INTERRUPT_ON_ERROR;
