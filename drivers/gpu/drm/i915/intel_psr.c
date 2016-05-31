@@ -213,6 +213,8 @@ static void hsw_psr_enable_sink(struct intel_dp *intel_dp)
 
 	aux_ctl = intel_dp->get_aux_send_ctl(intel_dp, 0, sizeof(aux_msg),
 					     aux_clock_divider);
+	if (INTEL_GEN(dev_priv) < 9)
+		aux_ctl |= EDP_PSR_INTERRUPT_ON_ERROR;
 	I915_WRITE(aux_ctl_reg, aux_ctl);
 }
 
