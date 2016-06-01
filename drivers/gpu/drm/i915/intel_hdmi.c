@@ -68,7 +68,7 @@ static struct intel_hdmi *intel_attached_hdmi(struct drm_connector *connector)
 	return enc_to_intel_hdmi(&intel_attached_encoder(connector)->base);
 }
 
-static u32 g4x_infoframe_index(enum hdmi_infoframe_type type)
+static u32 g4x_infoframe_index(unsigned int type)
 {
 	switch (type) {
 	case HDMI_INFOFRAME_TYPE_AVI:
@@ -83,7 +83,7 @@ static u32 g4x_infoframe_index(enum hdmi_infoframe_type type)
 	}
 }
 
-static u32 g4x_infoframe_enable(enum hdmi_infoframe_type type)
+static u32 g4x_infoframe_enable(unsigned int type)
 {
 	switch (type) {
 	case HDMI_INFOFRAME_TYPE_AVI:
@@ -98,9 +98,11 @@ static u32 g4x_infoframe_enable(enum hdmi_infoframe_type type)
 	}
 }
 
-static u32 hsw_infoframe_enable(enum hdmi_infoframe_type type)
+static u32 hsw_infoframe_enable(unsigned int type)
 {
 	switch (type) {
+	case DP_SDP_VSC:
+		return VIDEO_DIP_ENABLE_VSC_HSW;
 	case HDMI_INFOFRAME_TYPE_AVI:
 		return VIDEO_DIP_ENABLE_AVI_HSW;
 	case HDMI_INFOFRAME_TYPE_SPD:
@@ -116,10 +118,12 @@ static u32 hsw_infoframe_enable(enum hdmi_infoframe_type type)
 static i915_reg_t
 hsw_dip_data_reg(struct drm_i915_private *dev_priv,
 		 enum transcoder cpu_transcoder,
-		 enum hdmi_infoframe_type type,
+		 unsigned int type,
 		 int i)
 {
 	switch (type) {
+	case DP_SDP_VSC:
+		return HSW_TVIDEO_DIP_VSC_DATA(cpu_transcoder, i);
 	case HDMI_INFOFRAME_TYPE_AVI:
 		return HSW_TVIDEO_DIP_AVI_DATA(cpu_transcoder, i);
 	case HDMI_INFOFRAME_TYPE_SPD:
@@ -133,7 +137,7 @@ hsw_dip_data_reg(struct drm_i915_private *dev_priv,
 }
 
 static void g4x_write_infoframe(struct drm_encoder *encoder,
-				enum hdmi_infoframe_type type,
+				unsigned int type,
 				const void *frame, ssize_t len)
 {
 	const uint32_t *data = frame;
@@ -187,7 +191,7 @@ static bool g4x_infoframe_enabled(struct drm_encoder *encoder,
 }
 
 static void ibx_write_infoframe(struct drm_encoder *encoder,
-				enum hdmi_infoframe_type type,
+				unsigned int type,
 				const void *frame, ssize_t len)
 {
 	const uint32_t *data = frame;
@@ -246,7 +250,7 @@ static bool ibx_infoframe_enabled(struct drm_encoder *encoder,
 }
 
 static void cpt_write_infoframe(struct drm_encoder *encoder,
-				enum hdmi_infoframe_type type,
+				unsigned int type,
 				const void *frame, ssize_t len)
 {
 	const uint32_t *data = frame;
@@ -303,7 +307,7 @@ static bool cpt_infoframe_enabled(struct drm_encoder *encoder,
 }
 
 static void vlv_write_infoframe(struct drm_encoder *encoder,
-				enum hdmi_infoframe_type type,
+				unsigned int type,
 				const void *frame, ssize_t len)
 {
 	const uint32_t *data = frame;
@@ -361,7 +365,7 @@ static bool vlv_infoframe_enabled(struct drm_encoder *encoder,
 }
 
 static void hsw_write_infoframe(struct drm_encoder *encoder,
-				enum hdmi_infoframe_type type,
+				unsigned int type,
 				const void *frame, ssize_t len)
 {
 	const uint32_t *data = frame;
@@ -371,6 +375,8 @@ static void hsw_write_infoframe(struct drm_encoder *encoder,
 	enum transcoder cpu_transcoder = intel_crtc->config->cpu_transcoder;
 	i915_reg_t ctl_reg = HSW_TVIDEO_DIP_CTL(cpu_transcoder);
 	i915_reg_t data_reg;
+	int data_size = type == DP_SDP_VSC ?
+		VIDEO_DIP_VSC_DATA_SIZE : VIDEO_DIP_DATA_SIZE;
 	int i;
 	u32 val = I915_READ(ctl_reg);
 
@@ -386,7 +392,7 @@ static void hsw_write_infoframe(struct drm_encoder *encoder,
 		data++;
 	}
 	/* Write every possible data byte to force correct ECC calculation. */
-	for (; i < VIDEO_DIP_DATA_SIZE; i += 4)
+	for (; i < data_size; i += 4)
 		I915_WRITE(hsw_dip_data_reg(dev_priv, cpu_transcoder,
 					    type, i >> 2), 0);
 	mmiowb();
