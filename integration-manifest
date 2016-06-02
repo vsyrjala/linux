@@ -1,0 +1,24 @@
+origin/drm-intel-fixes 1a695a905c18548062509178b98bc91e67510864
+	Linux 4.7-rc1
+drm-upstream/drm-fixes a9bf7d60c273763d3f0f4f991bd96fbc411bfd73
+	Merge tag 'mediatek-drm-fixes-2016-06-01' of git://git.pengutronix.de/git/pza/linux into drm-fixes
+origin/drm-intel-next-fixes 157d2c7fad0863222f6f3b11c4690f2a6e74d809
+	drm/i915: Stop automatically retiring requests after a GPU hang
+origin/drm-intel-next-queued df457245b5b7515cf97763ebd8975229e34d4cf3
+	drm/i915: Extract physical display dimensions from VBT
+drm-upstream/drm-next 66fd7a66e8b9e11e49f46ea77910f935c4dee5c3
+	Merge branch 'drm-intel-next' of git://anongit.freedesktop.org/drm-intel into drm-next
+sound-upstream/for-next 1524c7191be24288ac097c7c3c1bc411f36c1fa4
+	ALSA: adlib: Utilize the module_isa_driver macro
+sound-upstream/for-linus 0358ccc8ffd8d9b76992b8deab58fb9a721fb18a
+	ALSA: uapi: Add three missing header files to Kbuild file
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 60c9e19003763cf2f234f30411c7bafa82dd1c65
+	drm/atomic-docs: Spelling fixups
+origin/topic/core-for-CI 46ad020cf7e398c3001bcfe45930003aa6fe62f0
+	iommu: Disable preemption around use of this_cpu_ptr()
+origin/topic/sphinx 9e83a01105301d4b3496731464b84a3a3dbf715c
+	kernel-doc-rst-lint: add tool to check kernel-doc and rst correctness
+origin/topic/lockless-gem-bo-freeing e1512ee08f00c17918093e75be4a3fa297bcaf9b
+	drm/arcpgu: Use lockless gem BO free callback
