@@ -267,11 +267,11 @@ drm_atomic_get_crtc_state(struct drm_atomic_state *state,
 	int ret, index = drm_crtc_index(crtc);
 	struct drm_crtc_state *crtc_state;
 
-	WARN_ON(!state->acquire_ctx);
-
 	crtc_state = drm_atomic_get_existing_crtc_state(state, crtc);
 	if (crtc_state)
 		return crtc_state;
+
+	WARN_ON(!state->acquire_ctx);
 
 	ret = drm_modeset_lock(&crtc->mutex, state->acquire_ctx);
 	if (ret)
@@ -628,11 +628,11 @@ drm_atomic_get_plane_state(struct drm_atomic_state *state,
 	int ret, index = drm_plane_index(plane);
 	struct drm_plane_state *plane_state;
 
-	WARN_ON(!state->acquire_ctx);
-
 	plane_state = drm_atomic_get_existing_plane_state(state, plane);
 	if (plane_state)
 		return plane_state;
+
+	WARN_ON(!state->acquire_ctx);
 
 	ret = drm_modeset_lock(&plane->mutex, state->acquire_ctx);
 	if (ret)
