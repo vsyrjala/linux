@@ -653,7 +653,8 @@ static int i915_audio_component_sync_audio_rate(struct device *dev,
 	intel_encoder = dev_priv->dig_port_map[port];
 	/* intel_encoder might be NULL for DP MST */
 	if (!intel_encoder || !intel_encoder->base.crtc ||
-	    intel_encoder->type != INTEL_OUTPUT_HDMI) {
+	    !intel_crtc_has_type(to_intel_crtc(intel_encoder->base.crtc)->config,
+				 INTEL_OUTPUT_HDMI)) {
 		DRM_DEBUG_KMS("no valid port %c\n", port_name(port));
 		err = -ENODEV;
 		goto unlock;
