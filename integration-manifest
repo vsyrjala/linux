@@ -1,0 +1,24 @@
+origin/drm-intel-fixes af8c34ce6ae32addda3788d54a7e340cad22516b
+	Linux 4.7-rc2
+drm-upstream/drm-fixes ab3ab68493aaac6fea4ad1bb597def9f48f41c71
+	drm/omap: fix unused variable warning.
+origin/drm-intel-next-fixes 157d2c7fad0863222f6f3b11c4690f2a6e74d809
+	drm/i915: Stop automatically retiring requests after a GPU hang
+origin/drm-intel-next-queued a4015f9a9c3c206b57b22c4ad05b1d68332ffb2e
+	drm/i915: only disable memory self-refresh on GMCH
+drm-upstream/drm-next 66fd7a66e8b9e11e49f46ea77910f935c4dee5c3
+	Merge branch 'drm-intel-next' of git://anongit.freedesktop.org/drm-intel into drm-next
+sound-upstream/for-next 43aa56d95d2c3f141d516c78a654a33d1f287839
+	ALSA: sh: aica: Remove deprecated create_workqueue
+sound-upstream/for-linus f90d83b301701026b2e4c437a3613f377f63290e
+	ALSA: hda - Fix headset mic detection problem for Dell machine
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc e8395081636734da19778b0446d65588a06bc40d
+	drm/dsi: Implement set tear scanline
+origin/topic/core-for-CI 46ad020cf7e398c3001bcfe45930003aa6fe62f0
+	iommu: Disable preemption around use of this_cpu_ptr()
+origin/topic/sphinx abdccea1af37bfd43842ddc2d7b6853cb30df4c5
+	kernel-doc-rst-lint: add tool to check kernel-doc and rst correctness
+origin/topic/lockless-gem-bo-freeing e1512ee08f00c17918093e75be4a3fa297bcaf9b
+	drm/arcpgu: Use lockless gem BO free callback
