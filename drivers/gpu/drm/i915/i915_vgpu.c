@@ -53,20 +53,19 @@
 
 /**
  * i915_check_vgpu - detect virtual GPU
- * @dev: drm device *
+ * @dev_priv: i915 device private
  *
  * This function is called at the initialization stage, to detect whether
  * running on a vGPU.
  */
-void i915_check_vgpu(struct drm_device *dev)
+void i915_check_vgpu(struct drm_i915_private *dev_priv)
 {
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	uint64_t magic;
 	uint32_t version;
 
 	BUILD_BUG_ON(sizeof(struct vgt_if) != VGT_PVINFO_SIZE);
 
-	if (!IS_HASWELL(dev))
+	if (!IS_HASWELL(dev_priv))
 		return;
 
 	magic = __raw_i915_read64(dev_priv, vgtif_reg(magic));

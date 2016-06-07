@@ -2449,6 +2449,8 @@ enum skl_disp_power_wells {
 #define   DPLL_MD_VGA_UDI_MULTIPLIER_MASK	0x0000003f
 #define   DPLL_MD_VGA_UDI_MULTIPLIER_SHIFT	0
 
+#define RAWCLK_FREQ_VLV		_MMIO(VLV_DISPLAY_BASE + 0x6024)
+
 #define _FPA0	0x6040
 #define _FPA1	0x6044
 #define _FPB0	0x6048
@@ -6031,6 +6033,7 @@ enum skl_disp_power_wells {
 #define CHICKEN_PAR1_1		_MMIO(0x42080)
 #define  DPA_MASK_VBLANK_SRD	(1 << 15)
 #define  FORCE_ARB_IDLE_PLANES	(1 << 14)
+#define  SKL_EDP_PSR_FIX_RDWRAP	(1 << 3)
 
 #define _CHICKEN_PIPESL_1_A	0x420b0
 #define _CHICKEN_PIPESL_1_B	0x420b4
@@ -6069,6 +6072,7 @@ enum skl_disp_power_wells {
 #define  GEN9_TSG_BARRIER_ACK_DISABLE		(1<<8)
 
 #define GEN9_CS_DEBUG_MODE1		_MMIO(0x20ec)
+#define GEN9_CTX_PREEMPT_REG		_MMIO(0x2248)
 #define GEN8_CS_CHICKEN1		_MMIO(0x2580)
 
 /* GEN7 chicken */
@@ -6089,7 +6093,14 @@ enum skl_disp_power_wells {
 #define  VLV_B0_WA_L3SQCREG1_VALUE		0x00D30000
 
 #define GEN8_L3SQCREG1				_MMIO(0xB100)
-#define  BDW_WA_L3SQCREG1_DEFAULT		0x784000
+/*
+ * Note that on CHV the following has an off-by-one error wrt. to BSpec.
+ * Using the formula in BSpec leads to a hang, while the formula here works
+ * fine and matches the formulas for all other platforms. A BSpec change
+ * request has been filed to clarify this.
+ */
+#define  L3_GENERAL_PRIO_CREDITS(x)		(((x) >> 1) << 19)
+#define  L3_HIGH_PRIO_CREDITS(x)		(((x) >> 1) << 14)
 
 #define GEN7_L3CNTLREG1				_MMIO(0xB01C)
 #define  GEN7_WA_FOR_GEN7_L3_CONTROL			0x3C47FF8C
@@ -7021,7 +7032,7 @@ enum skl_disp_power_wells {
 #define VLV_RCEDATA				_MMIO(0xA0BC)
 #define GEN6_RC6pp_THRESHOLD			_MMIO(0xA0C0)
 #define GEN6_PMINTRMSK				_MMIO(0xA168)
-#define GEN8_PMINTR_REDIRECT_TO_NON_DISP	(1<<31)
+#define   GEN8_PMINTR_REDIRECT_TO_NON_DISP	(1<<31)
 #define VLV_PWRDWNUPCTL				_MMIO(0xA294)
 #define GEN9_MEDIA_PG_IDLE_HYSTERESIS		_MMIO(0xA0C4)
 #define GEN9_RENDER_PG_IDLE_HYSTERESIS		_MMIO(0xA0C8)
@@ -7557,14 +7568,15 @@ enum skl_disp_power_wells {
 #define  CDCLK_FREQ_540			(1<<26)
 #define  CDCLK_FREQ_337_308		(2<<26)
 #define  CDCLK_FREQ_675_617		(3<<26)
-#define  CDCLK_FREQ_DECIMAL_MASK	(0x7ff)
-
 #define  BXT_CDCLK_CD2X_DIV_SEL_MASK	(3<<22)
 #define  BXT_CDCLK_CD2X_DIV_SEL_1	(0<<22)
 #define  BXT_CDCLK_CD2X_DIV_SEL_1_5	(1<<22)
 #define  BXT_CDCLK_CD2X_DIV_SEL_2	(2<<22)
 #define  BXT_CDCLK_CD2X_DIV_SEL_4	(3<<22)
+#define  BXT_CDCLK_CD2X_PIPE(pipe)	((pipe)<<20)
+#define  BXT_CDCLK_CD2X_PIPE_NONE	BXT_CDCLK_CD2X_PIPE(3)
 #define  BXT_CDCLK_SSA_PRECHARGE_ENABLE	(1<<16)
+#define  CDCLK_FREQ_DECIMAL_MASK	(0x7ff)
 
 /* LCPLL_CTL */
 #define LCPLL1_CTL		_MMIO(0x46010)
@@ -8140,6 +8152,8 @@ enum skl_disp_power_wells {
 #define _MIPIA_EOT_DISABLE		(dev_priv->mipi_mmio_base + 0xb05c)
 #define _MIPIC_EOT_DISABLE		(dev_priv->mipi_mmio_base + 0xb85c)
 #define MIPI_EOT_DISABLE(port)		_MMIO_MIPI(port, _MIPIA_EOT_DISABLE, _MIPIC_EOT_DISABLE)
+#define  BXT_DEFEATURE_DPI_FIFO_CTR			(1 << 9)
+#define  BXT_DPHY_DEFEATURE_EN				(1 << 8)
 #define  LP_RX_TIMEOUT_ERROR_RECOVERY_DISABLE		(1 << 7)
 #define  HS_RX_TIMEOUT_ERROR_RECOVERY_DISABLE		(1 << 6)
 #define  LOW_CONTENTION_RECOVERY_DISABLE		(1 << 5)
