@@ -313,8 +313,6 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 
 	DRM_DEBUG_KMS("\n");
 
-	pipe_config->has_dsi_encoder = true;
-
 	if (fixed_mode) {
 		intel_fixed_panel_mode(fixed_mode, adjusted_mode);
 
@@ -953,8 +951,6 @@ static void intel_dsi_get_config(struct intel_encoder *encoder,
 	struct drm_device *dev = encoder->base.dev;
 	u32 pclk;
 	DRM_DEBUG_KMS("\n");
-
-	pipe_config->has_dsi_encoder = true;
 
 	if (IS_BROXTON(dev))
 		bxt_dsi_get_pipe_config(encoder, pipe_config);
