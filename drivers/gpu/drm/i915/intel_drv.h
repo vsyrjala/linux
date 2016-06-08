@@ -138,7 +138,7 @@ enum intel_output_type {
 	INTEL_OUTPUT_DP = 7,
 	INTEL_OUTPUT_EDP = 8,
 	INTEL_OUTPUT_DSI = 9,
-	INTEL_OUTPUT_UNKNOWN = 10,
+	INTEL_OUTPUT_DDI = 10,
 	INTEL_OUTPUT_DP_MST = 11,
 };
 
@@ -169,6 +169,8 @@ struct intel_encoder {
 	enum intel_output_type type;
 	unsigned int cloneable;
 	void (*hot_plug)(struct intel_encoder *);
+	enum intel_output_type (*compute_output_type)(struct intel_encoder *,
+						      struct intel_crtc_state *);
 	bool (*compute_config)(struct intel_encoder *,
 			       struct intel_crtc_state *);
 	void (*pre_pll_enable)(struct intel_encoder *);

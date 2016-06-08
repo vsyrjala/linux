@@ -5102,7 +5102,7 @@ intel_display_port_power_domain(struct intel_encoder *intel_encoder)
 	struct intel_digital_port *intel_dig_port;
 
 	switch (intel_encoder->type) {
-	case INTEL_OUTPUT_UNKNOWN:
+	case INTEL_OUTPUT_DDI:
 		/* Only DDI platforms should ever use this output type */
 		WARN_ON_ONCE(!HAS_DDI(dev));
 	case INTEL_OUTPUT_DP:
@@ -5129,15 +5129,8 @@ intel_display_port_aux_power_domain(struct intel_encoder *intel_encoder)
 	struct intel_digital_port *intel_dig_port;
 
 	switch (intel_encoder->type) {
-	case INTEL_OUTPUT_UNKNOWN:
-	case INTEL_OUTPUT_HDMI:
-		/*
-		 * Only DDI platforms should ever use these output types.
-		 * We can get here after the HDMI detect code has already set
-		 * the type of the shared encoder. Since we can't be sure
-		 * what's the status of the given connectors, play safe and
-		 * run the DP detection too.
-		 */
+	case INTEL_OUTPUT_DDI:
+		/* Only DDI platforms should ever use this output type */
 		WARN_ON_ONCE(!HAS_DDI(dev));
 	case INTEL_OUTPUT_DP:
 	case INTEL_OUTPUT_EDP:
@@ -12333,7 +12326,7 @@ static bool check_digital_port_conflicts(struct drm_atomic_state *state)
 
 		switch (encoder->type) {
 			unsigned int port_mask;
-		case INTEL_OUTPUT_UNKNOWN:
+		case INTEL_OUTPUT_DDI:
 			if (WARN_ON(!HAS_DDI(dev)))
 				break;
 		case INTEL_OUTPUT_DP:
@@ -12439,6 +12432,8 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 
 		encoder = to_intel_encoder(connector_state->best_encoder);
 
+		DRM_DEBUG_KMS("Using encoder %s\n", encoder->base.name);
+
 		if (!check_single_encoder_cloning(state, to_intel_crtc(crtc), encoder)) {
 			DRM_DEBUG_KMS("rejecting invalid cloning configuration\n");
 			goto fail;
@@ -12448,7 +12443,11 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 		 * Determine output_types before calling the .compute_config()
 		 * hooks so that the hooks can use this information safely.
 		 */
-		pipe_config->output_types |= 1 << encoder->type;
+		if (encoder->compute_output_type)
+			pipe_config->output_types |=
+				1 << encoder->compute_output_type(encoder, pipe_config);
+		else
+			pipe_config->output_types |= 1 << encoder->type;
 	}
 
 encoder_retry:
@@ -13016,7 +13015,12 @@ verify_crtc_state(struct drm_crtc *crtc,
 				pipe_name(pipe));
 
 		if (active) {
-			pipe_config->output_types |= 1 << encoder->type;
+			/*
+			 * .get_config() is responsible for this if the
+			 * encoder has multiple personalities
+			 */
+			if (!encoder->compute_output_type)
+				pipe_config->output_types |= 1 << encoder->type;
 			encoder->get_config(encoder, pipe_config);
 		}
 	}
@@ -15990,7 +15994,12 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 		if (encoder->get_hw_state(encoder, &pipe)) {
 			crtc = to_intel_crtc(dev_priv->pipe_to_crtc_mapping[pipe]);
 			encoder->base.crtc = &crtc->base;
-			crtc->config->output_types |= 1 << encoder->type;
+			/*
+			 * .get_config() is responsible for this if the
+			 * encoder has multiple personalities
+			 */
+			if (!encoder->compute_output_type)
+				crtc->config->output_types |= 1 << encoder->type;
 			encoder->get_config(encoder, crtc->config);
 		} else {
 			encoder->base.crtc = NULL;

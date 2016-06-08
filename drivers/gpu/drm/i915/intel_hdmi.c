@@ -1495,12 +1495,9 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 
 	intel_hdmi_unset_edid(connector);
 
-	if (intel_hdmi_set_edid(connector, live_status)) {
-		struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
-
-		hdmi_to_dig_port(intel_hdmi)->base.type = INTEL_OUTPUT_HDMI;
+	if (intel_hdmi_set_edid(connector, live_status))
 		status = connector_status_connected;
-	} else
+	else
 		status = connector_status_disconnected;
 
 	intel_display_power_put(dev_priv, POWER_DOMAIN_GMBUS);
@@ -1511,8 +1508,6 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 static void
 intel_hdmi_force(struct drm_connector *connector)
 {
-	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
-
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n",
 		      connector->base.id, connector->name);
 
@@ -1522,7 +1517,6 @@ intel_hdmi_force(struct drm_connector *connector)
 		return;
 
 	intel_hdmi_set_edid(connector, true);
-	hdmi_to_dig_port(intel_hdmi)->base.type = INTEL_OUTPUT_HDMI;
 }
 
 static int intel_hdmi_get_modes(struct drm_connector *connector)

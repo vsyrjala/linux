@@ -4264,9 +4264,6 @@ intel_dp_long_pulse(struct intel_connector *intel_connector)
 		goto out;
 	}
 
-	if (intel_encoder->type != INTEL_OUTPUT_EDP)
-		intel_encoder->type = INTEL_OUTPUT_DP;
-
 	intel_dp_probe_oui(intel_dp);
 
 	ret = intel_dp_probe_mst(intel_dp);
@@ -4330,8 +4327,6 @@ static enum drm_connector_status
 intel_dp_detect(struct drm_connector *connector, bool force)
 {
 	struct intel_dp *intel_dp = intel_attached_dp(connector);
-	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
-	struct intel_encoder *intel_encoder = &intel_dig_port->base;
 	struct intel_connector *intel_connector = to_intel_connector(connector);
 
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n",
@@ -4340,8 +4335,6 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 	if (intel_dp->is_mst) {
 		/* MST devices are disconnected from a monitor POV */
 		intel_dp_unset_edid(intel_dp);
-		if (intel_encoder->type != INTEL_OUTPUT_EDP)
-			intel_encoder->type = INTEL_OUTPUT_DP;
 		return connector_status_disconnected;
 	}
 
@@ -4378,9 +4371,6 @@ intel_dp_force(struct drm_connector *connector)
 	intel_dp_set_edid(intel_dp);
 
 	intel_display_power_put(dev_priv, power_domain);
-
-	if (intel_encoder->type != INTEL_OUTPUT_EDP)
-		intel_encoder->type = INTEL_OUTPUT_DP;
 }
 
 static int intel_dp_get_modes(struct drm_connector *connector)
@@ -4670,10 +4660,6 @@ intel_dp_hpd_pulse(struct intel_digital_port *intel_dig_port, bool long_hpd)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	enum intel_display_power_domain power_domain;
 	enum irqreturn ret = IRQ_NONE;
-
-	if (intel_dig_port->base.type != INTEL_OUTPUT_EDP &&
-	    intel_dig_port->base.type != INTEL_OUTPUT_HDMI)
-		intel_dig_port->base.type = INTEL_OUTPUT_DP;
 
 	if (long_hpd && intel_dig_port->base.type == INTEL_OUTPUT_EDP) {
 		/*
@@ -5551,7 +5537,7 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 	/*
 	 * For eDP we always set the encoder type to INTEL_OUTPUT_EDP, but
 	 * for DP the encoder type can be set by the caller to
-	 * INTEL_OUTPUT_UNKNOWN for DDI, so don't rewrite it.
+	 * INTEL_OUTPUT_DDI, so don't rewrite it.
 	 */
 	if (type == DRM_MODE_CONNECTOR_eDP)
 		intel_encoder->type = INTEL_OUTPUT_EDP;
