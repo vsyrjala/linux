@@ -47,7 +47,6 @@ static bool intel_dp_mst_compute_config(struct intel_encoder *encoder,
 
 	pipe_config->dp_encoder_is_mst = true;
 	pipe_config->has_pch_encoder = false;
-	pipe_config->has_dp_encoder = true;
 	bpp = 24;
 	/*
 	 * for MST we always configure max link bw - the spec doesn't
@@ -242,8 +241,6 @@ static void intel_dp_mst_enc_get_config(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	enum transcoder cpu_transcoder = pipe_config->cpu_transcoder;
 	u32 temp, flags = 0;
-
-	pipe_config->has_dp_encoder = true;
 
 	temp = I915_READ(TRANS_DDI_FUNC_CTL(cpu_transcoder));
 	if (temp & TRANS_DDI_PHSYNC)
