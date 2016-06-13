@@ -5551,6 +5551,10 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 
 	i915_debugfs_connector_add(connector);
 
+	if (i915.poll_connectors)
+		intel_connector->polled = DRM_CONNECTOR_POLL_CONNECT |
+			DRM_CONNECTOR_POLL_DISCONNECT;
+
 	return true;
 
 fail:

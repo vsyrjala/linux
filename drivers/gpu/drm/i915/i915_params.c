@@ -226,3 +226,7 @@ MODULE_PARM_DESC(enable_dpcd_backlight,
 module_param_named(always_on_hotplug, i915.always_on_hotplug, bool, 0400);
 MODULE_PARM_DESC(always_on_hotplug,
 	"Make sure hotplug always works by disallowing deep power states (default:false)");
+
+module_param_named(poll_connectors, i915.poll_connectors, bool, 0400);
+MODULE_PARM_DESC(poll_connectors,
+	"Poll all connectors rather than use HPD (default:false)");

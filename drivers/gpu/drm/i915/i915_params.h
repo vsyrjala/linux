@@ -64,6 +64,7 @@ struct i915_params {
 	bool enable_dp_mst;
 	bool enable_dpcd_backlight;
 	bool always_on_hotplug;
+	bool poll_connectors;
 };
 
 extern struct i915_params i915 __read_mostly;
