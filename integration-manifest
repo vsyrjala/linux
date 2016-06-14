@@ -1,0 +1,24 @@
+origin/drm-intel-fixes 356d27bbfe332de0f2f78e55636e581960c9774e
+	drm/i915: Extract physical display dimensions from VBT
+drm-upstream/drm-fixes 27bf60db2485c09eba3b473ce5ffbaa4bba0c24e
+	Merge tag 'drm-amdkfd-fixes-2016-06-03' of git://people.freedesktop.org/~gabbayo/linux into drm-fixes
+origin/drm-intel-next-fixes 157d2c7fad0863222f6f3b11c4690f2a6e74d809
+	drm/i915: Stop automatically retiring requests after a GPU hang
+origin/drm-intel-next-queued 780f0aebda2e2f9df4cc5ddda411a724db7a1dcc
+	drm/i915/bxt: Add WaDisablePooledEuLoadBalancingFix
+drm-upstream/drm-next 3c85f20a289d044f303f473ee6ab7502303fc3b0
+	Merge tag 'omapdrm-4.8' of git://git.kernel.org/pub/scm/linux/kernel/git/tomba/linux into drm-next
+sound-upstream/for-next 43aa56d95d2c3f141d516c78a654a33d1f287839
+	ALSA: sh: aica: Remove deprecated create_workqueue
+sound-upstream/for-linus 35639a0e98391036a4c7f23253c321d6621a8897
+	ALSA: hda - Add PCI ID for Kabylake
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc b0212486909de4f239ca9f20d032de1b1f2dc52e
+	drm/i915: Fix missing unlock on error in i915_ppgtt_info()
+origin/topic/core-for-CI 8b86400f445ee400cbd1b81e6c0d6c66c9076e68
+	iommu/vt-d: fix overflow of iommu->domains array
+origin/topic/sphinx abdccea1af37bfd43842ddc2d7b6853cb30df4c5
+	kernel-doc-rst-lint: add tool to check kernel-doc and rst correctness
+origin/topic/lockless-gem-bo-freeing e1512ee08f00c17918093e75be4a3fa297bcaf9b
+	drm/arcpgu: Use lockless gem BO free callback
