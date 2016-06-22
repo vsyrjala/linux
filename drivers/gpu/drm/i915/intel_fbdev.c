@@ -150,10 +150,10 @@ static int intelfb_alloc(struct drm_fb_helper *helper,
 	if (size * 2 < ggtt->stolen_usable_size)
 		obj = i915_gem_object_create_stolen(dev, size);
 	if (obj == NULL)
-		obj = i915_gem_alloc_object(dev, size);
-	if (!obj) {
+		obj = i915_gem_object_create(dev, size);
+	if (IS_ERR(obj)) {
 		DRM_ERROR("failed to allocate framebuffer\n");
-		ret = -ENOMEM;
+		ret = PTR_ERR(obj);
 		goto out;
 	}
 
@@ -186,9 +186,11 @@ static int intelfb_create(struct drm_fb_helper *helper,
 	struct i915_ggtt *ggtt = &dev_priv->ggtt;
 	struct fb_info *info;
 	struct drm_framebuffer *fb;
+	struct i915_vma *vma;
 	struct drm_i915_gem_object *obj;
-	int size, ret;
 	bool prealloc = false;
+	void *vaddr;
+	int ret;
 
 	if (intel_fb &&
 	    (sizes->fb_width > intel_fb->base.width ||
@@ -214,7 +216,6 @@ static int intelfb_create(struct drm_fb_helper *helper,
 	}
 
 	obj = intel_fb->obj;
-	size = obj->base.size;
 
 	mutex_lock(&dev->struct_mutex);
 
@@ -244,22 +245,23 @@ static int intelfb_create(struct drm_fb_helper *helper,
 	info->flags = FBINFO_DEFAULT | FBINFO_CAN_FORCE_OUTPUT;
 	info->fbops = &intelfb_ops;
 
+	vma = i915_gem_obj_to_ggtt(obj);
+
 	/* setup aperture base/size for vesafb takeover */
 	info->apertures->ranges[0].base = dev->mode_config.fb_base;
 	info->apertures->ranges[0].size = ggtt->mappable_end;
 
-	info->fix.smem_start = dev->mode_config.fb_base + i915_gem_obj_ggtt_offset(obj);
-	info->fix.smem_len = size;
+	info->fix.smem_start = dev->mode_config.fb_base + vma->node.start;
+	info->fix.smem_len = vma->node.size;
 
-	info->screen_base =
-		ioremap_wc(ggtt->mappable_base + i915_gem_obj_ggtt_offset(obj),
-			   size);
-	if (!info->screen_base) {
+	vaddr = i915_vma_pin_iomap(vma);
+	if (IS_ERR(vaddr)) {
 		DRM_ERROR("Failed to remap framebuffer into virtual memory\n");
-		ret = -ENOSPC;
+		ret = PTR_ERR(vaddr);
 		goto out_destroy_fbi;
 	}
-	info->screen_size = size;
+	info->screen_base = vaddr;
+	info->screen_size = vma->node.size;
 
 	/* This driver doesn't need a VT switch to restore the mode on resume */
 	info->skip_vt_switch = true;
@@ -287,7 +289,7 @@ static int intelfb_create(struct drm_fb_helper *helper,
 out_destroy_fbi:
 	drm_fb_helper_release_fbi(helper);
 out_unpin:
-	i915_gem_object_ggtt_unpin(obj);
+	intel_unpin_fb_obj(&ifbdev->fb->base, BIT(DRM_ROTATE_0));
 out_unlock:
 	mutex_unlock(&dev->struct_mutex);
 	return ret;
@@ -488,10 +490,10 @@ retry:
 		}
 		crtcs[i] = new_crtc;
 
-		DRM_DEBUG_KMS("connector %s on pipe %c [CRTC:%d]: %dx%d%s\n",
+		DRM_DEBUG_KMS("connector %s on [CRTC:%d:%s]: %dx%d%s\n",
 			      connector->name,
-			      pipe_name(to_intel_crtc(connector->state->crtc)->pipe),
 			      connector->state->crtc->base.id,
+			      connector->state->crtc->name,
 			      modes[i]->hdisplay, modes[i]->vdisplay,
 			      modes[i]->flags & DRM_MODE_FLAG_INTERLACE ? "i" :"");
 
@@ -536,8 +538,7 @@ static const struct drm_fb_helper_funcs intel_fb_helper_funcs = {
 	.fb_probe = intelfb_create,
 };
 
-static void intel_fbdev_destroy(struct drm_device *dev,
-				struct intel_fbdev *ifbdev)
+static void intel_fbdev_destroy(struct intel_fbdev *ifbdev)
 {
 	/* We rely on the object-free to release the VMA pinning for
 	 * the info->screen_base mmaping. Leaking the VMA is simpler than
@@ -550,9 +551,14 @@ static void intel_fbdev_destroy(struct drm_device *dev,
 	drm_fb_helper_fini(&ifbdev->helper);
 
 	if (ifbdev->fb) {
-		drm_framebuffer_unregister_private(&ifbdev->fb->base);
+		mutex_lock(&ifbdev->helper.dev->struct_mutex);
+		intel_unpin_fb_obj(&ifbdev->fb->base, BIT(DRM_ROTATE_0));
+		mutex_unlock(&ifbdev->helper.dev->struct_mutex);
+
 		drm_framebuffer_remove(&ifbdev->fb->base);
 	}
+
+	kfree(ifbdev);
 }
 
 /*
@@ -717,8 +723,6 @@ int intel_fbdev_init(struct drm_device *dev)
 		return ret;
 	}
 
-	ifbdev->helper.atomic = true;
-
 	dev_priv->fbdev = ifbdev;
 	INIT_WORK(&dev_priv->fbdev_suspend_work, intel_fbdev_suspend_worker);
 
@@ -729,32 +733,44 @@ int intel_fbdev_init(struct drm_device *dev)
 
 static void intel_fbdev_initial_config(void *data, async_cookie_t cookie)
 {
-	struct drm_i915_private *dev_priv = data;
-	struct intel_fbdev *ifbdev = dev_priv->fbdev;
+	struct intel_fbdev *ifbdev = data;
 
 	/* Due to peculiar init order wrt to hpd handling this is separate. */
 	if (drm_fb_helper_initial_config(&ifbdev->helper,
 					 ifbdev->preferred_bpp))
-		intel_fbdev_fini(dev_priv->dev);
+		intel_fbdev_fini(ifbdev->helper.dev);
 }
 
 void intel_fbdev_initial_config_async(struct drm_device *dev)
 {
-	async_schedule(intel_fbdev_initial_config, to_i915(dev));
+	struct intel_fbdev *ifbdev = to_i915(dev)->fbdev;
+
+	ifbdev->cookie = async_schedule(intel_fbdev_initial_config, ifbdev);
+}
+
+static void intel_fbdev_sync(struct intel_fbdev *ifbdev)
+{
+	if (!ifbdev->cookie)
+		return;
+
+	/* Only serialises with all preceding async calls, hence +1 */
+	async_synchronize_cookie(ifbdev->cookie + 1);
+	ifbdev->cookie = 0;
 }
 
 void intel_fbdev_fini(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	if (!dev_priv->fbdev)
+	struct intel_fbdev *ifbdev = dev_priv->fbdev;
+
+	if (!ifbdev)
 		return;
 
 	flush_work(&dev_priv->fbdev_suspend_work);
-
 	if (!current_is_async())
-		async_synchronize_full();
-	intel_fbdev_destroy(dev, dev_priv->fbdev);
-	kfree(dev_priv->fbdev);
+		intel_fbdev_sync(ifbdev);
+
+	intel_fbdev_destroy(ifbdev);
 	dev_priv->fbdev = NULL;
 }
 
@@ -823,6 +839,8 @@ void intel_fbdev_restore_mode(struct drm_device *dev)
 
 	if (!ifbdev)
 		return;
+
+	intel_fbdev_sync(ifbdev);
 
 	fb_helper = &ifbdev->helper;
 
