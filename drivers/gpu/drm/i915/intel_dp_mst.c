@@ -45,7 +45,6 @@ static bool intel_dp_mst_compute_config(struct intel_encoder *encoder,
 	struct drm_connector_state *connector_state;
 	int mst_pbn;
 
-	pipe_config->dp_encoder_is_mst = true;
 	pipe_config->has_pch_encoder = false;
 	bpp = 24;
 	/*
