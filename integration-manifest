@@ -1,0 +1,20 @@
+origin/drm-intel-fixes 1e3fa0acfec677e915d7de5ac6e1f18cfa4f805b
+	drm/i915/fbc: Disable on HSW by default for now
+drm-upstream/drm-fixes 0ab15bdeb2943bd6491a35ec4eeb53a9a4436525
+	Merge branch 'drm-fixes-4.7' of git://people.freedesktop.org/~agd5f/linux into drm-fixes
+origin/drm-intel-next-fixes 157d2c7fad0863222f6f3b11c4690f2a6e74d809
+	drm/i915: Stop automatically retiring requests after a GPU hang
+origin/drm-intel-next-queued 64989ca4b27acb026b6496ec21e43bee66f86a5b
+	drm/i915: Refresh cached DP port register value on resume
+drm-upstream/drm-next a0877f52035280370707bdefeddc6faa6478b892
+	Merge tag 'topic/drm-misc-2016-06-15' of git://anongit.freedesktop.org/drm-intel into drm-next
+sound-upstream/for-next 3915bf2946520ace5bcc8104717a3cb0452d7430
+	ALSA: seq_timer: use monotonic times internally
+sound-upstream/for-linus c9058d43d99404986133112393be1d1a4daf1b69
+	ALSA: hda/tegra: iomem fixups for sparse warnings
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc f510f34c12f65105146ace5561969e5003f6c007
+	drm/vc4: Remove unused connector
+origin/topic/core-for-CI 8b86400f445ee400cbd1b81e6c0d6c66c9076e68
+	iommu/vt-d: fix overflow of iommu->domains array
