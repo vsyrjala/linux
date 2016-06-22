@@ -1103,7 +1103,6 @@ void intel_ddi_enable_transcoder_func(struct drm_crtc *crtc)
 {
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_encoder *intel_encoder = intel_ddi_get_crtc_encoder(crtc);
-	struct drm_encoder *encoder = &intel_encoder->base;
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	enum pipe pipe = intel_crtc->pipe;
@@ -1173,22 +1172,10 @@ void intel_ddi_enable_transcoder_func(struct drm_crtc *crtc)
 		temp |= (intel_crtc->config->fdi_lanes - 1) << 1;
 	} else if (intel_crtc_has_type(intel_crtc->config, INTEL_OUTPUT_DP) ||
 		   intel_crtc_has_type(intel_crtc->config, INTEL_OUTPUT_EDP)) {
-		struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
-
-		if (intel_dp->is_mst) {
-			temp |= TRANS_DDI_MODE_SELECT_DP_MST;
-		} else
-			temp |= TRANS_DDI_MODE_SELECT_DP_SST;
-
+		temp |= TRANS_DDI_MODE_SELECT_DP_SST;
 		temp |= DDI_PORT_WIDTH(intel_crtc->config->lane_count);
 	} else if (intel_crtc_has_type(intel_crtc->config, INTEL_OUTPUT_DP_MST)) {
-		struct intel_dp *intel_dp = &enc_to_mst(encoder)->primary->dp;
-
-		if (intel_dp->is_mst) {
-			temp |= TRANS_DDI_MODE_SELECT_DP_MST;
-		} else
-			temp |= TRANS_DDI_MODE_SELECT_DP_SST;
-
+		temp |= TRANS_DDI_MODE_SELECT_DP_MST;
 		temp |= DDI_PORT_WIDTH(intel_crtc->config->lane_count);
 	} else {
 		WARN(1, "Invalid encoder type 0x%x for pipe %c\n",
@@ -2098,7 +2085,7 @@ void intel_ddi_prepare_link_retrain(struct intel_dp *intel_dp)
 
 	val = DP_TP_CTL_ENABLE |
 	      DP_TP_CTL_LINK_TRAIN_PAT1 | DP_TP_CTL_SCRAMBLE_DISABLE;
-	if (intel_dp->is_mst)
+	if (intel_dp->link_mst)
 		val |= DP_TP_CTL_MODE_MST;
 	else {
 		val |= DP_TP_CTL_MODE_SST;
