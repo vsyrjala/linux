@@ -482,6 +482,10 @@ void intel_prepare_dp_ddi_buffers(struct intel_encoder *encoder)
 	}
 
 	for (i = 0; i < size; i++) {
+		DRM_DEBUG_KMS("Port %c ddi buf trans %d: 0x%x 0x%x\n",
+			      port_name(port), i,
+			      ddi_translations[i].trans1 | iboost_bit,
+			      ddi_translations[i].trans2);
 		I915_WRITE(DDI_BUF_TRANS_LO(port, i),
 			   ddi_translations[i].trans1 | iboost_bit);
 		I915_WRITE(DDI_BUF_TRANS_HI(port, i),
@@ -523,6 +527,11 @@ static void intel_prepare_hdmi_ddi_buffers(struct intel_encoder *encoder)
 		ddi_translations_hdmi = bdw_ddi_translations_hdmi;
 		n_hdmi_entries = ARRAY_SIZE(bdw_ddi_translations_hdmi);
 	}
+
+	DRM_DEBUG_KMS("Port %c ddi buf trans %d: 0x%x 0x%x\n",
+		      port_name(port), 9,
+		      ddi_translations_hdmi[hdmi_level].trans1 | iboost_bit,
+		      ddi_translations_hdmi[hdmi_level].trans2);
 
 	/* Entry 9 is for HDMI: */
 	I915_WRITE(DDI_BUF_TRANS_LO(port, 9),
@@ -1458,6 +1467,8 @@ static void skl_ddi_set_iboost(struct intel_encoder *encoder, u32 level)
 		return;
 	}
 
+	DRM_DEBUG_KMS("Port %c iboost: 0x%x\n", port_name(port), iboost);
+
 	_skl_ddi_set_iboost(dev_priv, port, iboost);
 
 	if (port == PORT_A && intel_dig_port->max_lanes == 4)
@@ -1590,6 +1601,9 @@ uint32_t ddi_signal_levels(struct intel_dp *intel_dp)
 	uint32_t level;
 
 	level = translate_signal_level(signal_levels);
+
+	DRM_DEBUG_KMS("Port %c signal levels: 0x%x (0x%x)\n",
+		      port_name(port), level, signal_levels);
 
 	if (IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev_priv))
 		skl_ddi_set_iboost(encoder, level);
