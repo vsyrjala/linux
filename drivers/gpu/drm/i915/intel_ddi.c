@@ -301,9 +301,6 @@ static const struct bxt_ddi_buf_trans bxt_ddi_translations_hdmi[] = {
 	{ 154, 0x9A, 1, 128, true },	/* 9:	1200		0   */
 };
 
-static void bxt_ddi_vswing_sequence(struct drm_i915_private *dev_priv,
-				    u32 level, enum port port, int type);
-
 static void ddi_get_encoder_port(struct intel_encoder *intel_encoder,
 				 struct intel_digital_port **dig_port,
 				 enum port *port)
@@ -450,9 +447,6 @@ void intel_prepare_ddi_buffer(struct intel_encoder *encoder)
 		if (encoder->type != INTEL_OUTPUT_HDMI)
 			return;
 
-		/* Vswing programming for HDMI */
-		bxt_ddi_vswing_sequence(dev_priv, hdmi_level, port,
-					INTEL_OUTPUT_HDMI);
 		return;
 	}
 
@@ -1676,6 +1670,9 @@ static void intel_ddi_pre_enable(struct intel_encoder *intel_encoder)
 
 		if (IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev_priv))
 			skl_ddi_set_iboost(intel_encoder, level);
+		else if (IS_BROXTON(dev_priv))
+			bxt_ddi_vswing_sequence(dev_priv, level, port,
+						INTEL_OUTPUT_HDMI);
 
 		intel_hdmi->set_infoframes(encoder,
 					   crtc->config->has_hdmi_sink,
