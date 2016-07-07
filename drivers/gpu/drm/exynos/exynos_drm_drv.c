@@ -267,6 +267,8 @@ int exynos_atomic_commit(struct drm_device *dev, struct drm_atomic_state *state,
 {
 	struct exynos_drm_private *priv = dev->dev_private;
 	struct exynos_atomic_commit *commit;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
 	int i, ret;
 
 	commit = kzalloc(sizeof(*commit), GFP_KERNEL);
@@ -288,10 +290,8 @@ int exynos_atomic_commit(struct drm_device *dev, struct drm_atomic_state *state,
 	/* Wait until all affected CRTCs have completed previous commits and
 	 * mark them as pending.
 	 */
-	for (i = 0; i < dev->mode_config.num_crtc; ++i) {
-		if (state->crtcs[i])
-			commit->crtcs |= 1 << drm_crtc_index(state->crtcs[i]);
-	}
+	for_each_crtc_in_state(state, crtc, crtc_state, i)
+		commit->crtcs |= drm_crtc_mask(crtc);
 
 	wait_event(priv->wait, !commit_is_pending(priv, commit->crtcs));
 
@@ -299,7 +299,7 @@ int exynos_atomic_commit(struct drm_device *dev, struct drm_atomic_state *state,
 	priv->pending |= commit->crtcs;
 	spin_unlock(&priv->lock);
 
-	drm_atomic_helper_swap_state(dev, state);
+	drm_atomic_helper_swap_state(state, true);
 
 	if (nonblock)
 		schedule_work(&commit->work);
@@ -407,7 +407,6 @@ static struct drm_driver exynos_drm_driver = {
 	.preclose		= exynos_drm_preclose,
 	.lastclose		= exynos_drm_lastclose,
 	.postclose		= exynos_drm_postclose,
-	.set_busid		= drm_platform_set_busid,
 	.get_vblank_counter	= drm_vblank_no_hw_counter,
 	.enable_vblank		= exynos_drm_crtc_enable_vblank,
 	.disable_vblank		= exynos_drm_crtc_disable_vblank,

@@ -99,7 +99,7 @@ static struct drm_driver vc4_drm_driver = {
 #endif
 
 	.gem_create_object = vc4_create_object,
-	.gem_free_object = vc4_free_object,
+	.gem_free_object_unlocked = vc4_free_object,
 	.gem_vm_ops = &drm_gem_cma_vm_ops,
 
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
@@ -176,7 +176,6 @@ static int vc4_drm_bind(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct drm_device *drm;
-	struct drm_connector *connector;
 	struct vc4_dev *vc4;
 	int ret = 0;
 
@@ -211,22 +210,10 @@ static int vc4_drm_bind(struct device *dev)
 	if (ret < 0)
 		goto unbind_all;
 
-	/* Connector registration has to occur after DRM device
-	 * registration, because it creates sysfs entries based on the
-	 * DRM device.
-	 */
-	list_for_each_entry(connector, &drm->mode_config.connector_list, head) {
-		ret = drm_connector_register(connector);
-		if (ret)
-			goto unregister;
-	}
-
 	vc4_kms_load(drm);
 
 	return 0;
 
-unregister:
-	drm_dev_unregister(drm);
 unbind_all:
 	component_unbind_all(dev, drm);
 gem_destroy:

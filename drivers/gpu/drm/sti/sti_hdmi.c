@@ -628,12 +628,6 @@ static int hdmi_dbg_show(struct seq_file *s, void *data)
 {
 	struct drm_info_node *node = s->private;
 	struct sti_hdmi *hdmi = (struct sti_hdmi *)node->info_ent->data;
-	struct drm_device *dev = node->minor->dev;
-	int ret;
-
-	ret = mutex_lock_interruptible(&dev->struct_mutex);
-	if (ret)
-		return ret;
 
 	seq_printf(s, "HDMI: (vaddr = 0x%p)", hdmi->regs);
 	DBGFS_DUMP("\n", HDMI_CFG);
@@ -690,7 +684,6 @@ static int hdmi_dbg_show(struct seq_file *s, void *data)
 	DBGFS_DUMP_DI(HDMI_SW_DI_N_PKT_WORD6, HDMI_IFRAME_SLOT_VENDOR);
 	seq_puts(s, "\n");
 
-	mutex_unlock(&dev->struct_mutex);
 	return 0;
 }
 
@@ -897,20 +890,10 @@ static int sti_hdmi_connector_mode_valid(struct drm_connector *connector,
 	return MODE_OK;
 }
 
-struct drm_encoder *sti_hdmi_best_encoder(struct drm_connector *connector)
-{
-	struct sti_hdmi_connector *hdmi_connector
-		= to_sti_hdmi_connector(connector);
-
-	/* Best encoder is the one associated during connector creation */
-	return hdmi_connector->encoder;
-}
-
 static const
 struct drm_connector_helper_funcs sti_hdmi_connector_helper_funcs = {
 	.get_modes = sti_hdmi_connector_get_modes,
 	.mode_valid = sti_hdmi_connector_mode_valid,
-	.best_encoder = sti_hdmi_best_encoder,
 };
 
 /* get detection status of display device */
@@ -930,16 +913,6 @@ sti_hdmi_connector_detect(struct drm_connector *connector, bool force)
 
 	DRM_DEBUG_DRIVER("hdmi cable disconnected\n");
 	return connector_status_disconnected;
-}
-
-static void sti_hdmi_connector_destroy(struct drm_connector *connector)
-{
-	struct sti_hdmi_connector *hdmi_connector
-		= to_sti_hdmi_connector(connector);
-
-	drm_connector_unregister(connector);
-	drm_connector_cleanup(connector);
-	kfree(hdmi_connector);
 }
 
 static void sti_hdmi_connector_init_property(struct drm_device *drm_dev,
@@ -1024,17 +997,31 @@ sti_hdmi_connector_get_property(struct drm_connector *connector,
 	return -EINVAL;
 }
 
+static int sti_hdmi_late_register(struct drm_connector *connector)
+{
+	struct sti_hdmi_connector *hdmi_connector
+		= to_sti_hdmi_connector(connector);
+	struct sti_hdmi *hdmi = hdmi_connector->hdmi;
+
+	if (hdmi_debugfs_init(hdmi, hdmi->drm_dev->primary)) {
+		DRM_ERROR("HDMI debugfs setup failed\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static const struct drm_connector_funcs sti_hdmi_connector_funcs = {
-	.dpms = drm_atomic_helper_connector_dpms,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.detect = sti_hdmi_connector_detect,
-	.destroy = sti_hdmi_connector_destroy,
+	.destroy = drm_connector_cleanup,
 	.reset = drm_atomic_helper_connector_reset,
 	.set_property = drm_atomic_helper_connector_set_property,
 	.atomic_set_property = sti_hdmi_connector_set_property,
 	.atomic_get_property = sti_hdmi_connector_get_property,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+	.late_register = sti_hdmi_late_register,
 };
 
 static struct drm_encoder *sti_hdmi_find_encoder(struct drm_device *dev)
@@ -1095,10 +1082,6 @@ static int sti_hdmi_bind(struct device *dev, struct device *master, void *data)
 	/* initialise property */
 	sti_hdmi_connector_init_property(drm_dev, drm_connector);
 
-	err = drm_connector_register(drm_connector);
-	if (err)
-		goto err_connector;
-
 	err = drm_mode_connector_attach_encoder(drm_connector, encoder);
 	if (err) {
 		DRM_ERROR("Failed to attach a connector to a encoder\n");
@@ -1108,16 +1091,10 @@ static int sti_hdmi_bind(struct device *dev, struct device *master, void *data)
 	/* Enable default interrupts */
 	hdmi_write(hdmi, HDMI_DEFAULT_INT, HDMI_INT_EN);
 
-	if (hdmi_debugfs_init(hdmi, drm_dev->primary))
-		DRM_ERROR("HDMI debugfs setup failed\n");
-
 	return 0;
 
 err_sysfs:
-	drm_connector_unregister(drm_connector);
-err_connector:
-	drm_connector_cleanup(drm_connector);
-
+	drm_bridge_remove(bridge);
 	return -EINVAL;
 }
 
