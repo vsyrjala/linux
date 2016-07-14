@@ -1501,15 +1501,6 @@ int __i915_wait_request(struct drm_i915_gem_request *req,
 			break;
 		}
 
-		/* Ensure that even if the GPU hangs, we get woken up.
-		 *
-		 * However, note that if no one is waiting, we never notice
-		 * a gpu hang. Eventually, we will have to wait for a resource
-		 * held by the GPU and so trigger a hangcheck. In the most
-		 * pathological case, this will be upon memory starvation!
-		 */
-		i915_queue_hangcheck(req->i915);
-
 		timeout_remain = io_schedule_timeout(timeout_remain);
 		if (timeout_remain == 0) {
 			ret = -ETIME;
@@ -3290,10 +3281,12 @@ i915_gem_retire_work_handler(struct work_struct *work)
 	 * We do not need to do this test under locking as in the worst-case
 	 * we queue the retire worker once too often.
 	 */
-	if (READ_ONCE(dev_priv->gt.awake))
+	if (READ_ONCE(dev_priv->gt.awake)) {
+		i915_queue_hangcheck(dev_priv);
 		queue_delayed_work(dev_priv->wq,
 				   &dev_priv->gt.retire_work,
 				   round_jiffies_up_relative(HZ));
+	}
 }
 
 static void
@@ -5063,53 +5056,6 @@ static void init_unused_rings(struct drm_device *dev)
 	}
 }
 
-int i915_gem_init_engines(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	int ret;
-
-	ret = intel_init_render_ring_buffer(dev);
-	if (ret)
-		return ret;
-
-	if (HAS_BSD(dev)) {
-		ret = intel_init_bsd_ring_buffer(dev);
-		if (ret)
-			goto cleanup_render_ring;
-	}
-
-	if (HAS_BLT(dev)) {
-		ret = intel_init_blt_ring_buffer(dev);
-		if (ret)
-			goto cleanup_bsd_ring;
-	}
-
-	if (HAS_VEBOX(dev)) {
-		ret = intel_init_vebox_ring_buffer(dev);
-		if (ret)
-			goto cleanup_blt_ring;
-	}
-
-	if (HAS_BSD2(dev)) {
-		ret = intel_init_bsd2_ring_buffer(dev);
-		if (ret)
-			goto cleanup_vebox_ring;
-	}
-
-	return 0;
-
-cleanup_vebox_ring:
-	intel_cleanup_engine(&dev_priv->engine[VECS]);
-cleanup_blt_ring:
-	intel_cleanup_engine(&dev_priv->engine[BCS]);
-cleanup_bsd_ring:
-	intel_cleanup_engine(&dev_priv->engine[VCS]);
-cleanup_render_ring:
-	intel_cleanup_engine(&dev_priv->engine[RCS]);
-
-	return ret;
-}
-
 int
 i915_gem_init_hw(struct drm_device *dev)
 {
@@ -5185,12 +5131,10 @@ int i915_gem_init(struct drm_device *dev)
 
 	if (!i915.enable_execlists) {
 		dev_priv->gt.execbuf_submit = i915_gem_ringbuffer_submission;
-		dev_priv->gt.init_engines = i915_gem_init_engines;
 		dev_priv->gt.cleanup_engine = intel_cleanup_engine;
 		dev_priv->gt.stop_engine = intel_stop_engine;
 	} else {
 		dev_priv->gt.execbuf_submit = intel_execlists_submission;
-		dev_priv->gt.init_engines = intel_logical_rings_init;
 		dev_priv->gt.cleanup_engine = intel_logical_ring_cleanup;
 		dev_priv->gt.stop_engine = intel_logical_ring_stop;
 	}
@@ -5210,7 +5154,7 @@ int i915_gem_init(struct drm_device *dev)
 	if (ret)
 		goto out_unlock;
 
-	ret = dev_priv->gt.init_engines(dev);
+	ret = intel_engines_init(dev);
 	if (ret)
 		goto out_unlock;
 

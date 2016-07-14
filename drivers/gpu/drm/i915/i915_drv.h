@@ -2016,7 +2016,6 @@ struct drm_i915_private {
 		int (*execbuf_submit)(struct i915_execbuffer_params *params,
 				      struct drm_i915_gem_execbuffer2 *args,
 				      struct list_head *vmas);
-		int (*init_engines)(struct drm_device *dev);
 		void (*cleanup_engine)(struct intel_engine_cs *engine);
 		void (*stop_engine)(struct intel_engine_cs *engine);
 
@@ -3374,7 +3373,6 @@ static inline u32 i915_reset_count(struct i915_gpu_error *error)
 void i915_gem_reset(struct drm_device *dev);
 bool i915_gem_clflush_object(struct drm_i915_gem_object *obj, bool force);
 int __must_check i915_gem_init(struct drm_device *dev);
-int i915_gem_init_engines(struct drm_device *dev);
 int __must_check i915_gem_init_hw(struct drm_device *dev);
 void i915_gem_init_swizzling(struct drm_device *dev);
 void i915_gem_cleanup_engines(struct drm_device *dev);
@@ -3644,8 +3642,8 @@ void i915_debugfs_unregister(struct drm_i915_private *dev_priv);
 int i915_debugfs_connector_add(struct drm_connector *connector);
 void intel_display_crc_init(struct drm_device *dev);
 #else
-static inline int i915_debugfs_register(struct drm_i915_private *) {return 0;}
-static inline void i915_debugfs_unregister(struct drm_i915_private *) {}
+static inline int i915_debugfs_register(struct drm_i915_private *dev_priv) {return 0;}
+static inline void i915_debugfs_unregister(struct drm_i915_private *dev_priv) {}
 static inline int i915_debugfs_connector_add(struct drm_connector *connector)
 { return 0; }
 static inline void intel_display_crc_init(struct drm_device *dev) {}
