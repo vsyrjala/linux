@@ -1,0 +1,20 @@
+origin/drm-intel-fixes cab103274352721b77fc5923a631fc63350bef8e
+	drm/i915: Fix missing unlock on error in i915_ppgtt_info()
+drm-upstream/drm-fixes 39c8859418d5d2d29482fcd7d58daba6e299fac5
+	Merge tag 'sunxi-drm-fixes-for-4.7-2' of https://git.kernel.org/pub/scm/linux/kernel/git/mripard/linux into drm-fixes
+origin/drm-intel-next-fixes 0b2c0582f1570bfc95aa9ac1cd340a215d8e8335
+	drm/i915: Update DRIVER_DATE to 20160711
+origin/drm-intel-next-queued 019bf277634a13ba7bc409bde399ee676c096f33
+	drm/i915: Pull out some more common engine init code
+drm-upstream/drm-next 5dd0775e502b26b44e5bcb5f504a977a565f2f3e
+	Merge tag 'asoc-hdmi-codec-pdata' of git://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound into drm-next
+sound-upstream/for-next 41e8a5788b5a1e187a690877d83b0f485c8c4ccd
+	ALSA: mixart: don't print an unintialized variable on error
+sound-upstream/for-linus d716fb03f76411fc7e138692e33b749cada5c094
+	ALSA: hda: add AMD Stoney PCI ID with proper driver caps
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 01d3434a565ada5ca084c68ec1e087ada5a7b157
+	drm: Don't overwrite user ioctl arg unless requested
+origin/topic/core-for-CI 8b86400f445ee400cbd1b81e6c0d6c66c9076e68
+	iommu/vt-d: fix overflow of iommu->domains array
