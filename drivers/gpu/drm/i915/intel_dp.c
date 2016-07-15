@@ -3965,9 +3965,6 @@ intel_dp_detect_dpcd(struct intel_dp *intel_dp)
 	if (!intel_dp_get_dpcd(intel_dp))
 		return connector_status_disconnected;
 
-	if (is_edp(intel_dp))
-		return connector_status_connected;
-
 	/* if there's no downstream port, we're done */
 	if (!(dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DWN_STRM_PORT_PRESENT))
 		return connector_status_connected;
@@ -4001,19 +3998,6 @@ intel_dp_detect_dpcd(struct intel_dp *intel_dp)
 	/* Anything else is out of spec, warn and ignore */
 	DRM_DEBUG_KMS("Broken DP branch device, ignoring\n");
 	return connector_status_disconnected;
-}
-
-static enum drm_connector_status
-edp_detect(struct intel_dp *intel_dp)
-{
-	struct drm_device *dev = intel_dp_to_dev(intel_dp);
-	enum drm_connector_status status;
-
-	status = intel_panel_detect(dev);
-	if (status == connector_status_unknown)
-		status = connector_status_connected;
-
-	return status;
 }
 
 static bool ibx_digital_port_connected(struct drm_i915_private *dev_priv,
@@ -4223,9 +4207,8 @@ intel_dp_long_pulse(struct intel_connector *intel_connector)
 	power_domain = intel_display_port_aux_power_domain(intel_encoder);
 	intel_display_power_get(to_i915(dev), power_domain);
 
-	/* Can't disconnect eDP, but you can close the lid... */
 	if (is_edp(intel_dp))
-		status = edp_detect(intel_dp);
+		status = connector_status_connected;
 	else if (intel_digital_port_connected(to_i915(dev),
 					      dp_to_dig_port(intel_dp)))
 		status = intel_dp_detect_dpcd(intel_dp);
