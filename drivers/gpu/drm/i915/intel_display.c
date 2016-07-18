@@ -14176,7 +14176,7 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 	struct intel_plane_state *state = NULL;
 	const uint32_t *intel_primary_formats;
 	unsigned int num_formats;
-	int ret;
+	int ret, zpos;
 
 	primary = kzalloc(sizeof(*primary), GFP_KERNEL);
 	if (!primary)
@@ -14249,6 +14249,9 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 
 	if (INTEL_INFO(dev)->gen >= 4)
 		intel_create_rotation_property(dev, primary);
+
+	zpos = 0;
+	drm_plane_create_zpos_immutable_property(&primary->base, zpos);
 
 	drm_plane_helper_add(&primary->base, &intel_plane_helper_funcs);
 
@@ -14378,7 +14381,7 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 {
 	struct intel_plane *cursor = NULL;
 	struct intel_plane_state *state = NULL;
-	int ret;
+	int ret, zpos;
 
 	cursor = kzalloc(sizeof(*cursor), GFP_KERNEL);
 	if (!cursor)
@@ -14418,6 +14421,9 @@ static struct drm_plane *intel_cursor_plane_create(struct drm_device *dev,
 				dev->mode_config.rotation_property,
 				state->base.rotation);
 	}
+
+	zpos = INTEL_INFO(dev)->num_sprites[pipe] + 1;
+	drm_plane_create_zpos_immutable_property(&cursor->base, zpos);
 
 	if (INTEL_INFO(dev)->gen >=9)
 		state->scaler_id = -1;

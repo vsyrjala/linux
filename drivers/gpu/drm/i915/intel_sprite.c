@@ -1047,7 +1047,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 	unsigned long possible_crtcs;
 	const uint32_t *plane_formats;
 	int num_plane_formats;
-	int ret;
+	int ret, zpos;
 
 	intel_plane = kzalloc(sizeof(*intel_plane), GFP_KERNEL);
 	if (!intel_plane) {
@@ -1141,6 +1141,9 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 		goto fail;
 
 	intel_create_rotation_property(dev, intel_plane);
+
+	zpos = plane + 1;
+	drm_plane_create_zpos_immutable_property(&intel_plane->base, zpos);
 
 	drm_plane_helper_add(&intel_plane->base, &intel_plane_helper_funcs);
 
