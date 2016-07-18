@@ -2842,6 +2842,7 @@ static void i915_gem_mark_busy(const struct intel_engine_cs *engine)
 	intel_runtime_pm_get_noresume(dev_priv);
 	dev_priv->gt.awake = true;
 
+	intel_enable_gt_powersave(dev_priv);
 	i915_update_gfx_val(dev_priv);
 	if (INTEL_GEN(dev_priv) >= 6)
 		gen6_rps_busy(dev_priv);
@@ -3169,6 +3170,8 @@ static void i915_gem_reset_engine_cleanup(struct intel_engine_cs *engine)
 	}
 
 	intel_ring_init_seqno(engine, engine->last_submitted_seqno);
+
+	engine->i915->gt.active_engines &= ~intel_engine_flag(engine);
 }
 
 void i915_gem_reset(struct drm_device *dev)
@@ -3186,6 +3189,7 @@ void i915_gem_reset(struct drm_device *dev)
 
 	for_each_engine(engine, dev_priv)
 		i915_gem_reset_engine_cleanup(engine);
+	mod_delayed_work(dev_priv->wq, &dev_priv->gt.idle_work, 0);
 
 	i915_gem_context_reset(dev);
 
@@ -3281,10 +3285,12 @@ i915_gem_retire_work_handler(struct work_struct *work)
 	 * We do not need to do this test under locking as in the worst-case
 	 * we queue the retire worker once too often.
 	 */
-	if (READ_ONCE(dev_priv->gt.awake))
+	if (READ_ONCE(dev_priv->gt.awake)) {
+		i915_queue_hangcheck(dev_priv);
 		queue_delayed_work(dev_priv->wq,
 				   &dev_priv->gt.retire_work,
 				   round_jiffies_up_relative(HZ));
+	}
 }
 
 static void
@@ -4899,7 +4905,6 @@ void i915_gem_free_object(struct drm_gem_object *gem_obj)
 	if (discard_backing_storage(obj))
 		obj->madv = I915_MADV_DONTNEED;
 	i915_gem_object_put_pages(obj);
-	i915_gem_object_free_mmap_offset(obj);
 
 	BUG_ON(obj->pages);
 
@@ -4975,13 +4980,33 @@ i915_gem_suspend(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	int ret = 0;
 
+	intel_suspend_gt_powersave(dev_priv);
+
 	mutex_lock(&dev->struct_mutex);
+
+	/* We have to flush all the executing contexts to main memory so
+	 * that they can saved in the hibernation image. To ensure the last
+	 * context image is coherent, we have to switch away from it. That
+	 * leaves the dev_priv->kernel_context still active when
+	 * we actually suspend, and its image in memory may not match the GPU
+	 * state. Fortunately, the kernel_context is disposable and we do
+	 * not rely on its state.
+	 */
+	ret = i915_gem_switch_to_kernel_context(dev_priv);
+	if (ret)
+		goto err;
+
 	ret = i915_gem_wait_for_idle(dev_priv);
 	if (ret)
 		goto err;
 
 	i915_gem_retire_requests(dev_priv);
 
+	/* Note that rather than stopping the engines, all we have to do
+	 * is assert that every RING_HEAD == RING_TAIL (all execution complete)
+	 * and similar for all logical context images (to ensure they are
+	 * all ready for hibernation).
+	 */
 	i915_gem_stop_engines(dev);
 	i915_gem_context_lost(dev_priv);
 	mutex_unlock(&dev->struct_mutex);
@@ -5000,6 +5025,23 @@ i915_gem_suspend(struct drm_device *dev)
 err:
 	mutex_unlock(&dev->struct_mutex);
 	return ret;
+}
+
+void i915_gem_resume(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = to_i915(dev);
+
+	mutex_lock(&dev->struct_mutex);
+	i915_gem_restore_gtt_mappings(dev);
+
+	/* As we didn't flush the kernel context before suspend, we cannot
+	 * guarantee that the context image is complete. So let's just reset
+	 * it and start again.
+	 */
+	if (i915.enable_execlists)
+		intel_lr_context_reset(dev_priv, dev_priv->kernel_context);
+
+	mutex_unlock(&dev->struct_mutex);
 }
 
 void i915_gem_init_swizzling(struct drm_device *dev)
@@ -5052,53 +5094,6 @@ static void init_unused_rings(struct drm_device *dev)
 		init_unused_ring(dev, PRB1_BASE);
 		init_unused_ring(dev, PRB2_BASE);
 	}
-}
-
-int i915_gem_init_engines(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	int ret;
-
-	ret = intel_init_render_ring_buffer(dev);
-	if (ret)
-		return ret;
-
-	if (HAS_BSD(dev)) {
-		ret = intel_init_bsd_ring_buffer(dev);
-		if (ret)
-			goto cleanup_render_ring;
-	}
-
-	if (HAS_BLT(dev)) {
-		ret = intel_init_blt_ring_buffer(dev);
-		if (ret)
-			goto cleanup_bsd_ring;
-	}
-
-	if (HAS_VEBOX(dev)) {
-		ret = intel_init_vebox_ring_buffer(dev);
-		if (ret)
-			goto cleanup_blt_ring;
-	}
-
-	if (HAS_BSD2(dev)) {
-		ret = intel_init_bsd2_ring_buffer(dev);
-		if (ret)
-			goto cleanup_vebox_ring;
-	}
-
-	return 0;
-
-cleanup_vebox_ring:
-	intel_cleanup_engine(&dev_priv->engine[VECS]);
-cleanup_blt_ring:
-	intel_cleanup_engine(&dev_priv->engine[BCS]);
-cleanup_bsd_ring:
-	intel_cleanup_engine(&dev_priv->engine[VCS]);
-cleanup_render_ring:
-	intel_cleanup_engine(&dev_priv->engine[RCS]);
-
-	return ret;
 }
 
 int
@@ -5176,12 +5171,10 @@ int i915_gem_init(struct drm_device *dev)
 
 	if (!i915.enable_execlists) {
 		dev_priv->gt.execbuf_submit = i915_gem_ringbuffer_submission;
-		dev_priv->gt.init_engines = i915_gem_init_engines;
 		dev_priv->gt.cleanup_engine = intel_cleanup_engine;
 		dev_priv->gt.stop_engine = intel_stop_engine;
 	} else {
 		dev_priv->gt.execbuf_submit = intel_execlists_submission;
-		dev_priv->gt.init_engines = intel_logical_rings_init;
 		dev_priv->gt.cleanup_engine = intel_logical_ring_cleanup;
 		dev_priv->gt.stop_engine = intel_logical_ring_stop;
 	}
@@ -5201,7 +5194,7 @@ int i915_gem_init(struct drm_device *dev)
 	if (ret)
 		goto out_unlock;
 
-	ret = dev_priv->gt.init_engines(dev);
+	ret = intel_engines_init(dev);
 	if (ret)
 		goto out_unlock;
 
