@@ -1,0 +1,22 @@
+origin/drm-intel-fixes ed2eebbd61af8d378ca39ad7aef7017f29eed6f3
+	drm/i915: add missing condition for committing planes on crtc
+drm-upstream/drm-fixes d2e1204f896b17bda1922f6320d3b442367302fc
+	Merge branch 'drm-vmwgfx-fixes' of git://people.freedesktop.org/~syeh/repos_linux into drm-fixes
+origin/drm-intel-next-fixes b224c4dc70cdd5f42d24a7057148c6ace90e4f4e
+	drm/i915: Unbreak interrupts on pre-gen6
+origin/drm-intel-next-queued 1b7f2c8b0773d5ccbef43ef38a13ad33136c9679
+	drm/i915: Treat eDP as always connected, again
+drm-upstream/drm-next 2d635fded22b71381b01e194a59544f2e8d71ef0
+	Merge tag 'drm-vc4-next-2016-07-15' of https://github.com/anholt/linux into drm-next
+sound-upstream/for-next 275353bb684ecfeb42f7a353fead81d43a01c519
+	ALSA: echoaudio: purge contradictions between dimension matrix members and total number of members
+sound-upstream/for-linus 76df52969711ae3725a98f26fbbc6a349803dcbf
+	ALSA: usb-audio: Fix quirks code is not called
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc a026df4c5fa6bae8eb03b58be720b911494e3da5
+	dma-buf: Release module reference on creation failure
+origin/topic/core-for-CI 8b86400f445ee400cbd1b81e6c0d6c66c9076e68
+	iommu/vt-d: fix overflow of iommu->domains array
+origin/topic/kbl-4.7-fixes bc7135b9a430520448590ffeb1ff54c0b4dfd8d5
+	drm/i915: Introduce Kabypoint PCH for Kabylake H/DT.
