@@ -266,11 +266,11 @@ static const struct drm_plane_helper_funcs plane_helper_funcs = {
 static void exynos_plane_attach_zpos_property(struct drm_plane *plane,
 					      bool immutable)
 {
+	/* FIXME */
 	if (immutable)
-		drm_plane_create_zpos_immutable_property(plane,
-							 0, MAX_PLANE - 1);
+		drm_plane_create_zpos_immutable_property(plane, 0);
 	else
-		drm_plane_create_zpos_property(plane, 0, MAX_PLANE - 1);
+		drm_plane_create_zpos_property(plane, 0, 0, MAX_PLANE - 1);
 }
 
 int exynos_plane_init(struct drm_device *dev,

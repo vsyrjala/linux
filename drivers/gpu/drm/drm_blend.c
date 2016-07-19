@@ -35,6 +35,7 @@
 /**
  * drm_plane_create_zpos_property - create mutable zpos property
  * @plane: drm plane
+ * @zpos: initial value of zpos property
  * @min: minimal possible value of zpos property
  * @max: maximal possible value of zpos property
  *
@@ -56,6 +57,7 @@
  * Zero on success, negative errno on failure.
  */
 int drm_plane_create_zpos_property(struct drm_plane *plane,
+				   unsigned int zpos,
 				   unsigned int min, unsigned int max)
 {
 	struct drm_property *prop;
@@ -64,9 +66,15 @@ int drm_plane_create_zpos_property(struct drm_plane *plane,
 	if (!prop)
 		return -ENOMEM;
 
-	drm_object_attach_property(&plane->base, prop, min);
+	drm_object_attach_property(&plane->base, prop, zpos);
 
 	plane->zpos_property = prop;
+
+	if (plane->state) {
+		plane->state->zpos = zpos;
+		plane->state->normalized_zpos = zpos;
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL(drm_plane_create_zpos_property);
@@ -74,8 +82,7 @@ EXPORT_SYMBOL(drm_plane_create_zpos_property);
 /**
  * drm_plane_create_zpos_immutable_property - create immuttable zpos property
  * @plane: drm plane
- * @min: minimal possible value of zpos property
- * @max: maximal possible value of zpos property
+ * @zpos: value of zpos property
  *
  * This function initializes generic immutable zpos property and enables
  * support for it in drm core. Using this property driver lets userspace
@@ -87,18 +94,24 @@ EXPORT_SYMBOL(drm_plane_create_zpos_property);
  * Zero on success, negative errno on failure.
  */
 int drm_plane_create_zpos_immutable_property(struct drm_plane *plane,
-					     unsigned int min, unsigned int max)
+					     unsigned int zpos)
 {
 	struct drm_property *prop;
 
 	prop = drm_property_create_range(plane->dev, DRM_MODE_PROP_IMMUTABLE,
-					 "zpos", min, max);
+					 "zpos", zpos, zpos);
 	if (!prop)
 		return -ENOMEM;
 
-	drm_object_attach_property(&plane->base, prop, min);
+	drm_object_attach_property(&plane->base, prop, zpos);
 
 	plane->zpos_property = prop;
+
+	if (plane->state) {
+		plane->state->zpos = zpos;
+		plane->state->normalized_zpos = zpos;
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL(drm_plane_create_zpos_immutable_property);

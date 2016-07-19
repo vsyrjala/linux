@@ -112,10 +112,10 @@ static void sti_plane_attach_zorder_property(struct drm_plane *drm_plane,
 	switch (type) {
 	case DRM_PLANE_TYPE_PRIMARY:
 	case DRM_PLANE_TYPE_OVERLAY:
-		drm_plane_create_zpos_property(drm_plane, 0, 6);
+		drm_plane_create_zpos_property(drm_plane, 0, 0, 6);
 		break;
 	case DRM_PLANE_TYPE_CURSOR:
-		drm_plane_create_zpos_immutable_property(drm_plane, 7, 7);
+		drm_plane_create_zpos_immutable_property(drm_plane, 7);
 		break;
 	}
 }

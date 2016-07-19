@@ -2798,11 +2798,11 @@ int drm_plane_atomic_get_zpos_property(struct drm_plane *plane,
 				       uint64_t *val);
 
 int drm_plane_create_zpos_property(struct drm_plane *plane,
+				   unsigned int zpos,
 				   unsigned int min, unsigned int max);
 
 int drm_plane_create_zpos_immutable_property(struct drm_plane *plane,
-					     unsigned int min,
-					     unsigned int max);
+					     unsigned int zpos);
 
 /* Helpers */
 struct drm_mode_object *drm_mode_object_find(struct drm_device *dev,

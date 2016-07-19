@@ -759,7 +759,7 @@ int rcar_du_planes_init(struct rcar_du_group *rgrp)
 		drm_object_attach_property(&plane->plane.base,
 					   rcdu->props.colorkey,
 					   RCAR_DU_COLORKEY_NONE);
-		drm_plane_create_zpos_property(&plane->plane, 1, 7);
+		drm_plane_create_zpos_property(&plane->plane, 1, 1, 7);
 	}
 
 	return 0;
