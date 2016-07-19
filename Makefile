@@ -4,7 +4,7 @@
 # the wavedrom json, copy-pasting to and from http://wavedrom.com/editor.html is
 # handy as it shows the result live.
 
-all: drm-intel.html dim.html
+all: drm-intel.html dim.html drm-misc.html
 
 %.svg: %.dot
 	dot -T svg -o $@ $<
