@@ -13400,6 +13400,72 @@ static int calc_watermark_data(struct drm_atomic_state *state)
 	return 0;
 }
 
+static void vlv_update_zpos(struct drm_device *dev,
+			    struct drm_atomic_state *state)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	int i;
+
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		struct intel_crtc_state *intel_crtc_state =
+			to_intel_crtc_state(crtc_state);
+		struct drm_plane *plane;
+		enum pipe pipe = to_intel_crtc(crtc)->pipe;
+		unsigned int zpos_mask = 0x7;
+		int sprite;
+
+		if (!crtc_state->zpos_changed)
+			continue;
+
+		for (sprite = 0; sprite < 2; sprite++)
+			intel_crtc_state->zpos[sprite] = 0xff;
+
+		drm_for_each_plane_mask(plane, dev, crtc_state->plane_mask) {
+			struct drm_plane_state *plane_state =
+				drm_atomic_get_existing_plane_state(state, plane);
+			int zpos;
+
+			if (WARN_ON(!plane_state))
+				continue;
+			if (WARN_ON(!plane_state->crtc))
+				continue;
+			if (plane->type == DRM_PLANE_TYPE_CURSOR)
+				continue;
+
+			zpos = plane_state->normalized_zpos;
+
+			if (plane->type == DRM_PLANE_TYPE_OVERLAY) {
+				sprite = to_intel_plane(plane)->plane;
+
+				intel_crtc_state->zpos[sprite] = zpos;
+			}
+
+			WARN_ON((zpos_mask & (1 << zpos)) == 0);
+			zpos_mask &= ~(1 << zpos);
+		}
+
+		for (sprite = 0; sprite < 2; sprite++) {
+			int zpos;
+
+			if (intel_crtc_state->zpos[sprite] != 0xff)
+				continue;
+
+			zpos = ffs(zpos_mask) - 1;
+			WARN_ON(zpos < 0);
+			intel_crtc_state->zpos[sprite] = zpos;
+			zpos_mask &= ~(1 << zpos);
+		}
+
+		WARN_ON(zpos_mask != 0 && !is_power_of_2(zpos_mask));
+
+		DRM_DEBUG_KMS("pipe %c zpos sprite %c: %d, sprite %c: %d\n",
+			      pipe_name(pipe),
+			      sprite_name(pipe, 0), intel_crtc_state->zpos[0],
+			      sprite_name(pipe, 1), intel_crtc_state->zpos[1]);
+	}
+}
+
 /**
  * intel_atomic_check - validate state object
  * @dev: drm device
@@ -13480,6 +13546,9 @@ static int intel_atomic_check(struct drm_device *dev,
 	ret = drm_atomic_helper_check_planes(dev, state);
 	if (ret)
 		return ret;
+
+	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
+		vlv_update_zpos(dev, state);
 
 	intel_fbc_choose_crtc(dev_priv, state);
 	return calc_watermark_data(state);
@@ -14251,7 +14320,10 @@ static struct drm_plane *intel_primary_plane_create(struct drm_device *dev,
 		intel_create_rotation_property(dev, primary);
 
 	zpos = 0;
-	drm_plane_create_zpos_immutable_property(&primary->base, zpos);
+	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
+		drm_plane_create_zpos_property(&primary->base, zpos, 0, 2);
+	else
+		drm_plane_create_zpos_immutable_property(&primary->base, zpos);
 
 	drm_plane_helper_add(&primary->base, &intel_plane_helper_funcs);
 

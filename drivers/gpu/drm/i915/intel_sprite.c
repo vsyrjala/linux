@@ -424,6 +424,11 @@ vlv_update_plane(struct drm_plane *dplane,
 		break;
 	}
 
+	if (crtc_state->zpos[plane] == 0)
+		sprctl |= SP_BOTTOM;
+	else if (crtc_state->zpos[plane] == crtc_state->zpos[!plane] + 1)
+		sprctl |= SP_ZORDER;
+
 	/*
 	 * Enable gamma to match primary/cursor plane behaviour.
 	 * FIXME should be user controllable via propertiesa.
@@ -1143,7 +1148,10 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 	intel_create_rotation_property(dev, intel_plane);
 
 	zpos = plane + 1;
-	drm_plane_create_zpos_immutable_property(&intel_plane->base, zpos);
+	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
+		drm_plane_create_zpos_property(&intel_plane->base, zpos, 0, 2);
+	else
+		drm_plane_create_zpos_immutable_property(&intel_plane->base, zpos);
 
 	drm_plane_helper_add(&intel_plane->base, &intel_plane_helper_funcs);
 

@@ -5374,6 +5374,8 @@ enum {
 #define   SP_ROTATE_180			(1<<15)
 #define   SP_TILED			(1<<10)
 #define   SP_MIRROR			(1<<8) /* CHV pipe B */
+#define   SP_BOTTOM			(1<<2)
+#define   SP_ZORDER			(1<<0)
 #define _SPALINOFF		(VLV_DISPLAY_BASE + 0x72184)
 #define _SPASTRIDE		(VLV_DISPLAY_BASE + 0x72188)
 #define _SPAPOS			(VLV_DISPLAY_BASE + 0x7218c)

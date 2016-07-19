@@ -640,6 +640,9 @@ struct intel_crtc_state {
 
 	/* Gamma mode programmed on the pipe */
 	uint32_t gamma_mode;
+
+	/* VLV/CHV zpos for each sprite */
+	u8 zpos[2];
 };
 
 struct vlv_wm_state {
