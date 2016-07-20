@@ -20,6 +20,6 @@ drm-intel.html: drm-intel.rst drm-intel-flow.svg drm-intel-timeline.rst drm-inte
 dim.html: dim.rst
 
 clean:
-	rm -f drm-intel.html drm-intel-flow.svg dim.html
+	rm -f drm-intel.html drm-intel-flow.svg dim.html drm-misc.html
 
 .PHONY: all clean
