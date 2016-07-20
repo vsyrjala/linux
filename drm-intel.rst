@@ -248,6 +248,7 @@ when it's tricky or something fails in the below procedure.
 
 3. Switch to $DIM_PREFIX/drm-intel-nightly and analyze the conflict: ::
 
+        $ cd $DIM_PREFIX/drm-intel-nightly
         $ git diff # shows three-way diff of conflict
         $ gitk --merge # lists all commits git believes to be relevant
 
