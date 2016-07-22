@@ -254,21 +254,18 @@ int malidp_de_planes_init(struct drm_device *drm)
 		if (ret < 0)
 			goto cleanup;
 
-		if (!drm->mode_config.rotation_property) {
+		/* SMART layer can't be rotated */
+		if (id != DE_SMART) {
 			unsigned long flags = BIT(DRM_ROTATE_0) |
 					      BIT(DRM_ROTATE_90) |
 					      BIT(DRM_ROTATE_180) |
 					      BIT(DRM_ROTATE_270) |
 					      BIT(DRM_REFLECT_X) |
 					      BIT(DRM_REFLECT_Y);
-			drm->mode_config.rotation_property =
-				drm_mode_create_rotation_property(drm, flags);
+			drm_plane_create_rotation_property(&plane->base,
+							   BIT(DRM_ROTATE_0),
+							   flags);
 		}
-		/* SMART layer can't be rotated */
-		if (drm->mode_config.rotation_property && (id != DE_SMART))
-			drm_object_attach_property(&plane->base.base,
-						   drm->mode_config.rotation_property,
-						   BIT(DRM_ROTATE_0));
 
 		drm_plane_helper_add(&plane->base,
 				     &malidp_de_plane_helper_funcs);
