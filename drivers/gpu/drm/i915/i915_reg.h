@@ -186,13 +186,13 @@ static inline bool i915_mmio_reg_valid(i915_reg_t reg)
 #define  GEN9_GRDOM_GUC			(1 << 5)
 #define  GEN8_GRDOM_MEDIA2		(1 << 7)
 
-#define RING_PP_DIR_BASE(ring)		_MMIO((ring)->mmio_base+0x228)
-#define RING_PP_DIR_BASE_READ(ring)	_MMIO((ring)->mmio_base+0x518)
-#define RING_PP_DIR_DCLV(ring)		_MMIO((ring)->mmio_base+0x220)
+#define RING_PP_DIR_BASE(engine)	_MMIO((engine)->mmio_base+0x228)
+#define RING_PP_DIR_BASE_READ(engine)	_MMIO((engine)->mmio_base+0x518)
+#define RING_PP_DIR_DCLV(engine)	_MMIO((engine)->mmio_base+0x220)
 #define   PP_DIR_DCLV_2G		0xffffffff
 
-#define GEN8_RING_PDP_UDW(ring, n)	_MMIO((ring)->mmio_base+0x270 + (n) * 8 + 4)
-#define GEN8_RING_PDP_LDW(ring, n)	_MMIO((ring)->mmio_base+0x270 + (n) * 8)
+#define GEN8_RING_PDP_UDW(engine, n)	_MMIO((engine)->mmio_base+0x270 + (n) * 8 + 4)
+#define GEN8_RING_PDP_LDW(engine, n)	_MMIO((engine)->mmio_base+0x270 + (n) * 8)
 
 #define GEN8_R_PWR_CLK_STATE		_MMIO(0x20C8)
 #define   GEN8_RPCS_ENABLE		(1 << 31)
@@ -1647,7 +1647,7 @@ enum skl_disp_power_wells {
 #define   ARB_MODE_BWGTLB_DISABLE (1<<9)
 #define   ARB_MODE_SWIZZLE_BDW	(1<<1)
 #define RENDER_HWS_PGA_GEN7	_MMIO(0x04080)
-#define RING_FAULT_REG(ring)	_MMIO(0x4094 + 0x100*(ring)->id)
+#define RING_FAULT_REG(engine)	_MMIO(0x4094 + 0x100*(engine)->id)
 #define   RING_FAULT_GTTSEL_MASK (1<<11)
 #define   RING_FAULT_SRCID(x)	(((x) >> 3) & 0xff)
 #define   RING_FAULT_FAULT_TYPE(x) (((x) >> 1) & 0x3)
@@ -1685,6 +1685,9 @@ enum skl_disp_power_wells {
 #define   RING_MAX_NONPRIV_SLOTS  12
 
 #define GEN7_TLB_RD_ADDR	_MMIO(0x4700)
+
+#define GEN9_GAMT_ECO_REG_RW_IA _MMIO(0x4ab0)
+#define   GAMT_ECO_ENABLE_IN_PLACE_DECOMPRESS	(1<<18)
 
 #define GAMT_CHKN_BIT_REG	_MMIO(0x4ab8)
 #define   GAMT_CHKN_DISABLE_DYNAMIC_CREDIT_SHARING	(1<<28)
@@ -1842,7 +1845,7 @@ enum skl_disp_power_wells {
 
 #define GFX_MODE	_MMIO(0x2520)
 #define GFX_MODE_GEN7	_MMIO(0x229c)
-#define RING_MODE_GEN7(ring)	_MMIO((ring)->mmio_base+0x29c)
+#define RING_MODE_GEN7(engine)	_MMIO((engine)->mmio_base+0x29c)
 #define   GFX_RUN_LIST_ENABLE		(1<<15)
 #define   GFX_INTERRUPT_STEERING	(1<<14)
 #define   GFX_TLB_INVALIDATE_EXPLICIT	(1<<13)
@@ -6129,6 +6132,7 @@ enum {
 # define GEN7_CSC1_RHWO_OPT_DISABLE_IN_RCC	((1<<10) | (1<<26))
 # define GEN9_RHWO_OPTIMIZATION_DISABLE		(1<<14)
 #define COMMON_SLICE_CHICKEN2			_MMIO(0x7014)
+# define GEN9_DISABLE_GATHER_AT_SET_SHADER_COMMON_SLICE (1<<12)
 # define GEN8_SBE_DISABLE_REPLAY_BUF_OPTIMIZATION (1<<8)
 # define GEN8_CSC2_SBE_VUE_CACHE_CONSERVATIVE	(1<<0)
 
