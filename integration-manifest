@@ -1,0 +1,22 @@
+origin/drm-intel-fixes ed2eebbd61af8d378ca39ad7aef7017f29eed6f3
+	drm/i915: add missing condition for committing planes on crtc
+drm-upstream/drm-fixes 84ade45e056f2e292f07c54446c176d0112d9574
+	Merge tag 'drm-intel-fixes-2016-07-18' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes fa95986095e39205ea2fb5b5dafe271bca7eb8d1
+	drm/i915: Set legacy properties when using legacy gamma set IOCTL. (v2)
+origin/drm-intel-next-queued 54b4f68f184c4b8409c113148758baf37d51351b
+	Revert "drm/i915: Enable RC6 immediately"
+drm-upstream/drm-next c11dea5b0290984fa48111957ba3fdc5b3bdae5a
+	Merge branch 'for-next' of http://git.agner.ch/git/linux-drm-fsl-dcu into drm-next
+sound-upstream/for-next 275353bb684ecfeb42f7a353fead81d43a01c519
+	ALSA: echoaudio: purge contradictions between dimension matrix members and total number of members
+sound-upstream/for-linus 76df52969711ae3725a98f26fbbc6a349803dcbf
+	ALSA: usb-audio: Fix quirks code is not called
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 44fb4b8aa3925bf17763fcad76a97561aab32ecd
+	GPU-DRM-GMA500: Delete unnecessary checks before two function calls
+origin/topic/core-for-CI 8b86400f445ee400cbd1b81e6c0d6c66c9076e68
+	iommu/vt-d: fix overflow of iommu->domains array
+origin/topic/sphinx-wip 29310a50752de76314f51555b72044d11f6cba49
+	Revert "doc/sphinx: Enable keep_warnings"
