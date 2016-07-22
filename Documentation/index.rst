@@ -14,11 +14,10 @@ Contents:
    :maxdepth: 2
 
    gpu/index
+   kernel-documentation
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
-
