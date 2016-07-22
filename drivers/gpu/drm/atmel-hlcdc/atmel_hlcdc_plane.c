@@ -903,9 +903,12 @@ static void atmel_hlcdc_plane_init_properties(struct atmel_hlcdc_plane *plane,
 	}
 
 	if (desc->layout.xstride && desc->layout.pstride)
-		drm_object_attach_property(&plane->base.base,
-				plane->base.dev->mode_config.rotation_property,
-				BIT(DRM_ROTATE_0));
+		drm_plane_create_rotation_property(&plane->base,
+						   BIT(DRM_ROTATE_0),
+						   BIT(DRM_ROTATE_0) |
+						   BIT(DRM_ROTATE_90) |
+						   BIT(DRM_ROTATE_180) |
+						   BIT(DRM_ROTATE_270));
 
 	if (desc->layout.csc) {
 		/*
@@ -1052,15 +1055,6 @@ atmel_hlcdc_plane_create_properties(struct drm_device *dev)
 
 	props->alpha = drm_property_create_range(dev, 0, "alpha", 0, 255);
 	if (!props->alpha)
-		return ERR_PTR(-ENOMEM);
-
-	dev->mode_config.rotation_property =
-			drm_mode_create_rotation_property(dev,
-							  BIT(DRM_ROTATE_0) |
-							  BIT(DRM_ROTATE_90) |
-							  BIT(DRM_ROTATE_180) |
-							  BIT(DRM_ROTATE_270));
-	if (!dev->mode_config.rotation_property)
 		return ERR_PTR(-ENOMEM);
 
 	return props;
