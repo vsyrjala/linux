@@ -78,12 +78,13 @@ static void mdp5_plane_install_rotation_property(struct drm_device *dev,
 	if (!dev->mode_config.rotation_property)
 		dev->mode_config.rotation_property =
 			drm_mode_create_rotation_property(dev,
+			BIT(DRM_ROTATE_0) |
 			BIT(DRM_REFLECT_X) | BIT(DRM_REFLECT_Y));
 
 	if (dev->mode_config.rotation_property)
 		drm_object_attach_property(&plane->base,
 			dev->mode_config.rotation_property,
-			0);
+			BIT(DRM_ROTATE_0));
 }
 
 /* helper to install properties which are common to planes and crtcs */
