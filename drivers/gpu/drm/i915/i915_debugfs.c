@@ -768,7 +768,7 @@ static int i915_gem_request_info(struct seq_file *m, void *data)
 			if (req->pid)
 				task = pid_task(req->pid, PIDTYPE_PID);
 			seq_printf(m, "    %x @ %d: %s [%d]\n",
-				   req->seqno,
+				   req->fence.seqno,
 				   (int) (jiffies - req->emitted_jiffies),
 				   task ? task->comm : "<unknown>",
 				   task ? task->pid : -1);
@@ -1205,8 +1205,6 @@ static int i915_frequency_info(struct seq_file *m, void *unused)
 
 	intel_runtime_pm_get(dev_priv);
 
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
-
 	if (IS_GEN5(dev)) {
 		u16 rgvswctl = I915_READ16(MEMSWCTL);
 		u16 rgvstat = I915_READ16(MEMSTAT_ILK);
@@ -1381,6 +1379,8 @@ static int i915_frequency_info(struct seq_file *m, void *unused)
 			   intel_gpu_freq(dev_priv, dev_priv->rps.idle_freq));
 		seq_printf(m, "Min freq: %d MHz\n",
 			   intel_gpu_freq(dev_priv, dev_priv->rps.min_freq));
+		seq_printf(m, "Boost freq: %d MHz\n",
+			   intel_gpu_freq(dev_priv, dev_priv->rps.boost_freq));
 		seq_printf(m, "Max freq: %d MHz\n",
 			   intel_gpu_freq(dev_priv, dev_priv->rps.max_freq));
 		seq_printf(m,
@@ -1895,8 +1895,6 @@ static int i915_ring_freq_table(struct seq_file *m, void *unused)
 	}
 
 	intel_runtime_pm_get(dev_priv);
-
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
 
 	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
 	if (ret)
@@ -2467,13 +2465,7 @@ static int i915_rps_boost_info(struct seq_file *m, void *data)
 			   list_empty(&file_priv->rps.link) ? "" : ", active");
 		rcu_read_unlock();
 	}
-	seq_printf(m, "Semaphore boosts: %d%s\n",
-		   dev_priv->rps.semaphores.boosts,
-		   list_empty(&dev_priv->rps.semaphores.link) ? "" : ", active");
-	seq_printf(m, "MMIO flip boosts: %d%s\n",
-		   dev_priv->rps.mmioflips.boosts,
-		   list_empty(&dev_priv->rps.mmioflips.link) ? "" : ", active");
-	seq_printf(m, "Kernel boosts: %d\n", dev_priv->rps.boosts);
+	seq_printf(m, "Kernel (anonymous) boosts: %d\n", dev_priv->rps.boosts);
 	spin_unlock(&dev_priv->rps.client_lock);
 	mutex_unlock(&dev->filelist_mutex);
 
@@ -3228,7 +3220,7 @@ static int i915_semaphore_status(struct seq_file *m, void *unused)
 	enum intel_engine_id id;
 	int j, ret;
 
-	if (!i915_semaphore_is_enabled(dev_priv)) {
+	if (!i915.semaphores) {
 		seq_puts(m, "Semaphores are disabled\n");
 		return 0;
 	}
@@ -4950,20 +4942,11 @@ i915_max_freq_get(void *data, u64 *val)
 {
 	struct drm_device *dev = data;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	int ret;
 
 	if (INTEL_INFO(dev)->gen < 6)
 		return -ENODEV;
 
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
-
-	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
-	if (ret)
-		return ret;
-
 	*val = intel_gpu_freq(dev_priv, dev_priv->rps.max_freq_softlimit);
-	mutex_unlock(&dev_priv->rps.hw_lock);
-
 	return 0;
 }
 
@@ -4977,8 +4960,6 @@ i915_max_freq_set(void *data, u64 val)
 
 	if (INTEL_INFO(dev)->gen < 6)
 		return -ENODEV;
-
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
 
 	DRM_DEBUG_DRIVER("Manually setting max freq to %llu\n", val);
 
@@ -5017,20 +4998,11 @@ i915_min_freq_get(void *data, u64 *val)
 {
 	struct drm_device *dev = data;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	int ret;
 
-	if (INTEL_INFO(dev)->gen < 6)
+	if (INTEL_GEN(dev_priv) < 6)
 		return -ENODEV;
 
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
-
-	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
-	if (ret)
-		return ret;
-
 	*val = intel_gpu_freq(dev_priv, dev_priv->rps.min_freq_softlimit);
-	mutex_unlock(&dev_priv->rps.hw_lock);
-
 	return 0;
 }
 
@@ -5042,10 +5014,8 @@ i915_min_freq_set(void *data, u64 val)
 	u32 hw_max, hw_min;
 	int ret;
 
-	if (INTEL_INFO(dev)->gen < 6)
+	if (INTEL_GEN(dev_priv) < 6)
 		return -ENODEV;
-
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
 
 	DRM_DEBUG_DRIVER("Manually setting min freq to %llu\n", val);
 
