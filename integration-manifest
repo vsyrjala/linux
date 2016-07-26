@@ -1,0 +1,22 @@
+origin/drm-intel-fixes ed2eebbd61af8d378ca39ad7aef7017f29eed6f3
+	drm/i915: add missing condition for committing planes on crtc
+drm-upstream/drm-fixes 84ade45e056f2e292f07c54446c176d0112d9574
+	Merge tag 'drm-intel-fixes-2016-07-18' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes f15f6ca1e706e11fd07611bd4c7f903625349b33
+	drm/i915/gen9: Add WaInPlaceDecompressionHang
+origin/drm-intel-next-queued f67cbce0f18299b70da776a5d699125b06523700
+	drm/i915: Only drop the batch-pool's object reference
+drm-upstream/drm-next c11dea5b0290984fa48111957ba3fdc5b3bdae5a
+	Merge branch 'for-next' of http://git.agner.ch/git/linux-drm-fsl-dcu into drm-next
+sound-upstream/for-next 0984d159c8ad6618c6ebd9f00bc3f374fa52bc35
+	sound: oss: Use kernel_read_file_from_path() for mod_firmware_load()
+sound-upstream/for-linus 0984d159c8ad6618c6ebd9f00bc3f374fa52bc35
+	sound: oss: Use kernel_read_file_from_path() for mod_firmware_load()
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc d9a7ed770f9d06b998172e4e71791c81476de88f
+	drm/etnaviv: Optimize error handling in etnaviv_gem_new_userptr()
+origin/topic/core-for-CI 8b86400f445ee400cbd1b81e6c0d6c66c9076e68
+	iommu/vt-d: fix overflow of iommu->domains array
+origin/topic/sphinx-wip 29310a50752de76314f51555b72044d11f6cba49
+	Revert "doc/sphinx: Enable keep_warnings"
