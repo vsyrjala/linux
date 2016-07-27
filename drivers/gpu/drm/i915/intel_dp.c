@@ -1431,10 +1431,13 @@ static int rate_to_index(int find, const int *rates)
 	int i = 0;
 
 	for (i = 0; i < DP_MAX_SUPPORTED_RATES; ++i)
-		if (find == rates[i])
+		if (find < rates[i])
 			break;
 
-	return i;
+	if (WARN_ON(i == 0))
+		return 0;
+
+	return i - 1;
 }
 
 int
