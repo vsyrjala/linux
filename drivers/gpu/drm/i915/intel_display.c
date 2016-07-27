@@ -16031,8 +16031,12 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 			encoder->base.crtc = &crtc->base;
 			crtc->config->output_types |= 1 << encoder->type;
 			encoder->get_config(encoder, crtc->config);
+			if (encoder->sync_state)
+				encoder->sync_state(encoder, crtc->config);
 		} else {
 			encoder->base.crtc = NULL;
+			if (encoder->sync_state)
+				encoder->sync_state(encoder, NULL);
 		}
 
 		DRM_DEBUG_KMS("[ENCODER:%d:%s] hw state readout: %s, pipe %c\n",

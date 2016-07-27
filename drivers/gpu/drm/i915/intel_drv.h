@@ -213,6 +213,13 @@ struct intel_encoder {
 	void (*get_config)(struct intel_encoder *,
 			   struct intel_crtc_state *pipe_config);
 	/*
+	 * Used during init/resume to sync any cached state
+	 * stored outside the pipe config (eg. active DP link
+	 * parameters).
+	 */
+	void (*sync_state)(struct intel_encoder *,
+			   const struct intel_crtc_state *);
+	/*
 	 * Called during system suspend after all pending requests for the
 	 * encoder are flushed (for example for DP AUX transactions) and
 	 * device interrupts are disabled.

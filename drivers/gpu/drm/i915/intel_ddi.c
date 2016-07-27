@@ -2314,6 +2314,9 @@ intel_ddi_init_hdmi_connector(struct intel_digital_port *intel_dig_port)
 	return connector;
 }
 
+void intel_dp_sync_state(struct intel_encoder *encoder,
+			 const struct intel_crtc_state *pipe_config);
+
 void intel_ddi_init(struct drm_device *dev, enum port port)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
@@ -2377,6 +2380,7 @@ void intel_ddi_init(struct drm_device *dev, enum port port)
 	intel_encoder->post_disable = intel_ddi_post_disable;
 	intel_encoder->get_hw_state = intel_ddi_get_hw_state;
 	intel_encoder->get_config = intel_ddi_get_config;
+	intel_encoder->sync_state = intel_dp_sync_state;
 	intel_encoder->suspend = intel_dp_encoder_suspend;
 
 	intel_dig_port->port = port;

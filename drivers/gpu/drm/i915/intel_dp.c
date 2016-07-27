@@ -2482,6 +2482,23 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 	}
 }
 
+void intel_dp_sync_state(struct intel_encoder *encoder,
+			 const struct intel_crtc_state *pipe_config)
+{
+	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
+
+	if (pipe_config) {
+		/* FIXME MST */
+		intel_dp->active_streams = 1;
+		intel_dp->link_rate = pipe_config->port_clock;
+		intel_dp->lane_count = pipe_config->lane_count;
+	} else {
+		intel_dp->active_streams = 0;
+		intel_dp->link_rate = 0;
+		intel_dp->lane_count = 0;
+	}
+}
+
 static void intel_disable_dp(struct intel_encoder *encoder)
 {
 	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
@@ -5675,6 +5692,7 @@ bool intel_dp_init(struct drm_device *dev,
 	intel_encoder->disable = intel_disable_dp;
 	intel_encoder->get_hw_state = intel_dp_get_hw_state;
 	intel_encoder->get_config = intel_dp_get_config;
+	intel_encoder->sync_state = intel_dp_sync_state;
 	intel_encoder->suspend = intel_dp_encoder_suspend;
 	if (IS_CHERRYVIEW(dev)) {
 		intel_encoder->pre_pll_enable = chv_dp_pre_pll_enable;
