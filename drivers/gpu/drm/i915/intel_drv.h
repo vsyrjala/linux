@@ -854,7 +854,7 @@ struct intel_dp {
 	uint8_t sink_count;
 	bool link_mst;
 	bool has_audio;
-	bool detect_done;
+	bool long_hpd_pending;
 	enum hdmi_force_audio force_audio;
 	bool limited_color_range;
 	bool color_range_auto;

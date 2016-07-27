@@ -4315,12 +4315,15 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 {
 	struct intel_dp *intel_dp = intel_attached_dp(connector);
 	struct intel_connector *intel_connector = to_intel_connector(connector);
-	enum drm_connector_status status;
+	enum drm_connector_status status = connector->status;
 
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n",
 		      connector->base.id, connector->name);
 
-	status = intel_dp_long_pulse(intel_connector);
+	if (intel_dp->long_hpd_pending) {
+		intel_dp->long_hpd_pending = false;
+		status = intel_dp_long_pulse(intel_connector);
+	}
 
 	if (status == connector_status_connected || intel_dp->is_mst)
 		intel_dp_link_retrain(intel_dp);
@@ -4608,6 +4611,8 @@ void intel_dp_encoder_reset(struct drm_encoder *encoder)
 	struct drm_i915_private *dev_priv = to_i915(encoder->dev);
 	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
 
+	intel_dp->long_hpd_pending = true;
+
 	if (!HAS_DDI(dev_priv))
 		intel_dp->DP = I915_READ(intel_dp->output_reg);
 
@@ -4682,8 +4687,10 @@ intel_dp_hpd_pulse(struct intel_digital_port *intel_dig_port, bool long_hpd)
 		      port_name(intel_dig_port->port),
 		      long_hpd ? "long" : "short");
 
-	if (long_hpd)
+	if (long_hpd) {
+		intel_dp->long_hpd_pending = true;
 		return IRQ_NONE;
+	}
 
 	power_domain = intel_display_port_aux_power_domain(intel_encoder);
 	intel_display_power_get(dev_priv, power_domain);
@@ -4699,11 +4706,14 @@ intel_dp_hpd_pulse(struct intel_digital_port *intel_dig_port, bool long_hpd)
 			intel_dp->is_mst = false;
 			drm_dp_mst_topology_mgr_set_mst(&intel_dp->mst_mgr,
 							intel_dp->is_mst);
+			intel_dp->long_hpd_pending = true;
 			goto put_power;
 		}
 	} else {
-		if (!intel_dp_short_pulse(intel_dp))
+		if (!intel_dp_short_pulse(intel_dp)) {
+			intel_dp->long_hpd_pending = true;
 			goto put_power;
+		}
 	}
 
 	/*
@@ -5512,6 +5522,7 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 		 intel_dig_port->max_lanes, port_name(port)))
 		return false;
 
+	intel_dp->long_hpd_pending = true;
 	intel_dp->pps_pipe = INVALID_PIPE;
 
 	/* intel_dp vfuncs */
