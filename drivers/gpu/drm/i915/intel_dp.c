@@ -3394,12 +3394,70 @@ intel_dp_link_down(struct intel_dp *intel_dp)
 	intel_dp->DP = DP;
 }
 
+static void
+intel_edp_get_dpcd(struct intel_dp *intel_dp)
+{
+	struct drm_i915_private *dev_priv =
+		to_i915(dp_to_dig_port(intel_dp)->base.base.dev);
+
+	/* Check if the panel supports PSR */
+	drm_dp_dpcd_read(&intel_dp->aux, DP_PSR_SUPPORT,
+			 intel_dp->psr_dpcd,
+			 sizeof(intel_dp->psr_dpcd));
+	if (intel_dp->psr_dpcd[0] & DP_PSR_IS_SUPPORTED) {
+		dev_priv->psr.sink_support = true;
+		DRM_DEBUG_KMS("Detected EDP PSR Panel.\n");
+	}
+
+	if (INTEL_GEN(dev_priv) >= 9 &&
+	    (intel_dp->psr_dpcd[0] & DP_PSR2_IS_SUPPORTED)) {
+		uint8_t frame_sync_cap;
+
+		dev_priv->psr.sink_support = true;
+		drm_dp_dpcd_read(&intel_dp->aux,
+				 DP_SINK_DEVICE_AUX_FRAME_SYNC_CAP,
+				 &frame_sync_cap, 1);
+		dev_priv->psr.aux_frame_sync = frame_sync_cap ? true : false;
+		/* PSR2 needs frame sync as well */
+		dev_priv->psr.psr2_support = dev_priv->psr.aux_frame_sync;
+		DRM_DEBUG_KMS("PSR2 %s on sink",
+			      dev_priv->psr.psr2_support ? "supported" : "not supported");
+	}
+
+	/* Read the eDP Display control capabilities registers */
+	if ((intel_dp->dpcd[DP_EDP_CONFIGURATION_CAP] & DP_DPCD_DISPLAY_CONTROL_CAPABLE) &&
+	    drm_dp_dpcd_read(&intel_dp->aux, DP_EDP_DPCD_REV,
+			     intel_dp->edp_dpcd, sizeof(intel_dp->edp_dpcd) ==
+			     sizeof(intel_dp->edp_dpcd)))
+		DRM_DEBUG_KMS("EDP DPCD : %*ph\n", (int) sizeof(intel_dp->edp_dpcd),
+			      intel_dp->edp_dpcd);
+
+	/* Intermediate frequency support */
+	if (intel_dp->edp_dpcd[0] >= 0x03) { /* eDp v1.4 or higher */
+		__le16 sink_rates[DP_MAX_SUPPORTED_RATES];
+		int i;
+
+		drm_dp_dpcd_read(&intel_dp->aux, DP_SUPPORTED_LINK_RATES,
+				sink_rates, sizeof(sink_rates));
+
+		for (i = 0; i < ARRAY_SIZE(sink_rates); i++) {
+			int val = le16_to_cpu(sink_rates[i]);
+
+			if (val == 0)
+				break;
+
+			/* Value read is in kHz while drm clock is saved in deca-kHz */
+			intel_dp->sink_rates[i] = (val * 200) / 10;
+		}
+		intel_dp->num_sink_rates = i;
+	}
+}
+
 static bool
 intel_dp_get_dpcd(struct intel_dp *intel_dp)
 {
-	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
-	struct drm_device *dev = dig_port->base.base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	bool init_edp_dpcd = is_edp(intel_dp) &&
+		intel_dp->dpcd[DP_DPCD_REV] == 0;
 
 	if (drm_dp_dpcd_read(&intel_dp->aux, 0x000, intel_dp->dpcd,
 			     sizeof(intel_dp->dpcd)) < 0)
@@ -3431,65 +3489,12 @@ intel_dp_get_dpcd(struct intel_dp *intel_dp)
 	if (!is_edp(intel_dp) && !intel_dp->sink_count)
 		return false;
 
-	/* Check if the panel supports PSR */
-	memset(intel_dp->psr_dpcd, 0, sizeof(intel_dp->psr_dpcd));
-	if (is_edp(intel_dp)) {
-		drm_dp_dpcd_read(&intel_dp->aux, DP_PSR_SUPPORT,
-				 intel_dp->psr_dpcd,
-				 sizeof(intel_dp->psr_dpcd));
-		if (intel_dp->psr_dpcd[0] & DP_PSR_IS_SUPPORTED) {
-			dev_priv->psr.sink_support = true;
-			DRM_DEBUG_KMS("Detected EDP PSR Panel.\n");
-		}
-
-		if (INTEL_INFO(dev)->gen >= 9 &&
-			(intel_dp->psr_dpcd[0] & DP_PSR2_IS_SUPPORTED)) {
-			uint8_t frame_sync_cap;
-
-			dev_priv->psr.sink_support = true;
-			drm_dp_dpcd_read(&intel_dp->aux,
-					 DP_SINK_DEVICE_AUX_FRAME_SYNC_CAP,
-					 &frame_sync_cap, 1);
-			dev_priv->psr.aux_frame_sync = frame_sync_cap ? true : false;
-			/* PSR2 needs frame sync as well */
-			dev_priv->psr.psr2_support = dev_priv->psr.aux_frame_sync;
-			DRM_DEBUG_KMS("PSR2 %s on sink",
-				dev_priv->psr.psr2_support ? "supported" : "not supported");
-		}
-
-		/* Read the eDP Display control capabilities registers */
-		memset(intel_dp->edp_dpcd, 0, sizeof(intel_dp->edp_dpcd));
-		if ((intel_dp->dpcd[DP_EDP_CONFIGURATION_CAP] & DP_DPCD_DISPLAY_CONTROL_CAPABLE) &&
-				(drm_dp_dpcd_read(&intel_dp->aux, DP_EDP_DPCD_REV,
-						intel_dp->edp_dpcd, sizeof(intel_dp->edp_dpcd)) ==
-								sizeof(intel_dp->edp_dpcd)))
-			DRM_DEBUG_KMS("EDP DPCD : %*ph\n", (int) sizeof(intel_dp->edp_dpcd),
-					intel_dp->edp_dpcd);
-	}
+	if (init_edp_dpcd)
+		intel_edp_get_dpcd(intel_dp);
 
 	DRM_DEBUG_KMS("Display Port TPS3 support: source %s, sink %s\n",
 		      yesno(intel_dp_source_supports_hbr2(intel_dp)),
 		      yesno(drm_dp_tps3_supported(intel_dp->dpcd)));
-
-	/* Intermediate frequency support */
-	if (is_edp(intel_dp) && (intel_dp->edp_dpcd[0] >= 0x03)) { /* eDp v1.4 or higher */
-		__le16 sink_rates[DP_MAX_SUPPORTED_RATES];
-		int i;
-
-		drm_dp_dpcd_read(&intel_dp->aux, DP_SUPPORTED_LINK_RATES,
-				sink_rates, sizeof(sink_rates));
-
-		for (i = 0; i < ARRAY_SIZE(sink_rates); i++) {
-			int val = le16_to_cpu(sink_rates[i]);
-
-			if (val == 0)
-				break;
-
-			/* Value read is in kHz while drm clock is saved in deca-kHz */
-			intel_dp->sink_rates[i] = (val * 200) / 10;
-		}
-		intel_dp->num_sink_rates = i;
-	}
 
 	intel_dp_print_rates(intel_dp);
 
