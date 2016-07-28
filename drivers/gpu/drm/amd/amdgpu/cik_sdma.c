@@ -224,17 +224,6 @@ static void cik_sdma_ring_emit_ib(struct amdgpu_ring *ring,
 				  unsigned vm_id, bool ctx_switch)
 {
 	u32 extra_bits = vm_id & 0xf;
-	u32 next_rptr = ring->wptr + 5;
-
-	while ((next_rptr & 7) != 4)
-		next_rptr++;
-
-	next_rptr += 4;
-	amdgpu_ring_write(ring, SDMA_PACKET(SDMA_OPCODE_WRITE, SDMA_WRITE_SUB_OPCODE_LINEAR, 0));
-	amdgpu_ring_write(ring, ring->next_rptr_gpu_addr & 0xfffffffc);
-	amdgpu_ring_write(ring, upper_32_bits(ring->next_rptr_gpu_addr) & 0xffffffff);
-	amdgpu_ring_write(ring, 1); /* number of DWs to follow */
-	amdgpu_ring_write(ring, next_rptr);
 
 	/* IB packet must end on a 8 DW boundary */
 	cik_sdma_ring_insert_nop(ring, (12 - (ring->wptr & 7)) % 8);
@@ -633,7 +622,6 @@ static int cik_sdma_ring_test_ib(struct amdgpu_ring *ring)
 	struct amdgpu_device *adev = ring->adev;
 	struct amdgpu_ib ib;
 	struct fence *f = NULL;
-	unsigned i;
 	unsigned index;
 	int r;
 	u32 tmp = 0;
@@ -655,7 +643,8 @@ static int cik_sdma_ring_test_ib(struct amdgpu_ring *ring)
 		goto err0;
 	}
 
-	ib.ptr[0] = SDMA_PACKET(SDMA_OPCODE_WRITE, SDMA_WRITE_SUB_OPCODE_LINEAR, 0);
+	ib.ptr[0] = SDMA_PACKET(SDMA_OPCODE_WRITE,
+				SDMA_WRITE_SUB_OPCODE_LINEAR, 0);
 	ib.ptr[1] = lower_32_bits(gpu_addr);
 	ib.ptr[2] = upper_32_bits(gpu_addr);
 	ib.ptr[3] = 1;
@@ -670,23 +659,15 @@ static int cik_sdma_ring_test_ib(struct amdgpu_ring *ring)
 		DRM_ERROR("amdgpu: fence wait failed (%d).\n", r);
 		goto err1;
 	}
-	for (i = 0; i < adev->usec_timeout; i++) {
-		tmp = le32_to_cpu(adev->wb.wb[index]);
-		if (tmp == 0xDEADBEEF)
-			break;
-		DRM_UDELAY(1);
-	}
-	if (i < adev->usec_timeout) {
-		DRM_INFO("ib test on ring %d succeeded in %u usecs\n",
-			 ring->idx, i);
-		goto err1;
+	tmp = le32_to_cpu(adev->wb.wb[index]);
+	if (tmp == 0xDEADBEEF) {
+		DRM_INFO("ib test on ring %d succeeded\n", ring->idx);
 	} else {
 		DRM_ERROR("amdgpu: ib test failed (0x%08X)\n", tmp);
 		r = -EINVAL;
 	}
 
 err1:
-	fence_put(f);
 	amdgpu_ib_free(adev, &ib, NULL);
 	fence_put(f);
 err0:

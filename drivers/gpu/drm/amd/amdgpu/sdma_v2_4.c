@@ -255,19 +255,6 @@ static void sdma_v2_4_ring_emit_ib(struct amdgpu_ring *ring,
 				   unsigned vm_id, bool ctx_switch)
 {
 	u32 vmid = vm_id & 0xf;
-	u32 next_rptr = ring->wptr + 5;
-
-	while ((next_rptr & 7) != 2)
-		next_rptr++;
-
-	next_rptr += 6;
-
-	amdgpu_ring_write(ring, SDMA_PKT_HEADER_OP(SDMA_OP_WRITE) |
-			  SDMA_PKT_HEADER_SUB_OP(SDMA_SUBOP_WRITE_LINEAR));
-	amdgpu_ring_write(ring, lower_32_bits(ring->next_rptr_gpu_addr) & 0xfffffffc);
-	amdgpu_ring_write(ring, upper_32_bits(ring->next_rptr_gpu_addr));
-	amdgpu_ring_write(ring, SDMA_PKT_WRITE_UNTILED_DW_3_COUNT(1));
-	amdgpu_ring_write(ring, next_rptr);
 
 	/* IB packet must end on a 8 DW boundary */
 	sdma_v2_4_ring_insert_nop(ring, (10 - (ring->wptr & 7)) % 8);
@@ -580,19 +567,21 @@ static int sdma_v2_4_start(struct amdgpu_device *adev)
 {
 	int r;
 
-	if (!adev->firmware.smu_load) {
-		r = sdma_v2_4_load_microcode(adev);
-		if (r)
-			return r;
-	} else {
-		r = adev->smu.smumgr_funcs->check_fw_load_finish(adev,
-						AMDGPU_UCODE_ID_SDMA0);
-		if (r)
-			return -EINVAL;
-		r = adev->smu.smumgr_funcs->check_fw_load_finish(adev,
-						AMDGPU_UCODE_ID_SDMA1);
-		if (r)
-			return -EINVAL;
+	if (!adev->pp_enabled) {
+		if (!adev->firmware.smu_load) {
+			r = sdma_v2_4_load_microcode(adev);
+			if (r)
+				return r;
+		} else {
+			r = adev->smu.smumgr_funcs->check_fw_load_finish(adev,
+							AMDGPU_UCODE_ID_SDMA0);
+			if (r)
+				return -EINVAL;
+			r = adev->smu.smumgr_funcs->check_fw_load_finish(adev,
+							AMDGPU_UCODE_ID_SDMA1);
+			if (r)
+				return -EINVAL;
+		}
 	}
 
 	/* halt the engine before programing */
@@ -684,7 +673,6 @@ static int sdma_v2_4_ring_test_ib(struct amdgpu_ring *ring)
 	struct amdgpu_device *adev = ring->adev;
 	struct amdgpu_ib ib;
 	struct fence *f = NULL;
-	unsigned i;
 	unsigned index;
 	int r;
 	u32 tmp = 0;
@@ -726,23 +714,15 @@ static int sdma_v2_4_ring_test_ib(struct amdgpu_ring *ring)
 		DRM_ERROR("amdgpu: fence wait failed (%d).\n", r);
 		goto err1;
 	}
-	for (i = 0; i < adev->usec_timeout; i++) {
-		tmp = le32_to_cpu(adev->wb.wb[index]);
-		if (tmp == 0xDEADBEEF)
-			break;
-		DRM_UDELAY(1);
-	}
-	if (i < adev->usec_timeout) {
-		DRM_INFO("ib test on ring %d succeeded in %u usecs\n",
-			 ring->idx, i);
-		goto err1;
+	tmp = le32_to_cpu(adev->wb.wb[index]);
+	if (tmp == 0xDEADBEEF) {
+		DRM_INFO("ib test on ring %d succeeded\n", ring->idx);
 	} else {
 		DRM_ERROR("amdgpu: ib test failed (0x%08X)\n", tmp);
 		r = -EINVAL;
 	}
 
 err1:
-	fence_put(f);
 	amdgpu_ib_free(adev, &ib, NULL);
 	fence_put(f);
 err0:
