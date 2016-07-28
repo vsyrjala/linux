@@ -2488,7 +2488,7 @@ intel_alloc_initial_plane_obj(struct intel_crtc *crtc,
 	return true;
 
 out_unref_obj:
-	drm_gem_object_unreference(&obj->base);
+	i915_gem_object_put(obj);
 	mutex_unlock(&dev->struct_mutex);
 	return false;
 }
@@ -5691,15 +5691,7 @@ static bool skl_cdclk_pcu_ready(struct drm_i915_private *dev_priv)
 
 static bool skl_cdclk_wait_for_pcu_ready(struct drm_i915_private *dev_priv)
 {
-	unsigned int i;
-
-	for (i = 0; i < 15; i++) {
-		if (skl_cdclk_pcu_ready(dev_priv))
-			return true;
-		udelay(10);
-	}
-
-	return false;
+	return _wait_for(skl_cdclk_pcu_ready(dev_priv), 3000, 10) == 0;
 }
 
 static void skl_set_cdclk(struct drm_i915_private *dev_priv, int cdclk, int vco)
@@ -10442,7 +10434,7 @@ intel_framebuffer_create_for_mode(struct drm_device *dev,
 
 	fb = intel_framebuffer_create(dev, &mode_cmd, obj);
 	if (IS_ERR(fb))
-		drm_gem_object_unreference_unlocked(&obj->base);
+		i915_gem_object_put_unlocked(obj);
 
 	return fb;
 }
@@ -10953,11 +10945,10 @@ static void intel_unpin_work_fn(struct work_struct *__work)
 
 	mutex_lock(&dev->struct_mutex);
 	intel_unpin_fb_obj(work->old_fb, primary->state->rotation);
-	drm_gem_object_unreference(&work->pending_flip_obj->base);
-
-	if (work->flip_queued_req)
-		i915_gem_request_assign(&work->flip_queued_req, NULL);
+	i915_gem_object_put(work->pending_flip_obj);
 	mutex_unlock(&dev->struct_mutex);
+
+	i915_gem_request_put(work->flip_queued_req);
 
 	intel_frontbuffer_flip_complete(dev, to_intel_plane(primary)->frontbuffer_bit);
 	intel_fbc_post_update(crtc);
@@ -11473,7 +11464,7 @@ static void intel_mmio_flip_work_func(struct work_struct *w)
 	if (work->flip_queued_req)
 		WARN_ON(__i915_wait_request(work->flip_queued_req,
 					    false, NULL,
-					    &dev_priv->rps.mmioflips));
+					    NO_WAITBOOST));
 
 	/* For framebuffer backed by dmabuf, wait for fence */
 	resv = i915_gem_object_get_dmabuf_resv(obj);
@@ -11650,7 +11641,6 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 
 	/* Reference the objects for the scheduled work. */
 	drm_framebuffer_reference(work->old_fb);
-	drm_gem_object_reference(&obj->base);
 
 	crtc->primary->fb = fb;
 	update_state_fb(crtc->primary);
@@ -11658,7 +11648,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	intel_fbc_pre_update(intel_crtc, intel_crtc->config,
 			     to_intel_plane_state(primary->state));
 
-	work->pending_flip_obj = obj;
+	work->pending_flip_obj = i915_gem_object_get(obj);
 
 	ret = i915_mutex_lock_interruptible(dev);
 	if (ret)
@@ -11758,7 +11748,7 @@ cleanup:
 	crtc->primary->fb = old_fb;
 	update_state_fb(crtc->primary);
 
-	drm_gem_object_unreference_unlocked(&obj->base);
+	i915_gem_object_put_unlocked(obj);
 	drm_framebuffer_unreference(work->old_fb);
 
 	spin_lock_irq(&dev->event_lock);
@@ -14853,7 +14843,7 @@ static void intel_user_framebuffer_destroy(struct drm_framebuffer *fb)
 	drm_framebuffer_cleanup(fb);
 	mutex_lock(&dev->struct_mutex);
 	WARN_ON(!intel_fb->obj->framebuffer_references--);
-	drm_gem_object_unreference(&intel_fb->obj->base);
+	i915_gem_object_put(intel_fb->obj);
 	mutex_unlock(&dev->struct_mutex);
 	kfree(intel_fb);
 }
@@ -15090,13 +15080,13 @@ intel_user_framebuffer_create(struct drm_device *dev,
 	struct drm_i915_gem_object *obj;
 	struct drm_mode_fb_cmd2 mode_cmd = *user_mode_cmd;
 
-	obj = to_intel_bo(drm_gem_object_lookup(filp, mode_cmd.handles[0]));
-	if (&obj->base == NULL)
+	obj = i915_gem_object_lookup(filp, mode_cmd.handles[0]);
+	if (!obj)
 		return ERR_PTR(-ENOENT);
 
 	fb = intel_framebuffer_create(dev, &mode_cmd, obj);
 	if (IS_ERR(fb))
-		drm_gem_object_unreference_unlocked(&obj->base);
+		i915_gem_object_put_unlocked(obj);
 
 	return fb;
 }
@@ -15504,7 +15494,6 @@ void intel_modeset_init_hw(struct drm_device *dev)
 	dev_priv->atomic_cdclk_freq = dev_priv->cdclk_freq;
 
 	intel_init_clock_gating(dev);
-	intel_enable_gt_powersave(dev_priv);
 }
 
 /*
