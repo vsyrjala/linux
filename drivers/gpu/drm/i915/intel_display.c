@@ -7075,7 +7075,10 @@ static int ivybridge_compute_fdi_bc_bifurcation(struct drm_atomic_state *state)
 	struct drm_i915_private *dev_priv = to_i915(state->dev);
 	struct intel_crtc *crtc_b, *crtc_c;
 	struct intel_crtc_state *crtc_state_b, *crtc_state_c;
+	int max_fdi_lanes_b, max_fdi_lanes_c;
 	int ret = 0;
+
+	WARN_ON(!drm_modeset_is_locked(&dev_priv->drm.mode_config.connection_mutex));
 
 	/* nothing to check if pipe C is fused off */
 	if (INTEL_INFO(dev_priv)->num_pipes < 3)
@@ -7084,13 +7087,19 @@ static int ivybridge_compute_fdi_bc_bifurcation(struct drm_atomic_state *state)
 	crtc_b = intel_get_crtc_for_pipe(dev_priv, PIPE_B);
 	crtc_c = intel_get_crtc_for_pipe(dev_priv, PIPE_C);
 
-	crtc_state_b = intel_atomic_get_crtc_state(state, crtc_b);
-	if (IS_ERR(crtc_state_b))
-		return PTR_ERR(crtc_state_b);
+	/*
+	 * We don't want to needlessly lock the other crtc (assuming only
+	 * one of them is part of the current modeset). So we'll just use
+	 * the current state in that case. We can do that since
+	 * connection_mutex effectively protects all the relevant state.
+	 */
+	crtc_state_b = intel_atomic_get_existing_crtc_state(state, crtc_b);
+	if (!crtc_state_b)
+		crtc_state_b = to_intel_crtc_state(crtc_b->base.state);
 
-	crtc_state_c = intel_atomic_get_crtc_state(state, crtc_c);
-	if (IS_ERR(crtc_state_c))
-		return PTR_ERR(crtc_state_c);
+	crtc_state_c = intel_atomic_get_existing_crtc_state(state, crtc_c);
+	if (!crtc_state_c)
+		crtc_state_c = to_intel_crtc_state(crtc_c->base.state);
 
 	if (pipe_required_fdi_lanes(crtc_state_c) > 0) {
 		DRM_DEBUG_KMS("pipe C requires FDI lanes\n");
@@ -7101,12 +7110,8 @@ static int ivybridge_compute_fdi_bc_bifurcation(struct drm_atomic_state *state)
 			ret = intel_add_crtc_modeset_to_state(state, crtc_b);
 		}
 
-		/*
-		 * must do this _after_ intel_add_crtc_modeset_to_state() since
-		 * otherwise we end up with the defaults
-		 */
-		crtc_state_b->max_fdi_lanes = 2;
-		crtc_state_c->max_fdi_lanes = 2;
+		max_fdi_lanes_b = 2;
+		max_fdi_lanes_c = 2;
 	} else {
 		DRM_DEBUG_KMS("pipe C doesn't require FDI lanes\n");
 
@@ -7123,13 +7128,17 @@ static int ivybridge_compute_fdi_bc_bifurcation(struct drm_atomic_state *state)
 			ret = intel_add_crtc_modeset_to_state(state, crtc_b);
 		}
 
-		/*
-		 * must do this _after_ intel_add_crtc_modeset_to_state() since
-		 * otherwise we end up with the defaults
-		 */
-		crtc_state_b->max_fdi_lanes = 4;
-		crtc_state_c->max_fdi_lanes = 0;
+		max_fdi_lanes_b = 4;
+		max_fdi_lanes_c = 0;
 	}
+
+	crtc_state_b = intel_atomic_get_existing_crtc_state(state, crtc_b);
+	if (crtc_state_b)
+		crtc_state_b->max_fdi_lanes = max_fdi_lanes_b;
+
+	crtc_state_c = intel_atomic_get_existing_crtc_state(state, crtc_c);
+	if (crtc_state_c)
+		crtc_state_c->max_fdi_lanes = max_fdi_lanes_c;
 
 	return ret;
 }
@@ -12925,6 +12934,8 @@ static bool check_digital_port_conflicts(struct drm_atomic_state *state)
 	unsigned int used_ports = 0;
 	unsigned int used_mst_ports = 0;
 
+	WARN_ON(!drm_modeset_is_locked(&dev->mode_config.connection_mutex));
+
 	/*
 	 * Walk the connector list instead of the encoder
 	 * list to detect the problem on ddi platforms
@@ -13015,6 +13026,8 @@ intel_modeset_pipe_config_start(struct intel_crtc *crtc,
 	struct drm_connector *connector;
 	struct drm_connector_state *connector_state;
 	int i;
+
+	WARN_ON(!drm_modeset_is_locked(&dev_priv->drm.mode_config.connection_mutex));
 
 	clear_intel_crtc_state(pipe_config);
 
