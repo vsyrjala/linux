@@ -768,7 +768,7 @@ static int i915_gem_request_info(struct seq_file *m, void *data)
 			if (req->pid)
 				task = pid_task(req->pid, PIDTYPE_PID);
 			seq_printf(m, "    %x @ %d: %s [%d]\n",
-				   req->seqno,
+				   req->fence.seqno,
 				   (int) (jiffies - req->emitted_jiffies),
 				   task ? task->comm : "<unknown>",
 				   task ? task->pid : -1);
@@ -1205,8 +1205,6 @@ static int i915_frequency_info(struct seq_file *m, void *unused)
 
 	intel_runtime_pm_get(dev_priv);
 
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
-
 	if (IS_GEN5(dev)) {
 		u16 rgvswctl = I915_READ16(MEMSWCTL);
 		u16 rgvstat = I915_READ16(MEMSTAT_ILK);
@@ -1381,6 +1379,8 @@ static int i915_frequency_info(struct seq_file *m, void *unused)
 			   intel_gpu_freq(dev_priv, dev_priv->rps.idle_freq));
 		seq_printf(m, "Min freq: %d MHz\n",
 			   intel_gpu_freq(dev_priv, dev_priv->rps.min_freq));
+		seq_printf(m, "Boost freq: %d MHz\n",
+			   intel_gpu_freq(dev_priv, dev_priv->rps.boost_freq));
 		seq_printf(m, "Max freq: %d MHz\n",
 			   intel_gpu_freq(dev_priv, dev_priv->rps.max_freq));
 		seq_printf(m,
@@ -1602,6 +1602,7 @@ static int gen6_drpc_info(struct seq_file *m)
 	struct drm_device *dev = node->minor->dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	u32 rpmodectl1, gt_core_status, rcctl1, rc6vids = 0;
+	u32 gen9_powergate_enable = 0, gen9_powergate_status = 0;
 	unsigned forcewake_count;
 	int count = 0, ret;
 
@@ -1629,6 +1630,10 @@ static int gen6_drpc_info(struct seq_file *m)
 
 	rpmodectl1 = I915_READ(GEN6_RP_CONTROL);
 	rcctl1 = I915_READ(GEN6_RC_CONTROL);
+	if (INTEL_INFO(dev)->gen >= 9) {
+		gen9_powergate_enable = I915_READ(GEN9_PG_ENABLE);
+		gen9_powergate_status = I915_READ(GEN9_PWRGT_DOMAIN_STATUS);
+	}
 	mutex_unlock(&dev->struct_mutex);
 	mutex_lock(&dev_priv->rps.hw_lock);
 	sandybridge_pcode_read(dev_priv, GEN6_PCODE_READ_RC6VIDS, &rc6vids);
@@ -1647,6 +1652,12 @@ static int gen6_drpc_info(struct seq_file *m)
 		   yesno(rcctl1 & GEN6_RC_CTL_RC1e_ENABLE));
 	seq_printf(m, "RC6 Enabled: %s\n",
 		   yesno(rcctl1 & GEN6_RC_CTL_RC6_ENABLE));
+	if (INTEL_INFO(dev)->gen >= 9) {
+		seq_printf(m, "Render Well Gating Enabled: %s\n",
+			yesno(gen9_powergate_enable & GEN9_RENDER_PG_ENABLE));
+		seq_printf(m, "Media Well Gating Enabled: %s\n",
+			yesno(gen9_powergate_enable & GEN9_MEDIA_PG_ENABLE));
+	}
 	seq_printf(m, "Deep RC6 Enabled: %s\n",
 		   yesno(rcctl1 & GEN6_RC_CTL_RC6p_ENABLE));
 	seq_printf(m, "Deepest RC6 Enabled: %s\n",
@@ -1675,6 +1686,14 @@ static int gen6_drpc_info(struct seq_file *m)
 
 	seq_printf(m, "Core Power Down: %s\n",
 		   yesno(gt_core_status & GEN6_CORE_CPD_STATE_MASK));
+	if (INTEL_INFO(dev)->gen >= 9) {
+		seq_printf(m, "Render Power Well: %s\n",
+			(gen9_powergate_status &
+			 GEN9_PWRGT_RENDER_STATUS_MASK) ? "Up" : "Down");
+		seq_printf(m, "Media Power Well: %s\n",
+			(gen9_powergate_status &
+			 GEN9_PWRGT_MEDIA_STATUS_MASK) ? "Up" : "Down");
+	}
 
 	/* Not exactly sure what this is */
 	seq_printf(m, "RC6 \"Locked to RPn\" residency since boot: %u\n",
@@ -1692,7 +1711,7 @@ static int gen6_drpc_info(struct seq_file *m)
 		   GEN6_DECODE_RC6_VID(((rc6vids >> 8) & 0xff)));
 	seq_printf(m, "RC6++ voltage: %dmV\n",
 		   GEN6_DECODE_RC6_VID(((rc6vids >> 16) & 0xff)));
-	return 0;
+	return i915_forcewake_domains(m, NULL);
 }
 
 static int i915_drpc_info(struct seq_file *m, void *unused)
@@ -1895,8 +1914,6 @@ static int i915_ring_freq_table(struct seq_file *m, void *unused)
 	}
 
 	intel_runtime_pm_get(dev_priv);
-
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
 
 	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
 	if (ret)
@@ -2467,13 +2484,7 @@ static int i915_rps_boost_info(struct seq_file *m, void *data)
 			   list_empty(&file_priv->rps.link) ? "" : ", active");
 		rcu_read_unlock();
 	}
-	seq_printf(m, "Semaphore boosts: %d%s\n",
-		   dev_priv->rps.semaphores.boosts,
-		   list_empty(&dev_priv->rps.semaphores.link) ? "" : ", active");
-	seq_printf(m, "MMIO flip boosts: %d%s\n",
-		   dev_priv->rps.mmioflips.boosts,
-		   list_empty(&dev_priv->rps.mmioflips.link) ? "" : ", active");
-	seq_printf(m, "Kernel boosts: %d\n", dev_priv->rps.boosts);
+	seq_printf(m, "Kernel (anonymous) boosts: %d\n", dev_priv->rps.boosts);
 	spin_unlock(&dev_priv->rps.client_lock);
 	mutex_unlock(&dev->filelist_mutex);
 
@@ -3228,7 +3239,7 @@ static int i915_semaphore_status(struct seq_file *m, void *unused)
 	enum intel_engine_id id;
 	int j, ret;
 
-	if (!i915_semaphore_is_enabled(dev_priv)) {
+	if (!i915.semaphores) {
 		seq_puts(m, "Semaphores are disabled\n");
 		return 0;
 	}
@@ -4950,20 +4961,11 @@ i915_max_freq_get(void *data, u64 *val)
 {
 	struct drm_device *dev = data;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	int ret;
 
 	if (INTEL_INFO(dev)->gen < 6)
 		return -ENODEV;
 
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
-
-	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
-	if (ret)
-		return ret;
-
 	*val = intel_gpu_freq(dev_priv, dev_priv->rps.max_freq_softlimit);
-	mutex_unlock(&dev_priv->rps.hw_lock);
-
 	return 0;
 }
 
@@ -4977,8 +4979,6 @@ i915_max_freq_set(void *data, u64 val)
 
 	if (INTEL_INFO(dev)->gen < 6)
 		return -ENODEV;
-
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
 
 	DRM_DEBUG_DRIVER("Manually setting max freq to %llu\n", val);
 
@@ -5017,20 +5017,11 @@ i915_min_freq_get(void *data, u64 *val)
 {
 	struct drm_device *dev = data;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	int ret;
 
-	if (INTEL_INFO(dev)->gen < 6)
+	if (INTEL_GEN(dev_priv) < 6)
 		return -ENODEV;
 
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
-
-	ret = mutex_lock_interruptible(&dev_priv->rps.hw_lock);
-	if (ret)
-		return ret;
-
 	*val = intel_gpu_freq(dev_priv, dev_priv->rps.min_freq_softlimit);
-	mutex_unlock(&dev_priv->rps.hw_lock);
-
 	return 0;
 }
 
@@ -5042,10 +5033,8 @@ i915_min_freq_set(void *data, u64 val)
 	u32 hw_max, hw_min;
 	int ret;
 
-	if (INTEL_INFO(dev)->gen < 6)
+	if (INTEL_GEN(dev_priv) < 6)
 		return -ENODEV;
-
-	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
 
 	DRM_DEBUG_DRIVER("Manually setting min freq to %llu\n", val);
 
@@ -5268,7 +5257,8 @@ static void broadwell_sseu_device_status(struct drm_device *dev,
 static int i915_sseu_status(struct seq_file *m, void *unused)
 {
 	struct drm_info_node *node = (struct drm_info_node *) m->private;
-	struct drm_device *dev = node->minor->dev;
+	struct drm_i915_private *dev_priv = to_i915(node->minor->dev);
+	struct drm_device *dev = &dev_priv->drm;
 	struct sseu_dev_status stat;
 
 	if (INTEL_INFO(dev)->gen < 8)
@@ -5298,6 +5288,9 @@ static int i915_sseu_status(struct seq_file *m, void *unused)
 
 	seq_puts(m, "SSEU Device Status\n");
 	memset(&stat, 0, sizeof(stat));
+
+	intel_runtime_pm_get(dev_priv);
+
 	if (IS_CHERRYVIEW(dev)) {
 		cherryview_sseu_device_status(dev, &stat);
 	} else if (IS_BROADWELL(dev)) {
@@ -5305,6 +5298,9 @@ static int i915_sseu_status(struct seq_file *m, void *unused)
 	} else if (INTEL_INFO(dev)->gen >= 9) {
 		gen9_sseu_device_status(dev, &stat);
 	}
+
+	intel_runtime_pm_put(dev_priv);
+
 	seq_printf(m, "  Enabled Slice Total: %u\n",
 		   stat.slice_total);
 	seq_printf(m, "  Enabled Subslice Total: %u\n",

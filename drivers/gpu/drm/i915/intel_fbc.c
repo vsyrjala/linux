@@ -1075,6 +1075,8 @@ out:
 /**
  * intel_fbc_enable: tries to enable FBC on the CRTC
  * @crtc: the CRTC
+ * @crtc_state: corresponding &drm_crtc_state for @crtc
+ * @plane_state: corresponding &drm_plane_state for the primary plane of @crtc
  *
  * This function checks if the given CRTC was chosen for FBC, then enables it if
  * possible. Notice that it doesn't activate FBC. It is valid to call
@@ -1163,11 +1165,8 @@ void intel_fbc_disable(struct intel_crtc *crtc)
 		return;
 
 	mutex_lock(&fbc->lock);
-	if (fbc->crtc == crtc) {
-		WARN_ON(!fbc->enabled);
-		WARN_ON(fbc->active);
+	if (fbc->crtc == crtc)
 		__intel_fbc_disable(dev_priv);
-	}
 	mutex_unlock(&fbc->lock);
 
 	cancel_work_sync(&fbc->work.work);
