@@ -1,0 +1,22 @@
+origin/drm-intel-fixes ed2eebbd61af8d378ca39ad7aef7017f29eed6f3
+	drm/i915: add missing condition for committing planes on crtc
+drm-upstream/drm-fixes 84ade45e056f2e292f07c54446c176d0112d9574
+	Merge tag 'drm-intel-fixes-2016-07-18' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes a7b4667a00025ac28300737c868bd4818b6d8c4d
+	drm/i915: Never fully mask the the EI up rps interrupt on SNB/IVB
+origin/drm-intel-next-queued f2dd7578c4f4ea985da937df2b377ce646e8819b
+	drm/i915/gen9: Update i915_drpc_info debugfs for coarse pg & forcewake info
+drm-upstream/drm-next 753e7c8cbd8c503b962294303c7b5e9ea8513443
+	Merge branch 'linux-4.8' of git://github.com/skeggsb/linux into drm-next
+sound-upstream/for-next 9b51fe3efe4c270005e34f55a97e5a84ad68e581
+	ALSA: hda - On-board speaker fixup on ACER Veriton
+sound-upstream/for-linus 9b51fe3efe4c270005e34f55a97e5a84ad68e581
+	ALSA: hda - On-board speaker fixup on ACER Veriton
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 12ae57aab43880eac500c43590e26d9d4411961b
+	drm/arm: mali-dp: Fix error return code in malidp_bind()
+origin/topic/core-for-CI 8b86400f445ee400cbd1b81e6c0d6c66c9076e68
+	iommu/vt-d: fix overflow of iommu->domains array
+origin/topic/sphinx-wip 29310a50752de76314f51555b72044d11f6cba49
+	Revert "doc/sphinx: Enable keep_warnings"
