@@ -887,6 +887,9 @@ intel_tv_mode_valid(struct drm_connector *connector,
 	const struct tv_mode *tv_mode = intel_tv_mode_find(intel_tv);
 	int max_dotclk = to_i915(connector->dev)->max_dotclk_freq;
 
+	if (i915.max_dot_clock)
+		max_dotclk = min(i915.max_dot_clock, max_dotclk);
+
 	if (mode->clock > max_dotclk)
 		return MODE_CLOCK_HIGH;
 

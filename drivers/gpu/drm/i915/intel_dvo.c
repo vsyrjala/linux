@@ -214,6 +214,9 @@ intel_dvo_mode_valid(struct drm_connector *connector,
 	int max_dotclk = to_i915(connector->dev)->max_dotclk_freq;
 	int target_clock = mode->clock;
 
+	if (i915.max_dot_clock)
+		max_dotclk = min(i915.max_dot_clock, max_dotclk);
+
 	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return MODE_NO_DBLESCAN;
 

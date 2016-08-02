@@ -1203,6 +1203,9 @@ static int hdmi_port_clock_limit(struct intel_hdmi *hdmi,
 	struct drm_device *dev = intel_hdmi_to_dev(hdmi);
 	int max_tmds_clock = intel_hdmi_source_max_tmds_clock(to_i915(dev));
 
+	if (i915.max_port_clock)
+		max_tmds_clock = min(i915.max_port_clock, max_tmds_clock);
+
 	if (respect_downstream_limits) {
 		if (hdmi->dp_dual_mode.max_tmds_clock)
 			max_tmds_clock = min(max_tmds_clock,
@@ -1245,6 +1248,9 @@ intel_hdmi_mode_valid(struct drm_connector *connector,
 	enum drm_mode_status status;
 	int clock;
 	int max_dotclk = to_i915(connector->dev)->max_dotclk_freq;
+
+	if (i915.max_dot_clock)
+		max_dotclk = min(i915.max_dot_clock, max_dotclk);
 
 	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return MODE_NO_DBLESCAN;

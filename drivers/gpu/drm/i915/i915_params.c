@@ -63,6 +63,19 @@ struct i915_params i915 __read_mostly = {
 	.enable_gvt = false,
 };
 
+module_param_named_unsafe(max_lanes, i915.max_lanes, int, 0600);
+MODULE_PARM_DESC(max_lanes,
+	"Maximum DP lanes (0=default, 1,2,4)");
+module_param_named_unsafe(max_port_clock, i915.max_port_clock, int, 0600);
+MODULE_PARM_DESC(max_port_clock,
+	"Maximum port clock limit (0=default, eg. 270000)");
+module_param_named_unsafe(max_dot_clock, i915.max_dot_clock, int, 0600);
+MODULE_PARM_DESC(max_dot_clock,
+	"Maximum dot clock limit (0=default, eg. 148500)");
+module_param_named_unsafe(max_pipe_bpp, i915.max_pipe_bpp, int, 0600);
+MODULE_PARM_DESC(max_pipe_bpp,
+	"Maximum pipe bpp used (0=default, 18,24,30,36)");
+
 module_param_named(modeset, i915.modeset, int, 0400);
 MODULE_PARM_DESC(modeset,
 	"Use kernel modesetting [KMS] (0=disable, "

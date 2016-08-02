@@ -150,13 +150,16 @@ intel_dp_max_link_bw(struct intel_dp  *intel_dp)
 	return max_link_bw;
 }
 
-static u8 intel_dp_max_lane_count(struct intel_dp *intel_dp)
+static int intel_dp_max_lane_count(struct intel_dp *intel_dp)
 {
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
-	u8 source_max, sink_max;
+	int source_max, sink_max;
 
 	source_max = intel_dig_port->max_lanes;
 	sink_max = drm_dp_max_lane_count(intel_dp->dpcd);
+
+	if (i915.max_lanes > 0)
+		source_max = min(i915.max_lanes, source_max);
 
 	return min(source_max, sink_max);
 }
@@ -200,6 +203,9 @@ intel_dp_mode_valid(struct drm_connector *connector,
 	int target_clock = mode->clock;
 	int max_rate, mode_rate, max_lanes, max_link_clock;
 	int max_dotclk = to_i915(connector->dev)->max_dotclk_freq;
+
+	if (i915.max_dot_clock)
+		max_dotclk = min(i915.max_dot_clock, max_dotclk);
 
 	if (is_edp(intel_dp) && fixed_mode) {
 		if (mode->hdisplay > fixed_mode->hdisplay)
@@ -1373,6 +1379,20 @@ static int intersect_rates(const int *source_rates, int source_len,
 	return k;
 }
 
+static int rate_to_index(int find, const int *rates)
+{
+	int i = 0;
+
+	for (i = 0; i < DP_MAX_SUPPORTED_RATES; ++i)
+		if (find < rates[i])
+			break;
+
+	if (WARN_ON(i == 0))
+		return 0;
+
+	return i - 1;
+}
+
 static int intel_dp_common_rates(struct intel_dp *intel_dp,
 				 int *common_rates)
 {
@@ -1381,6 +1401,9 @@ static int intel_dp_common_rates(struct intel_dp *intel_dp,
 
 	sink_len = intel_dp_sink_rates(intel_dp, &sink_rates);
 	source_len = intel_dp_source_rates(intel_dp, &source_rates);
+
+	if (i915.max_port_clock > 0)
+		source_len = rate_to_index(i915.max_port_clock, source_rates) + 1;
 
 	return intersect_rates(source_rates, source_len,
 			       sink_rates, sink_len,
@@ -1424,20 +1447,6 @@ static void intel_dp_print_rates(struct intel_dp *intel_dp)
 	common_len = intel_dp_common_rates(intel_dp, common_rates);
 	snprintf_int_array(str, sizeof(str), common_rates, common_len);
 	DRM_DEBUG_KMS("common rates: %s\n", str);
-}
-
-static int rate_to_index(int find, const int *rates)
-{
-	int i = 0;
-
-	for (i = 0; i < DP_MAX_SUPPORTED_RATES; ++i)
-		if (find < rates[i])
-			break;
-
-	if (WARN_ON(i == 0))
-		return 0;
-
-	return i - 1;
 }
 
 int

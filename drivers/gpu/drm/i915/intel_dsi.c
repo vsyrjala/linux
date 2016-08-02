@@ -985,6 +985,9 @@ intel_dsi_mode_valid(struct drm_connector *connector,
 	const struct drm_display_mode *fixed_mode = intel_connector->panel.fixed_mode;
 	int max_dotclk = to_i915(connector->dev)->max_dotclk_freq;
 
+	if (i915.max_dot_clock)
+		max_dotclk = min(i915.max_dot_clock, max_dotclk);
+
 	DRM_DEBUG_KMS("\n");
 
 	if (mode->flags & DRM_MODE_FLAG_DBLSCAN) {

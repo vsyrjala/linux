@@ -6618,6 +6618,9 @@ static int intel_crtc_compute_config(struct intel_crtc *crtc,
 		}
 	}
 
+	if (i915.max_dot_clock)
+		clock_limit = min(i915.max_dot_clock, clock_limit);
+
 	if (adjusted_mode->crtc_clock > clock_limit) {
 		DRM_DEBUG_KMS("requested pixel clock (%d kHz) too high (max: %d kHz, double wide: %s)\n",
 			      adjusted_mode->crtc_clock, clock_limit,
@@ -12139,6 +12142,16 @@ compute_baseline_pipe_bpp(struct intel_crtc *crtc,
 	else
 		bpp = 8*3;
 
+	switch (i915.max_pipe_bpp) {
+	case 12*3:
+	case 10*3:
+	case 8*3:
+	case 6*3:
+		bpp = min(i915.max_pipe_bpp, bpp);
+		break;
+	default:
+		break;
+	}
 
 	pipe_config->pipe_bpp = bpp;
 

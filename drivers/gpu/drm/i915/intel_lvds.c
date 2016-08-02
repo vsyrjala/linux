@@ -293,6 +293,9 @@ intel_lvds_mode_valid(struct drm_connector *connector,
 	struct drm_display_mode *fixed_mode = intel_connector->panel.fixed_mode;
 	int max_pixclk = to_i915(connector->dev)->max_dotclk_freq;
 
+	if (i915.max_dot_clock)
+		max_pixclk = min(i915.max_dot_clock, max_pixclk);
+
 	if (mode->hdisplay > fixed_mode->hdisplay)
 		return MODE_PANEL;
 	if (mode->vdisplay > fixed_mode->vdisplay)

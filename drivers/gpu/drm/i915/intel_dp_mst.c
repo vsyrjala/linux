@@ -354,6 +354,9 @@ intel_dp_mst_mode_valid(struct drm_connector *connector,
 {
 	int max_dotclk = to_i915(connector->dev)->max_dotclk_freq;
 
+	if (i915.max_dot_clock)
+		max_dotclk = min(i915.max_dot_clock, max_dotclk);
+
 	/* TODO - validate mode against available PBN for link */
 	if (mode->clock < 10000)
 		return MODE_CLOCK_LOW;
