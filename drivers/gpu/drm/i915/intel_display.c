@@ -31,6 +31,8 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/vgaarb.h>
+#include <linux/notifier.h>
+#include <linux/reboot.h>
 #include <drm/drm_edid.h>
 #include <drm/drmP.h>
 #include "intel_drv.h"
@@ -16079,6 +16081,28 @@ fail:
 	drm_modeset_acquire_fini(&ctx);
 }
 
+
+static int intel_reboot_notifier(struct notifier_block *nb,
+				 unsigned long code, void *unused)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(nb, typeof(*dev_priv), reboot_notifier);
+
+	if (code != SYS_RESTART)
+		return 0;
+
+	intel_display_suspend(&dev_priv->drm);
+
+	/*
+	 * FIXME need to also shut down HPD/AUX etc.,
+	 * so pretty much a full blown display suspend.
+	 */
+
+	intel_panel_reboot_notifier(dev_priv);
+
+	return 0;
+}
+
 void intel_modeset_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
@@ -16207,6 +16231,9 @@ void intel_modeset_init(struct drm_device *dev)
 	 * since the watermark calculation done here will use pstate->fb.
 	 */
 	sanitize_watermarks(dev);
+
+	dev_priv->reboot_notifier.notifier_call = intel_reboot_notifier;
+	register_reboot_notifier(&dev_priv->reboot_notifier);
 }
 
 static void intel_enable_pipe_a(struct drm_device *dev)
@@ -16783,6 +16810,8 @@ void intel_connector_unregister(struct drm_connector *connector)
 void intel_modeset_cleanup(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
+
+	unregister_reboot_notifier(&dev_priv->reboot_notifier);
 
 	intel_disable_gt_powersave(dev_priv);
 

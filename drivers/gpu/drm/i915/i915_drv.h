@@ -1707,6 +1707,8 @@ struct intel_wm_config {
 struct drm_i915_private {
 	struct drm_device drm;
 
+	struct notifier_block reboot_notifier;
+
 	struct kmem_cache *objects;
 	struct kmem_cache *vmas;
 	struct kmem_cache *requests;

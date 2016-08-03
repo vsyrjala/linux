@@ -547,7 +547,7 @@ void intel_dvo_init(struct drm_device *dev)
 			 */
 			intel_panel_init(&intel_connector->panel,
 					 intel_dvo_get_current_mode(connector),
-					 NULL);
+					 NULL, 0);
 			intel_dvo->panel_wants_dither = true;
 		}
 
