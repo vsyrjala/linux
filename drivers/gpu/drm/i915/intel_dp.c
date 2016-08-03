@@ -28,8 +28,6 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/export.h>
-#include <linux/notifier.h>
-#include <linux/reboot.h>
 #include <drm/drmP.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc.h>
@@ -629,42 +627,6 @@ _pp_stat_reg(struct intel_dp *intel_dp)
 				&regs);
 
 	return regs.pp_stat;
-}
-
-/* Reboot notifier handler to shutdown panel power to guarantee T12 timing
-   This function only applicable when panel PM state is not to be tracked */
-static int edp_notify_handler(struct notifier_block *this, unsigned long code,
-			      void *unused)
-{
-	struct intel_dp *intel_dp = container_of(this, typeof(* intel_dp),
-						 edp_notifier);
-	struct drm_device *dev = intel_dp_to_dev(intel_dp);
-	struct drm_i915_private *dev_priv = to_i915(dev);
-
-	if (!is_edp(intel_dp) || code != SYS_RESTART)
-		return 0;
-
-	pps_lock(intel_dp);
-
-	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)) {
-		enum pipe pipe = vlv_power_sequencer_pipe(intel_dp);
-		i915_reg_t pp_ctrl_reg, pp_div_reg;
-		u32 pp_div;
-
-		pp_ctrl_reg = VLV_PIPE_PP_CONTROL(pipe);
-		pp_div_reg  = VLV_PIPE_PP_DIVISOR(pipe);
-		pp_div = I915_READ(pp_div_reg);
-		pp_div &= PP_REFERENCE_DIVIDER_MASK;
-
-		/* 0x1F write to PP_DIV_REG sets max cycle delay */
-		I915_WRITE(pp_div_reg, pp_div | 0x1F);
-		I915_WRITE(pp_ctrl_reg, PANEL_UNLOCK_REGS | PANEL_POWER_OFF);
-		msleep(intel_dp->panel_power_cycle_delay);
-	}
-
-	pps_unlock(intel_dp);
-
-	return 0;
 }
 
 static bool edp_have_panel_power(struct intel_dp *intel_dp)
@@ -4562,11 +4524,6 @@ void intel_dp_encoder_destroy(struct drm_encoder *encoder)
 		pps_lock(intel_dp);
 		edp_panel_vdd_off_sync(intel_dp);
 		pps_unlock(intel_dp);
-
-		if (intel_dp->edp_notifier.notifier_call) {
-			unregister_reboot_notifier(&intel_dp->edp_notifier);
-			intel_dp->edp_notifier.notifier_call = NULL;
-		}
 	}
 
 	intel_dp_aux_fini(intel_dp);
@@ -5465,9 +5422,6 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 	mutex_unlock(&dev->mode_config.mutex);
 
 	if (IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)) {
-		intel_dp->edp_notifier.notifier_call = edp_notify_handler;
-		register_reboot_notifier(&intel_dp->edp_notifier);
-
 		/*
 		 * Figure out the current pipe for the initial backlight setup.
 		 * If the current pipe isn't valid, try the PPS pipe, and if that
@@ -5488,7 +5442,8 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 			      pipe_name(pipe));
 	}
 
-	intel_panel_init(&intel_connector->panel, fixed_mode, downclock_mode);
+	intel_panel_init(&intel_connector->panel, fixed_mode, downclock_mode,
+			 intel_dp->panel_power_cycle_delay);
 	intel_connector->panel.backlight.power = intel_edp_backlight_power;
 	intel_panel_setup_backlight(connector, pipe);
 

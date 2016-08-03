@@ -1781,14 +1781,41 @@ intel_panel_init_backlight_funcs(struct intel_panel *panel)
 	}
 }
 
+/*
+ * Make sure the power cycle delay is respected. The PPS
+ * does supposedly initiate a power cycle on reset, but it
+ * also resets the power cycle delay register value to the
+ * default value, and hence may not wait long enough if the
+ * firmware attempts to power up the panel immediately.
+ * Also eg. DSI doesn't use the PPS.
+ */
+void intel_panel_reboot_notifier(struct drm_i915_private *dev_priv)
+{
+	struct drm_device *dev = &dev_priv->drm;
+	struct intel_connector *connector;
+	int reboot_power_cycle_delay = 0;
+
+	for_each_intel_connector(dev, connector) {
+		struct intel_panel *panel = &connector->panel;
+
+		reboot_power_cycle_delay = max(reboot_power_cycle_delay,
+					       panel->reboot_power_cycle_delay);
+	}
+
+	if (reboot_power_cycle_delay)
+		msleep(reboot_power_cycle_delay);
+}
+
 int intel_panel_init(struct intel_panel *panel,
 		     struct drm_display_mode *fixed_mode,
-		     struct drm_display_mode *downclock_mode)
+		     struct drm_display_mode *downclock_mode,
+		     int reboot_power_cycle_delay)
 {
 	intel_panel_init_backlight_funcs(panel);
 
 	panel->fixed_mode = fixed_mode;
 	panel->downclock_mode = downclock_mode;
+	panel->reboot_power_cycle_delay = reboot_power_cycle_delay;
 
 	return 0;
 }

@@ -226,6 +226,7 @@ struct intel_panel {
 	struct drm_display_mode *fixed_mode;
 	struct drm_display_mode *downclock_mode;
 	int fitting_mode;
+	int reboot_power_cycle_delay;
 
 	/* backlight */
 	struct {
@@ -877,8 +878,6 @@ struct intel_dp {
 	unsigned long last_backlight_off;
 	ktime_t panel_power_off_time;
 
-	struct notifier_block edp_notifier;
-
 	/*
 	 * Pipe whose power sequencer is currently locked into
 	 * this port. Only relevant on VLV/CHV.
@@ -1521,8 +1520,10 @@ void intel_overlay_reset(struct drm_i915_private *dev_priv);
 /* intel_panel.c */
 int intel_panel_init(struct intel_panel *panel,
 		     struct drm_display_mode *fixed_mode,
-		     struct drm_display_mode *downclock_mode);
+		     struct drm_display_mode *downclock_mode,
+		     int reboot_power_cycle_delay);
 void intel_panel_fini(struct intel_panel *panel);
+void intel_panel_reboot_notifier(struct drm_i915_private *dev_priv);
 void intel_fixed_panel_mode(const struct drm_display_mode *fixed_mode,
 			    struct drm_display_mode *adjusted_mode);
 void intel_pch_panel_fitting(struct intel_crtc *crtc,
