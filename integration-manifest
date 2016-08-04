@@ -1,0 +1,22 @@
+origin/drm-intel-fixes ed2eebbd61af8d378ca39ad7aef7017f29eed6f3
+	drm/i915: add missing condition for committing planes on crtc
+drm-upstream/drm-fixes 84ade45e056f2e292f07c54446c176d0112d9574
+	Merge tag 'drm-intel-fixes-2016-07-18' of git://anongit.freedesktop.org/drm-intel into drm-fixes
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued 1dd5b6f2020389e75bb3d269c038497f065e68c9
+	drm/i915: Add missing rpm wakelock to GGTT pread
+drm-upstream/drm-next dfd2e9ab6a7db56a5f5bb55f71485a92613c8e11
+	drm/i915: Check PSR setup time vs. vblank length
+sound-upstream/for-next 59ec4b57bcaede46546d54d037a21004b9aa5cef
+	ALSA: hda - Fix headset mic detection problem for two dell machines
+sound-upstream/for-linus 59ec4b57bcaede46546d54d037a21004b9aa5cef
+	ALSA: hda - Fix headset mic detection problem for two dell machines
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 12ae57aab43880eac500c43590e26d9d4411961b
+	drm/arm: mali-dp: Fix error return code in malidp_bind()
+origin/topic/core-for-CI 8b86400f445ee400cbd1b81e6c0d6c66c9076e68
+	iommu/vt-d: fix overflow of iommu->domains array
+origin/topic/sphinx-wip 29310a50752de76314f51555b72044d11f6cba49
+	Revert "doc/sphinx: Enable keep_warnings"
