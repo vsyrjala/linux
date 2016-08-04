@@ -36,6 +36,8 @@
 
 #include <linux/io-mapping.h>
 
+#include "i915_gem_request.h"
+
 struct drm_i915_file_private;
 
 typedef uint32_t gen6_pte_t;
@@ -179,11 +181,15 @@ struct i915_vma {
 	struct i915_address_space *vm;
 	void __iomem *iomap;
 
+	unsigned int active;
+	struct i915_gem_active last_read[I915_NUM_ENGINES];
+
 	/** Flags and address space this VMA is bound to */
 #define GLOBAL_BIND	(1<<0)
 #define LOCAL_BIND	(1<<1)
 	unsigned int bound : 4;
 	bool is_ggtt : 1;
+	bool closed : 1;
 
 	/**
 	 * Support different GGTT views into the same object.
@@ -221,6 +227,34 @@ struct i915_vma {
 	unsigned int pin_count:4;
 #define DRM_I915_GEM_OBJECT_MAX_PIN_COUNT 0xf
 };
+
+static inline unsigned int i915_vma_get_active(const struct i915_vma *vma)
+{
+	return vma->active;
+}
+
+static inline bool i915_vma_is_active(const struct i915_vma *vma)
+{
+	return i915_vma_get_active(vma);
+}
+
+static inline void i915_vma_set_active(struct i915_vma *vma,
+				       unsigned int engine)
+{
+	vma->active |= BIT(engine);
+}
+
+static inline void i915_vma_clear_active(struct i915_vma *vma,
+					 unsigned int engine)
+{
+	vma->active &= ~BIT(engine);
+}
+
+static inline bool i915_vma_has_active_engine(const struct i915_vma *vma,
+					      unsigned int engine)
+{
+	return vma->active & BIT(engine);
+}
 
 struct i915_page_dma {
 	struct page *page;
@@ -272,11 +306,20 @@ struct i915_pml4 {
 struct i915_address_space {
 	struct drm_mm mm;
 	struct drm_device *dev;
+	/* Every address space belongs to a struct file - except for the global
+	 * GTT that is owned by the driver (and so @file is set to NULL). In
+	 * principle, no information should leak from one context to another
+	 * (or between files/processes etc) unless explicitly shared by the
+	 * owner. Tracking the owner is important in order to free up per-file
+	 * objects along with the file, to aide resource tracking, and to
+	 * assign blame.
+	 */
+	struct drm_i915_file_private *file;
 	struct list_head global_link;
 	u64 start;		/* Start offset always 0 for dri2 */
 	u64 total;		/* size addr space maps (ex. 2GB for ggtt) */
 
-	bool is_ggtt;
+	bool closed;
 
 	struct i915_page_scratch *scratch_page;
 	struct i915_page_table *scratch_pt;
@@ -305,6 +348,13 @@ struct i915_address_space {
 	 * freed, and we'll pull it off the list in the free path.
 	 */
 	struct list_head inactive_list;
+
+	/**
+	 * List of vma that have been unbound.
+	 *
+	 * A reference is not held on the buffer while on this list.
+	 */
+	struct list_head unbound_list;
 
 	/* FIXME: Need a more generic return type */
 	gen6_pte_t (*pte_encode)(dma_addr_t addr,
@@ -338,7 +388,7 @@ struct i915_address_space {
 			u32 flags);
 };
 
-#define i915_is_ggtt(V) ((V)->is_ggtt)
+#define i915_is_ggtt(V) (!(V)->file)
 
 /* The Graphics Translation Table is the way in which GEN hardware translates a
  * Graphics Virtual Address into a Physical Address. In addition to the normal
@@ -354,7 +404,6 @@ struct i915_ggtt {
 	size_t stolen_usable_size;	/* Total size minus BIOS reserved */
 	size_t stolen_reserved_base;
 	size_t stolen_reserved_size;
-	size_t size;			/* Total size of Global GTT */
 	u64 mappable_end;		/* End offset that we can CPU map */
 	struct io_mapping *mappable;	/* Mapping to our CPU mappable region */
 	phys_addr_t mappable_base;	/* PA of our GMADR */
@@ -365,8 +414,6 @@ struct i915_ggtt {
 	bool do_idle_maps;
 
 	int mtrr;
-
-	int (*probe)(struct i915_ggtt *ggtt);
 };
 
 struct i915_hw_ppgtt {
@@ -379,8 +426,6 @@ struct i915_hw_ppgtt {
 		struct i915_page_directory_pointer pdp;	/* GEN8+ */
 		struct i915_page_directory pd;		/* GEN6-7 */
 	};
-
-	struct drm_i915_file_private *file_priv;
 
 	gen6_pte_t __iomem *pd_addr;
 
@@ -521,14 +566,15 @@ i915_page_dir_dma_addr(const struct i915_hw_ppgtt *ppgtt, const unsigned n)
 		px_dma(ppgtt->base.scratch_pd);
 }
 
-int i915_ggtt_init_hw(struct drm_device *dev);
-int i915_ggtt_enable_hw(struct drm_device *dev);
-void i915_gem_init_ggtt(struct drm_device *dev);
-void i915_ggtt_cleanup_hw(struct drm_device *dev);
+int i915_ggtt_probe_hw(struct drm_i915_private *dev_priv);
+int i915_ggtt_init_hw(struct drm_i915_private *dev_priv);
+int i915_ggtt_enable_hw(struct drm_i915_private *dev_priv);
+int i915_gem_init_ggtt(struct drm_i915_private *dev_priv);
+void i915_ggtt_cleanup_hw(struct drm_i915_private *dev_priv);
 
 int i915_ppgtt_init_hw(struct drm_device *dev);
 void i915_ppgtt_release(struct kref *kref);
-struct i915_hw_ppgtt *i915_ppgtt_create(struct drm_device *dev,
+struct i915_hw_ppgtt *i915_ppgtt_create(struct drm_i915_private *dev_priv,
 					struct drm_i915_file_private *fpriv);
 static inline void i915_ppgtt_get(struct i915_hw_ppgtt *ppgtt)
 {
@@ -580,6 +626,7 @@ i915_ggtt_view_size(struct drm_i915_gem_object *obj,
  * Returns a valid iomapped pointer or ERR_PTR.
  */
 void __iomem *i915_vma_pin_iomap(struct i915_vma *vma);
+#define IO_ERR_PTR(x) ((void __iomem *)ERR_PTR(x))
 
 /**
  * i915_vma_unpin_iomap - unpins the mapping returned from i915_vma_iomap

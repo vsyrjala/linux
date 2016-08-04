@@ -1105,9 +1105,10 @@ static void gen6_pm_rps_work(struct work_struct *work)
 	new_delay = dev_priv->rps.cur_freq;
 	min = dev_priv->rps.min_freq_softlimit;
 	max = dev_priv->rps.max_freq_softlimit;
-
-	if (client_boost) {
-		new_delay = dev_priv->rps.max_freq_softlimit;
+	if (client_boost || any_waiters(dev_priv))
+		max = dev_priv->rps.max_freq;
+	if (client_boost && new_delay < dev_priv->rps.boost_freq) {
+		new_delay = dev_priv->rps.boost_freq;
 		adj = 0;
 	} else if (pm_iir & GEN6_PM_RP_UP_THRESHOLD) {
 		if (adj > 0)
@@ -1122,7 +1123,7 @@ static void gen6_pm_rps_work(struct work_struct *work)
 			new_delay = dev_priv->rps.efficient_freq;
 			adj = 0;
 		}
-	} else if (any_waiters(dev_priv)) {
+	} else if (client_boost || any_waiters(dev_priv)) {
 		adj = 0;
 	} else if (pm_iir & GEN6_PM_RP_DOWN_TIMEOUT) {
 		if (dev_priv->rps.cur_freq > dev_priv->rps.efficient_freq)
@@ -2859,6 +2860,7 @@ static struct intel_engine_cs *
 semaphore_waits_for(struct intel_engine_cs *engine, u32 *seqno)
 {
 	struct drm_i915_private *dev_priv = engine->i915;
+	void __iomem *vaddr;
 	u32 cmd, ipehr, head;
 	u64 offset = 0;
 	int i, backwards;
@@ -2897,6 +2899,7 @@ semaphore_waits_for(struct intel_engine_cs *engine, u32 *seqno)
 	 */
 	head = I915_READ_HEAD(engine) & HEAD_ADDR;
 	backwards = (INTEL_GEN(dev_priv) >= 8) ? 5 : 4;
+	vaddr = (void __iomem *)engine->buffer->vaddr;
 
 	for (i = backwards; i; --i) {
 		/*
@@ -2907,7 +2910,7 @@ semaphore_waits_for(struct intel_engine_cs *engine, u32 *seqno)
 		head &= engine->buffer->size - 1;
 
 		/* This here seems to blow up */
-		cmd = ioread32(engine->buffer->virtual_start + head);
+		cmd = ioread32(vaddr + head);
 		if (cmd == ipehr)
 			break;
 
@@ -2917,11 +2920,11 @@ semaphore_waits_for(struct intel_engine_cs *engine, u32 *seqno)
 	if (!i)
 		return NULL;
 
-	*seqno = ioread32(engine->buffer->virtual_start + head + 4) + 1;
+	*seqno = ioread32(vaddr + head + 4) + 1;
 	if (INTEL_GEN(dev_priv) >= 8) {
-		offset = ioread32(engine->buffer->virtual_start + head + 12);
+		offset = ioread32(vaddr + head + 12);
 		offset <<= 32;
-		offset = ioread32(engine->buffer->virtual_start + head + 8);
+		offset |= ioread32(vaddr + head + 8);
 	}
 	return semaphore_wait_to_signaller_ring(engine, ipehr, offset);
 }
@@ -2990,7 +2993,7 @@ static bool subunits_stuck(struct intel_engine_cs *engine)
 	return stuck;
 }
 
-static enum intel_ring_hangcheck_action
+static enum intel_engine_hangcheck_action
 head_stuck(struct intel_engine_cs *engine, u64 acthd)
 {
 	if (acthd != engine->hangcheck.acthd) {
@@ -3008,11 +3011,11 @@ head_stuck(struct intel_engine_cs *engine, u64 acthd)
 	return HANGCHECK_HUNG;
 }
 
-static enum intel_ring_hangcheck_action
-ring_stuck(struct intel_engine_cs *engine, u64 acthd)
+static enum intel_engine_hangcheck_action
+engine_stuck(struct intel_engine_cs *engine, u64 acthd)
 {
 	struct drm_i915_private *dev_priv = engine->i915;
-	enum intel_ring_hangcheck_action ha;
+	enum intel_engine_hangcheck_action ha;
 	u32 tmp;
 
 	ha = head_stuck(engine, acthd);
@@ -3121,7 +3124,7 @@ static void i915_hangcheck_elapsed(struct work_struct *work)
 		if (engine->irq_seqno_barrier)
 			engine->irq_seqno_barrier(engine);
 
-		acthd = intel_ring_get_active_head(engine);
+		acthd = intel_engine_get_active_head(engine);
 		seqno = intel_engine_get_seqno(engine);
 
 		/* Reset stuck interrupts between batch advances */
@@ -3137,13 +3140,13 @@ static void i915_hangcheck_elapsed(struct work_struct *work)
 				}
 			} else {
 				/* We always increment the hangcheck score
-				 * if the ring is busy and still processing
+				 * if the engine is busy and still processing
 				 * the same request, so that no single request
 				 * can run indefinitely (such as a chain of
 				 * batches). The only time we do not increment
 				 * the hangcheck score on this ring, if this
-				 * ring is in a legitimate wait for another
-				 * ring. In that case the waiting ring is a
+				 * engine is in a legitimate wait for another
+				 * engine. In that case the waiting engine is a
 				 * victim and we want to be sure we catch the
 				 * right culprit. Then every time we do kick
 				 * the ring, add a small increment to the
@@ -3151,8 +3154,8 @@ static void i915_hangcheck_elapsed(struct work_struct *work)
 				 * being repeatedly kicked and so responsible
 				 * for stalling the machine.
 				 */
-				engine->hangcheck.action = ring_stuck(engine,
-								      acthd);
+				engine->hangcheck.action =
+					engine_stuck(engine, acthd);
 
 				switch (engine->hangcheck.action) {
 				case HANGCHECK_IDLE:
