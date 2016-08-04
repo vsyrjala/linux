@@ -159,7 +159,7 @@ static int intelfb_alloc(struct drm_fb_helper *helper,
 
 	fb = __intel_framebuffer_create(dev, &mode_cmd, obj);
 	if (IS_ERR(fb)) {
-		drm_gem_object_unreference(&obj->base);
+		i915_gem_object_put(obj);
 		ret = PTR_ERR(fb);
 		goto out;
 	}
@@ -189,7 +189,7 @@ static int intelfb_create(struct drm_fb_helper *helper,
 	struct i915_vma *vma;
 	struct drm_i915_gem_object *obj;
 	bool prealloc = false;
-	void *vaddr;
+	void __iomem *vaddr;
 	int ret;
 
 	if (intel_fb &&
@@ -768,7 +768,7 @@ void intel_fbdev_fini(struct drm_device *dev)
 	if (!ifbdev)
 		return;
 
-	flush_work(&dev_priv->fbdev_suspend_work);
+	cancel_work_sync(&dev_priv->fbdev_suspend_work);
 	if (!current_is_async())
 		intel_fbdev_sync(ifbdev);
 
