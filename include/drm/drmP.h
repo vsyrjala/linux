@@ -146,6 +146,7 @@ void drm_err(const char *format, ...);
 
 /* driver capabilities and requirements mask */
 #define DRIVER_USE_AGP			0x1
+#define DRIVER_LEGACY			0x2
 #define DRIVER_PCI_DMA			0x8
 #define DRIVER_SG			0x10
 #define DRIVER_HAVE_DMA			0x20
@@ -642,7 +643,7 @@ struct drm_driver {
 };
 
 enum drm_minor_type {
-	DRM_MINOR_LEGACY,
+	DRM_MINOR_PRIMARY,
 	DRM_MINOR_CONTROL,
 	DRM_MINOR_RENDER,
 	DRM_MINOR_CNT,
@@ -856,7 +857,7 @@ static inline bool drm_is_control_client(const struct drm_file *file_priv)
 
 static inline bool drm_is_primary_client(const struct drm_file *file_priv)
 {
-	return file_priv->minor->type == DRM_MINOR_LEGACY;
+	return file_priv->minor->type == DRM_MINOR_PRIMARY;
 }
 
 /******************************************************************/
