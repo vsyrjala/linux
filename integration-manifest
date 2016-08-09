@@ -1,0 +1,20 @@
+origin/drm-intel-fixes 29b4817d4018df78086157ea3a55c1d9424a7cfc
+	Linux 4.8-rc1
+drm-upstream/drm-fixes 36e9d08b58f44c3a02974c405ccaaa6ecfaf05b8
+	drm/cirrus: Fix NULL pointer dereference when registering the fbdev
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued aac440ff22a27155ae08f4d0fd6ac2971bfc5f3d
+	drm: avoid "possible bad bitmask?" warning
+drm-upstream/drm-next 5c6c201ccbaf9d3901f829441d457293f7ca8ef4
+	drm: Paper over locking inversion after registration rework
+sound-upstream/for-next 8355aaf6d3defdd7324314cb9452716be3788e82
+	Merge branch 'topic/hda-link-time' into for-next
+sound-upstream/for-linus 41f5e3bdbf706a9e98194bf0c4b62a875c02f170
+	ALSA: usb-audio: Add quirk for ELP HD USB Camera
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc cfc5adea1955ee8ddb62cc0d20ee454472033b6a
+	drm: Make sure drm_vblank_no_hw_counter isn't abused
+origin/topic/core-for-CI 20d68fa00e9143ed70441c7783e2f7e77ced4e35
+	x86/hweight: Don't clobber %rdi
