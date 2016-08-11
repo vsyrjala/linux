@@ -2220,7 +2220,7 @@ intel_pin_and_fence_fb_obj(struct drm_framebuffer *fb,
 	intel_runtime_pm_get(dev_priv);
 
 	ret = i915_gem_object_pin_to_display_plane(obj, alignment,
-						   &view);
+						   &view, 0);
 	if (ret)
 		goto err_pm;
 
@@ -3150,11 +3150,52 @@ static int skl_check_ccs_aux_surface(struct intel_plane_state *plane_state)
 	return 0;
 }
 
+struct drm_i915_gem_object *skl_ccs_obj;
+
+static void skl_setup_ccs_obj(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_i915_gem_object *obj;
+	u64 offset;
+	int ret;
+
+	if (skl_ccs_obj)
+		return;
+
+	intel_runtime_pm_get(dev_priv);
+	mutex_lock(&dev->struct_mutex);
+
+	obj = i915_gem_object_create(dev, 1<<20);
+	if (IS_ERR(obj))
+		goto out;
+
+	ret = i915_gem_object_pin_to_display_plane(obj, 4096,
+						   &i915_ggtt_view_normal, PIN_HIGH);
+	if (ret) {
+		i915_gem_object_put(obj);
+		goto out;
+	}
+
+	offset = i915_gem_obj_ggtt_offset(obj);
+
+	WARN_ON(upper_32_bits(offset));
+
+	DRM_DEBUG_KMS("SKL CCS obj offset = 0x%08x %08x\n",
+		      upper_32_bits(offset), lower_32_bits(offset));
+
+	skl_ccs_obj = obj;
+out:
+	mutex_unlock(&dev->struct_mutex);
+	intel_runtime_pm_put(dev_priv);
+}
+
 int skl_check_plane_surface(struct intel_plane_state *plane_state)
 {
 	const struct drm_framebuffer *fb = plane_state->base.fb;
 	unsigned int rotation = plane_state->base.rotation;
 	int ret;
+
+	skl_setup_ccs_obj(plane_state->base.plane->dev);
 
 	/* Rotate src coordinates to match rotated GTT view */
 	if (intel_rotation_90_or_270(rotation))
@@ -3612,6 +3653,14 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 		I915_WRITE(PLANE_POS(pipe, 0), 0);
 	} else {
 		I915_WRITE(PLANE_POS(pipe, 0), (dst_y << 16) | dst_x);
+	}
+
+	if (skl_ccs_obj) {
+		I915_WRITE(PLANE_AUX_DIST(pipe, 0),
+			   (i915_gem_obj_ggtt_offset(skl_ccs_obj) -
+			    intel_fb_gtt_offset(fb, rotation) - surf_addr) | 8);
+	} else {
+		I915_WRITE(PLANE_AUX_DIST(pipe, 0), 0);
 	}
 
 	I915_WRITE(PLANE_SURF(pipe, 0),

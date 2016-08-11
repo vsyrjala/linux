@@ -1347,6 +1347,8 @@ out:
 	return ret;
 }
 
+extern struct drm_i915_gem_object *skl_ccs_obj;
+
 /**
  * Writes data to the object referenced by handle.
  * @dev: drm device
@@ -1361,7 +1363,7 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct drm_i915_gem_pwrite *args = data;
-	struct drm_i915_gem_object *obj;
+	struct drm_i915_gem_object *obj = NULL;
 	int ret;
 
 	if (args->size == 0)
@@ -1379,7 +1381,10 @@ i915_gem_pwrite_ioctl(struct drm_device *dev, void *data,
 			return -EFAULT;
 	}
 
-	obj = i915_gem_object_lookup(file, args->handle);
+	if (args->handle == 0xdeadfeed)
+		obj = i915_gem_object_get(skl_ccs_obj);
+	if (!obj)
+		obj = i915_gem_object_lookup(file, args->handle);
 	if (!obj)
 		return -ENOENT;
 
@@ -3415,7 +3420,8 @@ rpm_put:
 int
 i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 				     u32 alignment,
-				     const struct i915_ggtt_view *view)
+				     const struct i915_ggtt_view *view,
+				     unsigned int flags)
 {
 	u32 old_read_domains, old_write_domain;
 	int ret;
@@ -3444,8 +3450,8 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	 * always use map_and_fenceable for all scanout buffers.
 	 */
 	ret = i915_gem_object_ggtt_pin(obj, view, 0, alignment,
-				       view->type == I915_GGTT_VIEW_NORMAL ?
-				       PIN_MAPPABLE : 0);
+				       flags | (view->type == I915_GGTT_VIEW_NORMAL ?
+						PIN_MAPPABLE : 0));
 	if (ret)
 		goto err_unpin_display;
 

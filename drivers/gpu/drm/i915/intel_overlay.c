@@ -753,7 +753,7 @@ static int intel_overlay_do_put_image(struct intel_overlay *overlay,
 		return ret;
 
 	ret = i915_gem_object_pin_to_display_plane(new_bo, 0,
-						   &i915_ggtt_view_normal);
+						   &i915_ggtt_view_normal, 0);
 	if (ret != 0)
 		return ret;
 

@@ -5498,7 +5498,6 @@ enum {
 
 #define _PLANE_CTL_1_A				0x70180
 #define _PLANE_CTL_2_A				0x70280
-#define _PLANE_CTL_3_A				0x70380
 #define   PLANE_CTL_ENABLE			(1 << 31)
 #define   PLANE_CTL_PIPE_GAMMA_ENABLE		(1 << 30)
 #define   PLANE_CTL_FORMAT_MASK			(0xf << 24)
@@ -5540,19 +5539,16 @@ enum {
 #define   PLANE_CTL_ROTATE_270			0x3
 #define _PLANE_STRIDE_1_A			0x70188
 #define _PLANE_STRIDE_2_A			0x70288
-#define _PLANE_STRIDE_3_A			0x70388
 #define _PLANE_POS_1_A				0x7018c
 #define _PLANE_POS_2_A				0x7028c
-#define _PLANE_POS_3_A				0x7038c
 #define _PLANE_SIZE_1_A				0x70190
 #define _PLANE_SIZE_2_A				0x70290
-#define _PLANE_SIZE_3_A				0x70390
 #define _PLANE_SURF_1_A				0x7019c
 #define _PLANE_SURF_2_A				0x7029c
-#define _PLANE_SURF_3_A				0x7039c
 #define _PLANE_OFFSET_1_A			0x701a4
 #define _PLANE_OFFSET_2_A			0x702a4
-#define _PLANE_OFFSET_3_A			0x703a4
+#define _PLANE_AUX_DIST_1_A			0x701c0
+#define _PLANE_AUX_DIST_2_A			0x702c0
 #define _PLANE_KEYVAL_1_A			0x70194
 #define _PLANE_KEYVAL_2_A			0x70294
 #define _PLANE_KEYMSK_1_A			0x70198
@@ -5566,49 +5562,38 @@ enum {
 
 #define _PLANE_CTL_1_B				0x71180
 #define _PLANE_CTL_2_B				0x71280
-#define _PLANE_CTL_3_B				0x71380
 #define _PLANE_CTL_1(pipe)	_PIPE(pipe, _PLANE_CTL_1_A, _PLANE_CTL_1_B)
 #define _PLANE_CTL_2(pipe)	_PIPE(pipe, _PLANE_CTL_2_A, _PLANE_CTL_2_B)
-#define _PLANE_CTL_3(pipe)	_PIPE(pipe, _PLANE_CTL_3_A, _PLANE_CTL_3_B)
 #define PLANE_CTL(pipe, plane)	\
 	_MMIO_PLANE(plane, _PLANE_CTL_1(pipe), _PLANE_CTL_2(pipe))
 
 #define _PLANE_STRIDE_1_B			0x71188
 #define _PLANE_STRIDE_2_B			0x71288
-#define _PLANE_STRIDE_3_B			0x71388
 #define _PLANE_STRIDE_1(pipe)	\
 	_PIPE(pipe, _PLANE_STRIDE_1_A, _PLANE_STRIDE_1_B)
 #define _PLANE_STRIDE_2(pipe)	\
 	_PIPE(pipe, _PLANE_STRIDE_2_A, _PLANE_STRIDE_2_B)
-#define _PLANE_STRIDE_3(pipe)	\
-	_PIPE(pipe, _PLANE_STRIDE_3_A, _PLANE_STRIDE_3_B)
 #define PLANE_STRIDE(pipe, plane)	\
 	_MMIO_PLANE(plane, _PLANE_STRIDE_1(pipe), _PLANE_STRIDE_2(pipe))
 
 #define _PLANE_POS_1_B				0x7118c
 #define _PLANE_POS_2_B				0x7128c
-#define _PLANE_POS_3_B				0x7138c
 #define _PLANE_POS_1(pipe)	_PIPE(pipe, _PLANE_POS_1_A, _PLANE_POS_1_B)
 #define _PLANE_POS_2(pipe)	_PIPE(pipe, _PLANE_POS_2_A, _PLANE_POS_2_B)
-#define _PLANE_POS_3(pipe)	_PIPE(pipe, _PLANE_POS_3_A, _PLANE_POS_3_B)
 #define PLANE_POS(pipe, plane)	\
 	_MMIO_PLANE(plane, _PLANE_POS_1(pipe), _PLANE_POS_2(pipe))
 
 #define _PLANE_SIZE_1_B				0x71190
 #define _PLANE_SIZE_2_B				0x71290
-#define _PLANE_SIZE_3_B				0x71390
 #define _PLANE_SIZE_1(pipe)	_PIPE(pipe, _PLANE_SIZE_1_A, _PLANE_SIZE_1_B)
 #define _PLANE_SIZE_2(pipe)	_PIPE(pipe, _PLANE_SIZE_2_A, _PLANE_SIZE_2_B)
-#define _PLANE_SIZE_3(pipe)	_PIPE(pipe, _PLANE_SIZE_3_A, _PLANE_SIZE_3_B)
 #define PLANE_SIZE(pipe, plane)	\
 	_MMIO_PLANE(plane, _PLANE_SIZE_1(pipe), _PLANE_SIZE_2(pipe))
 
 #define _PLANE_SURF_1_B				0x7119c
 #define _PLANE_SURF_2_B				0x7129c
-#define _PLANE_SURF_3_B				0x7139c
 #define _PLANE_SURF_1(pipe)	_PIPE(pipe, _PLANE_SURF_1_A, _PLANE_SURF_1_B)
 #define _PLANE_SURF_2(pipe)	_PIPE(pipe, _PLANE_SURF_2_A, _PLANE_SURF_2_B)
-#define _PLANE_SURF_3(pipe)	_PIPE(pipe, _PLANE_SURF_3_A, _PLANE_SURF_3_B)
 #define PLANE_SURF(pipe, plane)	\
 	_MMIO_PLANE(plane, _PLANE_SURF_1(pipe), _PLANE_SURF_2(pipe))
 
@@ -5618,6 +5603,13 @@ enum {
 #define _PLANE_OFFSET_2(pipe) _PIPE(pipe, _PLANE_OFFSET_2_A, _PLANE_OFFSET_2_B)
 #define PLANE_OFFSET(pipe, plane)	\
 	_MMIO_PLANE(plane, _PLANE_OFFSET_1(pipe), _PLANE_OFFSET_2(pipe))
+
+#define _PLANE_AUX_DIST_1_B				0x711c0
+#define _PLANE_AUX_DIST_2_B				0x712c0
+#define _PLANE_AUX_DIST_1(pipe)	_PIPE(pipe, _PLANE_AUX_DIST_1_A, _PLANE_AUX_DIST_1_B)
+#define _PLANE_AUX_DIST_2(pipe)	_PIPE(pipe, _PLANE_AUX_DIST_2_A, _PLANE_AUX_DIST_2_B)
+#define PLANE_AUX_DIST(pipe, plane)	\
+	_MMIO_PLANE(plane, _PLANE_AUX_DIST_1(pipe), _PLANE_AUX_DIST_2(pipe))
 
 #define _PLANE_KEYVAL_1_B			0x71194
 #define _PLANE_KEYVAL_2_B			0x71294
