@@ -1631,6 +1631,9 @@ int drm_atomic_helper_prepare_planes(struct drm_device *dev,
 
 		funcs = plane->helper_private;
 
+		if (!drm_atomic_helper_framebuffer_changed(dev, state, plane_state->crtc))
+			continue;
+
 		if (funcs->prepare_fb) {
 			ret = funcs->prepare_fb(plane, plane_state);
 			if (ret)
@@ -1647,11 +1650,13 @@ fail:
 		if (j >= i)
 			continue;
 
+		if (!drm_atomic_helper_framebuffer_changed(dev, state, plane_state->crtc))
+			continue;
+
 		funcs = plane->helper_private;
 
 		if (funcs->cleanup_fb)
 			funcs->cleanup_fb(plane, plane_state);
-
 	}
 
 	return ret;
@@ -1893,6 +1898,9 @@ void drm_atomic_helper_cleanup_planes(struct drm_device *dev,
 
 	for_each_plane_in_state(old_state, plane, plane_state, i) {
 		const struct drm_plane_helper_funcs *funcs;
+
+		if (!drm_atomic_helper_framebuffer_changed(dev, old_state, plane_state->crtc))
+			continue;
 
 		funcs = plane->helper_private;
 
@@ -2354,7 +2362,7 @@ int __drm_atomic_helper_set_config(struct drm_mode_set *set,
 	primary_state->crtc_h = vdisplay;
 	primary_state->src_x = set->x << 16;
 	primary_state->src_y = set->y << 16;
-	if (primary_state->rotation & (BIT(DRM_ROTATE_90) | BIT(DRM_ROTATE_270))) {
+	if (primary_state->rotation & (DRM_ROTATE_90 | DRM_ROTATE_270)) {
 		primary_state->src_w = vdisplay << 16;
 		primary_state->src_h = hdisplay << 16;
 	} else {
@@ -3039,7 +3047,7 @@ void drm_atomic_helper_plane_reset(struct drm_plane *plane)
 
 	if (plane->state) {
 		plane->state->plane = plane;
-		plane->state->rotation = BIT(DRM_ROTATE_0);
+		plane->state->rotation = DRM_ROTATE_0;
 	}
 }
 EXPORT_SYMBOL(drm_atomic_helper_plane_reset);
