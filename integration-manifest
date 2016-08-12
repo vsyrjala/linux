@@ -1,0 +1,20 @@
+origin/drm-intel-fixes dfa2997055659b4e706a85fba481050cc7e7ad82
+	drm/i915: Fix modeset handling during gpu reset, v5.
+drm-upstream/drm-fixes 36e9d08b58f44c3a02974c405ccaaa6ecfaf05b8
+	drm/cirrus: Fix NULL pointer dereference when registering the fbdev
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued 0b1de5d58e1972a88cfa5d1ea709a7b16934783a
+	drm/i915: Use SSE4.1 movntdqa to accelerate reads from WC memory
+drm-upstream/drm-next 5c6c201ccbaf9d3901f829441d457293f7ca8ef4
+	drm: Paper over locking inversion after registration rework
+sound-upstream/for-next 289ef679086cf0389173a3c08174df2cacc536f3
+	ALSA: usb: caiaq: audio: don't print error when allocating urb fails
+sound-upstream/for-linus a52ff34e5ec61749c62c6618b76a9d6dbecee450
+	ALSA: hda - Manage power well properly for resume
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 3590d50e2313644cd192ff55e83df76dea232319
+	dma-buf/fence: kerneldoc: remove spurious section header
+origin/topic/core-for-CI 20d68fa00e9143ed70441c7783e2f7e77ced4e35
+	x86/hweight: Don't clobber %rdi
