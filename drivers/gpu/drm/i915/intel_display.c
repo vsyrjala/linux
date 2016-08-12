@@ -2052,6 +2052,8 @@ static unsigned int intel_tile_size(const struct drm_i915_private *dev_priv)
 	return IS_GEN2(dev_priv) ? 2048 : 4096;
 }
 
+#define I915_FORMAT_MOD_CCS 0xdeadbeef
+
 static unsigned int intel_tile_width_bytes(const struct drm_i915_private *dev_priv,
 					   uint64_t fb_modifier, unsigned int cpp)
 {
@@ -2083,6 +2085,8 @@ static unsigned int intel_tile_width_bytes(const struct drm_i915_private *dev_pr
 			return cpp;
 		}
 		break;
+	case I915_FORMAT_MOD_CCS:
+		return 64;
 	default:
 		MISSING_CASE(fb_modifier);
 		return cpp;
@@ -2173,6 +2177,8 @@ static unsigned int intel_surf_alignment(const struct drm_i915_private *dev_priv
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
 		return 1 * 1024 * 1024;
+	case I915_FORMAT_MOD_CCS:
+		return 4096;
 	default:
 		MISSING_CASE(fb_modifier);
 		return 0;
@@ -2500,6 +2506,100 @@ static unsigned int intel_fb_modifier_to_tiling(uint64_t fb_modifier)
 	}
 }
 
+/*
+ * Main surface assumed to be Y-tiled, 32bpp.
+ *
+ * Each byte of CCS contains 4 pairs of bits,
+ * with each pair of bits matching an area of
+ * 8x4 pixels of the main surface. Which would
+ * seem to match 2 cachelines containing 4x4 pixels
+ * each. The pairs bits within the byte form a 2x2
+ * grid, which thus matches a 16x8 pixel area of
+ * the main surface. This is the 2x2 pattern the
+ * bits form (0=lsb, 7=msb):
+ * -----------
+ * | 01 | 23 |
+ *  ----------
+ * | 45 | 67 |
+ * -----------
+ *
+ * Actually only the lower bit of the pair seems to have
+ * any effect. No idea why. 0 in the lower bit would
+ * seem to mean not compressed, and 1 is compressed.
+ * The interpreation of the main surface data when the
+ * block is marked compressed is unknown as of now.
+ *
+ * CCS tile is laid out in 8 byte horizontal strips
+ * each strip thus corresponds to a 128x8 pixel are
+ * of the main surface. So each 8x8 bytes of the
+ * CCS (1 cacheline) will match an area of 4x2 tiles
+ * on the main surface.
+ *
+ * Here is the layout of a full CCS tile, with the 8
+ * byte strips numbered 0-511:
+ * ------------------------
+ * |  0 |  64 | ... | 448 |
+ * |  1 |  65 |     | 449 |
+ * |  2 |  66 |     | 450 |
+ * |  . |   . |     |   . |
+ * |  . |   . |     |   . |
+ * |  . |   . |     |   . |
+ * | 63 | 127 |     | 511 |
+ * ------------------------
+ *
+ * This will match an area of 1024x512 pixels on the main
+ * surface.
+ *
+ * AUX stride will be specified in units of these CCS tile
+ * widths. So eg. AUX stride of 1 equals 1024 pixels on the
+ * main surface.
+ *
+ * TODO figure out Yf
+ *
+ */
+
+static int intel_format_plane_cpp(u32 format, int plane,
+				  u32 fb_modifier)
+{
+	switch (fb_modifier) {
+	case I915_FORMAT_MOD_CCS:
+		/* Actually we have just 0.0625 bits per pixel, but
+		 * for the purposes of offset calculations and
+		 * whatnot we'll just use byte granularity.
+		 * So eg. linear offset x component is in bytes, or
+		 * in other words in multiples of 16 pixels.
+		 */
+		return 1;
+	default:
+		return drm_format_plane_cpp(format, plane);
+	}
+}
+
+static int intel_format_plane_width(int width, u32 format, int plane,
+				    u32 fb_modifier)
+{
+	switch (fb_modifier) {
+	case I915_FORMAT_MOD_CCS:
+		/* Each byte of CCS covers an area of 16x8 pixels */
+		return DIV_ROUND_UP(width, 16);
+	default:
+		return drm_format_plane_width(width, format, plane);
+	}
+}
+
+static int intel_format_plane_height(int height, u32 format, int plane,
+				     u32 fb_modifier)
+{
+	switch (fb_modifier) {
+	case I915_FORMAT_MOD_CCS:
+		/* Each byte of CCS covers an area of 16x8 pixels */
+		return DIV_ROUND_UP(height, 8);
+	default:
+		return drm_format_plane_height(height, format, plane);
+	}
+}
+
+
 static int
 intel_fill_fb_info(struct drm_i915_private *dev_priv,
 		   struct drm_framebuffer *fb)
@@ -2518,9 +2618,11 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 		u32 offset;
 		int x, y;
 
-		cpp = drm_format_plane_cpp(format, i);
-		width = drm_format_plane_width(fb->width, format, i);
-		height = drm_format_plane_height(fb->height, format, i);
+		cpp = intel_format_plane_cpp(format, i, fb->modifier[i]);
+		width = intel_format_plane_width(fb->width, format, i,
+						 fb->modifier[i]);
+		height = intel_format_plane_height(fb->height, format, i,
+						   fb->modifier[i]);
 
 		intel_fb_offset_to_xy(&x, &y, fb, i);
 
@@ -2612,6 +2714,36 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 		} else {
 			size = DIV_ROUND_UP((y + height) * fb->pitches[i] +
 					    x * cpp, tile_size);
+		}
+
+		if (fb->modifier[i] == I915_FORMAT_MOD_CCS) {
+			int ccs_x = intel_fb->normal[i].x;
+			int ccs_y = intel_fb->normal[i].y;
+			int main_x = intel_fb->normal[0].x;
+			int main_y = intel_fb->normal[0].y;
+
+			/* get intra-tile coordinates for CCS */
+			_intel_compute_tile_offset(dev_priv, &ccs_x, &ccs_y,
+						   fb, 0, fb->pitches[i],
+						   DRM_ROTATE_0, tile_size);
+
+			/*
+			 * Each byte of CCS corresponds to a 16x8 area of the
+			 * main surface, and each CCS tile is 64x64 bytes.
+			 */
+			ccs_x *= 16;
+			ccs_y *= 8;
+			main_x %= 64 * 16;
+			main_y %= 64 * 8;
+
+			/*
+			 * CCS doesn't have its own x/y offset register, so the intra CCS
+			 * tile x/y offsets must match between CCS and the main surface.
+			 */
+			if (main_x != ccs_x || main_y != ccs_y) {
+				DRM_DEBUG("CCS misaligned with main surface data\n");
+				return -EINVAL;
+			}
 		}
 
 		/* how many tiles in total needed in the bo */
@@ -2943,6 +3075,27 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 		}
 	}
 
+	/*
+	 * CCS AUX surface doesn't have its own x/y offsets,
+	 * we must make sure they match with the main surface
+	 * x/y offsets.
+	 */
+	if (fb->modifier[1] == I915_FORMAT_MOD_CCS) {
+		while (x != plane_state->aux.x || y < plane_state->aux.y) {
+			if (offset == 0) {
+				DRM_DEBUG_KMS("Unable to find suitable display surface offset\n");
+				return -EINVAL;
+			}
+
+			offset = intel_adjust_tile_offset(&x, &y, plane_state, 0,
+							  offset, offset - alignment);
+		}
+		if (y != plane_state->aux.y) {
+			DRM_DEBUG_KMS("Unable to find suitable display surface offset\n");
+			return -EINVAL;
+		}
+	}
+
 	plane_state->main.offset = offset;
 	plane_state->main.x = x;
 	plane_state->main.y = y;
@@ -2979,6 +3132,24 @@ static int skl_check_nv12_aux_surface(struct intel_plane_state *plane_state)
 	return 0;
 }
 
+static int skl_check_ccs_aux_surface(struct intel_plane_state *plane_state)
+{
+	int src_x = plane_state->base.src.x1 >> 16;
+	int src_y = plane_state->base.src.y1 >> 16;
+	int x = src_x / 16;
+	int y = src_y / 8;
+	u32 offset;
+
+	intel_add_fb_offsets(&x, &y, plane_state, 1);
+	offset = intel_compute_tile_offset(&x, &y, plane_state, 1);
+
+	plane_state->aux.offset = offset;
+	plane_state->aux.x = x * 16 + src_x % 16;
+	plane_state->aux.y = y * 8 + src_y % 8;
+
+	return 0;
+}
+
 int skl_check_plane_surface(struct intel_plane_state *plane_state)
 {
 	const struct drm_framebuffer *fb = plane_state->base.fb;
@@ -2996,6 +3167,10 @@ int skl_check_plane_surface(struct intel_plane_state *plane_state)
 	 */
 	if (fb->pixel_format == DRM_FORMAT_NV12) {
 		ret = skl_check_nv12_aux_surface(plane_state);
+		if (ret)
+			return ret;
+	} else if (fb->modifier[1] == I915_FORMAT_MOD_CCS) {
+		ret = skl_check_ccs_aux_surface(plane_state);
 		if (ret)
 			return ret;
 	} else {
