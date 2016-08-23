@@ -26,8 +26,8 @@ Right now the only hard merge criteria are:
   in through separate pull requests. Those topic branches can still be
   maintained with the dim_ tooling, but that's of course entirely optional.
 
-* All the x86 and arm DRM drivers need to still compile. To simplify this we
-  track defconfigs for both platforms in the `drm-intel-rerere` branch.
+* All the x86, arm and arm64 DRM drivers need to still compile. To simplify this
+  we track defconfigs for all three platforms in the `drm-intel-rerere` branch.
 
 * The goal is to also pre-check everything with CI. Unfortunately neither the
   arm side (using kernelci.org and generic i-g-t tests) nor the Intel side
