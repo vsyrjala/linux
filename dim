@@ -1180,9 +1180,9 @@ function dim_fixes
 	local tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
 	if [[ -n "$tag" ]]; then
 		if echo "$tag" | grep -e "-rc" &> /dev/null ; then
-			echo Cc: drm-intel-fixes@lists.freedesktop.org
+			echo "Cc: drm-intel-fixes@lists.freedesktop.org # ${tag}+"
 		else
-			echo Cc: stable@vger.kernel.org
+			echo "Cc: stable@vger.kernel.org # ${tag}+"
 		fi
 	else
 		git fetch $DIM_DRM_INTEL_REMOTE
