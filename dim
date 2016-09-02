@@ -865,7 +865,7 @@ function dim_update_next_continue
 {
 	assert_branch drm-intel-next-queued
 
-	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
+	git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
 	tag=drm-intel-next-$today
 	$DRY git tag -f -a $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
 	git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
