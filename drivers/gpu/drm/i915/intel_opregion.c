@@ -308,7 +308,9 @@ static int swsci(struct drm_i915_private *dev_priv,
 	scic = function | SWSCI_SCIC_INDICATOR;
 
 	swsci->parm = parm;
+	smp_wmb();
 	swsci->scic = scic;
+	smp_wmb();
 
 	/* Ensure SCI event is selected and event trigger is cleared. */
 	pci_read_config_word(pdev, SWSCI, &swsci_val);
@@ -338,8 +340,10 @@ static int swsci(struct drm_i915_private *dev_priv,
 		return -EIO;
 	}
 
-	if (parm_out)
+	if (parm_out) {
+		smp_rmb();
 		*parm_out = swsci->parm;
+	}
 
 	return 0;
 
