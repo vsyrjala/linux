@@ -315,6 +315,7 @@ static int swsci(struct drm_i915_private *dev_priv,
 	/* Ensure SCI event is selected and event trigger is cleared. */
 	pci_read_config_word(pdev, SWSCI, &swsci_val);
 	if (!(swsci_val & SWSCI_SCISEL) || (swsci_val & SWSCI_GSSCIE)) {
+		WARN(swsci_val & SWSCI_GSSCIE, "already triggered SWSCI\n");
 		swsci_val |= SWSCI_SCISEL;
 		swsci_val &= ~SWSCI_GSSCIE;
 		pci_write_config_word(pdev, SWSCI, swsci_val);
