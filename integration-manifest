@@ -1,0 +1,20 @@
+origin/drm-intel-fixes 8a07fed44b126f48020f122b9e6bf05d8c48f281
+	drm/i915/dvo: Remove dangling call to drm_encoder_cleanup()
+drm-upstream/drm-fixes 603f2c9f45c6620afd65b60ec084c1ea7c36b2ec
+	Merge tag 'drm-vc4-fixes-2016-08-29' of https://github.com/anholt/linux into drm-fixes
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued 19eb9189c55715b8e15401fb6d862c5766724220
+	drm/i915: Don't wait for a spinlock inside error capture
+drm-upstream/drm-next 2b2fd56d7e92f134ecaae5c89e20f64dd0f95aa2
+	Revert "drm: make DRI1 drivers depend on BROKEN"
+sound-upstream/for-next 8c91d7d09e3cd52d5d409ba05e8eb9be0f6a2349
+	ALSA: bt87x: constify snd_pcm_ops structures
+sound-upstream/for-linus 6b1ca4bcadf9ef077cc5f03c6822ba276ed14902
+	ALSA: fireworks: accessing to user space outside spinlock
+origin/topic/drm-fixes 735b100f6d84b60da68e81e0bcb953d2021e0aa8
+	drm/edid: Fix DMT 1024x768@43Hz (interlaced) timings
+origin/topic/drm-misc 75ac49532a3cd44f2b22d88bab888ae92c411650
+	drm/doc: Add a few words on validation with IGT
+origin/topic/core-for-CI d0245f6bbeb63fcc07974be1ffbb8ba7b2e6ae13
+	locking/mutex: Prevent lock starvation when spinning is disabled
