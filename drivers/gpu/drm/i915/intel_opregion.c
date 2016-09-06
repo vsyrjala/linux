@@ -346,6 +346,10 @@ static int swsci(struct drm_i915_private *dev_priv,
 		*parm_out = swsci->parm;
 	}
 
+	if (function == SWSCI_GBDA_PANEL_DETAILS)
+		DRM_DEBUG_KMS("GBDA get panel details 0x%08x 0x%08x\n",
+			      swsci->scic, swsci->parm);
+
 	return 0;
 
 #undef C
