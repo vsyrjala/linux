@@ -14135,10 +14135,6 @@ static int intel_atomic_check(struct drm_device *dev,
 		ret = drm_atomic_add_affected_planes(state, crtc);
 		if (ret)
 			return ret;
-
-		intel_dump_pipe_config(to_intel_crtc(crtc), pipe_config,
-				       needs_modeset(crtc_state) ?
-				       "[modeset]" : "[fastset]");
 	}
 
 	if (modeset_pipes) {
@@ -14152,6 +14148,17 @@ static int intel_atomic_check(struct drm_device *dev,
 	ret = drm_atomic_helper_check_planes(dev, state);
 	if (ret)
 		return ret;
+
+	if (modeset_pipes) {
+		for_each_crtc_in_state(state, crtc, crtc_state, i) {
+			struct intel_crtc_state *pipe_config =
+				to_intel_crtc_state(crtc_state);
+
+			intel_dump_pipe_config(to_intel_crtc(crtc), pipe_config,
+					       needs_modeset(crtc_state) ?
+					       "[modeset]" : "[fastset]");
+		}
+	}
 
 	intel_fbc_choose_crtc(dev_priv, state);
 	return calc_watermark_data(state);
