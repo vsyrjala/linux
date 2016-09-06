@@ -258,7 +258,8 @@ struct opregion_asle_ext {
 #define MAX_DSLP	1500
 
 static int swsci(struct drm_i915_private *dev_priv,
-		 u32 function, u32 parm, u32 *parm_out)
+		 u32 function, u32 parm,
+		 u32 *scic_out, u32 *parm_out)
 {
 	struct opregion_swsci *swsci = dev_priv->opregion.swsci;
 	struct pci_dev *pdev = dev_priv->drm.pdev;
@@ -331,6 +332,9 @@ static int swsci(struct drm_i915_private *dev_priv,
 		DRM_DEBUG_DRIVER("SWSCI request timed out\n");
 		return -ETIMEDOUT;
 	}
+
+	if (scic_out)
+		*scic_out = scic;
 
 	scic = (scic & SWSCI_SCIC_EXIT_STATUS_MASK) >>
 		SWSCI_SCIC_EXIT_STATUS_SHIFT;
@@ -409,7 +413,7 @@ int intel_opregion_notify_encoder(struct intel_encoder *intel_encoder,
 
 	parm |= type << (16 + port * 3);
 
-	return swsci(dev_priv, SWSCI_SBCB_DISPLAY_POWER_STATE, parm, NULL);
+	return swsci(dev_priv, SWSCI_SBCB_DISPLAY_POWER_STATE, parm, NULL, NULL);
 }
 
 static const struct {
@@ -434,7 +438,7 @@ int intel_opregion_notify_adapter(struct drm_i915_private *dev_priv,
 	for (i = 0; i < ARRAY_SIZE(power_state_map); i++) {
 		if (state == power_state_map[i].pci_power_state)
 			return swsci(dev_priv, SWSCI_SBCB_ADAPTER_POWER_STATE,
-				     power_state_map[i].parm, NULL);
+				     power_state_map[i].parm, NULL, NULL);
 	}
 
 	return -EINVAL;
@@ -897,7 +901,7 @@ static void swsci_setup(struct drm_i915_private *dev_priv)
 	opregion->swsci_sbcb_sub_functions = 1;
 
 	/* We use GBDA to ask for supported GBDA calls. */
-	if (swsci(dev_priv, SWSCI_GBDA_SUPPORTED_CALLS, 0, &tmp) == 0) {
+	if (swsci(dev_priv, SWSCI_GBDA_SUPPORTED_CALLS, 0, NULL, &tmp) == 0) {
 		/* make the bits match the sub-function codes */
 		tmp <<= 1;
 		opregion->swsci_gbda_sub_functions |= tmp;
@@ -908,7 +912,7 @@ static void swsci_setup(struct drm_i915_private *dev_priv)
 	 * must not call interfaces that are not specifically requested by the
 	 * bios.
 	 */
-	if (swsci(dev_priv, SWSCI_GBDA_REQUESTED_CALLBACKS, 0, &tmp) == 0) {
+	if (swsci(dev_priv, SWSCI_GBDA_REQUESTED_CALLBACKS, 0, NULL, &tmp) == 0) {
 		/* here, the bits already match sub-function codes */
 		opregion->swsci_sbcb_sub_functions |= tmp;
 		requested_callbacks = true;
@@ -919,7 +923,7 @@ static void swsci_setup(struct drm_i915_private *dev_priv)
 	 * the callback is _requested_. But we still can't call interfaces that
 	 * are not requested.
 	 */
-	if (swsci(dev_priv, SWSCI_SBCB_SUPPORTED_CALLBACKS, 0, &tmp) == 0) {
+	if (swsci(dev_priv, SWSCI_SBCB_SUPPORTED_CALLBACKS, 0, NULL, &tmp) == 0) {
 		/* make the bits match the sub-function codes */
 		u32 low = tmp & 0x7ff;
 		u32 high = tmp & ~0xfff; /* bit 11 is reserved */
@@ -1059,14 +1063,20 @@ err_out:
 int
 intel_opregion_get_panel_type(struct drm_i915_private *dev_priv)
 {
-	u32 panel_details;
+	u32 panel_scic, panel_details;
 	int ret;
 
-	ret = swsci(dev_priv, SWSCI_GBDA_PANEL_DETAILS, 0x0, &panel_details);
+	ret = swsci(dev_priv, SWSCI_GBDA_PANEL_DETAILS, 0x0,
+		    &panel_scic, &panel_details);
 	if (ret) {
 		DRM_DEBUG_KMS("Failed to get panel details from OpRegion (%d)\n",
 			      ret);
 		return ret;
+	}
+
+	if ((panel_scic & (1 << 8)) == 0) {
+		DRM_DEBUG_KMS("No OpRegion panel type override\n");
+		return -ENODEV;
 	}
 
 	ret = (panel_details >> 8) & 0xff;
