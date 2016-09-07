@@ -1,0 +1,20 @@
+origin/drm-intel-fixes fc2780b66b15092ac68272644a522c1624c48547
+	drm/i915: Add GEN7_PCODE_MIN_FREQ_TABLE_GT_RATIO_OUT_OF_RANGE to SNB
+drm-upstream/drm-fixes 603f2c9f45c6620afd65b60ec084c1ea7c36b2ec
+	Merge tag 'drm-vc4-fixes-2016-08-29' of https://github.com/anholt/linux into drm-fixes
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued 3d810fbedec403a8c0ac54fd6a08586ab08831d7
+	drm/i915: Move HAS_GUC definition to platform definition
+drm-upstream/drm-next 2b2fd56d7e92f134ecaae5c89e20f64dd0f95aa2
+	Revert "drm: make DRI1 drivers depend on BROKEN"
+sound-upstream/for-next 44cc4a017e2df87f25765ac270f3f64efc6b06ef
+	ALSA: squash lines for simple wrapper functions
+sound-upstream/for-linus 7a5fa2b81bc51ca88a73ca6d054ef343b0d088dd
+	ALSA: timer: Fix zero-division by continue of uninitialized instance
+origin/topic/drm-fixes c6935931c1894ff857616ff8549b61236a19148f
+	Linux 4.8-rc5
+origin/topic/drm-misc 30c06570cd6716ba392f674c49dee5a69f96e096
+	Revert "drm: Unify handling of blob and object properties"
+origin/topic/core-for-CI d0245f6bbeb63fcc07974be1ffbb8ba7b2e6ae13
+	locking/mutex: Prevent lock starvation when spinning is disabled
