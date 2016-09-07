@@ -160,5 +160,18 @@ void intel_disable_shared_dpll(struct intel_crtc *crtc);
 void intel_shared_dpll_commit(struct drm_atomic_state *state);
 void intel_shared_dpll_init(struct drm_device *dev);
 
+/* BXT dpll related functions */
+bool bxt_ddi_dp_set_dpll_hw_state(int clock,
+			  struct intel_dpll_hw_state *dpll_hw_state);
+
+
+/* SKL dpll related functions */
+bool skl_ddi_dp_set_dpll_hw_state(int clock,
+				  struct intel_dpll_hw_state *dpll_hw_state);
+
+
+/* HSW dpll related functions */
+struct intel_shared_dpll *hsw_ddi_dp_get_dpll(struct intel_encoder *encoder,
+					      int clock);
 
 #endif /* _INTEL_DPLL_MGR_H_ */
