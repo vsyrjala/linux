@@ -1073,6 +1073,16 @@ intel_opregion_get_panel_type(struct drm_i915_private *dev_priv)
 	}
 
 	/*
+	 * So far we know that some machined must use it, others must not use it.
+	 * There doesn't seem to be any way to determine which way to go, except
+	 * via a quirk list :(
+	 */
+	if ((dev_priv->quirks & QUIRK_OPREGION_PANEL_TYPE) == 0) {
+		DRM_DEBUG_KMS("Ignoring OpRegion panel type (%d)\n", ret - 1);
+		return -ENODEV;
+	}
+
+	/*
 	 * FIXME On Dell XPS 13 9350 the OpRegion panel type (0) gives us
 	 * low vswing for eDP, whereas the VBT panel type (2) gives us normal
 	 * vswing instead. Low vswing results in some display flickers, so

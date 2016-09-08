@@ -16073,6 +16073,13 @@ static void quirk_backlight_present(struct drm_device *dev)
 	DRM_INFO("applying backlight present quirk\n");
 }
 
+static void quirk_opregion_panel_type(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	dev_priv->quirks |= QUIRK_OPREGION_PANEL_TYPE;
+	DRM_INFO("applying OpRegion panel type quirk\n");
+}
+
 struct intel_quirk {
 	int device;
 	int subsystem_vendor;
@@ -16092,6 +16099,12 @@ static int intel_dmi_reverse_brightness(const struct dmi_system_id *id)
 	return 1;
 }
 
+static int intel_dmi_opregion_panel_type(const struct dmi_system_id *id)
+{
+	DRM_INFO("Using panel type from OpRegion on %s\n", id->ident);
+	return 1;
+}
+
 static const struct intel_dmi_quirk intel_dmi_quirks[] = {
 	{
 		.dmi_id_list = &(const struct dmi_system_id[]) {
@@ -16105,6 +16118,19 @@ static const struct intel_dmi_quirk intel_dmi_quirks[] = {
 			{ }  /* terminating entry */
 		},
 		.hook = quirk_invert_brightness,
+	},
+	{
+		.dmi_id_list = &(const struct dmi_system_id[]) {
+			{
+				.callback = intel_dmi_opregion_panel_type,
+				.ident = "Conrac GmbH IX45GM2",
+				.matches = {DMI_MATCH(DMI_SYS_VENDOR, "Conrac GmbH"),
+					    DMI_MATCH(DMI_PRODUCT_NAME, "IX45GM2"),
+				},
+			},
+			{ }  /* terminating entry */
+		},
+		.hook = quirk_opregion_panel_type,
 	},
 };
 
