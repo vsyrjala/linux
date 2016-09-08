@@ -99,18 +99,19 @@ static const struct {
 };
 
 /* get AUD_CONFIG_PIXEL_CLOCK_HDMI_* value for mode */
-static u32 audio_config_hdmi_pixel_clock(const struct drm_display_mode *adjusted_mode)
+static u32 audio_config_hdmi_pixel_clock(const struct intel_crtc_state *pipe_config)
 {
+	unsigned int tmds_clock = pipe_config->port_clock;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(hdmi_audio_clock); i++) {
-		if (adjusted_mode->crtc_clock == hdmi_audio_clock[i].clock)
+		if (tmds_clock == hdmi_audio_clock[i].clock)
 			break;
 	}
 
 	if (i == ARRAY_SIZE(hdmi_audio_clock)) {
-		DRM_DEBUG_KMS("HDMI audio pixel clock setting for %d not found, falling back to defaults\n",
-			      adjusted_mode->crtc_clock);
+		DRM_DEBUG_KMS("HDMI audio TMDS clock setting for %d not found, falling back to defaults\n",
+			      tmds_clock);
 		i = 1;
 	}
 
@@ -121,13 +122,14 @@ static u32 audio_config_hdmi_pixel_clock(const struct drm_display_mode *adjusted
 	return hdmi_audio_clock[i].config;
 }
 
-static int audio_config_get_n(const struct drm_display_mode *mode, int rate)
+static int audio_config_get_n(const struct intel_crtc_state *pipe_config, int rate)
 {
+	unsigned int tmds_clock= pipe_config->port_clock;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(aud_ncts); i++) {
-		if ((rate == aud_ncts[i].sample_rate) &&
-			(mode->clock == aud_ncts[i].clock)) {
+		if (rate == aud_ncts[i].sample_rate &&
+		    tmds_clock == aud_ncts[i].clock) {
 			return aud_ncts[i].n;
 		}
 	}
@@ -149,12 +151,12 @@ static uint32_t audio_config_setup_n_reg(int n, uint32_t val)
 }
 
 /* check whether N/CTS/M need be set manually */
-static bool audio_rate_need_prog(struct intel_crtc *crtc,
-				 const struct drm_display_mode *mode)
+static bool audio_rate_need_prog(const struct intel_crtc_state *pipe_config)
 {
-	if (((mode->clock == TMDS_297M) ||
-		 (mode->clock == TMDS_296M)) &&
-		intel_crtc_has_type(crtc->config, INTEL_OUTPUT_HDMI))
+	unsigned int tmds_clock = pipe_config->port_clock;
+
+	if ((tmds_clock == TMDS_297M || tmds_clock == TMDS_296M) &&
+	    intel_crtc_has_type(pipe_config, INTEL_OUTPUT_HDMI))
 		return true;
 	else
 		return false;
@@ -207,8 +209,7 @@ static void g4x_audio_codec_disable(struct intel_encoder *encoder)
 }
 
 static void g4x_audio_codec_enable(struct drm_connector *connector,
-				   struct intel_encoder *encoder,
-				   const struct drm_display_mode *adjusted_mode)
+				   struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = to_i915(connector->dev);
 	uint8_t *eld = connector->eld;
@@ -276,8 +277,7 @@ static void hsw_audio_codec_disable(struct intel_encoder *encoder)
 }
 
 static void hsw_audio_codec_enable(struct drm_connector *connector,
-				   struct intel_encoder *encoder,
-				   const struct drm_display_mode *adjusted_mode)
+				   struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = to_i915(connector->dev);
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
@@ -331,10 +331,10 @@ static void hsw_audio_codec_enable(struct drm_connector *connector,
 	if (intel_crtc_has_dp_encoder(intel_crtc->config))
 		tmp |= AUD_CONFIG_N_VALUE_INDEX;
 	else
-		tmp |= audio_config_hdmi_pixel_clock(adjusted_mode);
+		tmp |= audio_config_hdmi_pixel_clock(intel_crtc->config);
 
 	tmp &= ~AUD_CONFIG_N_PROG_ENABLE;
-	if (audio_rate_need_prog(intel_crtc, adjusted_mode)) {
+	if (audio_rate_need_prog(intel_crtc->config)) {
 		if (!acomp)
 			rate = 0;
 		else if (port >= PORT_A && port <= PORT_E)
@@ -343,7 +343,7 @@ static void hsw_audio_codec_enable(struct drm_connector *connector,
 			DRM_ERROR("invalid port: %d\n", port);
 			rate = 0;
 		}
-		n = audio_config_get_n(adjusted_mode, rate);
+		n = audio_config_get_n(intel_crtc->config, rate);
 		if (n != 0)
 			tmp = audio_config_setup_n_reg(n, tmp);
 		else
@@ -400,8 +400,7 @@ static void ilk_audio_codec_disable(struct intel_encoder *encoder)
 }
 
 static void ilk_audio_codec_enable(struct drm_connector *connector,
-				   struct intel_encoder *encoder,
-				   const struct drm_display_mode *adjusted_mode)
+				   struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = to_i915(connector->dev);
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
@@ -473,7 +472,7 @@ static void ilk_audio_codec_enable(struct drm_connector *connector,
 	if (intel_crtc_has_dp_encoder(intel_crtc->config))
 		tmp |= AUD_CONFIG_N_VALUE_INDEX;
 	else
-		tmp |= audio_config_hdmi_pixel_clock(adjusted_mode);
+		tmp |= audio_config_hdmi_pixel_clock(intel_crtc->config);
 	I915_WRITE(aud_config, tmp);
 }
 
@@ -514,8 +513,7 @@ void intel_audio_codec_enable(struct intel_encoder *intel_encoder)
 	connector->eld[6] = drm_av_sync_delay(connector, adjusted_mode) / 2;
 
 	if (dev_priv->display.audio_codec_enable)
-		dev_priv->display.audio_codec_enable(connector, intel_encoder,
-						     adjusted_mode);
+		dev_priv->display.audio_codec_enable(connector, intel_encoder);
 
 	mutex_lock(&dev_priv->av_mutex);
 	intel_dig_port->audio_connector = connector;
@@ -633,7 +631,6 @@ static int i915_audio_component_sync_audio_rate(struct device *kdev,
 	struct drm_i915_private *dev_priv = kdev_to_i915(kdev);
 	struct intel_encoder *intel_encoder;
 	struct intel_crtc *crtc;
-	struct drm_display_mode *mode;
 	struct i915_audio_component *acomp = dev_priv->audio_component;
 	enum pipe pipe = INVALID_PIPE;
 	u32 tmp;
@@ -668,23 +665,22 @@ static int i915_audio_component_sync_audio_rate(struct device *kdev,
 
 	DRM_DEBUG_KMS("pipe %c connects port %c\n",
 				  pipe_name(pipe), port_name(port));
-	mode = &crtc->config->base.adjusted_mode;
 
 	/* port must be valid now, otherwise the pipe will be invalid */
 	acomp->aud_sample_rate[port] = rate;
 
 	/* 2. check whether to set the N/CTS/M manually or not */
-	if (!audio_rate_need_prog(crtc, mode)) {
+	if (!audio_rate_need_prog(crtc->config)) {
 		tmp = I915_READ(HSW_AUD_CFG(pipe));
 		tmp &= ~AUD_CONFIG_N_PROG_ENABLE;
 		I915_WRITE(HSW_AUD_CFG(pipe), tmp);
 		goto unlock;
 	}
 
-	n = audio_config_get_n(mode, rate);
+	n = audio_config_get_n(crtc->config, rate);
 	if (n == 0) {
 		DRM_DEBUG_KMS("Using automatic mode for N value on port %c\n",
-					  port_name(port));
+			      port_name(port));
 		tmp = I915_READ(HSW_AUD_CFG(pipe));
 		tmp &= ~AUD_CONFIG_N_PROG_ENABLE;
 		I915_WRITE(HSW_AUD_CFG(pipe), tmp);
