@@ -1,0 +1,20 @@
+origin/drm-intel-fixes ea54ff4008892b46c7a3e6bc8ab8aaec9d198639
+	drm/i915: Ignore OpRegion panel type except on select machines
+drm-upstream/drm-fixes 7eebfba5c48f89e1729022459cde2b256696ba2a
+	Merge tag 'drm/atmel-hlcdc/4.8-fixes' of github.com:bbrezillon/linux-at91 into drm-fixes
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued 80209e5f2c42c491ec5f4a63705b4377b407587c
+	drm: Add DP branch device info on debugfs
+drm-upstream/drm-next 8506912b969b60aacc733315eeeb46b014d920a4
+	Merge branch 'drm-tda998x-devel' of git://git.armlinux.org.uk/~rmk/linux-arm into drm-next
+sound-upstream/for-next 46e860f76804f86ac6062e9bb0d6dbea47f23899
+	ALSA: rename TLV-related macros so that they're friendly to user applications
+sound-upstream/for-linus 3f640970a41429f0a076c01270bbd014c9eae61c
+	ALSA: hda - Fix headset mic detection problem for several Dell laptops
+origin/topic/drm-fixes c6935931c1894ff857616ff8549b61236a19148f
+	Linux 4.8-rc5
+origin/topic/drm-misc a988588b1806b40ae115fe1c9ab38706fd1a7c2b
+	drm: Only use compat ioctl for addfb2 on X86/IA64
+origin/topic/core-for-CI d0245f6bbeb63fcc07974be1ffbb8ba7b2e6ae13
+	locking/mutex: Prevent lock starvation when spinning is disabled
