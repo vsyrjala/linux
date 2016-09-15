@@ -1094,7 +1094,7 @@ intel_opregion_get_panel_type(struct drm_i915_private *dev_priv)
 	 * There doesn't seem to be any way to determine which way to go, except
 	 * via a quirk list :(
 	 */
-	if (!dmi_check_system(intel_use_opregion_panel_type)) {
+	if (0 && !dmi_check_system(intel_use_opregion_panel_type)) {
 		DRM_DEBUG_KMS("Ignoring OpRegion panel type (%d)\n", ret - 1);
 		return -ENODEV;
 	}
