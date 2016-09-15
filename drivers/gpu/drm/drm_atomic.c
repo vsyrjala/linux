@@ -837,8 +837,9 @@ static int drm_atomic_plane_check(struct drm_plane *plane,
 	/* Check whether this plane supports the fb pixel format. */
 	ret = drm_plane_check_pixel_format(plane, state->fb->pixel_format);
 	if (ret) {
-		DRM_DEBUG_ATOMIC("Invalid pixel format %s\n",
-				 drm_get_format_name(state->fb->pixel_format));
+		char *format_name = drm_get_format_name(state->fb->pixel_format);
+		DRM_DEBUG_ATOMIC("Invalid pixel format %s\n", format_name);
+		kfree(format_name);
 		return ret;
 	}
 
@@ -1608,7 +1609,7 @@ int drm_mode_atomic_ioctl(struct drm_device *dev,
 	struct drm_crtc_state *crtc_state;
 	unsigned plane_mask;
 	int ret = 0;
-	unsigned int i, j;
+	unsigned int i, j, k;
 
 	/* disallow for drivers not supporting atomic: */
 	if (!drm_core_check_feature(dev, DRIVER_ATOMIC))
@@ -1687,6 +1688,15 @@ retry:
 			if (get_user(prop_id, props_ptr + copied_props)) {
 				drm_mode_object_unreference(obj);
 				ret = -EFAULT;
+				goto out;
+			}
+
+			for (k = 0; k < obj->properties->count; k++)
+				if (obj->properties->properties[k]->base.id == prop_id)
+					break;
+
+			if (k == obj->properties->count) {
+				ret = -EINVAL;
 				goto out;
 			}
 
