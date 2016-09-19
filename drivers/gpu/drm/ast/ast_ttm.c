@@ -224,7 +224,7 @@ static void ast_ttm_tt_unpopulate(struct ttm_tt *ttm)
 	ttm_pool_unpopulate(ttm);
 }
 
-struct ttm_bo_driver ast_bo_driver = {
+static struct ttm_bo_driver ast_bo_driver = {
 	.ttm_tt_create = ast_ttm_tt_create,
 	.ttm_tt_populate = ast_ttm_tt_populate,
 	.ttm_tt_unpopulate = ast_ttm_tt_unpopulate,
