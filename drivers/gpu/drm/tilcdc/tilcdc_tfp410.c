@@ -23,6 +23,7 @@
 #include <drm/drm_atomic_helper.h>
 
 #include "tilcdc_drv.h"
+#include "tilcdc_tfp410.h"
 
 struct tfp410_module {
 	struct tilcdc_module base;
@@ -382,7 +383,7 @@ static struct of_device_id tfp410_of_match[] = {
 		{ },
 };
 
-struct platform_driver tfp410_driver = {
+static struct platform_driver tfp410_driver = {
 	.probe = tfp410_probe,
 	.remove = tfp410_remove,
 	.driver = {

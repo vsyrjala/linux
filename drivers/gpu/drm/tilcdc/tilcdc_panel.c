@@ -25,6 +25,7 @@
 #include <drm/drm_atomic_helper.h>
 
 #include "tilcdc_drv.h"
+#include "tilcdc_panel.h"
 
 struct panel_module {
 	struct tilcdc_module base;
@@ -433,7 +434,7 @@ static struct of_device_id panel_of_match[] = {
 		{ },
 };
 
-struct platform_driver panel_driver = {
+static struct platform_driver panel_driver = {
 	.probe = panel_probe,
 	.remove = panel_remove,
 	.driver = {
