@@ -22,6 +22,7 @@
  * Authors: Ben Skeggs
  */
 #include <subdev/volt.h>
+#include <subdev/volt/priv.h>
 #include <subdev/bios.h>
 #include <subdev/bios/gpio.h>
 #include <subdev/gpio.h>

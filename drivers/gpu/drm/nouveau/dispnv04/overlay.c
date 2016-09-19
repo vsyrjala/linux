@@ -27,13 +27,13 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_fourcc.h>
 
+#include "disp.h"
 #include "nouveau_drv.h"
 
 #include "nouveau_bo.h"
 #include "nouveau_connector.h"
 #include "nouveau_display.h"
 #include "nvreg.h"
-
 
 struct nouveau_plane {
 	struct drm_plane base;

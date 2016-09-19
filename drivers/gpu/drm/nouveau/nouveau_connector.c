@@ -60,7 +60,7 @@ int nouveau_duallink = 1;
 module_param_named(duallink, nouveau_duallink, int, 0400);
 
 MODULE_PARM_DESC(hdmimhz, "Force a maximum HDMI pixel clock (in MHz)");
-int nouveau_hdmimhz = 0;
+static int nouveau_hdmimhz;
 module_param_named(hdmimhz, nouveau_hdmimhz, int, 0400);
 
 struct nouveau_encoder *

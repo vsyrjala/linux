@@ -26,7 +26,7 @@
 
 #include <nvif/class.h>
 
-const struct nv50_disp_mthd_list
+static const struct nv50_disp_mthd_list
 g94_disp_core_mthd_sor = {
 	.mthd = 0x0040,
 	.addr = 0x000008,
