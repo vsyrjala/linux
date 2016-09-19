@@ -15,7 +15,7 @@
 
 #include "cirrus_drv.h"
 
-int cirrus_modeset = -1;
+static int cirrus_modeset = -1;
 int cirrus_bpp = 24;
 
 MODULE_PARM_DESC(modeset, "Disable/Enable modesetting");

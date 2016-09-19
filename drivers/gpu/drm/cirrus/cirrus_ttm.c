@@ -224,7 +224,7 @@ static void cirrus_ttm_tt_unpopulate(struct ttm_tt *ttm)
 	ttm_pool_unpopulate(ttm);
 }
 
-struct ttm_bo_driver cirrus_bo_driver = {
+static struct ttm_bo_driver cirrus_bo_driver = {
 	.ttm_tt_create = cirrus_ttm_tt_create,
 	.ttm_tt_populate = cirrus_ttm_tt_populate,
 	.ttm_tt_unpopulate = cirrus_ttm_tt_unpopulate,
