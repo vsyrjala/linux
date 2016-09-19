@@ -1,0 +1,21 @@
+origin/drm-intel-fixes ea54ff4008892b46c7a3e6bc8ab8aaec9d198639
+	drm/i915: Ignore OpRegion panel type except on select machines
+drm-upstream/drm-fixes 47a66e45d7a7613322549c2475ea9d809baaf514
+	drm: Only use compat ioctl for addfb2 on X86/IA64
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued 6e05f3d3b9298a56d6f1acb474a75cf14a17c31e
+	drm/i915: Update DRIVER_DATE to 20160919
+drm-upstream/drm-next 9f8cf165c62913244479832f04c44cd77ffc9293
+	Merge tag 'topic/drm-misc-2016-09-19' of git://anongit.freedesktop.org/drm-intel into drm-next
+sound-upstream/for-next c5a905d3122a501c014b1ba679d3a6d21f2b5c7b
+	ALSA: compress: fix some missing and misplaced 
+ in messages
+sound-upstream/for-linus 3f640970a41429f0a076c01270bbd014c9eae61c
+	ALSA: hda - Fix headset mic detection problem for several Dell laptops
+origin/topic/drm-fixes c6935931c1894ff857616ff8549b61236a19148f
+	Linux 4.8-rc5
+origin/topic/drm-misc 9f8cf165c62913244479832f04c44cd77ffc9293
+	Merge tag 'topic/drm-misc-2016-09-19' of git://anongit.freedesktop.org/drm-intel into drm-next
+origin/topic/core-for-CI d0245f6bbeb63fcc07974be1ffbb8ba7b2e6ae13
+	locking/mutex: Prevent lock starvation when spinning is disabled
