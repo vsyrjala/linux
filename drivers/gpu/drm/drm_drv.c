@@ -33,7 +33,6 @@
 #include <linux/mount.h>
 #include <linux/slab.h>
 #include <drm/drmP.h>
-#include <drm/drm_core.h>
 #include "drm_crtc_internal.h"
 #include "drm_legacy.h"
 #include "drm_internal.h"
@@ -46,8 +45,8 @@
 unsigned int drm_debug = 0;
 EXPORT_SYMBOL(drm_debug);
 
-MODULE_AUTHOR(CORE_AUTHOR);
-MODULE_DESCRIPTION(CORE_DESC);
+MODULE_AUTHOR("Gareth Hughes, Leif Delgass, José Fonseca, Jon Smirl");
+MODULE_DESCRIPTION("DRM shared core routines");
 MODULE_LICENSE("GPL and additional rights");
 MODULE_PARM_DESC(debug, "Enable debug output, where each bit enables a debug category.\n"
 "\t\tBit 0 (0x01) will enable CORE messages (drm core code)\n"
@@ -821,52 +820,47 @@ static const struct file_operations drm_stub_fops = {
 	.llseek = noop_llseek,
 };
 
+static void drm_core_exit(void)
+{
+	unregister_chrdev(DRM_MAJOR, "drm");
+	debugfs_remove(drm_debugfs_root);
+	drm_sysfs_destroy();
+	idr_destroy(&drm_minors_idr);
+	drm_connector_ida_destroy();
+	drm_global_release();
+}
+
 static int __init drm_core_init(void)
 {
-	int ret = -ENOMEM;
+	int ret;
 
 	drm_global_init();
 	drm_connector_ida_init();
 	idr_init(&drm_minors_idr);
 
-	if (register_chrdev(DRM_MAJOR, "drm", &drm_stub_fops))
-		goto err_p1;
-
 	ret = drm_sysfs_init();
 	if (ret < 0) {
-		printk(KERN_ERR "DRM: Error creating drm class.\n");
-		goto err_p2;
+		DRM_ERROR("Cannot create DRM class: %d\n", ret);
+		goto error;
 	}
 
 	drm_debugfs_root = debugfs_create_dir("dri", NULL);
 	if (!drm_debugfs_root) {
-		DRM_ERROR("Cannot create /sys/kernel/debug/dri\n");
-		ret = -1;
-		goto err_p3;
+		ret = -ENOMEM;
+		DRM_ERROR("Cannot create debugfs-root: %d\n", ret);
+		goto error;
 	}
 
-	DRM_INFO("Initialized %s %d.%d.%d %s\n",
-		 CORE_NAME, CORE_MAJOR, CORE_MINOR, CORE_PATCHLEVEL, CORE_DATE);
+	ret = register_chrdev(DRM_MAJOR, "drm", &drm_stub_fops);
+	if (ret < 0)
+		goto error;
+
+	DRM_INFO("Initialized\n");
 	return 0;
-err_p3:
-	drm_sysfs_destroy();
-err_p2:
-	unregister_chrdev(DRM_MAJOR, "drm");
 
-	idr_destroy(&drm_minors_idr);
-err_p1:
+error:
+	drm_core_exit();
 	return ret;
-}
-
-static void __exit drm_core_exit(void)
-{
-	debugfs_remove(drm_debugfs_root);
-	drm_sysfs_destroy();
-
-	unregister_chrdev(DRM_MAJOR, "drm");
-
-	drm_connector_ida_destroy();
-	idr_destroy(&drm_minors_idr);
 }
 
 module_init(drm_core_init);

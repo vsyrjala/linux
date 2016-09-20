@@ -42,6 +42,8 @@
 #include <drm/drm_connector.h>
 #include <drm/drm_encoder.h>
 #include <drm/drm_property.h>
+#include <drm/drm_bridge.h>
+#include <drm/drm_edid.h>
 
 struct drm_device;
 struct drm_mode_set;
@@ -1019,174 +1021,6 @@ struct drm_plane {
 };
 
 /**
- * struct drm_bridge_funcs - drm_bridge control functions
- */
-struct drm_bridge_funcs {
-	/**
-	 * @attach:
-	 *
-	 * This callback is invoked whenever our bridge is being attached to a
-	 * &drm_encoder.
-	 *
-	 * The attach callback is optional.
-	 *
-	 * RETURNS:
-	 *
-	 * Zero on success, error code on failure.
-	 */
-	int (*attach)(struct drm_bridge *bridge);
-
-	/**
-	 * @detach:
-	 *
-	 * This callback is invoked whenever our bridge is being detached from a
-	 * &drm_encoder.
-	 *
-	 * The detach callback is optional.
-	 */
-	void (*detach)(struct drm_bridge *bridge);
-
-	/**
-	 * @mode_fixup:
-	 *
-	 * This callback is used to validate and adjust a mode. The paramater
-	 * mode is the display mode that should be fed to the next element in
-	 * the display chain, either the final &drm_connector or the next
-	 * &drm_bridge. The parameter adjusted_mode is the input mode the bridge
-	 * requires. It can be modified by this callback and does not need to
-	 * match mode.
-	 *
-	 * This is the only hook that allows a bridge to reject a modeset. If
-	 * this function passes all other callbacks must succeed for this
-	 * configuration.
-	 *
-	 * The mode_fixup callback is optional.
-	 *
-	 * NOTE:
-	 *
-	 * This function is called in the check phase of atomic modesets, which
-	 * can be aborted for any reason (including on userspace's request to
-	 * just check whether a configuration would be possible). Drivers MUST
-	 * NOT touch any persistent state (hardware or software) or data
-	 * structures except the passed in @state parameter.
-	 *
-	 * RETURNS:
-	 *
-	 * True if an acceptable configuration is possible, false if the modeset
-	 * operation should be rejected.
-	 */
-	bool (*mode_fixup)(struct drm_bridge *bridge,
-			   const struct drm_display_mode *mode,
-			   struct drm_display_mode *adjusted_mode);
-	/**
-	 * @disable:
-	 *
-	 * This callback should disable the bridge. It is called right before
-	 * the preceding element in the display pipe is disabled. If the
-	 * preceding element is a bridge this means it's called before that
-	 * bridge's ->disable() function. If the preceding element is a
-	 * &drm_encoder it's called right before the encoder's ->disable(),
-	 * ->prepare() or ->dpms() hook from struct &drm_encoder_helper_funcs.
-	 *
-	 * The bridge can assume that the display pipe (i.e. clocks and timing
-	 * signals) feeding it is still running when this callback is called.
-	 *
-	 * The disable callback is optional.
-	 */
-	void (*disable)(struct drm_bridge *bridge);
-
-	/**
-	 * @post_disable:
-	 *
-	 * This callback should disable the bridge. It is called right after
-	 * the preceding element in the display pipe is disabled. If the
-	 * preceding element is a bridge this means it's called after that
-	 * bridge's ->post_disable() function. If the preceding element is a
-	 * &drm_encoder it's called right after the encoder's ->disable(),
-	 * ->prepare() or ->dpms() hook from struct &drm_encoder_helper_funcs.
-	 *
-	 * The bridge must assume that the display pipe (i.e. clocks and timing
-	 * singals) feeding it is no longer running when this callback is
-	 * called.
-	 *
-	 * The post_disable callback is optional.
-	 */
-	void (*post_disable)(struct drm_bridge *bridge);
-
-	/**
-	 * @mode_set:
-	 *
-	 * This callback should set the given mode on the bridge. It is called
-	 * after the ->mode_set() callback for the preceding element in the
-	 * display pipeline has been called already. The display pipe (i.e.
-	 * clocks and timing signals) is off when this function is called.
-	 */
-	void (*mode_set)(struct drm_bridge *bridge,
-			 struct drm_display_mode *mode,
-			 struct drm_display_mode *adjusted_mode);
-	/**
-	 * @pre_enable:
-	 *
-	 * This callback should enable the bridge. It is called right before
-	 * the preceding element in the display pipe is enabled. If the
-	 * preceding element is a bridge this means it's called before that
-	 * bridge's ->pre_enable() function. If the preceding element is a
-	 * &drm_encoder it's called right before the encoder's ->enable(),
-	 * ->commit() or ->dpms() hook from struct &drm_encoder_helper_funcs.
-	 *
-	 * The display pipe (i.e. clocks and timing signals) feeding this bridge
-	 * will not yet be running when this callback is called. The bridge must
-	 * not enable the display link feeding the next bridge in the chain (if
-	 * there is one) when this callback is called.
-	 *
-	 * The pre_enable callback is optional.
-	 */
-	void (*pre_enable)(struct drm_bridge *bridge);
-
-	/**
-	 * @enable:
-	 *
-	 * This callback should enable the bridge. It is called right after
-	 * the preceding element in the display pipe is enabled. If the
-	 * preceding element is a bridge this means it's called after that
-	 * bridge's ->enable() function. If the preceding element is a
-	 * &drm_encoder it's called right after the encoder's ->enable(),
-	 * ->commit() or ->dpms() hook from struct &drm_encoder_helper_funcs.
-	 *
-	 * The bridge can assume that the display pipe (i.e. clocks and timing
-	 * signals) feeding it is running when this callback is called. This
-	 * callback must enable the display link feeding the next bridge in the
-	 * chain if there is one.
-	 *
-	 * The enable callback is optional.
-	 */
-	void (*enable)(struct drm_bridge *bridge);
-};
-
-/**
- * struct drm_bridge - central DRM bridge control structure
- * @dev: DRM device this bridge belongs to
- * @encoder: encoder to which this bridge is connected
- * @next: the next bridge in the encoder chain
- * @of_node: device node pointer to the bridge
- * @list: to keep track of all added bridges
- * @funcs: control functions
- * @driver_private: pointer to the bridge driver's internal context
- */
-struct drm_bridge {
-	struct drm_device *dev;
-	struct drm_encoder *encoder;
-	struct drm_bridge *next;
-#ifdef CONFIG_OF
-	struct device_node *of_node;
-#endif
-	struct list_head list;
-
-	const struct drm_bridge_funcs *funcs;
-	void *driver_private;
-};
-
-/**
  * struct drm_crtc_commit - track modeset commits on a CRTC
  *
  * This structure is used to track pending modeset changes and atomic commit on
@@ -2003,22 +1837,7 @@ struct drm_mode_config {
 	list_for_each_entry((plane), &(dev)->mode_config.plane_list, head) \
 		for_each_if ((plane_mask) & (1 << drm_plane_index(plane)))
 
-/**
- * drm_for_each_encoder_mask - iterate over encoders specified by bitmask
- * @encoder: the loop cursor
- * @dev: the DRM device
- * @encoder_mask: bitmask of encoder indices
- *
- * Iterate over all encoders specified by bitmask.
- */
-#define drm_for_each_encoder_mask(encoder, dev, encoder_mask) \
-	list_for_each_entry((encoder), &(dev)->mode_config.encoder_list, head) \
-		for_each_if ((encoder_mask) & (1 << drm_encoder_index(encoder)))
-
 #define obj_to_crtc(x) container_of(x, struct drm_crtc, base)
-#define obj_to_mode(x) container_of(x, struct drm_display_mode, base)
-#define obj_to_fb(x) container_of(x, struct drm_framebuffer, base)
-#define obj_to_blob(x) container_of(x, struct drm_property_blob, base)
 #define obj_to_plane(x) container_of(x, struct drm_plane, base)
 
 extern __printf(6, 7)
@@ -2185,69 +2004,5 @@ assert_drm_connector_list_read_locked(struct drm_mode_config *mode_config)
 	WARN_ON(!mutex_is_locked(&mode_config->mutex) &&
 		!drm_modeset_is_locked(&mode_config->connection_mutex));
 }
-
-#define drm_for_each_connector(connector, dev) \
-	for (assert_drm_connector_list_read_locked(&(dev)->mode_config),	\
-	     connector = list_first_entry(&(dev)->mode_config.connector_list,	\
-					  struct drm_connector, head);		\
-	     &connector->head != (&(dev)->mode_config.connector_list);		\
-	     connector = list_next_entry(connector, head))
-
-#define drm_for_each_encoder(encoder, dev) \
-	list_for_each_entry(encoder, &(dev)->mode_config.encoder_list, head)
-
-#define drm_for_each_fb(fb, dev) \
-	for (WARN_ON(!mutex_is_locked(&(dev)->mode_config.fb_lock)),		\
-	     fb = list_first_entry(&(dev)->mode_config.fb_list,	\
-					  struct drm_framebuffer, head);	\
-	     &fb->head != (&(dev)->mode_config.fb_list);			\
-	     fb = list_next_entry(fb, head))
-
-/* drm_edid.c */
-bool drm_probe_ddc(struct i2c_adapter *adapter);
-struct edid *drm_get_edid(struct drm_connector *connector,
-			  struct i2c_adapter *adapter);
-struct edid *drm_get_edid_switcheroo(struct drm_connector *connector,
-				     struct i2c_adapter *adapter);
-struct edid *drm_edid_duplicate(const struct edid *edid);
-int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid);
-
-u8 drm_match_cea_mode(const struct drm_display_mode *to_match);
-enum hdmi_picture_aspect drm_get_cea_aspect_ratio(const u8 video_code);
-bool drm_detect_hdmi_monitor(struct edid *edid);
-bool drm_detect_monitor_audio(struct edid *edid);
-bool drm_rgb_quant_range_selectable(struct edid *edid);
-int drm_add_modes_noedid(struct drm_connector *connector,
-			 int hdisplay, int vdisplay);
-void drm_set_preferred_mode(struct drm_connector *connector,
-			    int hpref, int vpref);
-
-int drm_edid_header_is_valid(const u8 *raw_edid);
-bool drm_edid_block_valid(u8 *raw_edid, int block, bool print_bad_edid,
-			  bool *edid_corrupt);
-bool drm_edid_is_valid(struct edid *edid);
-void drm_edid_get_monitor_name(struct edid *edid, char *name,
-			       int buflen);
-struct drm_display_mode *drm_mode_find_dmt(struct drm_device *dev,
-					   int hsize, int vsize, int fresh,
-					   bool rb);
-
-/* drm_bridge.c */
-extern int drm_bridge_add(struct drm_bridge *bridge);
-extern void drm_bridge_remove(struct drm_bridge *bridge);
-extern struct drm_bridge *of_drm_find_bridge(struct device_node *np);
-extern int drm_bridge_attach(struct drm_device *dev, struct drm_bridge *bridge);
-extern void drm_bridge_detach(struct drm_bridge *bridge);
-
-bool drm_bridge_mode_fixup(struct drm_bridge *bridge,
-			const struct drm_display_mode *mode,
-			struct drm_display_mode *adjusted_mode);
-void drm_bridge_disable(struct drm_bridge *bridge);
-void drm_bridge_post_disable(struct drm_bridge *bridge);
-void drm_bridge_mode_set(struct drm_bridge *bridge,
-			struct drm_display_mode *mode,
-			struct drm_display_mode *adjusted_mode);
-void drm_bridge_pre_enable(struct drm_bridge *bridge);
-void drm_bridge_enable(struct drm_bridge *bridge);
 
 #endif /* __DRM_CRTC_H__ */
