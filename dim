@@ -1197,6 +1197,11 @@ function dim_fixes
 			fi
 		fi
 	fi
+
+	git show --no-patch $sha1 | \
+		sed -e 's/\(Reviewed\|Acked\|Reported\|Signed\)[a-zA-Z-]*-by:/Cc:/' | \
+		sed -e 's/^    C[Cc]: */Cc: /' | grep '^Cc: ' | \
+		sort | uniq
 }
 
 function dim_help
