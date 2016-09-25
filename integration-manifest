@@ -1,0 +1,20 @@
+origin/drm-intel-fixes 3be7988674ab33565700a37b210f502563d932e6
+	Linux 4.8-rc7
+drm-upstream/drm-fixes 47a66e45d7a7613322549c2475ea9d809baaf514
+	drm: Only use compat ioctl for addfb2 on X86/IA64
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued 4c0b8a8bc49c477be9467f614b6b4ec479736019
+	drm/i915: don't forget to set intel_crtc->dspaddr_offset on SKL+
+drm-upstream/drm-next 52f13a02b7d5f26feb69bf955bef10fbfaafbd7c
+	Merge branch 'for-next' of http://git.agner.ch/git/linux-drm-fsl-dcu into drm-next
+sound-upstream/for-next 8da08ca03b73593d5299893bf29fc08569c3fb5f
+	ALSA: usb-line6: use the same declaration as definition in header for MIDI manufacturer ID
+sound-upstream/for-linus eb1a74b7bea17eea31915c4f76385cefe69d9795
+	ALSA: usb-audio: Extend DragonFly dB scale quirk to cover other variants
+origin/topic/drm-fixes c6935931c1894ff857616ff8549b61236a19148f
+	Linux 4.8-rc5
+origin/topic/drm-misc 089cfdd9b0ec1b21d3356d2e057f69b89d46ae66
+	drm: bridge: analogix/dp: mark symbols static where possible
+origin/topic/core-for-CI d0245f6bbeb63fcc07974be1ffbb8ba7b2e6ae13
+	locking/mutex: Prevent lock starvation when spinning is disabled
