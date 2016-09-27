@@ -1,0 +1,20 @@
+origin/drm-intel-fixes 08895a8b6b06ed2323cd97a36ee40a116b3db8ed
+	Linux 4.8-rc8
+drm-upstream/drm-fixes 47a66e45d7a7613322549c2475ea9d809baaf514
+	drm: Only use compat ioctl for addfb2 on X86/IA64
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued a04139c4cf289119cdfb6081af602f7a452fb7c2
+	drm/i915/bxt: Fix HDMI DPLL configuration
+drm-upstream/drm-next 52f13a02b7d5f26feb69bf955bef10fbfaafbd7c
+	Merge branch 'for-next' of http://git.agner.ch/git/linux-drm-fsl-dcu into drm-next
+sound-upstream/for-next 8da08ca03b73593d5299893bf29fc08569c3fb5f
+	ALSA: usb-line6: use the same declaration as definition in header for MIDI manufacturer ID
+sound-upstream/for-linus 0eec880966e77bdbee0112989a2be67d92e39929
+	ALSA: hda - Add the top speaker pin config for HP Spectre x360
+origin/topic/drm-fixes c6935931c1894ff857616ff8549b61236a19148f
+	Linux 4.8-rc5
+origin/topic/drm-misc bd233af436baccc9c600902b1726bcd0b6ada63d
+	drm/sti: mark symbols static where possible
+origin/topic/core-for-CI d0245f6bbeb63fcc07974be1ffbb8ba7b2e6ae13
+	locking/mutex: Prevent lock starvation when spinning is disabled
