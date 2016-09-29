@@ -1,0 +1,20 @@
+origin/drm-intel-fixes 08895a8b6b06ed2323cd97a36ee40a116b3db8ed
+	Linux 4.8-rc8
+drm-upstream/drm-fixes 90fd68dcf9a763f7e575c8467415bd8a66d073f4
+	drm/udl: fix line iterator in damage handling
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued be754b101f70076f6375c84db4e8bcc517a4524f
+	Revert "drm/i915: start adding dp mst audio"
+drm-upstream/drm-next c0d5fb4d0d9224ccaad0475c9b58740873970e7e
+	Merge tag 'drm-qemu-20160921' of git://git.kraxel.org/linux into drm-next
+sound-upstream/for-next 8da08ca03b73593d5299893bf29fc08569c3fb5f
+	ALSA: usb-line6: use the same declaration as definition in header for MIDI manufacturer ID
+sound-upstream/for-linus 0eec880966e77bdbee0112989a2be67d92e39929
+	ALSA: hda - Add the top speaker pin config for HP Spectre x360
+origin/topic/drm-fixes c6935931c1894ff857616ff8549b61236a19148f
+	Linux 4.8-rc5
+origin/topic/drm-misc 26e19227e2d405af48ef53d421a3c5bc4b499a3d
+	uapi: add missing install of sync_file.h
+origin/topic/core-for-CI d0245f6bbeb63fcc07974be1ffbb8ba7b2e6ae13
+	locking/mutex: Prevent lock starvation when spinning is disabled
