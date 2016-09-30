@@ -68,6 +68,8 @@ ssize_t drm_dp_dual_mode_write(struct i2c_adapter *adapter,
  * @DRM_DP_DUAL_MODE_UNKNOWN: Could be either none or type 1 DVI adaptor
  * @DRM_DP_DUAL_MODE_TYPE1_DVI: Type 1 DVI adaptor
  * @DRM_DP_DUAL_MODE_TYPE1_HDMI: Type 1 HDMI adaptor
+ * @DRM_DP_DUAL_MODE_TYPE2_DVI_BROKEN: Type 2 DVI adaptor which ignores the register offset
+ * @DRM_DP_DUAL_MODE_TYPE2_HDMI_BROKEN: Type 2 HDMI adaptor which ignores the register offset
  * @DRM_DP_DUAL_MODE_TYPE2_DVI: Type 2 DVI adaptor
  * @DRM_DP_DUAL_MODE_TYPE2_HDMI: Type 2 HDMI adaptor
  */
@@ -76,6 +78,8 @@ enum drm_dp_dual_mode_type {
 	DRM_DP_DUAL_MODE_UNKNOWN,
 	DRM_DP_DUAL_MODE_TYPE1_DVI,
 	DRM_DP_DUAL_MODE_TYPE1_HDMI,
+	DRM_DP_DUAL_MODE_TYPE2_DVI_BROKEN,
+	DRM_DP_DUAL_MODE_TYPE2_HDMI_BROKEN,
 	DRM_DP_DUAL_MODE_TYPE2_DVI,
 	DRM_DP_DUAL_MODE_TYPE2_HDMI,
 };

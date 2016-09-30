@@ -165,8 +165,8 @@ static bool is_type2_adaptor(uint8_t adaptor_id)
  */
 enum drm_dp_dual_mode_type drm_dp_dual_mode_detect(struct i2c_adapter *adapter)
 {
-	char hdmi_id[DP_DUAL_MODE_HDMI_ID_LEN] = {};
-	uint8_t adaptor_id = 0x00;
+	char hdmi_id[DP_DUAL_MODE_HDMI_ID_LEN + 1] = {};
+	u8 adaptor_id = 0x0;
 	ssize_t ret;
 
 	/*
@@ -202,8 +202,14 @@ enum drm_dp_dual_mode_type drm_dp_dual_mode_detect(struct i2c_adapter *adapter)
 	 */
 	ret = drm_dp_dual_mode_read(adapter, DP_DUAL_MODE_ADAPTOR_ID,
 				    &adaptor_id, sizeof(adaptor_id));
-	if (ret == 0) {
-		if (is_type2_adaptor(adaptor_id)) {
+
+	if (is_type2_adaptor(hdmi_id[DP_DUAL_MODE_ADAPTOR_ID])) {
+		if (adaptor_id != hdmi_id[DP_DUAL_MODE_ADAPTOR_ID]) {
+			if (is_hdmi_adaptor(hdmi_id))
+				return DRM_DP_DUAL_MODE_TYPE2_HDMI_BROKEN;
+			else
+				return DRM_DP_DUAL_MODE_TYPE2_DVI_BROKEN;
+		} else {
 			if (is_hdmi_adaptor(hdmi_id))
 				return DRM_DP_DUAL_MODE_TYPE2_HDMI;
 			else
@@ -243,6 +249,17 @@ int drm_dp_dual_mode_max_tmds_clock(enum drm_dp_dual_mode_type type,
 	if (type == DRM_DP_DUAL_MODE_NONE)
 		return 0;
 
+	if (type == DRM_DP_DUAL_MODE_TYPE2_DVI_BROKEN ||
+	    type == DRM_DP_DUAL_MODE_TYPE2_HDMI_BROKEN) {
+		u8 buf[DP_DUAL_MODE_MAX_TMDS_CLOCK + 1] = {};
+
+		ret = drm_dp_dual_mode_read(adapter, DP_DUAL_MODE_HDMI_ID,
+					    buf, sizeof(buf));
+		if (ret == 0) {
+			max_tmds_clock = buf[DP_DUAL_MODE_MAX_TMDS_CLOCK];
+			goto done;
+		}
+	}
 	/*
 	 * Type 1 adaptors are limited to 165MHz
 	 * Type 2 adaptors can tells us their limit
@@ -252,6 +269,7 @@ int drm_dp_dual_mode_max_tmds_clock(enum drm_dp_dual_mode_type type,
 
 	ret = drm_dp_dual_mode_read(adapter, DP_DUAL_MODE_MAX_TMDS_CLOCK,
 				    &max_tmds_clock, sizeof(max_tmds_clock));
+ done:
 	if (ret || max_tmds_clock == 0x00 || max_tmds_clock == 0xff) {
 		DRM_DEBUG_KMS("Failed to query max TMDS clock\n");
 		return 165000;
@@ -354,6 +372,10 @@ const char *drm_dp_get_dual_mode_type_name(enum drm_dp_dual_mode_type type)
 		return "type 1 DVI";
 	case DRM_DP_DUAL_MODE_TYPE1_HDMI:
 		return "type 1 HDMI";
+	case DRM_DP_DUAL_MODE_TYPE2_DVI_BROKEN:
+		return "broken type 2 DVI";
+	case DRM_DP_DUAL_MODE_TYPE2_HDMI_BROKEN:
+		return "broken type 2 HDMI";
 	case DRM_DP_DUAL_MODE_TYPE2_DVI:
 		return "type 2 DVI";
 	case DRM_DP_DUAL_MODE_TYPE2_HDMI:
