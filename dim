@@ -1169,13 +1169,21 @@ function dim_tc
 	fi
 }
 
+function dim_cite
+{
+	local sha1=$1
+	cd $DIM_PREFIX/$DIM_DRM_INTEL
+
+	git log -1 $sha1 "--pretty=format:%H (\"%s\")%n" | \
+		sed -e 's/\([0-f]\{12\}\)[0-f]*/\1/'
+}
+
 function dim_fixes
 {
 	cd $DIM_PREFIX/$DIM_DRM_INTEL
 	local sha1=$1
 
-	git log -1 $sha1 "--pretty=format:Fixes: %H (\"%s\")%n" | \
-		sed -e 's/\([0-f]\{12\}\)[0-f]*/\1/'
+	echo "Fixes: $(dim_cite $sha1)"
 
 	local tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
 	if [[ -n "$tag" ]]; then
