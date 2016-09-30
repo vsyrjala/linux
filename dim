@@ -1193,7 +1193,7 @@ function dim_fixes
 			# up to end of merge window, hence exclude if in -rc1
 			# through rc-4.
 			if ! git tag | grep ^v | sort -V | tail -n1 | grep -e "-rc[1-4]$" &> /dev/null ; then
-				echo Cc: drm-intel-fixes@lists.freedesktop.org
+				echo "Cc: <drm-intel-fixes@lists.freedesktop.org>"
 			fi
 		fi
 	fi
