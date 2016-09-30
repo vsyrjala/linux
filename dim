@@ -1185,6 +1185,11 @@ function dim_fixes
 
 	echo "Fixes: $(dim_cite $sha1)"
 
+	git show --no-patch $sha1 | \
+		sed -e 's/\(Reviewed\|Acked\|Reported\|Signed\)[a-zA-Z-]*-by:/Cc:/' | \
+		sed -e 's/^    C[Cc]: */Cc: /' | grep '^Cc: ' | \
+		sort | uniq
+
 	local tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
 	if [[ -n "$tag" ]]; then
 		if echo "$tag" | grep -e "-rc" &> /dev/null ; then
@@ -1205,11 +1210,6 @@ function dim_fixes
 			fi
 		fi
 	fi
-
-	git show --no-patch $sha1 | \
-		sed -e 's/\(Reviewed\|Acked\|Reported\|Signed\)[a-zA-Z-]*-by:/Cc:/' | \
-		sed -e 's/^    C[Cc]: */Cc: /' | grep '^Cc: ' | \
-		sort | uniq
 }
 
 function dim_help
