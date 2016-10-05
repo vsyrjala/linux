@@ -16330,6 +16330,15 @@ void intel_modeset_init(struct drm_device *dev)
 	enum pipe pipe;
 	struct intel_crtc *crtc;
 
+	BUILD_BUG_ON(to_intel_plane(NULL) != NULL);
+	BUILD_BUG_ON(to_intel_crtc(NULL) != NULL);
+	BUILD_BUG_ON(to_intel_encoder(NULL) != NULL);
+	BUILD_BUG_ON(to_intel_connector(NULL) != NULL);
+
+	BUILD_BUG_ON(to_intel_plane_state(NULL) != NULL);
+	BUILD_BUG_ON(to_intel_crtc_state(NULL) != NULL);
+	BUILD_BUG_ON(to_intel_atomic_state(NULL) != NULL);
+
 	drm_mode_config_init(dev);
 
 	dev->mode_config.min_width = 0;
