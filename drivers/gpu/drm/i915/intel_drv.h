@@ -817,14 +817,23 @@ struct cxsr_latency {
 	unsigned long cursor_hpll_disable;
 };
 
-#define to_intel_atomic_state(x) container_of(x, struct intel_atomic_state, base)
-#define to_intel_crtc(x) container_of(x, struct intel_crtc, base)
-#define to_intel_crtc_state(x) container_of(x, struct intel_crtc_state, base)
-#define to_intel_connector(x) container_of(x, struct intel_connector, base)
-#define to_intel_encoder(x) container_of(x, struct intel_encoder, base)
-#define to_intel_framebuffer(x) container_of(x, struct intel_framebuffer, base)
-#define to_intel_plane(x) container_of(x, struct intel_plane, base)
-#define to_intel_plane_state(x) container_of(x, struct intel_plane_state, base)
+#define __to_intel_kms_type(type) \
+static inline struct intel_ ## type * to_intel_ ## type(struct drm_ ## type * d) \
+{ \
+	struct intel_ ## type * i = container_of(d, struct intel_ ## type, base); \
+	BUILD_BUG_ON(offsetof(struct intel_ ## type, base) != 0); \
+	BUILD_BUG_ON(!__builtin_types_compatible_p(typeof(*d), typeof(i->base))); \
+	return i; \
+}
+__to_intel_kms_type(atomic_state)
+__to_intel_kms_type(crtc)
+__to_intel_kms_type(crtc_state)
+__to_intel_kms_type(connector)
+__to_intel_kms_type(encoder)
+__to_intel_kms_type(framebuffer)
+__to_intel_kms_type(plane)
+__to_intel_kms_type(plane_state)
+
 #define intel_fb_obj(x) (x ? to_intel_framebuffer(x)->obj : NULL)
 
 struct intel_hdmi {
@@ -1369,7 +1378,7 @@ u32 intel_fb_gtt_offset(struct drm_framebuffer *fb, unsigned int rotation);
 u32 skl_plane_ctl_format(uint32_t pixel_format);
 u32 skl_plane_ctl_tiling(uint64_t fb_modifier);
 u32 skl_plane_ctl_rotation(unsigned int rotation);
-u32 skl_plane_stride(const struct drm_framebuffer *fb, int plane,
+u32 skl_plane_stride(struct drm_framebuffer *fb, int plane,
 		     unsigned int rotation);
 int skl_check_plane_surface(struct intel_plane_state *plane_state);
 

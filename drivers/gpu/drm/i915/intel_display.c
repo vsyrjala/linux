@@ -2136,7 +2136,7 @@ unsigned int intel_rotation_info_size(const struct intel_rotation_info *rot_info
 
 static void
 intel_fill_fb_ggtt_view(struct i915_ggtt_view *view,
-			const struct drm_framebuffer *fb,
+			struct drm_framebuffer *fb,
 			unsigned int rotation)
 {
 	if (intel_rotation_90_or_270(rotation)) {
@@ -2257,7 +2257,7 @@ void intel_unpin_fb_obj(struct drm_framebuffer *fb, unsigned int rotation)
 	i915_gem_object_unpin_from_display_plane(vma);
 }
 
-static int intel_fb_pitch(const struct drm_framebuffer *fb, int plane,
+static int intel_fb_pitch(struct drm_framebuffer *fb, int plane,
 			  unsigned int rotation)
 {
 	if (intel_rotation_90_or_270(rotation))
@@ -2344,8 +2344,8 @@ static u32 intel_adjust_tile_offset(int *x, int *y,
 				    const struct intel_plane_state *state, int plane,
 				    u32 old_offset, u32 new_offset)
 {
-	const struct drm_i915_private *dev_priv = to_i915(state->base.plane->dev);
-	const struct drm_framebuffer *fb = state->base.fb;
+	struct drm_i915_private *dev_priv = to_i915(state->base.plane->dev);
+	struct drm_framebuffer *fb = state->base.fb;
 	unsigned int cpp = drm_format_plane_cpp(fb->pixel_format, plane);
 	unsigned int rotation = state->base.rotation;
 	unsigned int pitch = intel_fb_pitch(fb, plane, rotation);
@@ -2450,8 +2450,8 @@ u32 intel_compute_tile_offset(int *x, int *y,
 			      const struct intel_plane_state *state,
 			      int plane)
 {
-	const struct drm_i915_private *dev_priv = to_i915(state->base.plane->dev);
-	const struct drm_framebuffer *fb = state->base.fb;
+	struct drm_i915_private *dev_priv = to_i915(state->base.plane->dev);
+	struct drm_framebuffer *fb = state->base.fb;
 	unsigned int rotation = state->base.rotation;
 	int pitch = intel_fb_pitch(fb, plane, rotation);
 	u32 alignment;
@@ -3266,10 +3266,10 @@ static void skl_detach_scalers(struct intel_crtc *intel_crtc)
 	}
 }
 
-u32 skl_plane_stride(const struct drm_framebuffer *fb, int plane,
+u32 skl_plane_stride(struct drm_framebuffer *fb, int plane,
 		     unsigned int rotation)
 {
-	const struct drm_i915_private *dev_priv = to_i915(fb->dev);
+	struct drm_i915_private *dev_priv = to_i915(fb->dev);
 	u32 stride = intel_fb_pitch(fb, plane, rotation);
 
 	/*

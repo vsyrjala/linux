@@ -3184,8 +3184,8 @@ skl_plane_downscale_amount(const struct intel_plane_state *pstate)
 }
 
 static unsigned int
-skl_plane_relative_data_rate(const struct intel_crtc_state *cstate,
-			     const struct drm_plane_state *pstate,
+skl_plane_relative_data_rate(struct intel_crtc_state *cstate,
+			     struct drm_plane_state *pstate,
 			     int y)
 {
 	struct intel_plane_state *intel_pstate = to_intel_plane_state(pstate);
@@ -3238,8 +3238,8 @@ skl_get_total_relative_data_rate(struct intel_crtc_state *intel_cstate)
 	struct drm_crtc *crtc = cstate->crtc;
 	struct drm_device *dev = crtc->dev;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	const struct drm_plane *plane;
-	const struct intel_plane *intel_plane;
+	struct drm_plane *plane;
+	struct intel_plane *intel_plane;
 	struct drm_plane_state *pstate;
 	unsigned int rate, total_data_rate = 0;
 	int id;
@@ -3280,8 +3280,7 @@ skl_get_total_relative_data_rate(struct intel_crtc_state *intel_cstate)
 }
 
 static uint16_t
-skl_ddb_min_alloc(const struct drm_plane_state *pstate,
-		  const int y)
+skl_ddb_min_alloc(struct drm_plane_state *pstate, int y)
 {
 	struct drm_framebuffer *fb = pstate->fb;
 	struct intel_plane_state *intel_pstate = to_intel_plane_state(pstate);
