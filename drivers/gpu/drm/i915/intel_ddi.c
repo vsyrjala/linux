@@ -450,13 +450,11 @@ void intel_prepare_dp_ddi_buffers(struct intel_encoder *encoder)
 		ddi_translations_dp = bdw_ddi_translations_dp;
 		ddi_translations_edp = bdw_get_buf_trans_edp(dev_priv, &n_edp_entries);
 		n_dp_entries = ARRAY_SIZE(bdw_ddi_translations_dp);
-
 	} else if (IS_HASWELL(dev_priv)) {
 		ddi_translations_fdi = hsw_ddi_translations_fdi;
 		ddi_translations_dp = hsw_ddi_translations_dp;
 		ddi_translations_edp = hsw_ddi_translations_dp;
 		n_dp_entries = n_edp_entries = ARRAY_SIZE(hsw_ddi_translations_dp);
-
 	} else {
 		WARN(1, "ddi translation table missing\n");
 		ddi_translations_edp = bdw_ddi_translations_dp;
@@ -464,7 +462,6 @@ void intel_prepare_dp_ddi_buffers(struct intel_encoder *encoder)
 		ddi_translations_dp = bdw_ddi_translations_dp;
 		n_edp_entries = ARRAY_SIZE(bdw_ddi_translations_edp);
 		n_dp_entries = ARRAY_SIZE(bdw_ddi_translations_dp);
-
 	}
 
 	switch (encoder->type) {
