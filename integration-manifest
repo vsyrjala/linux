@@ -1,0 +1,20 @@
+origin/drm-intel-fixes c8d2bc9bc39ebea8437fd974fdbc21847bb897a3
+	Linux 4.8
+drm-upstream/drm-fixes 90fd68dcf9a763f7e575c8467415bd8a66d073f4
+	drm/udl: fix line iterator in damage handling
+origin/drm-intel-next-fixes c45eb4fed12d278d3619f1904885bd0d7bcbf036
+	drm/i915/fbdev: Check for the framebuffer before use
+origin/drm-intel-next-queued 566c56a493ea17fd321abb60d59bfb274489bb18
+	drm/i915: Sort DEV_INFO_FOR_EACH_FLAG
+drm-upstream/drm-next c2cbc38b9715bd8318062e600668fc30e5a3fbfa
+	drm: virtio: reinstate drm_virtio_set_busid()
+sound-upstream/for-next eeea8b40cd2866ca24f25e5ef09225edb076ae45
+	Merge tag 'asoc-v4.9' of git://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound into for-next
+sound-upstream/for-linus eeea8b40cd2866ca24f25e5ef09225edb076ae45
+	Merge tag 'asoc-v4.9' of git://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound into for-next
+origin/topic/drm-fixes c6935931c1894ff857616ff8549b61236a19148f
+	Linux 4.8-rc5
+origin/topic/drm-misc a4fce9cb782ad340ee5576a38e934e5e75832dc6
+	drm/prime: Take a ref on the drm_dev when exporting a dma_buf
+origin/topic/core-for-CI d0245f6bbeb63fcc07974be1ffbb8ba7b2e6ae13
+	locking/mutex: Prevent lock starvation when spinning is disabled
