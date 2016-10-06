@@ -218,6 +218,11 @@ parse_lfp_panel_data(struct drm_i915_private *dev_priv,
 
 	dev_priv->vbt.lvds_dither = lvds_options->pixel_dither;
 
+	panel_type = i915.vbt_sdvo_panel_type;
+	if (panel_type == -2)
+		return;
+
+	if (panel_type < 0) {
 	ret = intel_opregion_get_panel_type(dev_priv);
 	if (ret >= 0) {
 		WARN_ON(ret > 0xf);
@@ -231,6 +236,7 @@ parse_lfp_panel_data(struct drm_i915_private *dev_priv,
 		}
 		panel_type = lvds_options->panel_type;
 		DRM_DEBUG_KMS("Panel type: %d (VBT)\n", panel_type);
+	}
 	}
 
 	dev_priv->vbt.panel_type = panel_type;
