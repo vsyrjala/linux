@@ -1108,8 +1108,28 @@ intel_dp_aux_transfer(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg)
 	return ret;
 }
 
+static enum port intel_aux_port(struct drm_i915_private *dev_priv,
+				enum port port)
+{
+	const struct ddi_vbt_port_info *info =
+		&dev_priv->vbt.ddi_port_info[port];
+
+	switch (info->alternate_aux_channel) {
+	case DP_AUX_A:
+		return PORT_A;
+	case DP_AUX_B:
+		return PORT_B;
+	case DP_AUX_C:
+		return PORT_C;
+	case DP_AUX_D:
+		return PORT_D;
+	default:
+		return port;
+	}
+}
+
 static i915_reg_t g4x_aux_ctl_reg(struct drm_i915_private *dev_priv,
-				       enum port port)
+				  enum port port)
 {
 	switch (port) {
 	case PORT_B:
@@ -1123,7 +1143,7 @@ static i915_reg_t g4x_aux_ctl_reg(struct drm_i915_private *dev_priv,
 }
 
 static i915_reg_t g4x_aux_data_reg(struct drm_i915_private *dev_priv,
-					enum port port, int index)
+				   enum port port, int index)
 {
 	switch (port) {
 	case PORT_B:
@@ -1137,7 +1157,7 @@ static i915_reg_t g4x_aux_data_reg(struct drm_i915_private *dev_priv,
 }
 
 static i915_reg_t ilk_aux_ctl_reg(struct drm_i915_private *dev_priv,
-				       enum port port)
+				  enum port port)
 {
 	switch (port) {
 	case PORT_A:
@@ -1153,7 +1173,7 @@ static i915_reg_t ilk_aux_ctl_reg(struct drm_i915_private *dev_priv,
 }
 
 static i915_reg_t ilk_aux_data_reg(struct drm_i915_private *dev_priv,
-					enum port port, int index)
+				   enum port port, int index)
 {
 	switch (port) {
 	case PORT_A:
@@ -1168,36 +1188,9 @@ static i915_reg_t ilk_aux_data_reg(struct drm_i915_private *dev_priv,
 	}
 }
 
-/*
- * On SKL we don't have Aux for port E so we rely
- * on VBT to set a proper alternate aux channel.
- */
-static enum port skl_porte_aux_port(struct drm_i915_private *dev_priv)
-{
-	const struct ddi_vbt_port_info *info =
-		&dev_priv->vbt.ddi_port_info[PORT_E];
-
-	switch (info->alternate_aux_channel) {
-	case DP_AUX_A:
-		return PORT_A;
-	case DP_AUX_B:
-		return PORT_B;
-	case DP_AUX_C:
-		return PORT_C;
-	case DP_AUX_D:
-		return PORT_D;
-	default:
-		MISSING_CASE(info->alternate_aux_channel);
-		return PORT_A;
-	}
-}
-
 static i915_reg_t skl_aux_ctl_reg(struct drm_i915_private *dev_priv,
-				       enum port port)
+				  enum port port)
 {
-	if (port == PORT_E)
-		port = skl_porte_aux_port(dev_priv);
-
 	switch (port) {
 	case PORT_A:
 	case PORT_B:
@@ -1213,9 +1206,6 @@ static i915_reg_t skl_aux_ctl_reg(struct drm_i915_private *dev_priv,
 static i915_reg_t skl_aux_data_reg(struct drm_i915_private *dev_priv,
 					enum port port, int index)
 {
-	if (port == PORT_E)
-		port = skl_porte_aux_port(dev_priv);
-
 	switch (port) {
 	case PORT_A:
 	case PORT_B:
@@ -1229,8 +1219,10 @@ static i915_reg_t skl_aux_data_reg(struct drm_i915_private *dev_priv,
 }
 
 static i915_reg_t intel_aux_ctl_reg(struct drm_i915_private *dev_priv,
-					 enum port port)
+				    enum port port)
 {
+	port = intel_aux_port(dev_priv, port);
+
 	if (INTEL_INFO(dev_priv)->gen >= 9)
 		return skl_aux_ctl_reg(dev_priv, port);
 	else if (HAS_PCH_SPLIT(dev_priv))
@@ -1240,8 +1232,10 @@ static i915_reg_t intel_aux_ctl_reg(struct drm_i915_private *dev_priv,
 }
 
 static i915_reg_t intel_aux_data_reg(struct drm_i915_private *dev_priv,
-					  enum port port, int index)
+				     enum port port, int index)
 {
+	port = intel_aux_port(dev_priv, port);
+
 	if (INTEL_INFO(dev_priv)->gen >= 9)
 		return skl_aux_data_reg(dev_priv, port, index);
 	else if (HAS_PCH_SPLIT(dev_priv))
