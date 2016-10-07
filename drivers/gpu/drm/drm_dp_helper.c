@@ -896,6 +896,7 @@ static int drm_dp_i2c_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs,
 	for (i = 0; i < num; i++) {
 		msg.address = msgs[i].addr;
 		drm_dp_i2c_msg_set_request(&msg, &msgs[i]);
+#if 0
 		/* Send a bare address packet to start the transaction.
 		 * Zero sized messages specify an address only (bare
 		 * address) transaction.
@@ -912,6 +913,7 @@ static int drm_dp_i2c_xfer(struct i2c_adapter *adapter, struct i2c_msg *msgs,
 
 		if (err < 0)
 			break;
+#endif
 		/* We want each transaction to be as large as possible, but
 		 * we'll go to smaller sizes if the hardware gives us a
 		 * short reply.
