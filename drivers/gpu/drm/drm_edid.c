@@ -1370,8 +1370,12 @@ bool
 drm_probe_ddc(struct i2c_adapter *adapter)
 {
 	unsigned char out;
+	bool ret;
 
-	return (drm_do_probe_ddc_edid(adapter, &out, 0, 1) == 0);
+	ret = drm_do_probe_ddc_edid(adapter, &out, 0, 1) == 0;
+	if (!ret)
+		ret = drm_do_probe_ddc_edid(adapter, &out, 0, EDID_LENGTH) == 0;
+	return ret;
 }
 EXPORT_SYMBOL(drm_probe_ddc);
 
