@@ -717,7 +717,7 @@ static int drm_dp_i2c_retry_count(const struct drm_dp_aux_msg *msg,
  * FIXME currently assumes 10 kHz as some real world devices seem
  * to require it. We should query/set the speed via DPCD if supported.
  */
-static int dp_aux_i2c_speed_khz __read_mostly = 10;
+static int dp_aux_i2c_speed_khz __read_mostly = 1;
 module_param_unsafe(dp_aux_i2c_speed_khz, int, 0644);
 MODULE_PARM_DESC(dp_aux_i2c_speed_khz,
 		 "Assumed speed of the i2c bus in kHz, (1-400, default 10)");
