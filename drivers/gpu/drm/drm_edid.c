@@ -1233,7 +1233,7 @@ drm_do_probe_ddc_edid(void *data, u8 *buf, unsigned int block, size_t len)
 				.buf	= &segment,
 			}, {
 				.addr	= DDC_ADDR,
-				.flags	= 0,
+				.flags	= I2C_M_IGNORE_NAK, /* some eDP monitors suck */
 				.len	= 1,
 				.buf	= &start,
 			}, {
