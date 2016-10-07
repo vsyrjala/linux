@@ -143,13 +143,15 @@ static void hsw_crt_get_config(struct intel_encoder *encoder,
 
 /* Note: The caller is required to filter out dpms modes not supported by the
  * platform. */
-static void intel_crt_set_dpms(struct intel_encoder *encoder, int mode)
+static void intel_crt_set_dpms(struct intel_encoder *encoder,
+			       struct intel_crtc_state *crtc_state,
+			       int mode)
 {
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_crt *crt = intel_encoder_to_crt(encoder);
-	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
-	const struct drm_display_mode *adjusted_mode = &crtc->config->base.adjusted_mode;
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	const struct drm_display_mode *adjusted_mode = &crtc_state->base.adjusted_mode;
 	u32 adpa;
 
 	if (INTEL_INFO(dev)->gen >= 5)
@@ -193,23 +195,45 @@ static void intel_crt_set_dpms(struct intel_encoder *encoder, int mode)
 	I915_WRITE(crt->adpa_reg, adpa);
 }
 
-static void intel_disable_crt(struct intel_encoder *encoder)
+static void intel_disable_crt(struct intel_encoder *encoder,
+			      struct intel_crtc_state *old_crtc_state,
+			      struct drm_connector_state *old_conn_state)
 {
-	intel_crt_set_dpms(encoder, DRM_MODE_DPMS_OFF);
+	intel_crt_set_dpms(encoder, old_crtc_state, DRM_MODE_DPMS_OFF);
 }
 
-static void pch_disable_crt(struct intel_encoder *encoder)
+static void pch_disable_crt(struct intel_encoder *encoder,
+			    struct intel_crtc_state *old_crtc_state,
+			    struct drm_connector_state *old_conn_state)
 {
 }
 
-static void pch_post_disable_crt(struct intel_encoder *encoder)
+static void pch_post_disable_crt(struct intel_encoder *encoder,
+				 struct intel_crtc_state *old_crtc_state,
+				 struct drm_connector_state *old_conn_state)
 {
-	intel_disable_crt(encoder);
+	intel_disable_crt(encoder, old_crtc_state, old_conn_state);
 }
 
-static void intel_enable_crt(struct intel_encoder *encoder)
+static void hsw_post_disable_crt(struct intel_encoder *encoder,
+				 struct intel_crtc_state *old_crtc_state,
+				 struct drm_connector_state *old_conn_state)
 {
-	intel_crt_set_dpms(encoder, DRM_MODE_DPMS_ON);
+	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
+
+	pch_post_disable_crt(encoder, old_crtc_state, old_conn_state);
+
+	lpt_disable_pch_transcoder(dev_priv);
+	lpt_disable_iclkip(dev_priv);
+
+	intel_ddi_fdi_post_disable(encoder, old_crtc_state, old_conn_state);
+}
+
+static void intel_enable_crt(struct intel_encoder *encoder,
+			     struct intel_crtc_state *pipe_config,
+			     struct drm_connector_state *conn_state)
+{
+	intel_crt_set_dpms(encoder, pipe_config, DRM_MODE_DPMS_ON);
 }
 
 static enum drm_mode_status
@@ -253,7 +277,8 @@ intel_crt_mode_valid(struct drm_connector *connector,
 }
 
 static bool intel_crt_compute_config(struct intel_encoder *encoder,
-				     struct intel_crtc_state *pipe_config)
+				     struct intel_crtc_state *pipe_config,
+				     struct drm_connector_state *conn_state)
 {
 	struct drm_device *dev = encoder->base.dev;
 
@@ -618,6 +643,32 @@ intel_crt_load_detect(struct intel_crt *crt, uint32_t pipe)
 	return status;
 }
 
+static int intel_spurious_crt_detect_dmi_callback(const struct dmi_system_id *id)
+{
+	DRM_DEBUG_DRIVER("Skipping CRT detection for %s\n", id->ident);
+	return 1;
+}
+
+static const struct dmi_system_id intel_spurious_crt_detect[] = {
+	{
+		.callback = intel_spurious_crt_detect_dmi_callback,
+		.ident = "ACER ZGB",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "ACER"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "ZGB"),
+		},
+	},
+	{
+		.callback = intel_spurious_crt_detect_dmi_callback,
+		.ident = "Intel DZ77BH-55K",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "Intel Corporation"),
+			DMI_MATCH(DMI_BOARD_NAME, "DZ77BH-55K"),
+		},
+	},
+	{ }
+};
+
 static enum drm_connector_status
 intel_crt_detect(struct drm_connector *connector, bool force)
 {
@@ -633,6 +684,10 @@ intel_crt_detect(struct drm_connector *connector, bool force)
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s] force=%d\n",
 		      connector->base.id, connector->name,
 		      force);
+
+	/* Skip machines without VGA that falsely report hotplug events */
+	if (dmi_check_system(intel_spurious_crt_detect))
+		return connector_status_disconnected;
 
 	power_domain = intel_display_port_power_domain(intel_encoder);
 	intel_display_power_get(dev_priv, power_domain);
@@ -783,32 +838,6 @@ static const struct drm_encoder_funcs intel_crt_enc_funcs = {
 	.destroy = intel_encoder_destroy,
 };
 
-static int intel_no_crt_dmi_callback(const struct dmi_system_id *id)
-{
-	DRM_INFO("Skipping CRT initialization for %s\n", id->ident);
-	return 1;
-}
-
-static const struct dmi_system_id intel_no_crt[] = {
-	{
-		.callback = intel_no_crt_dmi_callback,
-		.ident = "ACER ZGB",
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "ACER"),
-			DMI_MATCH(DMI_PRODUCT_NAME, "ZGB"),
-		},
-	},
-	{
-		.callback = intel_no_crt_dmi_callback,
-		.ident = "DELL XPS 8700",
-		.matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "XPS 8700"),
-		},
-	},
-	{ }
-};
-
 void intel_crt_init(struct drm_device *dev)
 {
 	struct drm_connector *connector;
@@ -817,10 +846,6 @@ void intel_crt_init(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	i915_reg_t adpa_reg;
 	u32 adpa;
-
-	/* Skip machines without VGA that falsely report hotplug events */
-	if (dmi_check_system(intel_no_crt))
-		return;
 
 	if (HAS_PCH_SPLIT(dev))
 		adpa_reg = PCH_ADPA;
@@ -889,12 +914,16 @@ void intel_crt_init(struct drm_device *dev)
 		crt->base.disable = intel_disable_crt;
 	}
 	crt->base.enable = intel_enable_crt;
-	if (I915_HAS_HOTPLUG(dev))
+	if (I915_HAS_HOTPLUG(dev) &&
+	    !dmi_check_system(intel_spurious_crt_detect))
 		crt->base.hpd_pin = HPD_CRT;
 	if (HAS_DDI(dev)) {
+		crt->base.port = PORT_E;
 		crt->base.get_config = hsw_crt_get_config;
 		crt->base.get_hw_state = intel_ddi_get_hw_state;
+		crt->base.post_disable = hsw_post_disable_crt;
 	} else {
+		crt->base.port = PORT_NONE;
 		crt->base.get_config = intel_crt_get_config;
 		crt->base.get_hw_state = intel_crt_get_hw_state;
 	}
