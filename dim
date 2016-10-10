@@ -87,6 +87,8 @@ DIM_TEMPLATE_SIGNATURE=${DIM_TEMPLATE_SIGNATURE:-$HOME/.dim.template.signature}
 # Internal configuration.
 #
 
+dim=$(basename $0)
+
 today=`date +%Y-%m-%d`
 
 drm_intel_ssh=ssh://git.freedesktop.org/git/drm-intel
@@ -140,7 +142,7 @@ while getopts hdfi opt; do
 			HELP=1
 			;;
 		*)
-			echo "See '$0 help' for more information." >&2
+			echo "See '$dim help' for more information." >&2
 			exit
 	esac
 done
@@ -373,7 +375,7 @@ function dim_nightly_forget
 function dim_push_branch
 {
 	if [[ "x$1" = "x" ]]; then
-		echo "usage: $0 $subcommand branch"
+		echo "usage: $dim $subcommand branch"
 		exit 1
 	fi
 
@@ -463,7 +465,7 @@ function dim_apply_next_fixes
 function dim_cherry_pick
 {
 	if [[ "x$1" = "x" ]]; then
-		echo "usage: $0 $subcommand commit-ish"
+		echo "usage: $dim $subcommand commit-ish"
 		exit 1
 	fi
 	sha=`git rev-parse $1`
@@ -583,7 +585,7 @@ function dim_magic_patch
 function dim_create_branch
 {
 	if [[ "x$1" = "x" ]]; then
-		echo "usage: $0 $subcommand branch [commit-ish]"
+		echo "usage: $dim $subcommand branch [commit-ish]"
 		exit 1
 	fi
 	branch=$1
@@ -607,7 +609,7 @@ function dim_create_branch
 function dim_remove_branch
 {
 	if [[ "x$1" = "x" ]]; then
-		echo "usage: $0 $subcommand branch"
+		echo "usage: $dim $subcommand branch"
 		exit 1
 	fi
 	branch=$1
@@ -650,7 +652,7 @@ dim_alias_co=checkout
 function dim_checkout
 {
 	if [[ "x$1" = "x" ]]; then
-		echo "usage: $0 $subcommand branch"
+		echo "usage: $dim $subcommand branch"
 		exit 1
 	fi
 
@@ -791,7 +793,7 @@ function dim_create_workdir
 	local branches
 
 	if [[ "x$1" = "x" ]]; then
-		echo "usage: $0 $subcommand branch|all"
+		echo "usage: $dim $subcommand branch|all"
 		exit 1
 	elif [[ "$1" = "all" ]] ; then
 		branches=$dim_branches
@@ -923,7 +925,7 @@ function dim_tag_next
 function dim_pull_request
 {
 	if [[ "x$1" = "x" || "x$2" = "x" ]]; then
-		echo "usage: $0 $subcommand branch upstream"
+		echo "usage: $dim $subcommand branch upstream"
 		exit 1
 	fi
 
@@ -1236,12 +1238,12 @@ function dim_help
 
 function dim_usage
 {
-	echo "usage: $0 [OPTIONS] SUBCOMMAND [ARGUMENTS]"
+	echo "usage: $dim [OPTIONS] SUBCOMMAND [ARGUMENTS]"
 	echo
 	echo "The available subcommands are:"
 	dim_list_commands | sed 's/^/\t/'
 	echo
-	echo "See '$0 help' for more information."
+	echo "See '$dim help' for more information."
 }
 
 # dim subcommand aliases
@@ -1255,6 +1257,6 @@ subcmd_func=dim_${subcmd//-/_}
 if declare -f $subcmd_func >/dev/null; then
 	$subcmd_func "$@"
 else
-	echo "$0: '$subcommand' is not a dim command." >&2
+	echo "$dim: '$subcommand' is not a dim command." >&2
 	dim_usage
 fi
