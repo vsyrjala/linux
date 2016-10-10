@@ -1241,7 +1241,11 @@ function dim_usage
 	echo "usage: $dim [OPTIONS] SUBCOMMAND [ARGUMENTS]"
 	echo
 	echo "The available subcommands are:"
-	dim_list_commands | sed 's/^/\t/'
+	if hash column 2>/dev/null; then
+		dim_list_commands | column -c 72 | sed 's/^/\t/'
+	else
+		dim_list_commands | sed 's/^/\t/'
+	fi
 	echo
 	echo "See '$dim help' for more information."
 }
