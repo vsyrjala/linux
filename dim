@@ -731,6 +731,15 @@ function dim_checkpatch
 	done
 }
 
+function dim_sparse
+{
+	local range=$(rangeish "$1")
+
+	make $DIM_MAKE_OPTIONS
+	touch --no-create `git diff --name-only $range` `git diff --name-only`
+	make C=1
+}
+
 function dim_checker
 {
 	rm -f drivers/gpu/drm/i915/*.o drivers/gpu/drm/i915/*.ko

@@ -186,12 +186,6 @@ fixes *commit-ish*
 Print the Fixes: and Cc: lines for the supplied *commit-ish* in the linux kernel
 CodingStyle approved format.
 
-check-patch|cp [*commit-ish* [.. *commit-ish*]]
------------------------------------------------
-Runs the given commit range commit-ish..commit-ish through the check tools. If
-no commit-ish is passed, defaults to HEAD^..HEAD. If one commit-ish is passed
-instead of a range, the range commit-ish..HEAD is used.
-
 cherry-pick *commit-ish* [*git cherry-pick arguments*]
 ------------------------------------------------------
 
@@ -259,9 +253,23 @@ remote is up-to-date. Useful if drm-intel-next has been changed since the last
 run of the update-next command (e.g. to apply a hotfix before sending out the
 pull request).
 
+checkpatch|check-patch|cp [*commit-ish* [.. *commit-ish*]]
+----------------------------------------------------------
+Runs the given commit range commit-ish..commit-ish through the check tools.
+
+If no commit-ish is passed, defaults to HEAD^..HEAD. If one commit-ish is passed
+instead of a range, the range commit-ish..HEAD is used.
+
+sparse [*commit-ish* [.. *commit-ish*]]
+---------------------------------------
+Run sparse on the files changed by the given commit range.
+
+If no commit-ish is passed, defaults to HEAD^..HEAD. If one commit-ish is passed
+instead of a range, the range commit-ish..HEAD is used.
+
 checker
 -------
-Run sparse on the kernel.
+Run sparse on drm/i915.
 
 create-branch *branch* [*commit-ish*]
 -------------------------------------
