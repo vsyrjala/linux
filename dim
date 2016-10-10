@@ -74,6 +74,9 @@ DIM_DRM_UPSTREAM_REMOTE=${DIM_DRM_UPSTREAM_REMOTE:-airlied}
 # usage: $DIM_MUA [-s subject] [-i file] [-c cc-addr] to-addr [...]
 DIM_MUA=${DIM_MUA:-mutt}
 
+# make options (not used for C=1)
+DIM_MAKE_OPTIONS=${DIM_MAKE_OPTIONS:--j20}
+
 # command to run after dim apply
 DIM_POST_APPLY_ACTION=${DIM_POST_APPLY_ACTION:-}
 
@@ -539,7 +542,7 @@ function dim_cherry_pick_next_fixes
 dim_alias_ar=apply-resolved
 function dim_apply_resolved
 {
-	make -j 20 && git add -u && git am --resolved
+	make $DIM_MAKE_OPTIONS && git add -u && git am --resolved
 	checkpatch_commit HEAD
 	git commit --amend &
 }
@@ -549,7 +552,7 @@ function dim_magic_rebase_resolve
 {
 	git diff HEAD | patch -p1 -R
 	cat .git/rebase-merge/patch | dim mp
-	make -j 20
+	make $DIM_MAKE_OPTIONS
 	git add -u
 	git rebase --continue
 }

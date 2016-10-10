@@ -348,6 +348,10 @@ DIM_MUA
 Mail user agent. Must support the following subset of **mutt(1)** command line
 options: \$DIM_MUA [-s subject] [-i file] [-c cc-addr] to-addr [...]
 
+DIM_MAKE_OPTIONS
+----------------
+Additional options to pass to **make(1)**. Defaults to "-j20".
+
 DIM_TEMPLATE_HELLO
 ------------------
 Path to a file containing a greeting template for pull request mails.
