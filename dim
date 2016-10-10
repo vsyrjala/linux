@@ -730,8 +730,7 @@ function dim_checkpatch
 
 function dim_checker
 {
-	rm drivers/gpu/drm/i915/*.o &> /dev/null || true
-	rm drivers/gpu/drm/i915/*.ko &> /dev/null || true
+	rm -f drivers/gpu/drm/i915/*.o drivers/gpu/drm/i915/*.ko
 	make C=1 drivers/gpu/drm/i915/i915.ko
 }
 
