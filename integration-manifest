@@ -1,0 +1,20 @@
+origin/drm-intel-fixes c8d2bc9bc39ebea8437fd974fdbc21847bb897a3
+	Linux 4.8
+drm-upstream/drm-fixes 90fd68dcf9a763f7e575c8467415bd8a66d073f4
+	drm/udl: fix line iterator in damage handling
+origin/drm-intel-next-fixes 105f1a65b04a8f4f7abec11b200b1fb54f3d4b46
+	drm/i915: Fix conflict resolution from backmerge of v4.8-rc8 to drm-next
+origin/drm-intel-next-queued 9eeb7304f3ae300c3a0dda6ff84cc7c3c8053fa0
+	drm/i915/audio: rename N value getter to emphasize it's for hdmi
+drm-upstream/drm-next b89857852656f016328d2d7ccec5fff57445fa85
+	Merge branch 'drm-next-4.9' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream/for-next b907900ec4065e1d9b65fafa05fd6601b6a2ffc7
+	ALSA: line6: Fix POD X3 Live audio input
+sound-upstream/for-linus b907900ec4065e1d9b65fafa05fd6601b6a2ffc7
+	ALSA: line6: Fix POD X3 Live audio input
+origin/topic/drm-fixes c6935931c1894ff857616ff8549b61236a19148f
+	Linux 4.8-rc5
+origin/topic/drm-misc a5bd451b6e6ece69be07a425381c4f3438eadba0
+	drm/crtc: constify drm_crtc_index parameter
+origin/topic/core-for-CI d0245f6bbeb63fcc07974be1ffbb8ba7b2e6ae13
+	locking/mutex: Prevent lock starvation when spinning is disabled
