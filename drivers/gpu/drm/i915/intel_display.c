@@ -12288,7 +12288,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 
 		work->flip_queued_req = i915_gem_active_get(&obj->last_write,
 							    &obj->base.dev->struct_mutex);
-		schedule_work(&work->mmio_work);
+		queue_work(system_unbound_wq, &work->mmio_work);
 	} else {
 		request = i915_gem_request_alloc(engine, engine->last_context);
 		if (IS_ERR(request)) {
@@ -15839,12 +15839,6 @@ intel_user_framebuffer_create(struct drm_device *dev,
 
 	return fb;
 }
-
-#ifndef CONFIG_DRM_FBDEV_EMULATION
-static inline void intel_fbdev_output_poll_changed(struct drm_device *dev)
-{
-}
-#endif
 
 static const struct drm_mode_config_funcs intel_mode_funcs = {
 	.fb_create = intel_user_framebuffer_create,

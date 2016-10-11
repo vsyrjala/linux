@@ -1813,8 +1813,7 @@ int i915_gem_fault(struct vm_area_struct *area, struct vm_fault *vmf)
 		view.params.partial.offset = rounddown(page_offset, chunk_size);
 		view.params.partial.size =
 			min_t(unsigned int, chunk_size,
-			      (area->vm_end - area->vm_start) / PAGE_SIZE -
-			      view.params.partial.offset);
+			      vma_pages(area) - view.params.partial.offset);
 
 		/* If the partial covers the entire object, just create a
 		 * normal VMA.
@@ -2208,6 +2207,15 @@ i915_gem_object_put_pages(struct drm_i915_gem_object *obj)
 	return 0;
 }
 
+static unsigned long swiotlb_max_size(void)
+{
+#if IS_ENABLED(CONFIG_SWIOTLB)
+	return rounddown(swiotlb_nr_tbl() << IO_TLB_SHIFT, PAGE_SIZE);
+#else
+	return 0;
+#endif
+}
+
 static int
 i915_gem_object_get_pages_gtt(struct drm_i915_gem_object *obj)
 {
@@ -2219,6 +2227,7 @@ i915_gem_object_get_pages_gtt(struct drm_i915_gem_object *obj)
 	struct sgt_iter sgt_iter;
 	struct page *page;
 	unsigned long last_pfn = 0;	/* suppress gcc warning */
+	unsigned long max_segment;
 	int ret;
 	gfp_t gfp;
 
@@ -2228,6 +2237,10 @@ i915_gem_object_get_pages_gtt(struct drm_i915_gem_object *obj)
 	 */
 	BUG_ON(obj->base.read_domains & I915_GEM_GPU_DOMAINS);
 	BUG_ON(obj->base.write_domain & I915_GEM_GPU_DOMAINS);
+
+	max_segment = swiotlb_max_size();
+	if (!max_segment)
+		max_segment = obj->base.size;
 
 	st = kmalloc(sizeof(*st), GFP_KERNEL);
 	if (st == NULL)
@@ -2264,22 +2277,15 @@ i915_gem_object_get_pages_gtt(struct drm_i915_gem_object *obj)
 			 * our own buffer, now let the real VM do its job and
 			 * go down in flames if truly OOM.
 			 */
-			i915_gem_shrink_all(dev_priv);
 			page = shmem_read_mapping_page(mapping, i);
 			if (IS_ERR(page)) {
 				ret = PTR_ERR(page);
 				goto err_pages;
 			}
 		}
-#ifdef CONFIG_SWIOTLB
-		if (swiotlb_nr_tbl()) {
-			st->nents++;
-			sg_set_page(sg, page, PAGE_SIZE, 0);
-			sg = sg_next(sg);
-			continue;
-		}
-#endif
-		if (!i || page_to_pfn(page) != last_pfn + 1) {
+		if (!i ||
+		    sg->length >= max_segment ||
+		    page_to_pfn(page) != last_pfn + 1) {
 			if (i)
 				sg = sg_next(sg);
 			st->nents++;
@@ -2292,9 +2298,7 @@ i915_gem_object_get_pages_gtt(struct drm_i915_gem_object *obj)
 		/* Check that the i965g/gm workaround works. */
 		WARN_ON((gfp & __GFP_DMA32) && (last_pfn >= 0x00100000UL));
 	}
-#ifdef CONFIG_SWIOTLB
-	if (!swiotlb_nr_tbl())
-#endif
+	if (sg) /* loop terminated early; short sg table */
 		sg_mark_end(sg);
 	obj->pages = st;
 
@@ -2581,8 +2585,6 @@ static void i915_gem_reset_engine(struct intel_engine_cs *engine)
 	struct i915_gem_context *incomplete_ctx;
 	bool ring_hung;
 
-	/* Ensure irq handler finishes, and not run again. */
-	tasklet_kill(&engine->irq_tasklet);
 	if (engine->irq_seqno_barrier)
 		engine->irq_seqno_barrier(engine);
 
@@ -2591,6 +2593,9 @@ static void i915_gem_reset_engine(struct intel_engine_cs *engine)
 		return;
 
 	ring_hung = engine->hangcheck.score >= HANGCHECK_SCORE_RING_HUNG;
+	if (engine->hangcheck.seqno != intel_engine_get_seqno(engine))
+		ring_hung = false;
+
 	i915_set_reset_status(request->ctx, ring_hung);
 	if (!ring_hung)
 		return;

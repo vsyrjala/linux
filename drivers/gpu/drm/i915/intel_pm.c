@@ -3580,11 +3580,12 @@ static int skl_compute_plane_wm(const struct drm_i915_private *dev_priv,
 		case 2:
 			y_min_scanlines = 8;
 			break;
-		default:
-			WARN(1, "Unsupported pixel depth for rotation");
 		case 4:
 			y_min_scanlines = 4;
 			break;
+		default:
+			MISSING_CASE(cpp);
+			return -EINVAL;
 		}
 	} else {
 		y_min_scanlines = 4;
@@ -3615,7 +3616,10 @@ static int skl_compute_plane_wm(const struct drm_i915_private *dev_priv,
 	    fb->modifier[0] == I915_FORMAT_MOD_Yf_TILED) {
 		selected_result = max(method2, y_tile_minimum);
 	} else {
-		if ((ddb_allocation / plane_blocks_per_line) >= 1)
+		if ((cpp * cstate->base.adjusted_mode.crtc_htotal / 512 < 1) &&
+		    (plane_bytes_per_line / 512 < 1))
+			selected_result = method2;
+		else if ((ddb_allocation / plane_blocks_per_line) >= 1)
 			selected_result = min(method1, method2);
 		else
 			selected_result = method1;
@@ -3963,6 +3967,41 @@ pipes_modified(struct drm_atomic_state *state)
 }
 
 static int
+skl_ddb_add_affected_planes(struct intel_crtc_state *cstate)
+{
+	struct drm_atomic_state *state = cstate->base.state;
+	struct drm_device *dev = state->dev;
+	struct drm_crtc *crtc = cstate->base.crtc;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
+	struct skl_ddb_allocation *new_ddb = &intel_state->wm_results.ddb;
+	struct skl_ddb_allocation *cur_ddb = &dev_priv->wm.skl_hw.ddb;
+	struct drm_plane_state *plane_state;
+	struct drm_plane *plane;
+	enum pipe pipe = intel_crtc->pipe;
+	int id;
+
+	WARN_ON(!drm_atomic_get_existing_crtc_state(state, crtc));
+
+	drm_for_each_plane_mask(plane, dev, crtc->state->plane_mask) {
+		id = skl_wm_plane_id(to_intel_plane(plane));
+
+		if (skl_ddb_entry_equal(&cur_ddb->plane[pipe][id],
+					&new_ddb->plane[pipe][id]) &&
+		    skl_ddb_entry_equal(&cur_ddb->y_plane[pipe][id],
+					&new_ddb->y_plane[pipe][id]))
+			continue;
+
+		plane_state = drm_atomic_get_plane_state(state, plane);
+		if (IS_ERR(plane_state))
+			return PTR_ERR(plane_state);
+	}
+
+	return 0;
+}
+
+static int
 skl_compute_ddb(struct drm_atomic_state *state)
 {
 	struct drm_device *dev = state->dev;
@@ -4026,7 +4065,7 @@ skl_compute_ddb(struct drm_atomic_state *state)
 		if (ret)
 			return ret;
 
-		ret = drm_atomic_add_affected_planes(state, &intel_crtc->base);
+		ret = skl_ddb_add_affected_planes(cstate);
 		if (ret)
 			return ret;
 	}
@@ -5357,9 +5396,8 @@ static void gen9_enable_rc6(struct drm_i915_private *dev_priv)
 	if (intel_enable_rc6() & INTEL_RC6_ENABLE)
 		rc6_mask = GEN6_RC_CTL_RC6_ENABLE;
 	DRM_INFO("RC6 %s\n", onoff(rc6_mask & GEN6_RC_CTL_RC6_ENABLE));
-	/* WaRsUseTimeoutMode */
-	if (IS_SKL_REVID(dev_priv, 0, SKL_REVID_D0) ||
-	    IS_BXT_REVID(dev_priv, 0, BXT_REVID_A1)) {
+	/* WaRsUseTimeoutMode:bxt */
+	if (IS_BXT_REVID(dev_priv, 0, BXT_REVID_A1)) {
 		I915_WRITE(GEN6_RC6_THRESHOLD, 625); /* 800us */
 		I915_WRITE(GEN6_RC_CONTROL, GEN6_RC_CTL_HW_ENABLE |
 			   GEN7_RC_CTL_TO_MODE |
