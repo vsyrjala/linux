@@ -317,6 +317,10 @@ list-upstreams
 List of all upstreams commonly used for pull requests. Useful for autocompletion
 scripts.
 
+uptodate
+--------
+Try to check if you're running an up-to-date version of **dim**.
+
 help
 ----
 Show this help. Install **rst2man(1)** for best results.

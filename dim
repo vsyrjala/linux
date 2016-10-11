@@ -179,6 +179,27 @@ if [ "$subcommand" != "setup" -a "$subcommand" != "help" -a "$subcommand" != "us
 		xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
 fi
 
+function dim_uptodate
+{
+	local using="${BASH_SOURCE[0]}"
+
+	if [[ ! -e "$using" ]]; then
+		echo "$dim: could not figure out the version being used ($using)." >&2
+		exit 1
+	fi
+
+	if [[ ! -e "$DIM_PREFIX/maintainer-tools/.git" ]]; then
+		echo "$dim: could not find the upstream repo for $dim." >&2
+		exit 1
+	fi
+
+	if ! git --git-dir=$DIM_PREFIX/maintainer-tools/.git show origin/maintainer-tools:dim |\
+			diff "$using" - >& /dev/null; then
+		echo "$dim: not running upstream version of the script." >&2
+		exit 1
+	fi
+}
+
 # get message id from file
 # $1 = file
 message_get_id ()
