@@ -771,6 +771,19 @@ static void i915_workqueues_cleanup(struct drm_i915_private *dev_priv)
 	destroy_workqueue(dev_priv->wq);
 }
 
+/*
+ * We don't keep the workarounds for pre-production hardware, so we expect our
+ * driver to fail on these machines in one way or another. A little warning on
+ * dmesg may help both the user and the bug triagers.
+ */
+static void intel_detect_preproduction_hw(struct drm_i915_private *dev_priv)
+{
+	if (IS_HSW_EARLY_SDV(dev_priv) ||
+	    IS_SKL_REVID(dev_priv, 0, SKL_REVID_F0))
+		DRM_ERROR("This is a pre-production stepping. "
+			  "It may not be fully functional.\n");
+}
+
 /**
  * i915_driver_init_early - setup state not requiring device access
  * @dev_priv: device private
@@ -838,13 +851,7 @@ static int i915_driver_init_early(struct drm_i915_private *dev_priv,
 
 	intel_device_info_dump(dev_priv);
 
-	/* Not all pre-production machines fall into this category, only the
-	 * very first ones. Almost everything should work, except for maybe
-	 * suspend/resume. And we don't implement workarounds that affect only
-	 * pre-production machines. */
-	if (IS_HSW_EARLY_SDV(dev_priv))
-		DRM_INFO("This is an early pre-production Haswell machine. "
-			 "It may not be fully functional.\n");
+	intel_detect_preproduction_hw(dev_priv);
 
 	return 0;
 
@@ -1721,6 +1728,21 @@ int i915_resume_switcheroo(struct drm_device *dev)
 	return i915_drm_resume(dev);
 }
 
+static void disable_engines_irq(struct drm_i915_private *dev_priv)
+{
+	struct intel_engine_cs *engine;
+
+	/* Ensure irq handler finishes, and not run again. */
+	disable_irq(dev_priv->drm.irq);
+	for_each_engine(engine, dev_priv)
+		tasklet_kill(&engine->irq_tasklet);
+}
+
+static void enable_engines_irq(struct drm_i915_private *dev_priv)
+{
+	enable_irq(dev_priv->drm.irq);
+}
+
 /**
  * i915_reset - reset chip after a hang
  * @dev: drm device to reset
@@ -1754,7 +1776,11 @@ void i915_reset(struct drm_i915_private *dev_priv)
 	error->reset_count++;
 
 	pr_notice("drm/i915: Resetting chip after gpu hang\n");
+
+	disable_engines_irq(dev_priv);
 	ret = intel_gpu_reset(dev_priv, ALL_ENGINES);
+	enable_engines_irq(dev_priv);
+
 	if (ret) {
 		if (ret != -ENODEV)
 			DRM_ERROR("Failed to reset chip: %i\n", ret);
