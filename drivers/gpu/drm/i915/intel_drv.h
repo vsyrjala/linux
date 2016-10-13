@@ -817,10 +817,10 @@ struct cxsr_latency {
 	unsigned long cursor_hpll_disable;
 };
 
-#define __to_intel_kms_type(type) \
-static inline struct intel_ ## type * to_intel_ ## type(struct drm_ ## type * d) \
+#define __to_intel_kms_type(type, qual, delim)				\
+static inline qual struct intel_ ## type * to_ ## qual ## delim ## intel_ ## type(qual struct drm_ ## type * d) \
 { \
-	struct intel_ ## type * i = container_of(d, struct intel_ ## type, base); \
+	qual struct intel_ ## type * i = container_of(d, struct intel_ ## type, base); \
 	BUILD_BUG_ON(offsetof(struct intel_ ## type, base) != 0); \
 	BUILD_BUG_ON(!__builtin_types_compatible_p(typeof(*d), typeof(i->base))); \
 	return i; \
