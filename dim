@@ -80,8 +80,6 @@ today=`date +%Y-%m-%d`
 drm_intel_ssh=ssh://git.freedesktop.org/git/drm-intel
 drm_tip_ssh=ssh://git.freedesktop.org/git/drm-tip
 drm_upstream_git=git://people.freedesktop.org/~airlied/linux
-sound_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/tiwai/sound.git
-driver_core_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core.git
 linux_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 
 # email aliases
@@ -1273,16 +1271,6 @@ function dim_setup
 		git config remote.drm-upstream.url $drm_upstream_git
 	else
 		remote=`url_to_remote $drm_upstream_git`
-	fi
-	if git remote | grep sound-upstream > /dev/null ; then
-		git config remote.sound-upstream.url $sound_upstream_git
-	else
-		remote=`url_to_remote $sound_upstream_git`
-	fi
-	if git remote | grep driver-core-upstream > /dev/null ; then
-		git config remote.driver-core-upstream.url $driver_core_upstream_git
-	else
-		remote=`url_to_remote $driver_core_upstream_git`
 	fi
 
 	echo "dim setup successfully completed!"
