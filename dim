@@ -184,8 +184,24 @@ if [ "$subcommand" != "setup" -a "$subcommand" != "help" -a "$subcommand" != "us
 	done
 fi
 
-# get the remote name for url, depends on current repo
-function url_to_remote
+#
+# Variable naming convetion:
+#
+# repo:
+#	symbolic git repository name from $integration_config
+# remote:
+#	local remote name in the git repository for the current path
+# branch:
+#	git branch name - dim assumes that the remote and local name match
+# url:
+#	url to a repo, using ssh:// protocol
+# git_url:
+#	url to a repo, but using anonymous git:// protocol
+#
+# The below functions map between these.
+#
+
+function url_to_remote # url
 {
 	local url="$1"
 
@@ -1095,8 +1111,36 @@ function dim_update_branches
 	update_rerere_cache
 }
 
+function setup_aux_checkout # name url directory
+{
+	local name=$1
+	local url=$2
+	local dir=$3
+	local remote
+
+	echo "Setting up $dir ..."
+
+	if [ ! -d $dir ]; then
+		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $url $dir
+		cd $dir
+		git config remote.origin.url $url
+		echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
+		git repack -a -d -l
+		remote=origin
+	else
+		cd $dir
+		remote=`url_to_remote $url`
+	fi
+	if [[ `git branch --list $name` == "" ]] ; then
+		git checkout -t $remote/$name
+	fi
+	cd ..
+}
+
 function dim_setup
 {
+	local remote
+
 	if [ ! -d $DIM_PREFIX ]; then
 		echoerr "Directory $DIM_PREFIX doesn't exist."
 		echoerr "Please set up your repository directory with"
@@ -1115,76 +1159,34 @@ function dim_setup
 		exit 1
 	fi
 	cd $DIM_DRM_INTEL
-	if ! git remote -v | grep "^origin[[:space:]]" | grep $linux_upstream_git > /dev/null; then
-		echo "please set up remote origin for $linux_upstream_git"
-		exit 1
-	fi
-	if ! git remote -v | grep "^$DIM_DRM_INTEL_REMOTE[[:space:]]" | grep $drm_intel_ssh > /dev/null; then
-		echo "please set up remote $DIM_DRM_INTEL_REMOTE for $drm_intel_ssh with:"
-		echo "    git remote add $DIM_DRM_INTEL_REMOTE $drm_intel_ssh"
-		echo "or update your configuration."
-		exit 1
-	fi
-	if ! git remote -v | grep "^$DIM_DRM_UPSTREAM_REMOTE[[:space:]]" | grep $drm_upstream_git > /dev/null; then
-		echo "please set up remote $DIM_DRM_UPSTREAM_REMOTE for $drm_upstream_git with:"
-		echo "    git remote add $DIM_DRM_UPSTREAM_REMOTE $drm_upstream_git"
-		echo "or update your configuration."
-		exit 1
-	fi
+
+	# check remote configuration
+	remote=`url_to_remote $linux_upstream_git`
+	remote=`url_to_remote $drm_intel_ssh`
+	remote=`url_to_remote $drm_upstream_git`
+
 	cd ..
 
-	echo "Setting up maintainer-tools ..."
-	if [ ! -d maintainer-tools ]; then
-		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $drm_intel_ssh maintainer-tools
-	fi
-	cd maintainer-tools
-	git config remote.origin.url $drm_intel_ssh
-	echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
-	git repack -a -d -l
-	if [[ `git branch --list maintainer-tools` == "" ]] > /dev/null ; then
-		git checkout -t origin/maintainer-tools
-	fi
-	cd ..
+	setup_aux_checkout maintainer-tools $drm_intel_ssh maintainer-tools
 
-	echo "Setting up drm-intel-rerere ..."
-	if [ ! -d drm-intel-rerere ]; then
-		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $drm_intel_ssh drm-intel-rerere
-	fi
-	cd drm-intel-rerere
-	git config remote.origin.url $drm_intel_ssh
-	echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
-	git repack -a -d -l
-	if [[ `git branch --list rerere-cache` == "" ]] ; then
-		git checkout -t origin/rerere-cache
-	fi
-	cd ..
+	setup_aux_checkout rerere-cache $drm_intel_ssh drm-intel-rerere
 
-	echo "Setting up drm-intel-nightly ..."
-	if [ ! -d drm-intel-nightly ]; then
-		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $drm_intel_ssh drm-intel-nightly
-	fi
+	setup_aux_checkout drm-intel-nightly $drm_intel_ssh drm-intel-nightly
 	cd drm-intel-nightly
-	mkdir -p .git/rr-cache
-	git config remote.origin.url $drm_intel_ssh
-	echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
-	git repack -a -d -l
-	if [[ `git branch --list drm-intel-nightly` == "" ]] ; then
-		git checkout -t origin/drm-intel-nightly
-	fi
 	if git remote | grep drm-upstream > /dev/null ; then
 		git config remote.drm-upstream.url $drm_upstream_git
 	else
-		git remote add drm-upstream $drm_upstream_git
+		remote=`url_to_remote $drm_upstream_git`
 	fi
 	if git remote | grep sound-upstream > /dev/null ; then
 		git config remote.sound-upstream.url $sound_upstream_git
 	else
-		git remote add sound-upstream $sound_upstream_git
+		remote=`url_to_remote $sound_upstream_git`
 	fi
 	if git remote | grep driver-core-upstream > /dev/null ; then
 		git config remote.driver-core-upstream.url $driver_core_upstream_git
 	else
-		git remote add driver-core-upstream $driver_core_upstream_git
+		remote=`url_to_remote $driver_core_upstream_git`
 	fi
 
 	echo "dim setup successfully completed!"
