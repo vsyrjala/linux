@@ -377,15 +377,6 @@ function dim_rebuild_nightly
 	update_linux_next
 }
 
-function dim_nightly_forget
-{
-	cd $DIM_PREFIX/drm-intel-nightly
-	git fetch origin >& /dev/null
-	git reset --hard origin/drm-intel-next-queued >& /dev/null
-	git merge origin/drm-intel-fixes
-	git rerere forget
-}
-
 # push branch $1, rebuild nightly. the rest of the arguments are passed to git
 # push.
 function dim_push_branch

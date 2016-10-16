@@ -1,8 +1,6 @@
 dim:
 - extract the integration tree logic and make it generally useful, maybe for a
   drm-integration tree ...
-- Improve nightly-forget to forget a specific merge instead of just the first
-  dinq/dif merge.
 - add option to check-patch to check stdin
 - integrate ninja-check? Or too much checkers considered harmful?
   https://lists.linuxfoundation.org/pipermail/ksummit-discuss/2014-May/000554.html
