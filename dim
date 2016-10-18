@@ -283,7 +283,7 @@ function dim_rebuild_nightly
 	source $rerere/nightly.conf
 
 	cd $DIM_PREFIX/$integration_branch
-	if ! git branch | grep $integration_branch | grep '\*' >& /dev/null ; then
+	if ! git branch --list $integration_branch | grep '\*' >& /dev/null ; then
 		echo "Branch setup for the integration repo is borked"
 		exit 1
 	fi
@@ -357,7 +357,7 @@ function dim_rebuild_nightly
 
 	echo -n "Updating rerere cache... "
 	cd $rerere
-	if git branch | grep rerere-cache | grep '\*' >& /dev/null ; then
+	if git branch --list rerere-cache | grep '\*' >& /dev/null ; then
 		git pull >& /dev/null
 		cp $DIM_PREFIX/$integration_branch/.git/rr-cache/* rr-cache -r
 		git add *.patch >& /dev/null || true
@@ -664,7 +664,7 @@ function dim_checkout
 	fi
 
 	dim_cd $1
-	if ! git branch | grep $1 > /dev/null ; then
+	if [[ `git branch --list $1` ==  "" ]] ; then
 		git checkout -t $DIM_DRM_INTEL_REMOTE/$1
 	else
 		git checkout $1
@@ -1079,7 +1079,7 @@ function dim_setup
 	git config remote.origin.url $drm_intel_ssh
 	echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
 	git repack -a -d -l
-	if ! git branch | grep maintainer-tools > /dev/null ; then
+	if [[ `git branch --list maintainer-tools` == "" ]] > /dev/null ; then
 		git checkout -t origin/maintainer-tools
 	fi
 	cd ..
@@ -1092,7 +1092,7 @@ function dim_setup
 	git config remote.origin.url $drm_intel_ssh
 	echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
 	git repack -a -d -l
-	if ! git branch | grep rerere-cache > /dev/null ; then
+	if [[ `git branch --list rerere-cache` == "" ]] ; then
 		git checkout -t origin/rerere-cache
 	fi
 	cd ..
@@ -1106,7 +1106,7 @@ function dim_setup
 	git config remote.origin.url $drm_intel_ssh
 	echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
 	git repack -a -d -l
-	if ! git branch | grep drm-intel-nightly > /dev/null ; then
+	if [[ `git branch --list drm-intel-nightly` == "" ]] ; then
 		git checkout -t origin/drm-intel-nightly
 	fi
 	if git remote | grep drm-upstream > /dev/null ; then
