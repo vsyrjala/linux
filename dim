@@ -102,12 +102,17 @@ DRY=
 FORCE=
 HELP=
 
+function echoerr
+{
+	echo "$@" >&2
+}
+
 function warn_or_fail
 {
 	if [[ $FORCE ]] ; then
-		echo WARNING: $1, but continuing
+		echoerr WARNING: $1, but continuing
 	else
-		echo ERROR: $1, aborting
+		echoerr ERROR: $1, aborting
 		exit 1
 	fi
 }
@@ -128,7 +133,7 @@ while getopts hdfi opt; do
 			HELP=1
 			;;
 		*)
-			echo "See '$dim help' for more information." >&2
+			echoerr "See '$dim help' for more information."
 			exit
 	esac
 done
@@ -167,18 +172,18 @@ function dim_uptodate
 	local using="${BASH_SOURCE[0]}"
 
 	if [[ ! -e "$using" ]]; then
-		echo "$dim: could not figure out the version being used ($using)." >&2
+		echoerr "$dim: could not figure out the version being used ($using)."
 		exit 1
 	fi
 
 	if [[ ! -e "$DIM_PREFIX/maintainer-tools/.git" ]]; then
-		echo "$dim: could not find the upstream repo for $dim." >&2
+		echoerr "$dim: could not find the upstream repo for $dim."
 		exit 1
 	fi
 
 	if ! git --git-dir=$DIM_PREFIX/maintainer-tools/.git show @{upstream}:dim |\
 			diff "$using" - >& /dev/null; then
-		echo "$dim: not running upstream version of the script." >&2
+		echoerr "$dim: not running upstream version of the script."
 		exit 1
 	fi
 }
@@ -1280,6 +1285,6 @@ subcmd_func=dim_${subcmd//-/_}
 if declare -f $subcmd_func >/dev/null; then
 	$subcmd_func "$@"
 else
-	echo "$dim: '$subcommand' is not a dim command." >&2
+	echoerr "$dim: '$subcommand' is not a dim command."
 	dim_usage
 fi
