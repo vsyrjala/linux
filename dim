@@ -262,6 +262,13 @@ function update_rerere_cache
 	cd -
 }
 
+function dim_revert_rerere
+{
+	cd $DIM_PREFIX/drm-intel-rerere/
+	git revert $1
+	rm $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ -Rf
+}
+
 function dim_rebuild_nightly
 {
 	local integration_branch=drm-intel-nightly
