@@ -1209,10 +1209,12 @@ function dim_fixes
 
 	echo "Fixes: $(dim_cite $sha1)"
 
-	git show --no-patch $sha1 | \
-		sed -e 's/\(Reviewed\|Acked\|Reported\|Signed\)[a-zA-Z-]*-by:/Cc:/' | \
-		sed -e 's/^    C[Cc]: */Cc: /' | grep '^Cc: ' | \
-		sort | uniq
+	(
+		git show --no-patch $sha1 | \
+			sed -e 's/\(Reviewed\|Acked\|Reported\|Signed\)[a-zA-Z-]*-by:/Cc:/' | \
+			sed -e 's/^    C[Cc]: */Cc: /' | grep '^Cc: '
+		git show $sha1 | scripts/get_maintainer.pl  --email --norolestats --pattern-depth 1 | sed -e "s/^/Cc: /"
+	) | awk '!x[$0]++'
 
 	local tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
 	if [[ -n "$tag" ]]; then
