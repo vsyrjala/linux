@@ -2090,7 +2090,6 @@ static void drm_setup_crtcs(struct drm_fb_helper *fb_helper)
 	struct drm_fb_helper_crtc **crtcs;
 	struct drm_display_mode **modes;
 	struct drm_fb_offset *offsets;
-	struct drm_mode_set *modeset;
 	bool *enabled;
 	int width, height;
 	int i;
@@ -2139,7 +2138,14 @@ static void drm_setup_crtcs(struct drm_fb_helper *fb_helper)
 	/* need to set the modesets up here for use later */
 	/* fill out the connector<->crtc mappings into the modesets */
 	for (i = 0; i < fb_helper->crtc_count; i++) {
-		modeset = &fb_helper->crtc_info[i].mode_set;
+		struct drm_mode_set *modeset = &fb_helper->crtc_info[i].mode_set;
+		int j;
+
+		for (j = 0; j < modeset->num_connectors; j++) {
+			drm_connector_unreference(modeset->connectors[j]);
+			modeset->connectors[j] = NULL;
+		}
+
 		modeset->num_connectors = 0;
 		modeset->fb = NULL;
 	}
@@ -2148,19 +2154,23 @@ static void drm_setup_crtcs(struct drm_fb_helper *fb_helper)
 		struct drm_display_mode *mode = modes[i];
 		struct drm_fb_helper_crtc *fb_crtc = crtcs[i];
 		struct drm_fb_offset *offset = &offsets[i];
-		modeset = &fb_crtc->mode_set;
+		struct drm_mode_set *modeset = &fb_crtc->mode_set;
 
 		if (mode && fb_crtc) {
+			struct drm_connector *connector =
+				fb_helper->connector_info[i]->connector;
+
 			DRM_DEBUG_KMS("desired mode %s set on crtc %d (%d,%d)\n",
 				      mode->name, fb_crtc->mode_set.crtc->base.id, offset->x, offset->y);
+
 			fb_crtc->desired_mode = mode;
 			fb_crtc->x = offset->x;
 			fb_crtc->y = offset->y;
 			if (modeset->mode)
 				drm_mode_destroy(dev, modeset->mode);
-			modeset->mode = drm_mode_duplicate(dev,
-							   fb_crtc->desired_mode);
-			modeset->connectors[modeset->num_connectors++] = fb_helper->connector_info[i]->connector;
+			modeset->mode = drm_mode_duplicate(dev, fb_crtc->desired_mode);
+			drm_connector_reference(connector);
+			modeset->connectors[modeset->num_connectors++] = connector;
 			modeset->fb = fb_helper->fb;
 			modeset->x = offset->x;
 			modeset->y = offset->y;
@@ -2169,7 +2179,8 @@ static void drm_setup_crtcs(struct drm_fb_helper *fb_helper)
 
 	/* Clear out any old modes if there are no more connected outputs. */
 	for (i = 0; i < fb_helper->crtc_count; i++) {
-		modeset = &fb_helper->crtc_info[i].mode_set;
+		struct drm_mode_set *modeset = &fb_helper->crtc_info[i].mode_set;
+
 		if (modeset->num_connectors == 0) {
 			BUG_ON(modeset->fb);
 			if (modeset->mode)
