@@ -50,9 +50,6 @@ DIM_DRM_INTEL=${DIM_DRM_INTEL:-src}
 # name of the $drm_intel_ssh remote within $DIM_DRM_INTEL
 DIM_DRM_INTEL_REMOTE=${DIM_DRM_INTEL_REMOTE:-danvet}
 
-# name of the $drm_upstream_git remote within $DIM_DRM_INTEL
-DIM_DRM_UPSTREAM_REMOTE=${DIM_DRM_UPSTREAM_REMOTE:-airlied}
-
 # mail user agent. must support a subset of mutt(1) command line options:
 # usage: $DIM_MUA [-s subject] [-i file] [-c cc-addr] to-addr [...]
 DIM_MUA=${DIM_MUA:-mutt}
@@ -1020,7 +1017,7 @@ function dim_update_next
 	echo -e "drm/i915: Update DRIVER_DATE to $driver_date\n\nSigned-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>" | \
 		git commit -s -F -
 
-	gitk drm-intel-next-queued ^$DIM_DRM_UPSTREAM_REMOTE/drm-next &
+	gitk drm-intel-next-queued ^`url_to_remote $drm_upstream_git`/drm-next &
 
 	# try to push dinq first in case someone raced
 	dim push-queued
@@ -1140,7 +1137,7 @@ function dim_pull_request
 
 function dim_pull_request_next
 {
-	upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
+	upstream=${1:-`url_to_remote $drm_upstream_git`/drm-next}
 	dim_pull_request drm-intel-next $upstream
 }
 
@@ -1152,16 +1149,17 @@ function dim_pull_request_fixes
 
 function dim_pull_request_next_fixes
 {
-	upstream=${1:-$DIM_DRM_UPSTREAM_REMOTE/drm-next}
+	upstream=${1:-`url_to_remote $drm_upstream_git`/drm-next}
 	dim_pull_request drm-intel-next-fixes $upstream
 }
 
 # Note: used by bash completion
 function dim_list_upstreams
 {
+	local dim_drm_upstream_remote=`url_to_remote $drm_upstream_git`
 	echo origin/master
-	echo $DIM_DRM_UPSTREAM_REMOTE/drm-next
-	echo $DIM_DRM_UPSTREAM_REMOTE/drm-fixes
+	echo $dim_drm_upstream_remote/drm-next
+	echo $dim_drm_upstream_remote/drm-fixes
 }
 
 # Note: used by bash completion
@@ -1174,7 +1172,7 @@ dim_alias_ub=update-branches
 function dim_update_branches
 {
 	cd $DIM_PREFIX/$DIM_DRM_INTEL
-	for remote in $DIM_DRM_INTEL_REMOTE $DIM_DRM_UPSTREAM_REMOTE origin; do
+	for remote in $DIM_DRM_INTEL_REMOTE `url_to_remote $drm_upstream_git` origin; do
 		git fetch $remote
 	done
 
@@ -1325,11 +1323,12 @@ function dim_tc
 	if [[ -n "$tag" ]]; then
 		echo "$tag"
 	else
+		local dim_drm_upstream_remote=`url_to_remote $drm_upstream_git`
 		# not in a tagged release, show upstream branches
 		git branch -r --contains $1 \
 		    $DIM_DRM_INTEL_REMOTE/* \
-		    $DIM_DRM_UPSTREAM_REMOTE/drm-next \
-		    $DIM_DRM_UPSTREAM_REMOTE/drm-fixes \
+		    $dim_drm_upstream_remote/drm-next \
+		    $dim_drm_upstream_remote/drm-fixes \
 		    origin/master | sed 's/^ *//'
 	fi
 }

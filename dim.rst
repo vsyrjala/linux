@@ -362,10 +362,6 @@ DIM_DRM_INTEL_REMOTE
 --------------------
 Name of the $drm_intel_ssh remote within \$DIM_DRM_INTEL.
 
-DIM_DRM_UPSTREAM_REMOTE
------------------------
-Name of the $drm_upstream_git remote within \$DIM_DRM_INTEL.
-
 DIM_MUA
 -------
 Mail user agent. Must support the following subset of **mutt(1)** command line
