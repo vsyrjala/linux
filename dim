@@ -871,7 +871,8 @@ function dim_update_next
 	fi
 
 	driver_date=`date +%Y%m%d`
-	$DRY sed -i -e "s/^#define DRIVER_DATE.*\"[0-9]*\"$/#define DRIVER_DATE\t\t\"$driver_date\"/" \
+	driver_timestamp=`date +%s`
+	$DRY sed -i -e "s/^#define DRIVER_DATE.*\"[0-9]*\"$/#define DRIVER_DATE\t\t\"$driver_date\"/; s/^#define DRIVER_TIMESTAMP.*/#define DRIVER_TIMESTAMP\t$driver_timestamp/" \
 	     drivers/gpu/drm/i915/i915_drv.h
 	$DRY git add drivers/gpu/drm/i915/i915_drv.h
 	echo -e "drm/i915: Update DRIVER_DATE to $driver_date\n\nSigned-off-by: Daniel Vetter <daniel.vetter@ffwll.ch>" | \
