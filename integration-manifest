@@ -1,0 +1,20 @@
+origin/drm-intel-fixes 1001354ca34179f3db924eb66672442a173147dc
+	Linux 4.9-rc1
+drm-upstream/drm-fixes 90fd68dcf9a763f7e575c8467415bd8a66d073f4
+	drm/udl: fix line iterator in damage handling
+origin/drm-intel-next-fixes 105f1a65b04a8f4f7abec11b200b1fb54f3d4b46
+	drm/i915: Fix conflict resolution from backmerge of v4.8-rc8 to drm-next
+origin/drm-intel-next-queued faccd9941b17eb569db9b4e471c55aebdc93fe06
+	drm/i915/gen9: Don't wrap strings in verify_wm_state()
+drm-upstream/drm-next fa860a1751e388385a7f249dd3f24a6c76db0ba9
+	drm: Print device information again in debugfs
+sound-upstream/for-next d69bb92e402ff948bdcd39f19c9067874fb86873
+	ALSA: asihpi: fix kernel memory disclosure
+sound-upstream/for-linus d69bb92e402ff948bdcd39f19c9067874fb86873
+	ALSA: asihpi: fix kernel memory disclosure
+origin/topic/drm-fixes c6935931c1894ff857616ff8549b61236a19148f
+	Linux 4.8-rc5
+origin/topic/drm-misc 7fb71c8f4f45afe73d307181be87c877447d0e47
+	drm/i915: Handle early failure during intel_get_load_detect_pipe
+origin/topic/core-for-CI 91055e0decaadd41fc16dc16c975e200e6d05490
+	rtc: cmos: Don't enable interrupts in the middle of the interrupt handler
