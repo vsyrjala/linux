@@ -283,7 +283,10 @@ create-branch *branch* [*commit-ish*]
 -------------------------------------
 
 Create a new topic branch with the given name. Note that topic/ is not
-automatically prepended. The branch starts at HEAD or the given commit-ish.
+automatically prepended. The branch starts at HEAD or the given commit-ish. Note
+that by default the new branch is created in the drm-intel.git repository. If
+you want to create a branch somewhere else, then you need to prepend the remote
+name from nigthly.conf, e.g. "drm-misc/topic/branch".
 
 remove-branch *branch*
 ----------------------

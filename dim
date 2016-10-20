@@ -231,6 +231,11 @@ function branch_to_remote # branch
 	echo $remote
 }
 
+function repo_to_remote # repo
+{
+	url_to_remote ${drm_tip_repos[$1]}
+}
+
 function branch_to_repo # branch
 {
 	for conf in "${drm_tip_config[@]}"; do
@@ -698,7 +703,9 @@ function dim_create_branch
 		echo "usage: $dim $subcommand branch [commit-ish]"
 		exit 1
 	fi
-	branch=$1
+	local branch=$1
+	local repo="drm-intel"
+
 	if [[ "x$2" = "x" ]]; then
 		start=HEAD
 	else
@@ -707,17 +714,18 @@ function dim_create_branch
 
 	cd $DIM_PREFIX/$DIM_DRM_INTEL
 
-	$DRY git branch $branch $start
-	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$branch --set-upstream
+	if ( repo_to_remote ${branch%%/*} ) &> /dev/null ; then
+		repo=${branch%%/*}
+		branch=${branch#*/}
+	fi
 
-	# FIXME: make it possible to add/remove non-drm-intel branches
-	local repo=drm-intel
+	local remote=`repo_to_remote $repo`
+
+	$DRY git branch $branch $start
+	git push $DRY_RUN $remote +$branch --set-upstream
+
 	cd $DIM_PREFIX/drm-rerere
 	$DRY sed -i "s/^\() # DO NOT CHANGE THIS LINE\)$/\t\"$repo\t\t${branch//\//\\\/}\"\n\1/" $integration_config
-
-	# FIXME: For backward compatibility. Remove.
-	$DRY echo "nightly_branches=\"\$nightly_branches origin/$branch\"" \
-	     >> $integration_config
 
 	$DRY git add $integration_config
 	$DRY git commit --quiet -m "Add $repo $branch to $integration_config"
@@ -729,7 +737,7 @@ function dim_remove_branch
 		echo "usage: $dim $subcommand branch"
 		exit 1
 	fi
-	branch=$1
+	local branch=$1
 
 	cd $DIM_PREFIX/$DIM_DRM_INTEL
 
@@ -744,17 +752,31 @@ function dim_remove_branch
 	fi
 
 	cd $DIM_PREFIX/drm-tip
-	git push $DRY_RUN origin --delete $branch
-	$DRY git fetch origin --prune
 
-	# FIXME: make it possible to add/remove non-drm-intel branches
-	local repo=drm-intel
+	source $DIM_PREFIX/drm-rerere/nightly.conf
+
+	local repo=""
+
+	for conf in "${drm_tip_config[@]}"; do
+		read nightly_repo nightly_branch nightly_override <<< $conf
+
+		if [[ $nightly_branch == $branch ]] ; then
+			repo=$nightly_repo
+			break
+		fi
+	done
+
+	if [[ $repo == "" ]] ; then
+		echoerr "$branch not found in nightly.conf"
+		exit 1
+	fi
+
+	local remote=`repo_to_remote $repo`
+
+	git push $DRY_RUN $remote --delete $branch
+	$DRY git fetch $remote --prune
 	cd $DIM_PREFIX/drm-rerere
 	$DRY sed -i "/^[[:space:]]*\"${repo}[[:space:]]\+${branch//\//\\\/}.*$/d" $integration_config
-
-	# FIXME: For backward compatibility. Remove.
-	full_branch="origin/$branch"
-	$DRY sed -e "/${full_branch//\//\\\/}/d" -i $integration_config
 
 	$DRY git add $integration_config
 	$DRY git commit --quiet -m "Remove $repo $branch from $integration_config"
