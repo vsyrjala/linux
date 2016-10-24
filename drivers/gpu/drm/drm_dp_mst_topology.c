@@ -882,6 +882,9 @@ static void drm_dp_port_teardown_pdt(struct drm_dp_mst_port *port, int old_pdt)
 		drm_dp_put_mst_branch_device(mstb);
 		break;
 	}
+
+	if (port->pdt == old_pdt)
+		port->pdt = DP_PEER_DEVICE_NONE;
 }
 
 static void drm_dp_destroy_port(struct kref *kref)
