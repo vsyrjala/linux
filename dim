@@ -473,9 +473,11 @@ function dim_rebuild_nightly
 		local rerere_remote=`branch_to_remote rerere-cache`
 
 		git pull >& /dev/null
+		rm `rr_cache_dir`/rr-cache -Rf &> /dev/null || true
 		cp `rr_cache_dir`/* rr-cache -r
 		git add *.patch >& /dev/null || true
 		git add rr-cache/* > /dev/null
+		git rm rr-cache/rr-cache &> /dev/null || true
 		if git commit -m "$time: $integration_branch rerere cache update" >& /dev/null; then
 			echo -n "New commit. "
 		else
