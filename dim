@@ -1046,18 +1046,20 @@ function dim_update_branches
 function dim_setup
 {
 	if [ ! -d $DIM_PREFIX ]; then
-		echo "please set up your repository directory with:"
-		echo "    mkdir -p $DIM_PREFIX"
-		echo "or update your configuration"
+		echoerr "Directory $DIM_PREFIX doesn't exist."
+		echoerr "Please set up your repository directory with"
+		echoerr "    mkdir -p $DIM_PREFIX"
+		echoerr "or update your configuration (see dimrc.sample)."
 		exit 1
 	fi
 	cd $DIM_PREFIX
 
-	if [ ! -d $DIM_PREFIX/$DIM_DRM_INTEL ]; then
-		echo "please set up your maintainer linux repository at $DIM_PREFIX/$DIM_DRM_INTEL with:"
-		echo "    cd $DIM_PREFIX"
-		echo "    git clone $linux_upstream_git $DIM_DRM_INTEL"
-		echo "or update your configuration."
+	if [ ! -d $DIM_PREFIX/$DIM_DRM_INTEL/.git ]; then
+		echoerr "No git checkout found in $DIM_PREFIX/$DIM_DRM_INTEL."
+		echoerr "Please set up your maintainer linux repository at $DIM_PREFIX/$DIM_DRM_INTEL with"
+		echoerr "    cd $DIM_PREFIX"
+		echoerr "    git clone $linux_upstream_git $DIM_DRM_INTEL"
+		echoerr "or update your configuration (see dimrc.sample)."
 		exit 1
 	fi
 	cd $DIM_DRM_INTEL
