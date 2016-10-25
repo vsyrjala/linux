@@ -363,7 +363,7 @@ function update_rerere_cache
 	cd $DIM_PREFIX/drm-rerere/
 	git pull
 	cp rr-cache/* `rr_cache_dir` -r
-	cd -
+	cd - > /dev/null
 }
 
 function dim_revert_rerere
@@ -1211,7 +1211,7 @@ function setup_aux_checkout # name url directory
 			if [[ `git branch --list $name` == "" ]] ; then
 				git branch --track $name $remote/$name
 			fi
-			git worktree add ../$dir $name
+			git worktree add $DIM_PREFIX/$dir $name
 		else
 			git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $url $dir
 			cd $dir
@@ -1227,7 +1227,7 @@ function setup_aux_checkout # name url directory
 	if [[ `git branch --list $name` == "" ]] ; then
 		git checkout -t $remote/$name
 	fi
-	cd ..
+	cd - > /dev/null
 }
 
 function dim_setup
@@ -1251,6 +1251,7 @@ function dim_setup
 		echoerr "or update your configuration (see dimrc.sample)."
 		exit 1
 	fi
+
 	cd $DIM_DRM_INTEL
 
 	# check remote configuration
@@ -1259,7 +1260,7 @@ function dim_setup
 	remote=`url_to_remote $drm_tip_ssh`
 	remote=`url_to_remote $drm_upstream_git`
 
-	cd ..
+	cd $DIM_PREFIX
 
 	setup_aux_checkout maintainer-tools $drm_intel_ssh maintainer-tools
 
