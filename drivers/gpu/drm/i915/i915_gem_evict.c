@@ -37,8 +37,9 @@ static bool
 gpu_is_idle(struct drm_i915_private *dev_priv)
 {
 	struct intel_engine_cs *engine;
+	enum intel_engine_id id;
 
-	for_each_engine(engine, dev_priv) {
+	for_each_engine(engine, dev_priv, id) {
 		if (intel_engine_is_active(engine))
 			return false;
 	}
@@ -55,7 +56,7 @@ mark_free(struct i915_vma *vma, unsigned int flags, struct list_head *unwind)
 	if (WARN_ON(!list_empty(&vma->exec_list)))
 		return false;
 
-	if (flags & PIN_NONFAULT && vma->obj->fault_mappable)
+	if (flags & PIN_NONFAULT && !list_empty(&vma->obj->userfault_link))
 		return false;
 
 	list_add(&vma->exec_list, unwind);

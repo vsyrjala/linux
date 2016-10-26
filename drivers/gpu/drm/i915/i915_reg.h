@@ -86,8 +86,7 @@ static inline bool i915_mmio_reg_valid(i915_reg_t reg)
 #define DEVEN 0x54
 #define   DEVEN_MCHBAR_EN (1 << 28)
 
-#define BSM 0x5c
-#define   BSM_MASK (0xFFFF << 20)
+/* BSM in include/drm/i915_drm.h */
 
 #define HPLLCC	0xc0 /* 85x only */
 #define   GC_CLOCK_CONTROL_MASK		(0x7 << 0)
@@ -1605,6 +1604,7 @@ enum skl_disp_power_wells {
 #define RING_HEAD(base)		_MMIO((base)+0x34)
 #define RING_START(base)	_MMIO((base)+0x38)
 #define RING_CTL(base)		_MMIO((base)+0x3c)
+#define   RING_CTL_SIZE(size)	((size) - PAGE_SIZE) /* in bytes -> pages */
 #define RING_SYNC_0(base)	_MMIO((base)+0x40)
 #define RING_SYNC_1(base)	_MMIO((base)+0x44)
 #define RING_SYNC_2(base)	_MMIO((base)+0x48)
@@ -1708,7 +1708,11 @@ enum skl_disp_power_wells {
 #define GEN7_SC_INSTDONE	_MMIO(0x7100)
 #define GEN7_SAMPLER_INSTDONE	_MMIO(0xe160)
 #define GEN7_ROW_INSTDONE	_MMIO(0xe164)
-#define I915_NUM_INSTDONE_REG	4
+#define GEN8_MCR_SELECTOR		_MMIO(0xfdc)
+#define   GEN8_MCR_SLICE(slice)		(((slice) & 3) << 26)
+#define   GEN8_MCR_SLICE_MASK		GEN8_MCR_SLICE(3)
+#define   GEN8_MCR_SUBSLICE(subslice)	(((subslice) & 3) << 24)
+#define   GEN8_MCR_SUBSLICE_MASK	GEN8_MCR_SUBSLICE(3)
 #define RING_IPEIR(base)	_MMIO((base)+0x64)
 #define RING_IPEHR(base)	_MMIO((base)+0x68)
 /*
@@ -2089,9 +2093,9 @@ enum skl_disp_power_wells {
 #define PM_VEBOX_CS_ERROR_INTERRUPT		(1 << 12) /* hsw+ */
 #define PM_VEBOX_USER_INTERRUPT			(1 << 10) /* hsw+ */
 
-#define GT_PARITY_ERROR(dev) \
+#define GT_PARITY_ERROR(dev_priv) \
 	(GT_RENDER_L3_PARITY_ERROR_INTERRUPT | \
-	 (IS_HASWELL(dev) ? GT_RENDER_L3_PARITY_ERROR_INTERRUPT_S1 : 0))
+	 (IS_HASWELL(dev_priv) ? GT_RENDER_L3_PARITY_ERROR_INTERRUPT_S1 : 0))
 
 /* These are all the "old" interrupts */
 #define ILK_BSD_USER_INTERRUPT				(1<<5)
@@ -2184,8 +2188,9 @@ enum skl_disp_power_wells {
 #define FBC_FENCE_OFF		_MMIO(0x3218) /* BSpec typo has 321Bh */
 #define FBC_TAG(i)		_MMIO(0x3300 + (i) * 4)
 
-#define FBC_STATUS2		_MMIO(0x43214)
-#define  FBC_COMPRESSION_MASK	0x7ff
+#define FBC_STATUS2			_MMIO(0x43214)
+#define  IVB_FBC_COMPRESSION_MASK	0x7ff
+#define  BDW_FBC_COMPRESSION_MASK	0xfff
 
 #define FBC_LL_SIZE		(1536)
 
@@ -6011,6 +6016,7 @@ enum {
 #define  GEN8_DE_PIPE_A_IRQ		(1<<16)
 #define  GEN8_DE_PIPE_IRQ(pipe)		(1<<(16+(pipe)))
 #define  GEN8_GT_VECS_IRQ		(1<<6)
+#define  GEN8_GT_GUC_IRQ		(1<<5)
 #define  GEN8_GT_PM_IRQ			(1<<4)
 #define  GEN8_GT_VCS2_IRQ		(1<<3)
 #define  GEN8_GT_VCS1_IRQ		(1<<2)
@@ -6021,6 +6027,16 @@ enum {
 #define GEN8_GT_IMR(which) _MMIO(0x44304 + (0x10 * (which)))
 #define GEN8_GT_IIR(which) _MMIO(0x44308 + (0x10 * (which)))
 #define GEN8_GT_IER(which) _MMIO(0x4430c + (0x10 * (which)))
+
+#define GEN9_GUC_TO_HOST_INT_EVENT	(1<<31)
+#define GEN9_GUC_EXEC_ERROR_EVENT	(1<<30)
+#define GEN9_GUC_DISPLAY_EVENT		(1<<29)
+#define GEN9_GUC_SEMA_SIGNAL_EVENT	(1<<28)
+#define GEN9_GUC_IOMMU_MSG_EVENT	(1<<27)
+#define GEN9_GUC_DB_RING_EVENT		(1<<26)
+#define GEN9_GUC_DMA_DONE_EVENT		(1<<25)
+#define GEN9_GUC_FATAL_ERROR_EVENT	(1<<24)
+#define GEN9_GUC_NOTIFICATION_EVENT	(1<<23)
 
 #define GEN8_RCS_IRQ_SHIFT 0
 #define GEN8_BCS_IRQ_SHIFT 16
@@ -7327,6 +7343,10 @@ enum {
 #define   AUD_CONFIG_UPPER_N_MASK		(0xff << 20)
 #define   AUD_CONFIG_LOWER_N_SHIFT		4
 #define   AUD_CONFIG_LOWER_N_MASK		(0xfff << 4)
+#define   AUD_CONFIG_N_MASK			(AUD_CONFIG_UPPER_N_MASK | AUD_CONFIG_LOWER_N_MASK)
+#define   AUD_CONFIG_N(n) \
+	(((((n) >> 12) & 0xff) << AUD_CONFIG_UPPER_N_SHIFT) |	\
+	 (((n) & 0xfff) << AUD_CONFIG_LOWER_N_SHIFT))
 #define   AUD_CONFIG_PIXEL_CLOCK_HDMI_SHIFT	16
 #define   AUD_CONFIG_PIXEL_CLOCK_HDMI_MASK	(0xf << 16)
 #define   AUD_CONFIG_PIXEL_CLOCK_HDMI_25175	(0 << 16)
