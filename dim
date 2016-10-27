@@ -104,15 +104,15 @@ HELP=
 
 function echoerr
 {
-	echo "$@" >&2
+	echo "$dim: $@" >&2
 }
 
 function warn_or_fail
 {
 	if [[ $FORCE ]] ; then
-		echoerr WARNING: $1, but continuing
+		echoerr "WARNING: $1, but continuing"
 	else
-		echoerr ERROR: $1, aborting
+		echoerr "ERROR: $1, aborting"
 		exit 1
 	fi
 }
@@ -172,18 +172,18 @@ function dim_uptodate
 	local using="${BASH_SOURCE[0]}"
 
 	if [[ ! -e "$using" ]]; then
-		echoerr "$dim: could not figure out the version being used ($using)."
+		echoerr "could not figure out the version being used ($using)."
 		exit 1
 	fi
 
 	if [[ ! -e "$DIM_PREFIX/maintainer-tools/.git" ]]; then
-		echoerr "$dim: could not find the upstream repo for $dim."
+		echoerr "could not find the upstream repo for $dim."
 		exit 1
 	fi
 
 	if ! git --git-dir=$DIM_PREFIX/maintainer-tools/.git show @{upstream}:dim |\
 			diff "$using" - >& /dev/null; then
-		echoerr "$dim: not running upstream version of the script."
+		echoerr "not running upstream version of the script."
 		exit 1
 	fi
 }
@@ -1288,6 +1288,6 @@ subcmd_func=dim_${subcmd//-/_}
 if declare -f $subcmd_func >/dev/null; then
 	$subcmd_func "$@"
 else
-	echoerr "$dim: '$subcommand' is not a dim command."
+	echoerr "'$subcommand' is not a dim command."
 	dim_usage
 fi
