@@ -95,6 +95,27 @@ addr_intel_qa="\"Christophe Prigent\" <christophe.prigent@intel.com>"
 # integration configuration
 integration_config=nightly.conf
 
+function read_integration_config
+{
+	# clear everything first to allow configuration reload
+	unset drm_tip_repos drm_tip_config
+	declare -g -A drm_tip_repos
+	declare -g -a drm_tip_config
+
+	if [ -r $DIM_PREFIX/drm-intel-rerere/$integration_config ]; then
+		source $DIM_PREFIX/drm-intel-rerere/$integration_config
+	fi
+
+	dim_branches=
+	for conf in "${drm_tip_config[@]}"; do
+		read repo branch override <<< $conf
+		if [[ "$repo" = "drm-intel" ]]; then
+			dim_branches="$dim_branches $branch"
+		fi
+	done
+}
+read_integration_config
+
 #
 # Command line options.
 #
@@ -161,14 +182,30 @@ if [ "$subcommand" != "setup" -a "$subcommand" != "help" -a "$subcommand" != "us
 			exit 1
 		fi
 	done
-
-	#
-	# Internal configuration that depends on a sane setup.
-	#
-
-	dim_branches=`(source $DIM_PREFIX/drm-intel-rerere/$integration_config ; echo $nightly_branches) | \
-		xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
 fi
+
+# get the remote name for url, depends on current repo
+function url_to_remote
+{
+	local url="$1"
+
+	if [[ -z "$url" ]]; then
+		echoerr "$0 without url"
+		exit 1
+	fi
+
+	local remote=$(git remote -v | grep -m 1 "$url" | cut -f 1)
+
+	if [[ -z "$remote" ]]; then
+		echoerr "No git remote for url $url found in $(pwd)"
+		echoerr "Please set it up using:"
+		echoerr "    $ git remote add <name> $url"
+		echoerr "with a name of your choice."
+		exit 1
+	fi
+
+	echo $remote
+}
 
 function dim_uptodate
 {
@@ -291,7 +328,7 @@ function dim_rebuild_nightly
 	echo "Done."
 
 	echo -n "Reloading $integration_config... "
-	source $rerere/$integration_config
+	read_integration_config
 	echo "Done."
 
 	cd $DIM_PREFIX/$integration_branch
@@ -300,7 +337,8 @@ function dim_rebuild_nightly
 		exit 1
 	fi
 
-	for remote in $(echo $nightly_branches | tr " " "\n" | sed 's|/.*$||g' | sort -u); do
+	for url in "${drm_tip_repos[@]}"; do
+		local remote=$(url_to_remote $url)
 		echo -n "Fetching $remote... "
 		# git fetch returns 128 if there's nothing to be fetched
 		git fetch $remote >& /dev/null || true
@@ -308,22 +346,17 @@ function dim_rebuild_nightly
 	done
 
 	# merge -fixes
-	for tree in $nightly_branches; do
-		local branch=${tree%:*}
-		local sha1=${tree#*:}
-		local name=${branch##*/}
+	for conf in "${drm_tip_config[@]}"; do
+		read repo branch override <<< $conf
+		local url=${drm_tip_repos[$repo]}
+		local remote=$(url_to_remote $url)
+		local sha1=$remote/$branch
 
-		# the : separator is optional
-		if [[ $sha1 == $tree ]] ; then
-			sha1=
-		fi
+		echo -n "Merging $repo (local remote $remote) $branch... "
 
-		echo -n "Merging $branch... "
-
-		if [[ -n $sha1 ]] ; then
+		if [[ -n "$override" ]]; then
+			sha1=$override
 			echo -n "Using override sha1: $sha1... "
-		else
-			sha1=$branch
 		fi
 
 		if [ $first == 1 ] ; then
@@ -335,8 +368,7 @@ function dim_rebuild_nightly
 			echo "Fast-forward. Done."
 			true
 		else
-			local fixup_file=$rerere/$integration_branch-$name-fixup.patch
-
+			local fixup_file=$rerere/$repo-${branch//\//-}-fixup.patch
 			echo $fixup_file > .fixup_file_path
 
 			git merge --rerere-autoupdate --no-commit $sha1 >& /dev/null || true
@@ -353,7 +385,7 @@ function dim_rebuild_nightly
 			echo "Done."
 		fi
 
-		echo -e "$branch `git rev-parse $sha1`\n\t`git log -1 $sha1 --pretty=format:%s`" >> $specfile
+		echo -e "$repo $branch `git rev-parse $sha1`\n\t`git log -1 $sha1 --pretty=format:%s`" >> $specfile
 
 		$INTERACTIVE
 	done
@@ -617,11 +649,18 @@ function dim_create_branch
 
 	$DRY git branch $branch $start
 	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$branch --set-upstream
+
+	# FIXME: make it possible to add/remove non-drm-intel branches
+	local repo=drm-intel
 	cd $DIM_PREFIX/drm-intel-rerere
+	$DRY sed -i "s/^\() # DO NOT CHANGE THIS LINE\)$/\t\"$repo\t\t${branch//\//\\\/}\"\n\1/" $integration_config
+
+	# FIXME: For backward compatibility. Remove.
 	$DRY echo "nightly_branches=\"\$nightly_branches origin/$branch\"" \
 	     >> $integration_config
+
 	$DRY git add $integration_config
-	$DRY git commit --quiet -m "Add $branch to $integration_config"
+	$DRY git commit --quiet -m "Add $repo $branch to $integration_config"
 }
 
 function dim_remove_branch
@@ -645,11 +684,18 @@ function dim_remove_branch
 	cd $DIM_PREFIX/drm-intel-nightly
 	git push $DRY_RUN origin --delete $branch
 	$DRY git fetch origin --prune
+
+	# FIXME: make it possible to add/remove non-drm-intel branches
+	local repo=drm-intel
 	cd $DIM_PREFIX/drm-intel-rerere
+	$DRY sed -i "/^[[:space:]]*\"${repo}[[:space:]]\+${branch//\//\\\/}.*$/d" $integration_config
+
+	# FIXME: For backward compatibility. Remove.
 	full_branch="origin/$branch"
 	$DRY sed -e "/${full_branch//\//\\\/}/d" -i $integration_config
+
 	$DRY git add $integration_config
-	$DRY git commit --quiet -m "Remove $branch from $integration_config"
+	$DRY git commit --quiet -m "Remove $repo $branch from $integration_config"
 }
 
 function dim_cd
