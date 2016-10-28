@@ -92,6 +92,9 @@ addr_intel_gfx="intel-gfx@lists.freedesktop.org"
 addr_dri_devel="dri-devel@lists.freedesktop.org"
 addr_intel_qa="\"Christophe Prigent\" <christophe.prigent@intel.com>"
 
+# integration configuration
+integration_config=nightly.conf
+
 #
 # Command line options.
 #
@@ -163,7 +166,7 @@ if [ "$subcommand" != "setup" -a "$subcommand" != "help" -a "$subcommand" != "us
 	# Internal configuration that depends on a sane setup.
 	#
 
-	dim_branches=`(source $DIM_PREFIX/drm-intel-rerere/nightly.conf ; echo $nightly_branches) | \
+	dim_branches=`(source $DIM_PREFIX/drm-intel-rerere/$integration_config ; echo $nightly_branches) | \
 		xargs -n 1 echo | grep '^origin' | sed -e 's/^origin\///'`
 fi
 
@@ -280,14 +283,16 @@ function dim_rebuild_nightly
 
 	cd $rerere
 	if [[ `git status --porcelain | grep -v "^[ ?][ ?]" | wc -l` -gt 0 ]]; then
-		warn_or_fail "-nightly configuration file not commited"
+		warn_or_fail "integration configuration file $integration_config not commited"
 	fi
 
-	echo -n "Updating rerere cache and nightly.conf... "
+	echo -n "Updating rerere cache... "
 	update_rerere_cache >& /dev/null
 	echo "Done."
 
-	source $rerere/nightly.conf
+	echo -n "Reloading $integration_config... "
+	source $rerere/$integration_config
+	echo "Done."
 
 	cd $DIM_PREFIX/$integration_branch
 	if ! git branch --list $integration_branch | grep '\*' >& /dev/null ; then
@@ -383,7 +388,6 @@ function dim_rebuild_nightly
 
 	update_linux_next
 }
-
 # push branch $1, rebuild nightly. the rest of the arguments are passed to git
 # push.
 function dim_push_branch
@@ -615,9 +619,9 @@ function dim_create_branch
 	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$branch --set-upstream
 	cd $DIM_PREFIX/drm-intel-rerere
 	$DRY echo "nightly_branches=\"\$nightly_branches origin/$branch\"" \
-	     >> nightly.conf
-	$DRY git add nightly.conf
-	$DRY git commit --quiet -m "Adding $branch to -nightly"
+	     >> $integration_config
+	$DRY git add $integration_config
+	$DRY git commit --quiet -m "Add $branch to $integration_config"
 }
 
 function dim_remove_branch
@@ -643,9 +647,9 @@ function dim_remove_branch
 	$DRY git fetch origin --prune
 	cd $DIM_PREFIX/drm-intel-rerere
 	full_branch="origin/$branch"
-	$DRY sed -e "/${full_branch//\//\\\/}/d" -i nightly.conf
-	$DRY git add nightly.conf
-	$DRY git commit --quiet -m "Deleted $branch and removed from -nightly"
+	$DRY sed -e "/${full_branch//\//\\\/}/d" -i $integration_config
+	$DRY git add $integration_config
+	$DRY git commit --quiet -m "Remove $branch from $integration_config"
 }
 
 function dim_cd
