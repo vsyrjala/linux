@@ -4272,6 +4272,7 @@ int
 drm_hdmi_avi_infoframe_from_display_mode(struct hdmi_avi_infoframe *frame,
 					 const struct drm_display_mode *mode)
 {
+	enum hdmi_picture_aspect picture_aspect;
 	int err;
 
 	if (!frame || !mode)
@@ -4286,19 +4287,27 @@ drm_hdmi_avi_infoframe_from_display_mode(struct hdmi_avi_infoframe *frame,
 
 	frame->video_code = drm_match_cea_mode(mode);
 
-	frame->picture_aspect = HDMI_PICTURE_ASPECT_NONE;
-
 	/*
 	 * Populate picture aspect ratio from either
 	 * user input (if specified) or from the CEA mode list.
 	 */
-	if (mode->picture_aspect_ratio == HDMI_PICTURE_ASPECT_4_3 ||
-		mode->picture_aspect_ratio == HDMI_PICTURE_ASPECT_16_9)
-		frame->picture_aspect = mode->picture_aspect_ratio;
-	else if (frame->video_code > 0)
-		frame->picture_aspect = drm_get_cea_aspect_ratio(
-						frame->video_code);
+	if (frame->video_code > 0)
+		picture_aspect = drm_get_cea_aspect_ratio(frame->video_code);
+	else
+		picture_aspect = mode->picture_aspect_ratio;
 
+	/*
+	 * The infoframe can't convey anything but none, 4:3
+	 * and 16:9, so if the user has asked for anything else
+	 * we can only satisfy it by specifying the right VIC.
+	 */
+	if (picture_aspect > HDMI_PICTURE_ASPECT_16_9) {
+		if (frame->video_code == 0)
+			return -EINVAL;
+		picture_aspect = 0;
+	}
+
+	frame->picture_aspect = picture_aspect;
 	frame->active_aspect = HDMI_ACTIVE_ASPECT_PICTURE;
 	frame->scan_mode = HDMI_SCAN_MODE_UNDERSCAN;
 
