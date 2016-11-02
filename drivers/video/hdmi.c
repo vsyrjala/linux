@@ -119,6 +119,8 @@ ssize_t hdmi_avi_infoframe_pack(struct hdmi_avi_infoframe *frame, void *buffer,
 	if (frame->left_bar || frame->right_bar)
 		ptr[0] |= BIT(2);
 
+	WARN_ON(frame->picture_aspect > HDMI_PICTURE_ASPECT_16_9);
+
 	ptr[1] = ((frame->colorimetry & 0x3) << 6) |
 		 ((frame->picture_aspect & 0x3) << 4) |
 		 (frame->active_aspect & 0xf);
