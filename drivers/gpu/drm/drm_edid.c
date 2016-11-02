@@ -2651,10 +2651,14 @@ cea_mode_alternate_timings(u8 vic, struct drm_display_mode *mode)
 static u8 drm_match_cea_mode_clock_tolerance(const struct drm_display_mode *to_match,
 					     unsigned int clock_tolerance)
 {
+	unsigned int match_flags = DRM_MODE_MATCH_TIMINGS | DRM_MODE_MATCH_FLAGS;
 	u8 vic;
 
 	if (!to_match->clock)
 		return 0;
+
+	if (to_match->picture_aspect_ratio)
+		match_flags |= DRM_MODE_MATCH_ASPECT_RATIO;
 
 	for (vic = 1; vic < ARRAY_SIZE(edid_cea_modes); vic++) {
 		struct drm_display_mode cea_mode = edid_cea_modes[vic];
@@ -2669,7 +2673,7 @@ static u8 drm_match_cea_mode_clock_tolerance(const struct drm_display_mode *to_m
 			continue;
 
 		do {
-			if (drm_mode_equal_no_clocks_no_stereo(to_match, &cea_mode))
+			if (drm_mode_match(to_match, &cea_mode, match_flags))
 				return vic;
 		} while (cea_mode_alternate_timings(vic, &cea_mode));
 	}
@@ -2686,10 +2690,14 @@ static u8 drm_match_cea_mode_clock_tolerance(const struct drm_display_mode *to_m
  */
 u8 drm_match_cea_mode(const struct drm_display_mode *to_match)
 {
+	unsigned int match_flags = DRM_MODE_MATCH_TIMINGS | DRM_MODE_MATCH_FLAGS;
 	u8 vic;
 
 	if (!to_match->clock)
 		return 0;
+
+	if (to_match->picture_aspect_ratio)
+		match_flags |= DRM_MODE_MATCH_ASPECT_RATIO;
 
 	for (vic = 1; vic < ARRAY_SIZE(edid_cea_modes); vic++) {
 		struct drm_display_mode cea_mode = edid_cea_modes[vic];
@@ -2704,7 +2712,7 @@ u8 drm_match_cea_mode(const struct drm_display_mode *to_match)
 			continue;
 
 		do {
-			if (drm_mode_equal_no_clocks_no_stereo(to_match, &cea_mode))
+			if (drm_mode_match(to_match, &cea_mode, match_flags))
 				return vic;
 		} while (cea_mode_alternate_timings(vic, &cea_mode));
 	}
