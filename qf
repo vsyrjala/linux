@@ -540,6 +540,25 @@ $ qf git pull && qf checkout test
 Doing only a git pull on the quilt branch leads to an
 inconsitent state if the baseline changed.
 
+Bisecting patch history
+-----------------------
+
+Git history in the patches directory records every rebase or any other changes
+to the patch pile, including the baseline. Which means it can be used for
+bisecting not just the individual patches, but the history of the entire patch
+pile:
+
+$ qf git bisect *old-sha1* *new-sha1*
+
+to start the bisect process, and then for each bisect step:
+
+$ qf checkout HEAD
+
+Run tests to figure out whether it's part of the new (bad) or old (good)
+history, then tell git using
+
+$ qf git bisect new|old
+
 COMMANDS
 ========
 
