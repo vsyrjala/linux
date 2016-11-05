@@ -7242,12 +7242,11 @@ static int intel_crtc_compute_config(struct intel_crtc *crtc,
 	const struct drm_display_mode *adjusted_mode = &pipe_config->base.adjusted_mode;
 	int clock_limit = dev_priv->max_dotclk_freq;
 
-	if (pipe_config->base.enable &&
-	    dev_priv->display.crtc_compute_clock &&
+	if (dev_priv->display.crtc_get_shared_dpll &&
 	    !WARN_ON(pipe_config->shared_dpll)) {
 		int ret;
 
-		ret = dev_priv->display.crtc_compute_clock(crtc, pipe_config);
+		ret = dev_priv->display.crtc_get_shared_dpll(pipe_config);
 		if (ret)
 			return ret;
 	}
@@ -9633,7 +9632,6 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct dpll reduced_clock;
 	bool has_reduced_clock = false;
-	struct intel_shared_dpll *pll;
 	const struct intel_limit *limit;
 	int refclk = 120000;
 
@@ -9678,6 +9676,18 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 	ironlake_compute_dpll(crtc, crtc_state,
 			      has_reduced_clock ? &reduced_clock : NULL);
 
+	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS) &&
+	    has_reduced_clock)
+		crtc->lowfreq_avail = true;
+
+	return 0;
+}
+
+static int ironlake_crtc_get_shared_dpll(struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct intel_shared_dpll *pll;
+
 	pll = intel_get_shared_dpll(crtc, crtc_state, NULL);
 	if (pll == NULL) {
 		if (!crtc_state->dpll_constrained) {
@@ -9691,10 +9701,6 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 				 pipe_name(crtc->pipe));
 		return -EINVAL;
 	}
-
-	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_LVDS) &&
-	    has_reduced_clock)
-		crtc->lowfreq_avail = true;
 
 	return 0;
 }
@@ -10540,12 +10546,19 @@ static void skl_modeset_commit_cdclk(struct drm_atomic_state *old_state)
 static int haswell_crtc_compute_clock(struct intel_crtc *crtc,
 				      struct intel_crtc_state *crtc_state)
 {
+	crtc->lowfreq_avail = false;
+
+	return 0;
+}
+
+static int haswell_crtc_get_shared_dpll(struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+
 	if (!intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DSI)) {
 		if (!intel_ddi_pll_select(crtc, crtc_state))
 			return -EINVAL;
 	}
-
-	crtc->lowfreq_avail = false;
 
 	return 0;
 }
@@ -13109,10 +13122,11 @@ static int
 intel_modeset_pipe_config_continue(struct intel_crtc *crtc,
 				   struct intel_crtc_state *pipe_config)
 {
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct drm_atomic_state *state = pipe_config->base.state;
 	struct drm_connector *connector;
 	struct drm_connector_state *connector_state;
-	int i;
+	int ret, i;
 
 	/* Ensure the port clock defaults are reset when retrying. */
 	pipe_config->port_clock = 0;
@@ -13145,6 +13159,10 @@ intel_modeset_pipe_config_continue(struct intel_crtc *crtc,
 	if (!pipe_config->port_clock)
 		pipe_config->port_clock = pipe_config->base.adjusted_mode.crtc_clock
 			* pipe_config->pixel_multiplier;
+
+	ret = dev_priv->display.crtc_compute_clock(crtc, pipe_config);
+	if (ret)
+		return ret;
 
 	if (pipe_config->has_pch_encoder)
 		ironlake_fdi_compute_config(crtc, pipe_config);
@@ -13934,7 +13952,7 @@ static void intel_modeset_clear_plls(struct drm_atomic_state *state)
 	struct drm_crtc_state *crtc_state;
 	int i;
 
-	if (!dev_priv->display.crtc_compute_clock)
+	if (!dev_priv->display.crtc_get_shared_dpll)
 		return;
 
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
@@ -16098,6 +16116,8 @@ void intel_init_display_hooks(struct drm_i915_private *dev_priv)
 			skylake_get_initial_plane_config;
 		dev_priv->display.crtc_compute_clock =
 			haswell_crtc_compute_clock;
+		dev_priv->display.crtc_get_shared_dpll =
+			haswell_crtc_get_shared_dpll;
 		dev_priv->display.crtc_enable = haswell_crtc_enable;
 		dev_priv->display.crtc_disable = haswell_crtc_disable;
 	} else if (HAS_DDI(dev_priv)) {
@@ -16106,6 +16126,8 @@ void intel_init_display_hooks(struct drm_i915_private *dev_priv)
 			ironlake_get_initial_plane_config;
 		dev_priv->display.crtc_compute_clock =
 			haswell_crtc_compute_clock;
+		dev_priv->display.crtc_get_shared_dpll =
+			haswell_crtc_get_shared_dpll;
 		dev_priv->display.crtc_enable = haswell_crtc_enable;
 		dev_priv->display.crtc_disable = haswell_crtc_disable;
 	} else if (HAS_PCH_SPLIT(dev_priv)) {
@@ -16114,6 +16136,8 @@ void intel_init_display_hooks(struct drm_i915_private *dev_priv)
 			ironlake_get_initial_plane_config;
 		dev_priv->display.crtc_compute_clock =
 			ironlake_crtc_compute_clock;
+		dev_priv->display.crtc_get_shared_dpll =
+			ironlake_crtc_get_shared_dpll;
 		dev_priv->display.crtc_enable = ironlake_crtc_enable;
 		dev_priv->display.crtc_disable = ironlake_crtc_disable;
 	} else if (IS_CHERRYVIEW(dev_priv)) {
