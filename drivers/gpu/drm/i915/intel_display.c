@@ -7186,6 +7186,8 @@ static int ironlake_fdi_check_config(struct intel_crtc *crtc,
 	if (pipe_config->pipe_bpp > 6*3) {
 		pipe_config->pipe_bpp -= 2*3;
 		pipe_config->bw_constrained = true;
+		if (i915.force_dpll_retry)
+			pipe_config->dpll_constrained = true;
 
 		return -EAGAIN;
 	}

@@ -66,6 +66,10 @@ struct i915_params i915 __read_mostly = {
 	.enable_blcm = true,
 };
 
+module_param_named(force_dpll_retry, i915.force_dpll_retry, bool, 0600);
+MODULE_PARM_DESC(force_dpll_retry,
+	"Force a DPLL retry if FDI lane count needs redoing [default=false]");
+
 module_param_named(modeset, i915.modeset, int, 0400);
 MODULE_PARM_DESC(modeset,
 	"Use kernel modesetting [KMS] (0=disable, "
