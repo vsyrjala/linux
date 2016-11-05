@@ -1625,6 +1625,20 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 		min_clock = max_clock;
 	}
 
+	/*
+	 * If we couldn't enough DPLLs last time around, let's try to push
+	 * all DP ports to max clock so that they might all share a single
+	 * DPLL.
+	 *
+	 * This should only happen on IVB as the other platforms should
+	 * all have enough independent DPLLs for all the ports. That means
+	 * only 1.62 and 2.7 link rates are going to be relevant, and the
+	 * first time around we would have tried to use the min clock for
+	 * everything, so 1.62 is already tested to not work when we get here.
+	 */
+	if (pipe_config->dpll_constrained)
+		min_clock = max_clock;
+
 	for (; bpp >= 6*3; bpp -= 2*3) {
 		mode_rate = intel_dp_link_required(adjusted_mode->crtc_clock,
 						   bpp);

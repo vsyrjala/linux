@@ -7048,6 +7048,9 @@ static int intel_add_crtc_modeset_to_state(struct drm_atomic_state *state,
 	if (IS_ERR(crtc_state))
 		return PTR_ERR(crtc_state);
 
+	if (!crtc_state->base.enable)
+		return 0;
+
 	crtc_state->base.mode_changed = true;
 
 	ret = drm_atomic_add_affected_connectors(state, &crtc->base);
@@ -7238,6 +7241,16 @@ static int intel_crtc_compute_config(struct intel_crtc *crtc,
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	const struct drm_display_mode *adjusted_mode = &pipe_config->base.adjusted_mode;
 	int clock_limit = dev_priv->max_dotclk_freq;
+
+	if (pipe_config->base.enable &&
+	    dev_priv->display.crtc_compute_clock &&
+	    !WARN_ON(pipe_config->shared_dpll)) {
+		int ret;
+
+		ret = dev_priv->display.crtc_compute_clock(crtc, pipe_config);
+		if (ret)
+			return ret;
+	}
 
 	if (INTEL_INFO(dev)->gen < 4) {
 		clock_limit = dev_priv->max_cdclk_freq * 9 / 10;
@@ -9667,6 +9680,13 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 
 	pll = intel_get_shared_dpll(crtc, crtc_state, NULL);
 	if (pll == NULL) {
+		if (!crtc_state->dpll_constrained) {
+			DRM_DEBUG_DRIVER("failed to find PLL for pipe %c, trying to remedy\n",
+					 pipe_name(crtc->pipe));
+			crtc_state->dpll_constrained = true;
+			return -EAGAIN;
+		}
+
 		DRM_DEBUG_DRIVER("failed to find PLL for pipe %c\n",
 				 pipe_name(crtc->pipe));
 		return -EINVAL;
@@ -12627,15 +12647,6 @@ static int intel_crtc_atomic_check(struct drm_crtc *crtc,
 	if (mode_changed && !crtc_state->active)
 		pipe_config->update_wm_post = true;
 
-	if (mode_changed && crtc_state->enable &&
-	    dev_priv->display.crtc_compute_clock &&
-	    !WARN_ON(pipe_config->shared_dpll)) {
-		ret = dev_priv->display.crtc_compute_clock(intel_crtc,
-							   pipe_config);
-		if (ret)
-			return ret;
-	}
-
 	if (crtc_state->color_mgmt_changed) {
 		ret = intel_color_check(crtc, crtc_state);
 		if (ret)
@@ -14090,8 +14101,6 @@ static int intel_modeset_checks(struct drm_atomic_state *state)
 	} else
 		to_intel_atomic_state(state)->cdclk = dev_priv->atomic_cdclk_freq;
 
-	intel_modeset_clear_plls(state);
-
 	if (IS_HASWELL(dev_priv))
 		return haswell_mode_set_planes_workaround(state);
 
@@ -14130,6 +14139,7 @@ static int intel_atomic_check(struct drm_device *dev,
 	int ret, i;
 	unsigned int modeset_pipes = 0;
 	bool retry;
+	bool dpll_constrained = false;
 
 	ret = drm_atomic_helper_check_modeset(dev, state);
 	if (ret)
@@ -14172,11 +14182,28 @@ static int intel_atomic_check(struct drm_device *dev,
 	}
 
 	/*
-	 * Keep at it until we run out of ways
-	 * to reduce FDI bandwith utilization.
+	 * Keep at it until we run out of ways to reduce FDI
+	 * bandwith utilization, or ways to make DPLLs selection
+	 * easier.
 	 */
 	do {
 		retry = false;
+
+		/*
+		 * Use the big hammer approach for simplicity if we
+		 * couldn't find enough DPLLs the first time around
+		 *
+		 * FIXME: could optimize to only add DP ports...
+		 */
+		if (dpll_constrained) {
+			for_each_crtc(state->dev, crtc) {
+				ret = intel_add_crtc_modeset_to_state(state, to_intel_crtc(crtc));
+				if (ret)
+					return ret;
+			}
+		}
+
+		intel_modeset_clear_plls(state);
 
 		for_each_crtc_in_state(state, crtc, crtc_state, i) {
 			struct intel_crtc_state *pipe_config =
@@ -14199,6 +14226,8 @@ static int intel_atomic_check(struct drm_device *dev,
 				retry = true;
 			else if (ret)
 				return ret;
+
+			dpll_constrained |= pipe_config->dpll_constrained;
 		}
 	} while (retry);
 

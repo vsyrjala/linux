@@ -101,6 +101,7 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 	crtc_state->fb_changed = false;
 	crtc_state->wm.need_postvbl_update = false;
 	crtc_state->fb_bits = 0;
+	crtc_state->dpll_constrained = false;
 
 	return &crtc_state->base;
 }

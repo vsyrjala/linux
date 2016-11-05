@@ -587,6 +587,12 @@ struct intel_crtc_state {
 	 */
 	bool bw_constrained;
 
+	/*
+	 * We had trouble finding a DPLL, so let's try to make this
+	 * less diffcult for the DPLL selection next time around.
+	 */
+	bool dpll_constrained;
+
 	/* Settings for the intel dpll used on pretty much everything but
 	 * haswell. */
 	struct dpll dpll;
