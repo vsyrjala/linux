@@ -12927,7 +12927,7 @@ static void intel_dump_pipe_config(struct intel_crtc *crtc,
 	}
 }
 
-static bool check_digital_port_conflicts(struct drm_atomic_state *state)
+static int check_digital_port_conflicts(struct drm_atomic_state *state)
 {
 	struct drm_device *dev = state->dev;
 	struct drm_connector *connector;
@@ -12945,6 +12945,10 @@ static bool check_digital_port_conflicts(struct drm_atomic_state *state)
 		struct drm_connector_state *connector_state;
 		struct intel_encoder *encoder;
 
+		/*
+		 * We can peek at connector->state thanks to
+		 * connection_mutex
+		 */
 		connector_state = drm_atomic_get_existing_connector_state(state, connector);
 		if (!connector_state)
 			connector_state = connector->state;
@@ -12968,7 +12972,7 @@ static bool check_digital_port_conflicts(struct drm_atomic_state *state)
 
 			/* the same port mustn't appear more than once */
 			if (used_ports & port_mask)
-				return false;
+				return -EINVAL;
 
 			used_ports |= port_mask;
 			break;
@@ -12983,9 +12987,9 @@ static bool check_digital_port_conflicts(struct drm_atomic_state *state)
 
 	/* can't mix MST and SST/HDMI on the same port */
 	if (used_ports & used_mst_ports)
-		return false;
+		return -EINVAL;
 
-	return true;
+	return 0;
 }
 
 static void
@@ -14044,11 +14048,6 @@ static int intel_modeset_checks(struct drm_atomic_state *state)
 	struct drm_crtc_state *crtc_state;
 	int ret = 0, i;
 
-	if (!check_digital_port_conflicts(state)) {
-		DRM_DEBUG_KMS("rejecting conflicting digital port configuration\n");
-		return -EINVAL;
-	}
-
 	intel_state->modeset = true;
 	intel_state->active_crtcs = dev_priv->active_crtcs;
 
@@ -14155,6 +14154,14 @@ static int intel_atomic_check(struct drm_device *dev,
 		ret = intel_add_crtc_modeset_to_state(state, to_intel_crtc(crtc));
 		if (ret)
 			return ret;
+	}
+
+	if (modeset_pipes) {
+		ret = check_digital_port_conflicts(state);
+		if (ret) {
+			DRM_DEBUG_KMS("rejecting conflicting digital port configuration\n");
+			return ret;
+		}
 	}
 
 	if (IS_IVYBRIDGE(dev_priv) &&
