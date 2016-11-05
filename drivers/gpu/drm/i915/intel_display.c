@@ -11110,10 +11110,7 @@ static int intel_modeset_setup_plane_state(struct drm_atomic_state *state,
 	if (IS_ERR(plane_state))
 		return PTR_ERR(plane_state);
 
-	if (mode)
-		drm_crtc_get_hv_timing(mode, &hdisplay, &vdisplay);
-	else
-		hdisplay = vdisplay = 0;
+	drm_crtc_get_hv_timing(mode, &hdisplay, &vdisplay);
 
 	ret = drm_atomic_set_crtc_for_plane(plane_state, fb ? crtc : NULL);
 	if (ret)
