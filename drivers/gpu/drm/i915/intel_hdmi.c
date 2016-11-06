@@ -1493,6 +1493,8 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n",
 		      connector->base.id, connector->name);
 
+	msleep(20);
+
 	intel_display_power_get(dev_priv, POWER_DOMAIN_GMBUS);
 
 	intel_hdmi_unset_edid(connector);
