@@ -7154,6 +7154,8 @@ static void ironlake_fdi_compute_config(struct intel_crtc *crtc,
 		&pipe_config->base.adjusted_mode;
 	int link_bw, fdi_dotclock;
 
+	DRM_DEBUG_KMS("bpp = %d\n", pipe_config->pipe_bpp);
+
 	/* FDI is a binary signal running at ~2.7GHz, encoding
 	 * each output octet as 10 bits. The actual frequency
 	 * is stored as a divider into a 100MHz clock, and the
@@ -13051,7 +13053,7 @@ clear_intel_crtc_state(struct intel_crtc_state *crtc_state)
 	crtc_state->pch_pfit.force_thru = force_thru;
 }
 
-static int
+static noinline int
 intel_modeset_pipe_config_start(struct intel_crtc *crtc,
 				struct intel_crtc_state *pipe_config)
 {
@@ -13060,6 +13062,8 @@ intel_modeset_pipe_config_start(struct intel_crtc *crtc,
 	struct drm_connector *connector;
 	struct drm_connector_state *connector_state;
 	int i;
+
+	DRM_DEBUG_KMS("start %c\n", pipe_name(crtc->pipe));
 
 	WARN_ON(!drm_modeset_is_locked(&dev_priv->drm.mode_config.connection_mutex));
 
@@ -13121,10 +13125,12 @@ intel_modeset_pipe_config_start(struct intel_crtc *crtc,
 	else
 		pipe_config->max_fdi_lanes = 4;
 
+	DRM_DEBUG_KMS("end %c\n", pipe_name(crtc->pipe));
+
 	return 0;
 }
 
-static int
+static noinline int
 intel_modeset_pipe_config_continue(struct intel_crtc *crtc,
 				   struct intel_crtc_state *pipe_config)
 {
@@ -13133,6 +13139,8 @@ intel_modeset_pipe_config_continue(struct intel_crtc *crtc,
 	struct drm_connector *connector;
 	struct drm_connector_state *connector_state;
 	int ret, i;
+
+	DRM_DEBUG_KMS("start %c\n", pipe_name(crtc->pipe));
 
 	/* Ensure the port clock defaults are reset when retrying. */
 	pipe_config->port_clock = 0;
@@ -13167,20 +13175,26 @@ intel_modeset_pipe_config_continue(struct intel_crtc *crtc,
 			* pipe_config->pixel_multiplier;
 
 	ret = dev_priv->display.crtc_compute_clock(crtc, pipe_config);
-	if (ret)
+	if (ret) {
+		DRM_DEBUG_KMS("fail compute clock %c\n", pipe_name(crtc->pipe));
 		return ret;
+	}
 
 	if (pipe_config->has_pch_encoder)
 		ironlake_fdi_compute_config(crtc, pipe_config);
 
+	DRM_DEBUG_KMS("end %c\n", pipe_name(crtc->pipe));
+
 	return 0;
 }
 
-static int
+static noinline int
 intel_modeset_pipe_config_finish(struct intel_crtc *crtc,
 				 struct intel_crtc_state *pipe_config)
 {
 	int ret;
+
+	DRM_DEBUG_KMS("start %c\n", pipe_name(crtc->pipe));
 
 	ret = intel_crtc_compute_config(crtc, pipe_config);
 
@@ -13199,6 +13213,8 @@ intel_modeset_pipe_config_finish(struct intel_crtc *crtc,
 	pipe_config->dither = pipe_config->pipe_bpp == 6*3;
 	DRM_DEBUG_KMS("pipe bpp: %i, dithering: %i\n",
 		      pipe_config->pipe_bpp, pipe_config->dither);
+
+	DRM_DEBUG_KMS("end %c\n", pipe_name(crtc->pipe));
 
 	return 0;
 }
@@ -13969,6 +13985,9 @@ static void intel_modeset_clear_plls(struct drm_atomic_state *state)
 		if (!needs_modeset(crtc_state))
 			continue;
 
+		DRM_DEBUG_KMS("clearing DPLL %s from pipe %c\n",
+			      old_dpll ? old_dpll->name : NULL,
+			      pipe_name(intel_crtc->pipe));
 		to_intel_crtc_state(crtc_state)->shared_dpll = NULL;
 
 		if (!old_dpll)
@@ -14169,6 +14188,8 @@ static int intel_atomic_check(struct drm_device *dev,
 	if (ret)
 		return ret;
 
+	DRM_DEBUG_KMS("adding initial set of pipes to state\n");
+
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		/* Catch I915_MODE_FLAG_INHERITED */
 		if (crtc_state->mode.private_flags != crtc->state->mode.private_flags)
@@ -14190,6 +14211,8 @@ static int intel_atomic_check(struct drm_device *dev,
 			return ret;
 	}
 
+	DRM_DEBUG_KMS("doing port conflict check\n");
+
 	if (modeset_pipes) {
 		ret = check_digital_port_conflicts(state);
 		if (ret) {
@@ -14198,12 +14221,16 @@ static int intel_atomic_check(struct drm_device *dev,
 		}
 	}
 
+	DRM_DEBUG_KMS("doing bifurcate check\n");
+
 	if (IS_IVYBRIDGE(dev_priv) &&
 	    (modeset_pipes & ((1 << PIPE_B) | (1 << PIPE_C))) != 0) {
 		ret = ivybridge_compute_fdi_bc_bifurcation(state);
 		if (ret)
 			return ret;
 	}
+
+	DRM_DEBUG_KMS("startring compute loop\n");
 
 	/*
 	 * Keep at it until we run out of ways to reduce FDI
@@ -14213,6 +14240,7 @@ static int intel_atomic_check(struct drm_device *dev,
 	do {
 		retry = false;
 
+		DRM_DEBUG_KMS("startring compute iteration\n");
 		/*
 		 * Use the big hammer approach for simplicity if we
 		 * couldn't find enough DPLLs the first time around
@@ -14220,6 +14248,7 @@ static int intel_atomic_check(struct drm_device *dev,
 		 * FIXME: could optimize to only add DP ports...
 		 */
 		if (dpll_constrained) {
+			DRM_DEBUG_KMS("DPLL constrainded -> adding all pipes to state\n");
 			for_each_crtc(state->dev, crtc) {
 				ret = intel_add_crtc_modeset_to_state(state, to_intel_crtc(crtc));
 				if (ret)
@@ -14227,11 +14256,19 @@ static int intel_atomic_check(struct drm_device *dev,
 			}
 		}
 
+
+		DRM_DEBUG_KMS("clearing DPLLs\n");
+
 		intel_modeset_clear_plls(state);
+
+		DRM_DEBUG_KMS("computing pipes\n");
 
 		for_each_crtc_in_state(state, crtc, crtc_state, i) {
 			struct intel_crtc_state *pipe_config =
 				to_intel_crtc_state(crtc_state);
+
+			DRM_DEBUG_KMS("computing pipe %c\n",
+				      pipe_name(to_intel_crtc(crtc)->pipe));
 
 			if (!needs_modeset(crtc_state))
 				continue;
@@ -14252,8 +14289,13 @@ static int intel_atomic_check(struct drm_device *dev,
 				return ret;
 
 			dpll_constrained |= pipe_config->dpll_constrained;
+
+			DRM_DEBUG_KMS("done computing pipe %c\n",
+				      pipe_name(to_intel_crtc(crtc)->pipe));
 		}
 	} while (retry);
+
+	DRM_DEBUG_KMS("adding planes to state\n");
 
 	modeset_pipes = 0;
 
@@ -14277,6 +14319,8 @@ static int intel_atomic_check(struct drm_device *dev,
 			return ret;
 	}
 
+	DRM_DEBUG_KMS("doing cdclk checks\n");
+
 	if (modeset_pipes) {
 		ret = intel_modeset_checks(state);
 
@@ -14285,9 +14329,13 @@ static int intel_atomic_check(struct drm_device *dev,
 	} else
 		intel_state->cdclk = dev_priv->cdclk_freq;
 
+	DRM_DEBUG_KMS("checking planes\n");
+
 	ret = drm_atomic_helper_check_planes(dev, state);
 	if (ret)
 		return ret;
+
+	DRM_DEBUG_KMS("done checking planes\n");
 
 	if (modeset_pipes) {
 		for_each_crtc_in_state(state, crtc, crtc_state, i) {

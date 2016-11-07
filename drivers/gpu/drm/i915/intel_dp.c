@@ -1658,10 +1658,13 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 			}
 		}
 	}
+	DRM_DEBUG_KMS("fail bpp = %d -> %d\n", pipe_config->pipe_bpp, bpp);
 
 	return false;
 
 found:
+	DRM_DEBUG_KMS("ok bpp = %d -> %d\n", pipe_config->pipe_bpp, bpp);
+
 	if (intel_dp->color_range_auto) {
 		/*
 		 * See:
