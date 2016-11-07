@@ -13960,7 +13960,7 @@ static void intel_modeset_clear_plls(struct drm_atomic_state *state)
 	for_each_crtc_in_state(state, crtc, crtc_state, i) {
 		struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 		struct intel_shared_dpll *old_dpll =
-			to_intel_crtc_state(crtc->state)->shared_dpll;
+			to_intel_crtc_state(crtc_state)->shared_dpll;
 
 		if (!needs_modeset(crtc_state))
 			continue;
