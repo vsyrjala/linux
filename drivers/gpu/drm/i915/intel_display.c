@@ -9690,6 +9690,10 @@ static int ironlake_crtc_get_shared_dpll(struct intel_crtc_state *crtc_state)
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct intel_shared_dpll *pll;
 
+	/* CPU eDP is the only output that doesn't need a PCH PLL of its own. */
+	if (!crtc_state->has_pch_encoder)
+		return 0;
+
 	pll = intel_get_shared_dpll(crtc, crtc_state, NULL);
 	if (pll == NULL) {
 		if (!crtc_state->dpll_constrained) {
