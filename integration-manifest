@@ -1,0 +1,20 @@
+origin/drm-intel-fixes bc33b0ca11e3df467777a4fa7639ba488c9d4911
+	Linux 4.9-rc4
+drm-upstream/drm-fixes 020a0bbc0d89c15693e69ed2063584ef7ec2d811
+	Merge branch 'msm-fixes-4.9' of git://people.freedesktop.org/~robclark/linux into drm-fixes
+origin/drm-intel-next-fixes 105f1a65b04a8f4f7abec11b200b1fb54f3d4b46
+	drm/i915: Fix conflict resolution from backmerge of v4.8-rc8 to drm-next
+origin/drm-intel-next-queued 31ab49abde41c4056b17ca3d63456a62964834c0
+	drm/i915: Add assert for no pending GPU requests during suspend/resume in LR mode
+drm-upstream/drm-next afdd548f742ca454fc343696de472f3aaa5dc488
+	Merge branch 'linux-4.10' of git://github.com/skeggsb/linux into drm-next
+sound-upstream/for-next f8f93bc9d2a29c81cc6a4e6d7c87a6f712dbbeeb
+	Merge tag 'asoc-fix-v4.9-rc3' of git://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound into for-linus
+sound-upstream/for-linus f8f93bc9d2a29c81cc6a4e6d7c87a6f712dbbeeb
+	Merge tag 'asoc-fix-v4.9-rc3' of git://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound into for-linus
+origin/topic/drm-fixes c6935931c1894ff857616ff8549b61236a19148f
+	Linux 4.8-rc5
+origin/topic/drm-misc 55edf41b699bcb31dcf45082d99e91b7e217206e
+	drm: define drm_compat_ioctl NULL on CONFIG_COMPAT=n and reduce #ifdefs
+origin/topic/core-for-CI 15bdcbcc55853f70237aca4baa4152f8396799d4
+	kbuild: Disable PIE by default
