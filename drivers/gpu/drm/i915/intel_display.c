@@ -3039,6 +3039,8 @@ static void i9xx_update_primary_plane(struct drm_plane *primary,
 	int x = plane_state->base.src.x1 >> 16;
 	int y = plane_state->base.src.y1 >> 16;
 
+	trace_vlv_update_plane(primary, intel_crtc);
+
 	dspcntr = DISPPLANE_GAMMA_ENABLE;
 
 	dspcntr |= DISPLAY_PLANE_ENABLE;
@@ -3146,6 +3148,8 @@ static void i9xx_disable_primary_plane(struct drm_plane *primary,
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int plane = intel_crtc->plane;
+
+	trace_vlv_disable_plane(primary, to_intel_crtc(crtc));
 
 	I915_WRITE(DSPCNTR(plane), 0);
 	if (INTEL_INFO(dev_priv)->gen >= 4)
@@ -15182,6 +15186,8 @@ intel_disable_cursor_plane(struct drm_plane *plane,
 {
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 
+	trace_vlv_disable_plane(plane, intel_crtc);
+
 	intel_crtc->cursor_addr = 0;
 	intel_crtc_update_cursor(crtc, NULL);
 }
@@ -15196,6 +15202,8 @@ intel_update_cursor_plane(struct drm_plane *plane,
 	struct drm_i915_private *dev_priv = to_i915(plane->dev);
 	struct drm_i915_gem_object *obj = intel_fb_obj(state->base.fb);
 	uint32_t addr;
+
+	trace_vlv_update_plane(plane, intel_crtc);
 
 	if (!obj)
 		addr = 0;

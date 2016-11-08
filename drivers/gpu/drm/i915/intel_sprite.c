@@ -442,6 +442,8 @@ vlv_update_plane(struct drm_plane *dplane,
 	if (key->flags & I915_SET_COLORKEY_SOURCE)
 		sprctl |= SP_SOURCE_KEY;
 
+	trace_vlv_update_plane(dplane, to_intel_crtc(crtc_state->base.crtc));
+
 	if (IS_CHERRYVIEW(dev_priv) && pipe == PIPE_B)
 		chv_update_csc(intel_plane, fb->pixel_format);
 
@@ -470,6 +472,8 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	struct intel_plane *intel_plane = to_intel_plane(dplane);
 	enum pipe pipe = intel_plane->pipe;
 	enum plane_id plane_id = intel_plane->id;
+
+	trace_vlv_disable_plane(dplane, to_intel_crtc(crtc));
 
 	I915_WRITE(SPCNTR(pipe, plane_id), 0);
 
