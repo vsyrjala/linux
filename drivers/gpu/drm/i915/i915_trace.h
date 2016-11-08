@@ -14,6 +14,172 @@
 #define TRACE_SYSTEM i915
 #define TRACE_INCLUDE_FILE i915_trace
 
+/* vlv wm/fifo updates */
+
+TRACE_EVENT(vlv_update_plane,
+	    TP_PROTO(struct drm_plane *plane, struct intel_crtc *crtc),
+	    TP_ARGS(plane, crtc),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(const char *, name)
+			     __field(u32, frame)
+			     __field(u32, scanline)
+			     __field(u32, visible)
+			     __field(u32, src_w)
+			     __field(u32, src_h)
+			     __field(u32, src_x)
+			     __field(u32, src_y)
+			     __field(u32, dst_w)
+			     __field(u32, dst_h)
+			     __field(u32, dst_x)
+			     __field(u32, dst_y)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = crtc->pipe;
+			   __entry->name = plane->name;
+			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
+										       crtc->pipe);
+			   __entry->scanline = intel_get_crtc_scanline(crtc);
+			   __entry->visible = plane->state->visible;
+			   __entry->src_w = drm_rect_width(&plane->state->src);
+			   __entry->src_h = drm_rect_height(&plane->state->src);
+			   __entry->src_x = plane->state->src.x1;
+			   __entry->src_y = plane->state->src.y1;
+			   __entry->dst_w = drm_rect_width(&plane->state->dst);
+			   __entry->dst_h = drm_rect_height(&plane->state->dst);
+			   __entry->dst_x = plane->state->dst.x1;
+			   __entry->dst_y = plane->state->dst.y1;
+			   ),
+
+	    TP_printk("pipe %c, plane %s, frame=%u, scanline=%u, %d.%06ux%d.%06u%+d.%06u%+d.%06u -> %uX%u+%d+%d",
+		      pipe_name(__entry->pipe), __entry->name,
+		      __entry->frame, __entry->scanline,
+		      __entry->src_w >> 16, ((__entry->src_w & 0xffff) * 15625) >> 10,
+		      __entry->src_h >> 16, ((__entry->src_h & 0xffff) * 15625) >> 10,
+		      __entry->src_x >> 16, ((__entry->src_x & 0xffff) * 15625) >> 10,
+		      __entry->src_y >> 16, ((__entry->src_y & 0xffff) * 15625) >> 10,
+		      __entry->dst_w, __entry->dst_h, __entry->dst_x, __entry->dst_y)
+);
+
+TRACE_EVENT(vlv_disable_plane,
+	    TP_PROTO(struct drm_plane *plane, struct intel_crtc *crtc),
+	    TP_ARGS(plane, crtc),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(const char *, name)
+			     __field(u32, frame)
+			     __field(u32, scanline)
+			     __field(u32, visible)
+			     __field(u32, src_w)
+			     __field(u32, src_h)
+			     __field(u32, src_x)
+			     __field(u32, src_y)
+			     __field(u32, dst_w)
+			     __field(u32, dst_h)
+			     __field(u32, dst_x)
+			     __field(u32, dst_y)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = crtc->pipe;
+			   __entry->name = plane->name;
+			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
+										       crtc->pipe);
+			   __entry->scanline = intel_get_crtc_scanline(crtc);
+			   __entry->visible = plane->state->visible;
+			   __entry->src_w = drm_rect_width(&plane->state->src);
+			   __entry->src_h = drm_rect_height(&plane->state->src);
+			   __entry->src_x = plane->state->src.x1;
+			   __entry->src_y = plane->state->src.y1;
+			   __entry->dst_w = drm_rect_width(&plane->state->dst);
+			   __entry->dst_h = drm_rect_height(&plane->state->dst);
+			   __entry->dst_x = plane->state->dst.x1;
+			   __entry->dst_y = plane->state->dst.y1;
+			   ),
+
+	    TP_printk("pipe %c, plane %s, frame=%u, scanline=%u, %d.%06ux%d.%06u%+d.%06u%+d.%06u -> %dx%d+%d+%d",
+		      pipe_name(__entry->pipe), __entry->name,
+		      __entry->frame, __entry->scanline,
+		      __entry->src_w >> 16, ((__entry->src_w & 0xffff) * 15625) >> 10,
+		      __entry->src_h >> 16, ((__entry->src_h & 0xffff) * 15625) >> 10,
+		      __entry->src_x >> 16, ((__entry->src_x & 0xffff) * 15625) >> 10,
+		      __entry->src_y >> 16, ((__entry->src_y & 0xffff) * 15625) >> 10,
+		      __entry->dst_w, __entry->dst_h, __entry->dst_x, __entry->dst_y)
+);
+
+TRACE_EVENT(vlv_wm,
+	    TP_PROTO(struct intel_crtc *crtc, const struct vlv_wm_values *wm),
+	    TP_ARGS(crtc, wm),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(u32, frame)
+			     __field(u32, scanline)
+			     __field(u32, level)
+			     __field(u32, cxsr)
+			     __field(u32, primary)
+			     __field(u32, sprite0)
+			     __field(u32, sprite1)
+			     __field(u32, cursor)
+			     __field(u32, sr_plane)
+			     __field(u32, sr_cursor)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = crtc->pipe;
+			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
+										       crtc->pipe);
+			   __entry->scanline = intel_get_crtc_scanline(crtc);
+			   __entry->level = wm->level;
+			   __entry->cxsr = wm->cxsr;
+			   __entry->primary = wm->pipe[crtc->pipe].plane[PLANE_PRIMARY];
+			   __entry->sprite0 = wm->pipe[crtc->pipe].plane[PLANE_SPRITE0];
+			   __entry->sprite1 = wm->pipe[crtc->pipe].plane[PLANE_SPRITE1];
+			   __entry->cursor = wm->pipe[crtc->pipe].plane[PLANE_CURSOR];
+			   __entry->sr_plane = wm->sr.plane;
+			   __entry->sr_cursor = wm->sr.cursor;
+			   ),
+
+	    TP_printk("pipe %c, frame=%u, scanline=%u, level=%d, cxsr=%d, wm %d/%d/%d/%d, sr %d/%d",
+		      pipe_name(__entry->pipe), __entry->frame,
+		      __entry->scanline, __entry->level, __entry->cxsr,
+		      __entry->primary, __entry->sprite0, __entry->sprite1, __entry->cursor,
+		      __entry->sr_plane, __entry->sr_cursor)
+);
+
+TRACE_EVENT(vlv_fifo_size,
+	    TP_PROTO(struct intel_crtc *crtc, u32 sprite0_start, u32 sprite1_start, u32 fifo_size),
+	    TP_ARGS(crtc, sprite0_start, sprite1_start, fifo_size),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(u32, frame)
+			     __field(u32, scanline)
+			     __field(u32, sprite0_start)
+			     __field(u32, sprite1_start)
+			     __field(u32, fifo_size)
+			     ),
+
+	    TP_fast_assign(
+			   __entry->pipe = crtc->pipe;
+			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
+										       crtc->pipe);
+			   __entry->scanline = intel_get_crtc_scanline(crtc);
+			   __entry->sprite0_start = sprite0_start;
+			   __entry->sprite1_start = sprite1_start;
+			   __entry->fifo_size = fifo_size;
+			   ),
+
+	    TP_printk("pipe %c, frame=%u, scanline=%u, %d/%d/%d",
+		      pipe_name(__entry->pipe), __entry->frame,
+		      __entry->scanline, __entry->sprite0_start,
+		      __entry->sprite1_start, __entry->fifo_size)
+);
+
+
 /* pipe updates */
 
 TRACE_EVENT(i915_pipe_update_start,
