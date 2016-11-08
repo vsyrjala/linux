@@ -408,6 +408,30 @@ struct i915_hotplug {
 	for ((domain) = 0; (domain) < POWER_DOMAIN_NUM; (domain)++)	\
 		for_each_if ((1 << (domain)) & (mask))
 
+#define for_each_intel_connector_in_state(__state, connector, connector_state, __i) \
+	for ((__i) = 0; \
+	     (__i) < (__state)->base.num_connector && \
+		     ((connector) = to_intel_connector((__state)->base.connectors[__i].ptr), \
+		      (connector_state) = to_intel_connector_state((__state)->connectors[__i].state), 1); \
+	     (__i)++) \
+		for_each_if (connector)
+
+#define for_each_intel_crtc_in_state(__state, crtc, crtc_state, __i) \
+	for ((__i) = 0; \
+	     (__i) < (__state)->base.dev->mode_config.num_crtc && \
+		     ((crtc) = to_intel_crtc((__state)->base.crtcs[__i].ptr), \
+		      (crtc_state) = to_intel_crtc_state((__state)->base.crtcs[__i].state), 1); \
+	     (__i)++) \
+		for_each_if (crtc_state)
+
+#define for_each_intel_plane_in_state(__state, plane, plane_state, __i) \
+	for ((__i) = 0; \
+	     (__i) < (__state)->base.dev->mode_config.num_total_plane && \
+		     ((plane) = to_intel_plane((__state)->base.planes[__i].ptr), \
+		      (plane_state) = to_intel_plane_state((__state)->base.planes[__i].state), 1); \
+	     (__i)++) \
+		for_each_if (plane_state)
+
 struct drm_i915_private;
 struct i915_mm_struct;
 struct i915_mmu_object;
