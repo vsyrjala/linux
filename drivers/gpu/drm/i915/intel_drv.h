@@ -683,6 +683,10 @@ struct vlv_wm_state {
 	bool cxsr;
 };
 
+struct vlv_fifo_state {
+	uint16_t plane[I915_MAX_PLANES];
+};
+
 struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
@@ -732,6 +736,8 @@ struct intel_crtc {
 
 		/* allow CxSR on this pipe */
 		bool cxsr_allowed;
+
+		struct vlv_fifo_state fifo_state;
 	} wm;
 
 	int scanline_offset;
@@ -765,7 +771,6 @@ struct intel_plane_wm_parameters {
 	bool scaled;
 	u64 tiling;
 	unsigned int rotation;
-	uint16_t fifo_size;
 };
 
 struct intel_plane {
