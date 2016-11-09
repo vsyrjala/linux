@@ -181,6 +181,12 @@ static int intel_plane_atomic_check(struct drm_plane *plane,
 	if (ret)
 		return ret;
 
+	/* FIXME pre-g4x don't work like this */
+	if (intel_state->base.visible)
+		crtc_state->active_planes |= BIT(intel_plane->id);
+	else
+		crtc_state->active_planes &= ~BIT(intel_plane->id);
+
 	return intel_plane_atomic_calc_changes(&crtc_state->base, state);
 }
 
