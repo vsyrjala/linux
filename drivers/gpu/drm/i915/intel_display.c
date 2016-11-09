@@ -5487,7 +5487,8 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 		intel_ddi_enable_transcoder_func(crtc);
 
 	if (dev_priv->display.initial_watermarks != NULL)
-		dev_priv->display.initial_watermarks(old_intel_state, pipe_config);
+		dev_priv->display.initial_watermarks(old_intel_state,
+						     pipe_config);
 
 	/* XXX: Do the pipe assertions at the right place for BXT DSI. */
 	if (!transcoder_is_dsi(cpu_transcoder))
@@ -6690,6 +6691,8 @@ static void valleyview_modeset_commit_cdclk(struct drm_atomic_state *old_state)
 static void valleyview_crtc_enable(struct intel_crtc_state *pipe_config,
 				   struct drm_atomic_state *old_state)
 {
+	struct intel_atomic_state *old_intel_state =
+		to_intel_atomic_state(old_state);
 	struct drm_crtc *crtc = pipe_config->base.crtc;
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
@@ -6734,7 +6737,8 @@ static void valleyview_crtc_enable(struct intel_crtc_state *pipe_config,
 
 	intel_color_load_luts(&pipe_config->base);
 
-	intel_update_watermarks(intel_crtc);
+	dev_priv->display.initial_watermarks(old_intel_state,
+					     pipe_config);
 	intel_enable_pipe(intel_crtc);
 
 	assert_vblank_disabled(crtc);
@@ -6851,6 +6855,9 @@ static void i9xx_crtc_disable(struct intel_crtc_state *old_crtc_state,
 
 	if (!IS_GEN2(dev_priv))
 		intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, false);
+
+	if (!dev_priv->display.initial_watermarks)
+		intel_update_watermarks(intel_crtc);
 }
 
 static void intel_crtc_disable_noatomic(struct drm_crtc *crtc)
@@ -14431,12 +14438,12 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 				/*
 				 * Make sure we don't call initial_watermarks
 				 * for ILK-style watermark updates.
+				 *
+				 * No clue what this is supposed to achieve.
 				 */
-				if (dev_priv->display.atomic_update_watermarks)
+				if (INTEL_GEN(dev_priv) >= 9)
 					dev_priv->display.initial_watermarks(intel_state,
 									     to_intel_crtc_state(crtc->state));
-				else
-					intel_update_watermarks(intel_crtc);
 			}
 		}
 	}

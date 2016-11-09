@@ -490,9 +490,7 @@ enum vlv_wm_level {
 struct vlv_wm_state {
 	struct vlv_pipe_wm wm[NUM_VLV_WM_LEVELS];
 	struct vlv_sr_wm sr[NUM_VLV_WM_LEVELS];
-	uint8_t num_active_planes;
 	uint8_t num_levels;
-	uint8_t level;
 	bool cxsr;
 };
 
@@ -1781,7 +1779,6 @@ static inline int intel_enable_rc6(void)
 {
 	return i915.enable_rc6;
 }
-
 /* intel_sdvo.c */
 bool intel_sdvo_init(struct drm_i915_private *dev_priv,
 		     i915_reg_t reg, enum port port);
