@@ -526,6 +526,8 @@ struct intel_crtc_wm_state {
 		} skl;
 
 		struct {
+			/* non-inverted optimal watermarks */
+			struct vlv_pipe_wm noninverted[NUM_VLV_WM_LEVELS];
 			struct vlv_fifo_state fifo_state;
 			/* inverted optimal watermarks */
 			struct vlv_wm_state optimal;
