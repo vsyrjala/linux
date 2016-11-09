@@ -1026,6 +1026,8 @@ static int vlv_compute_fifo(struct intel_crtc_state *crtc_state)
 	if (total_rate > fifo_size)
 		return -EINVAL;
 
+	DRM_DEBUG_KMS("total rate = %d\n", total_rate);
+
 	if (total_rate == 0)
 		total_rate = 1;
 
@@ -1040,11 +1042,16 @@ static int vlv_compute_fifo(struct intel_crtc_state *crtc_state)
 		rate = noninverted->plane[plane_id];
 		fifo_state->plane[plane_id] = fifo_size * rate / total_rate;
 		fifo_left -= fifo_state->plane[plane_id];
+		DRM_DEBUG_KMS("%d rate=%d total_rate=%dm fifo_size=%d\n",
+			      plane_id, rate, total_rate, fifo_state->plane[plane_id]);
 	}
 
 	fifo_state->plane[PLANE_CURSOR] = 63;
 
 	fifo_extra = DIV_ROUND_UP(fifo_left, num_active_planes ?: 1);
+
+	DRM_DEBUG_KMS("fifo_extra=%d, num_active_planes=%d fifo_left=%d\n",
+		      fifo_extra, num_active_planes, fifo_left);
 
 	/* spread the remainder evenly */
 	for_each_plane_id_on_crtc(crtc, plane_id) {
@@ -1059,7 +1066,11 @@ static int vlv_compute_fifo(struct intel_crtc_state *crtc_state)
 		plane_extra = min(fifo_extra, fifo_left);
 		fifo_state->plane[plane_id] += plane_extra;
 		fifo_left -= plane_extra;
+		DRM_DEBUG_KMS("plane_extra=%d, new_fifo_size=%d fifo_left=%d\n",
+			      plane_extra, fifo_state->plane[plane_id], fifo_left);
 	}
+
+	DRM_DEBUG_KMS("fifo_left=%d\n", fifo_left);
 
 	WARN_ON(active_planes != 0 && fifo_left != 0);
 
@@ -1076,6 +1087,47 @@ static int vlv_compute_fifo(struct intel_crtc_state *crtc_state)
 static int vlv_num_wm_levels(struct drm_i915_private *dev_priv)
 {
 	return dev_priv->wm.max_level + 1;
+}
+
+static void vlv_dump_crtc_wms(struct intel_crtc *crtc,
+			      const char *whence,
+			      const struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	int level;
+
+	for (level = 0; level < vlv_num_wm_levels(dev_priv); level++) {
+		const struct vlv_pipe_wm *noninverted =
+			&crtc_state->wm.vlv.noninverted[level];
+
+		trace_printk("%s %s wms: [%d]=%d/%d/%d/%d\n",
+			     whence, crtc->base.name, level,
+			     noninverted->plane[PLANE_PRIMARY],
+			     noninverted->plane[PLANE_SPRITE0],
+			     noninverted->plane[PLANE_SPRITE1],
+			     noninverted->plane[PLANE_CURSOR]);
+	}
+}
+
+static void vlv_dump_wms(struct intel_crtc *crtc,
+			 const char *whence,
+			 const struct vlv_wm_state *wm_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	int level;
+
+	for (level = 0; level < vlv_num_wm_levels(dev_priv); level++) {
+		trace_printk("%s %s wms: [%d]=%d/%d/%d/%d\n",
+			     whence, crtc->base.name, level,
+			     wm_state->wm[level].plane[PLANE_PRIMARY],
+			     wm_state->wm[level].plane[PLANE_SPRITE0],
+			     wm_state->wm[level].plane[PLANE_SPRITE1],
+			     wm_state->wm[level].plane[PLANE_CURSOR]);
+		trace_printk("%s %s SR wms: [%d]=%d/%d\n",
+			     whence, crtc->base.name, level,
+			     wm_state->sr[level].plane,
+			     wm_state->sr[level].cursor);
+	}
 }
 
 /* mark all levels starting from 'level' as invalid */
@@ -1202,6 +1254,8 @@ static int vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	int level, ret, i;
 	u8 dirty = 0;
 
+	vlv_dump_crtc_wms(crtc, "pre-compute", crtc_state);
+
 	for_each_intel_plane_in_state(state, plane, plane_state, i) {
 		const struct intel_plane_state *old_plane_state =
 			to_intel_plane_state(plane->base.state);
@@ -1213,6 +1267,8 @@ static int vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 		if (vlv_plane_wm_compute(crtc_state, plane_state))
 			dirty |= BIT(plane->id);
 	}
+
+	vlv_dump_crtc_wms(crtc, "post-compute", crtc_state);
 
 	/*
 	 * DSPARB registers may have been reset due to the
@@ -1241,6 +1297,20 @@ static int vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 		    memcmp(old_fifo_state, fifo_state,
 			   sizeof(*fifo_state)) != 0)
 			crtc_state->fifo_changed = true;
+
+		DRM_DEBUG_KMS("%s fifo changed=%d split=%d/%d/%d/%d\n",
+			      crtc->base.name, crtc_state->fifo_changed,
+			      fifo_state->plane[PLANE_PRIMARY],
+			      fifo_state->plane[PLANE_SPRITE0],
+			      fifo_state->plane[PLANE_SPRITE1],
+			      fifo_state->plane[PLANE_CURSOR]);
+
+		trace_printk("%s fifo changed=%d: %d/%d/%d/%d\n",
+			     crtc->base.name, crtc_state->fifo_changed,
+			     fifo_state->plane[PLANE_PRIMARY],
+			     fifo_state->plane[PLANE_SPRITE0],
+			     fifo_state->plane[PLANE_SPRITE1],
+			     fifo_state->plane[PLANE_CURSOR]);
 	}
 
 	/* initially allow all levels */
@@ -1270,6 +1340,8 @@ static int vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 			vlv_invert_wm_value(noninverted->plane[PLANE_CURSOR],
 					    63);
 	}
+
+	vlv_dump_wms(crtc, "post-invert", wm_state);
 
 	if (level == 0)
 		return -EINVAL;

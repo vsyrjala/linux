@@ -125,7 +125,12 @@ static int intel_plane_atomic_check(struct drm_plane *plane,
 	 * just return success.
 	 */
 	if (!crtc)
+	{
+		trace_printk("%s -> [NOCRTC]\n", plane->name);
 		return 0;
+	}
+
+	trace_printk("%s -> %s\n", plane->name, crtc->name);
 
 	drm_crtc_state = drm_atomic_get_existing_crtc_state(state->state, crtc);
 	if (WARN_ON(!drm_crtc_state))
@@ -186,6 +191,10 @@ static int intel_plane_atomic_check(struct drm_plane *plane,
 		crtc_state->active_planes |= BIT(intel_plane->id);
 	else
 		crtc_state->active_planes &= ~BIT(intel_plane->id);
+
+	trace_printk("%s active planes 0x%x\n",
+		      crtc_state->base.crtc->name,
+		      crtc_state->active_planes);
 
 	return intel_plane_atomic_calc_changes(&crtc_state->base, state);
 }
