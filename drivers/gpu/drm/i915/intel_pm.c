@@ -1021,6 +1021,8 @@ static int vlv_compute_fifo(struct intel_crtc_state *crtc_state)
 	unsigned int total_rate;
 	enum plane_id plane_id;
 
+	DRM_DEBUG_KMS("%s\n", crtc->base.name);
+
 	total_rate = noninverted->plane[PLANE_PRIMARY] +
 		noninverted->plane[PLANE_SPRITE0] +
 		noninverted->plane[PLANE_SPRITE1];
@@ -1102,12 +1104,12 @@ static void vlv_dump_crtc_wms(struct intel_crtc *crtc,
 		const struct vlv_pipe_wm *noninverted =
 			&crtc_state->wm.vlv.noninverted[level];
 
-		trace_printk("%s %s wms: [%d]=%d/%d/%d/%d\n",
-			     whence, crtc->base.name, level,
-			     noninverted->plane[PLANE_PRIMARY],
-			     noninverted->plane[PLANE_SPRITE0],
-			     noninverted->plane[PLANE_SPRITE1],
-			     noninverted->plane[PLANE_CURSOR]);
+		DRM_DEBUG_KMS("%s %s wms: [%d]=%d/%d/%d/%d\n",
+			      whence, crtc->base.name, level,
+			      noninverted->plane[PLANE_PRIMARY],
+			      noninverted->plane[PLANE_SPRITE0],
+			      noninverted->plane[PLANE_SPRITE1],
+			      noninverted->plane[PLANE_CURSOR]);
 	}
 }
 
@@ -1119,16 +1121,16 @@ static void vlv_dump_wms(struct intel_crtc *crtc,
 	int level;
 
 	for (level = 0; level < vlv_num_wm_levels(dev_priv); level++) {
-		trace_printk("%s %s wms: [%d]=%d/%d/%d/%d\n",
-			     whence, crtc->base.name, level,
-			     wm_state->wm[level].plane[PLANE_PRIMARY],
-			     wm_state->wm[level].plane[PLANE_SPRITE0],
-			     wm_state->wm[level].plane[PLANE_SPRITE1],
-			     wm_state->wm[level].plane[PLANE_CURSOR]);
-		trace_printk("%s %s SR wms: [%d]=%d/%d\n",
-			     whence, crtc->base.name, level,
-			     wm_state->sr[level].plane,
-			     wm_state->sr[level].cursor);
+		DRM_DEBUG_KMS("%s %s wms: [%d]=%d/%d/%d/%d\n",
+			      whence, crtc->base.name, level,
+			      wm_state->wm[level].plane[PLANE_PRIMARY],
+			      wm_state->wm[level].plane[PLANE_SPRITE0],
+			      wm_state->wm[level].plane[PLANE_SPRITE1],
+			      wm_state->wm[level].plane[PLANE_CURSOR]);
+		DRM_DEBUG_KMS("%s %s SR wms: [%d]=%d/%d\n",
+			      whence, crtc->base.name, level,
+			      wm_state->sr[level].plane,
+			      wm_state->sr[level].cursor);
 	}
 }
 
@@ -4813,6 +4815,11 @@ void vlv_wm_get_hw_state(struct drm_device *dev)
 			      wm->pipe[pipe].plane[PLANE_CURSOR],
 			      wm->pipe[pipe].plane[PLANE_SPRITE0],
 			      wm->pipe[pipe].plane[PLANE_SPRITE1]);
+
+		vlv_dump_wms(crtc, "initial act", active);
+		vlv_dump_wms(crtc, "initial opt", &crtc_state->wm.vlv.optimal);
+		vlv_dump_wms(crtc, "initial int", &crtc_state->wm.vlv.intermediate);
+		vlv_dump_crtc_wms(crtc, "initial noninverted", crtc_state);
 	}
 
 	DRM_DEBUG_KMS("Initial watermarks: SR plane=%d, SR cursor=%d level=%d cxsr=%d\n",
