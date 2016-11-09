@@ -1356,6 +1356,8 @@ static int vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	/* invalidate the higher levels */
 	vlv_invalidate_wms(crtc, wm_state, level);
 
+	vlv_dump_wms(crtc, "optimal", wm_state);
+
 	return 0;
 }
 
@@ -1485,6 +1487,12 @@ static int vlv_compute_intermediate_wm(struct drm_device *dev,
 	 */
 	if (memcmp(intermediate, optimal, sizeof(*intermediate)) != 0)
 		crtc_state->wm.need_postvbl_update = true;
+
+	WARN_ON(memcmp(intermediate, optimal, sizeof(*intermediate)) != 0 &&
+		crtc_state->wm.need_postvbl_update == false);
+
+	DRM_DEBUG_KMS("intermediate wms needed = %d\n", crtc_state->wm.need_postvbl_update);
+	vlv_dump_wms(crtc, "intermediate", intermediate);
 
 	return 0;
 }
