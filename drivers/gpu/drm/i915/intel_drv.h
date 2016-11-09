@@ -754,6 +754,7 @@ struct intel_crtc {
 		/* watermarks currently being used  */
 		union {
 			struct intel_pipe_wm ilk;
+			struct vlv_wm_state vlv;
 		} active;
 
 		/* allow CxSR on this pipe */
@@ -773,8 +774,6 @@ struct intel_crtc {
 
 	/* scalers available on this crtc */
 	int num_scalers;
-
-	struct vlv_wm_state wm_state;
 };
 
 struct intel_plane {
