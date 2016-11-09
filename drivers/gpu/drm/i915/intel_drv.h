@@ -496,6 +496,10 @@ struct vlv_wm_state {
 	bool cxsr;
 };
 
+struct vlv_fifo_state {
+	u16 plane[I915_MAX_PLANES];
+};
+
 struct intel_crtc_wm_state {
 	union {
 		struct {
@@ -522,6 +526,7 @@ struct intel_crtc_wm_state {
 		} skl;
 
 		struct {
+			struct vlv_fifo_state fifo_state;
 			/* inverted optimal watermarks */
 			struct vlv_wm_state optimal;
 		} vlv;
@@ -695,10 +700,6 @@ struct intel_crtc_state {
 	u8 active_planes;
 };
 
-struct vlv_fifo_state {
-	uint16_t plane[I915_MAX_PLANES];
-};
-
 struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
@@ -749,8 +750,6 @@ struct intel_crtc {
 
 		/* allow CxSR on this pipe */
 		bool cxsr_allowed;
-
-		struct vlv_fifo_state fifo_state;
 	} wm;
 
 	int scanline_offset;
