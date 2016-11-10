@@ -673,12 +673,14 @@ function dim_remove_branch
 
 	cd $DIM_PREFIX/$DIM_DRM_INTEL
 
-	if ! $DRY git branch -d $branch ; then
-		warn_or_fail "Can't remove $branch in working repo"
-	fi
-
 	if [[ -d $DIM_PREFIX/$branch ]] ; then
 		rm -R $DIM_PREFIX/$branch
+		git worktree prune &> /dev/null || true
+	fi
+
+	if [[ `git branch --list $branch`  != "" ]] &&
+	   ! $DRY git branch -d $branch  ; then
+			warn_or_fail "Can't remove $branch in working repo"
 	fi
 
 	cd $DIM_PREFIX/drm-intel-nightly
