@@ -277,16 +277,18 @@ function update_linux_next
 {
 	cd $DIM_PREFIX/drm-intel-nightly
 
+	local remote=`url_to_remote $drm_intel_ssh`
+
 	# always update drm-intel-fixes
 	echo -n "Pushing drm-intel-fixes to for-linux-next-fixes... "
-	git push $DRY_RUN origin +origin/drm-intel-fixes:for-linux-next-fixes >& /dev/null
+	git push $DRY_RUN $remote +$remote/drm-intel-fixes:for-linux-next-fixes >& /dev/null
 	echo "Done."
 
-	if git merge-base --is-ancestor origin/drm-intel-next-fixes origin/drm-intel-fixes ; then
+	if git merge-base --is-ancestor $remote/drm-intel-next-fixes $remote/drm-intel-fixes ; then
 		# -fixes has caught up to dinf, i.e. we're out of the merge
 		# window. Push the next queue.
 		echo -n "Out of merge window. Pushing drm-intel-next-queued to for-linux-next... "
-		git push $DRY_RUN origin +origin/drm-intel-next-queued:for-linux-next >& /dev/null
+		git push $DRY_RUN $remote +$remote/drm-intel-next-queued:for-linux-next >& /dev/null
 		echo "Done."
 	else
 		# dinf is ahead of -fixes, i.e. drm-next has already closed for
@@ -294,7 +296,7 @@ function update_linux_next
 		# for the current -next cycle. Push dinf
 
 		echo -n "Pushing drm-intel-next-fixes to for-linux-next... "
-		git push $DRY_RUN origin +origin/drm-intel-next-fixes:for-linux-next >& /dev/null
+		git push $DRY_RUN $remote +$remote/drm-intel-next-fixes:for-linux-next >& /dev/null
 		echo "Done."
 	fi
 }
@@ -362,9 +364,10 @@ function dim_rebuild_nightly
 		exit 1
 	fi
 
-	for url in "${drm_tip_repos[@]}"; do
+	for repo in "${!drm_tip_repos[@]}"; do
+		local url=${drm_tip_repos[$repo]}
 		local remote=$(url_to_remote $url)
-		echo -n "Fetching $remote... "
+		echo -n "Fetching $repo (as $remote) ... "
 		# git fetch returns 128 if there's nothing to be fetched
 		git fetch $remote >& /dev/null || true
 		echo "Done."
@@ -385,8 +388,8 @@ function dim_rebuild_nightly
 		fi
 
 		if [ $first == 1 ] ; then
+			git reset --hard $sha1 &> /dev/null
 			echo "Reset. Done."
-			git reset --hard $sha1 >& /dev/null
 			first=0
 		elif git merge --rerere-autoupdate --ff-only $sha1 >& /dev/null ; then
 			# nothing to do if just fast-forward
@@ -421,8 +424,10 @@ function dim_rebuild_nightly
 	git commit --quiet -m "$integration_branch: $time integration manifest"
 	echo "Done."
 
+	local nightly_remote=`url_to_remote $drm_intel_ssh`
+
 	echo -n "Pushing $integration_branch... "
-	git push $DRY_RUN origin +HEAD >& /dev/null && echo "Done."
+	git push $DRY_RUN $nightly_remote +HEAD >& /dev/null && echo "Done."
 
 	echo -n "Updating rerere cache... "
 	cd $rerere
@@ -437,7 +442,7 @@ function dim_rebuild_nightly
 			echo -n "Nothing changed. "
 		fi
 		echo -n "Pushing rerere cache... "
-		git push $DRY_RUN origin HEAD >& /dev/null && echo "Done."
+		git push $DRY_RUN $nightly_remote HEAD >& /dev/null && echo "Done."
 	else
 		echo "Fail: Branch setup for the rerere-cache is borked."
 		exit 1
