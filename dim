@@ -312,7 +312,7 @@ function update_linux_next
 
 function check_conflicts # tree
 {
-	if git diff | grep '\(<<<<<<<\|=======\|>>>>>>>\||||||||\)' &> /dev/null ; then
+	if git diff | grep -q '\(<<<<<<<\|=======\|>>>>>>>\||||||||\)' ; then
 		# we need an empty line to make it look pretty
 		echoerr ""
 		echoerr "FAILURE: Could not merge $1"
@@ -370,7 +370,7 @@ function dim_rebuild_nightly
 	echo "Done."
 
 	cd $DIM_PREFIX/$integration_branch
-	if ! git branch --list $integration_branch | grep '\*' >& /dev/null ; then
+	if ! git branch --list $integration_branch | grep -q '\*' ; then
 		echo "Branch setup for the integration repo is borked"
 		exit 1
 	fi
@@ -1216,7 +1216,7 @@ function dim_setup
 
 	setup_aux_checkout drm-tip $drm_tip_ssh drm-tip
 	cd drm-tip
-	if git remote | grep drm-upstream > /dev/null ; then
+	if git remote | grep -q drm-upstream ; then
 		git config remote.drm-upstream.url $drm_upstream_git
 	else
 		remote=`url_to_remote $drm_upstream_git`
@@ -1318,7 +1318,7 @@ function dim_fixes
 
 	local tag=$(git tag --contains $1 | grep ^v | sort -V | head -n 1)
 	if [[ -n "$tag" ]]; then
-		if echo "$tag" | grep -e "-rc" &> /dev/null ; then
+		if echo "$tag" | grep -q -e "-rc" ; then
 			echo "Cc: <drm-intel-fixes@lists.freedesktop.org> # ${tag}+"
 		else
 			echo "Cc: <stable@vger.kernel.org> # ${tag}+"
@@ -1331,7 +1331,7 @@ function dim_fixes
 			# need to cherry-pick to dinf. critical window is -rc5
 			# up to end of merge window, hence exclude if in -rc1
 			# through rc-4.
-			if ! git tag | grep ^v | sort -V | tail -n1 | grep -e "-rc[1-4]$" &> /dev/null ; then
+			if ! git tag | grep ^v | sort -V | tail -n1 | grep -q -e "-rc[1-4]$" ; then
 				echo "Cc: <drm-intel-fixes@lists.freedesktop.org>"
 			fi
 		fi
