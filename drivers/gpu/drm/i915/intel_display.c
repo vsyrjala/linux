@@ -14579,6 +14579,13 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 							      intel_cstate);
 	}
 
+	/*
+	 * Underruns don't always raise
+	 * interrupts, so check manually.
+	 */
+	intel_check_cpu_fifo_underruns(dev_priv);
+	intel_check_pch_fifo_underruns(dev_priv);
+
 	for_each_crtc_in_state(state, crtc, old_crtc_state, i) {
 		intel_post_plane_update(to_intel_crtc_state(old_crtc_state));
 
