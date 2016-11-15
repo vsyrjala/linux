@@ -309,12 +309,14 @@ function update_linux_next
 	fi
 }
 
-function check_conflicts
+function check_conflicts # tree
 {
-	if git diff | grep '\(<<<<<<<\|=======\|>>>>>>>\||||||||\)' ; then
-		if [ -n "$1" ]; then
-			echo $*
-		fi
+	if git diff | grep '\(<<<<<<<\|=======\|>>>>>>>\||||||||\)' &> /dev/null ; then
+		# we need an empty line to make it look pretty
+		echoerr ""
+		echoerr "FAILURE: Could not merge $1"
+		echoerr "See the section \"Resolving Conflicts when Rebuilding drm-intel-nightly\""
+		echoerr "in the drm-intel.rst documentation for how to handle this situation."
 		exit 1
 	fi
 	true
@@ -412,7 +414,7 @@ function dim_rebuild_nightly
 				echo -n "Applying manual fixup patch for $integration_branch merge... "
 				patch -p1 -i $fixup_file
 			fi
-			check_conflicts "Fail: conflict merging $tree"
+			check_conflicts "$repo/$branch"
 			git add -u
 
 			# because we filter out fast-forward merges there will
