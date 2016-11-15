@@ -56,7 +56,7 @@ strict digraph "drm-intel" {
        "drm-intel-next" [color=blue]
        "drm-intel-next-fixes" [color=blue]
        "drm-intel-next-queued" [label="drm-intel-next-queued\ntopic/* branches" color=blue]
-       "drm-intel-nightly" [color=blue]
+       "drm-tip" [color=blue]
        "drm-intel-testing" [color=blue]
        "drm-intel-internal" [color=blue]
 
@@ -66,20 +66,20 @@ strict digraph "drm-intel" {
        "drm-intel-next-fixes" -> "drm-next" [label="discretionary pulls\n~rc5..release" color=blue]
        "drm-intel-next-queued" -> "drm-intel-next" [color=blue]
        "drm-intel-next-queued" -> "drm-next" [label="special topic/* branches" color=blue]
-       "drm-intel-nightly" -> "drm-intel-testing" [label="snapshot for QA" color=blue]
+       "drm-tip" -> "drm-intel-testing" [label="snapshot for QA" color=blue]
 
        # other trees in nightly
        "sound/for-linus" [color=yellow style=dashed]
        "sound/for-next" [color=yellow style=dashed]
 
        # nightly rebuild
-       "drm-intel-fixes" -> "drm-intel-nightly" [label="rebuild" color=blue]
-       "drm-intel-next-fixes" -> "drm-intel-nightly" [label="rebuild" color=blue]
-       "drm-intel-next-queued" -> "drm-intel-nightly" [label="rebuild" color=blue]
-       "drm-next" -> "drm-intel-nightly" [label="rebuild" color=blue]
-       "drm-fixes" -> "drm-intel-nightly" [label="rebuild" color=blue]
-       "sound/for-next" -> "drm-intel-nightly" [label="rebuild" color=blue]
-       "sound/for-linus" -> "drm-intel-nightly" [label="rebuild" color=blue]
+       "drm-intel-fixes" -> "drm-tip" [label="rebuild" color=blue]
+       "drm-intel-next-fixes" -> "drm-tip" [label="rebuild" color=blue]
+       "drm-intel-next-queued" -> "drm-tip" [label="rebuild" color=blue]
+       "drm-next" -> "drm-tip" [label="rebuild" color=blue]
+       "drm-fixes" -> "drm-tip" [label="rebuild" color=blue]
+       "sound/for-next" -> "drm-tip" [label="rebuild" color=blue]
+       "sound/for-linus" -> "drm-tip" [label="rebuild" color=blue]
 
        # patch flow
        "intel-gfx" [label="intel-gfx mailing list"]

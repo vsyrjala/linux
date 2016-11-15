@@ -120,10 +120,12 @@ This is the fastest path to getting fixes to Linus' tree. It is generally for
 the regressions, cc:stable, black screens, GPU hangs only, and should pretty
 much follow the stable rules.
 
-drm-intel-nightly
-~~~~~~~~~~~~~~~~~
+drm-tip
+~~~~~~~
 
-This branch combines them all. Rebuilt every time one of the trees is pushed.
+This branch combines them all. Rebuilt every time one of the trees is pushed. It
+is living in a separate git repository name
+`drm-tip <https://cgit.freedesktop.org/drm-tip>`_.
 
 Patch and Merge Flow
 ====================
@@ -215,11 +217,11 @@ Signed-off-by: line in the commit message:
 
 	(cherry picked from commit 0bff4858653312a10c83709e0009c3adb87e6f1e)
 
-Resolving Conflicts when Rebuilding drm-intel-nightly
-=====================================================
+Resolving Conflicts when Rebuilding drm-tip
+===========================================
 
-When you push patches with dim drm-intel-nightly always gets rebuild and this
-can sometimes fail, for example like this: ::
+When you push patches with dim drm-tip always gets rebuild and this can
+sometimes fail, for example like this: ::
 
         Updating rerere cache and nightly.conf... Done.
         Fetching drm-upstream... Done.
@@ -246,9 +248,9 @@ when it's tricky or something fails in the below procedure.
    It's handy to keep the log output for context so that you know which branch
    caused the conflicts, and which branches are already included.
 
-3. Switch to $DIM_PREFIX/drm-intel-nightly and analyze the conflict: ::
+3. Switch to $DIM_PREFIX/drm-tip and analyze the conflict: ::
 
-        $ cd $DIM_PREFIX/drm-intel-nightly
+        $ cd $DIM_PREFIX/drm-tip
         $ git diff # shows three-way diff of conflict
         $ gitk --merge # lists all commits git believes to be relevant
 

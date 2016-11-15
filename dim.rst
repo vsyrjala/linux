@@ -120,7 +120,7 @@ push-queued|pq [*git push arguments*]
 Updates the named branch, or drm-intel-fixes, drm-intel-next-fixes or the
 drm-intel-next-queued branch respectively. Complains if that's not the current
 branch, assuming that patches got merged to the wrong branch. After pushing also
-updates linux-next and drm-intel-nightly branches.
+updates linux-next and drm-tip branches.
 
 checkout|co *branch*
 --------------------
@@ -199,10 +199,8 @@ CodingStyle approved format.
 cherry-pick *commit-ish* [*git cherry-pick arguments*]
 ------------------------------------------------------
 
-Improved git cherry-pick version which also scans drm-intel-nightly for any
-mentions of the cherry-picked commit. Should be used when cherry-pick from -next
-to -fixes to make sure all fixups are picked, too. In dry-run mode/-d only the
-patch list is generated.
+Improved git cherry-pick version which also scans drm-tip picked, too. In
+dry-run mode/-d only the patch list is generated.
 
 cherry-pick-fixes
 -----------------
@@ -409,7 +407,7 @@ you have improvements for dim, please submit them to intel-gfx.
 
 You should now have a main repository for patch application. The directory
 corresponding to this repository is defined by DIM_DRM_INTEL in your .dimrc.
-You should also have directories called maintainer-tools, drm-intel-nightly (for
+You should also have directories called maintainer-tools, drm-tip (for
 rebuilding the tree), and drm-intel-rerere for some dim-internal book-keeping.
 
 Applying patches to dinq is done in the main repository with::
@@ -425,9 +423,9 @@ rebasing) push out the new tree with::
 
     $ dim push-queued
 
-This will also rebuild a new drm-intel-nightly integration tree. If that fails,
-ask maintainers for help with resolving conflicts. One thing to note here is
-that the script syncs saved git rerere conflict resolutions around. One does the
+This will also rebuild a new drm-tip integration tree. If that fails, ask
+maintainers for help with resolving conflicts. One thing to note here is that
+the script syncs saved git rerere conflict resolutions around. One does the
 resolution, everyone has it. The drawback is, someone screws up the conflict
 resolution, everyone has it...
 

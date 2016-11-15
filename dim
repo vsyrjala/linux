@@ -78,6 +78,7 @@ dim=$(basename $0)
 today=`date +%Y-%m-%d`
 
 drm_intel_ssh=ssh://git.freedesktop.org/git/drm-intel
+drm_tip_ssh=ssh://git.freedesktop.org/git/drm-tip
 drm_intel_git=git://anongit.freedesktop.org/drm-intel
 drm_upstream_git=git://people.freedesktop.org/~airlied/linux
 sound_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/tiwai/sound.git
@@ -102,8 +103,8 @@ function read_integration_config
 	declare -g -A drm_tip_repos
 	declare -g -a drm_tip_config
 
-	if [ -r $DIM_PREFIX/drm-intel-rerere/$integration_config ]; then
-		source $DIM_PREFIX/drm-intel-rerere/$integration_config
+	if [ -r $DIM_PREFIX/drm-rerere/$integration_config ]; then
+		source $DIM_PREFIX/drm-rerere/$integration_config
 	fi
 
 	dim_branches=
@@ -176,7 +177,7 @@ fi
 #
 
 if [ "$subcommand" != "setup" -a "$subcommand" != "help" -a "$subcommand" != "usage" ]; then
-	for d in $DIM_PREFIX $DIM_PREFIX/$DIM_DRM_INTEL $DIM_PREFIX/drm-intel-rerere $DIM_PREFIX/drm-intel-nightly; do
+	for d in $DIM_PREFIX $DIM_PREFIX/$DIM_DRM_INTEL $DIM_PREFIX/drm-rerere $DIM_PREFIX/drm-tip; do
 		if [ ! -d $d ]; then
 			echo "$d is missing, please check your configuration and/or run dim setup"
 			exit 1
@@ -283,9 +284,9 @@ function dim_commit_add_tag
 
 function update_linux_next
 {
-	cd $DIM_PREFIX/drm-intel-nightly
+	cd $DIM_PREFIX/drm-tip
 
-	local remote=`url_to_remote $drm_intel_ssh`
+	local remote=`url_to_remote $drm_tip_ssh`
 
 	# always update drm-intel-fixes
 	echo -n "Pushing drm-intel-fixes to for-linux-next-fixes... "
@@ -324,8 +325,8 @@ function check_conflicts # tree
 
 function rr_cache_dir
 {
-	if [ -d $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ ] ; then
-		echo $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/
+	if [ -d $DIM_PREFIX/drm-tip/.git/rr-cache/ ] ; then
+		echo $DIM_PREFIX/drm-tip/.git/rr-cache/
 	else
 		echo $DIM_PREFIX/$DIM_DRM_INTEL/.git/rr-cache/
 	fi
@@ -333,7 +334,7 @@ function rr_cache_dir
 
 function update_rerere_cache
 {
-	cd $DIM_PREFIX/drm-intel-rerere/
+	cd $DIM_PREFIX/drm-rerere/
 	git pull
 	cp rr-cache/* `rr_cache_dir` -r
 	cd -
@@ -341,19 +342,19 @@ function update_rerere_cache
 
 function dim_revert_rerere
 {
-	cd $DIM_PREFIX/drm-intel-rerere/
+	cd $DIM_PREFIX/drm-rerere/
 	git revert $1
 	rm `rr_cache_dir`/* -Rf
 }
 
 function dim_rebuild_nightly
 {
-	local integration_branch=drm-intel-nightly
+	local integration_branch=drm-tip
 	local specfile=`mktemp`
 	local time="`date --utc +%Yy-%mm-%dd-%Hh-%Mm-%Ss` UTC"
 	local first=1
 
-	local rerere=$DIM_PREFIX/drm-intel-rerere
+	local rerere=$DIM_PREFIX/drm-rerere
 
 	cd $rerere
 	if [[ `git status --porcelain | grep -v "^[ ?][ ?]" | wc -l` -gt 0 ]]; then
@@ -434,7 +435,7 @@ function dim_rebuild_nightly
 	git commit --quiet -m "$integration_branch: $time integration manifest"
 	echo "Done."
 
-	local nightly_remote=`url_to_remote $drm_intel_ssh`
+	local nightly_remote=`url_to_remote $drm_tip_ssh`
 
 	echo -n "Pushing $integration_branch... "
 	git push $DRY_RUN $nightly_remote +HEAD >& /dev/null && echo "Done."
@@ -556,6 +557,8 @@ function dim_apply_next_fixes
 
 function dim_cherry_pick
 {
+	local remote=`url_to_remote $drm_tip_ssh`
+
 	if [[ "x$1" = "x" ]]; then
 		echo "usage: $dim $subcommand commit-ish"
 		exit 1
@@ -564,9 +567,9 @@ function dim_cherry_pick
 	sha_short=${sha:0:8}
 
 	# need latest -nightly
-	git fetch $DIM_DRM_INTEL_REMOTE
+	git fetch $remote
 	echo Possible fixup patches for your cherry-pick:
-	git log --grep=$sha_short --pretty=oneline $sha..$DIM_DRM_INTEL_REMOTE/drm-intel-nightly
+	git log --grep=$sha_short --pretty=oneline $sha..$remote/drm-tip
 	$DRY git cherry-pick -s -x -e $1
 }
 
@@ -694,7 +697,7 @@ function dim_create_branch
 
 	# FIXME: make it possible to add/remove non-drm-intel branches
 	local repo=drm-intel
-	cd $DIM_PREFIX/drm-intel-rerere
+	cd $DIM_PREFIX/drm-rerere
 	$DRY sed -i "s/^\() # DO NOT CHANGE THIS LINE\)$/\t\"$repo\t\t${branch//\//\\\/}\"\n\1/" $integration_config
 
 	# FIXME: For backward compatibility. Remove.
@@ -725,13 +728,13 @@ function dim_remove_branch
 			warn_or_fail "Can't remove $branch in working repo"
 	fi
 
-	cd $DIM_PREFIX/drm-intel-nightly
+	cd $DIM_PREFIX/drm-tip
 	git push $DRY_RUN origin --delete $branch
 	$DRY git fetch origin --prune
 
 	# FIXME: make it possible to add/remove non-drm-intel branches
 	local repo=drm-intel
-	cd $DIM_PREFIX/drm-intel-rerere
+	cd $DIM_PREFIX/drm-rerere
 	$DRY sed -i "/^[[:space:]]*\"${repo}[[:space:]]\+${branch//\//\\\/}.*$/d" $integration_config
 
 	# FIXME: For backward compatibility. Remove.
@@ -953,13 +956,15 @@ function dim_update_next
 {
 	assert_branch drm-intel-next-queued
 
+	local remote=`url_to_remote $drm_tip_ssh`
+
 	git pull --ff-only
 
-	if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-fixes &> /dev/null ; then
+	if ! git branch --merged $remote/drm-tip | grep -q drm-intel-fixes ; then
 		echo "drm-intel-fixes not merged into -nigthly, please update!"
 		exit 2
 	fi
-	if ! git branch --merged $DIM_DRM_INTEL_REMOTE/drm-intel-nightly | grep drm-intel-next-queued &> /dev/null ; then
+	if ! git branch --merged $remote/drm-tip | grep -q drm-intel-next-queued ; then
 		echo "drm-intel-next-queued not merged into -nigthly, please update!"
 		exit 2
 	fi
@@ -984,13 +989,15 @@ function dim_update_next_continue
 {
 	assert_branch drm-intel-next-queued
 
+	local remote=`url_to_remote $drm_tip_ssh`
+
 	git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE drm-intel-next-queued:drm-intel-next
 	tag=drm-intel-next-$today
 	$DRY git tag -f -a $tag $DIM_DRM_INTEL_REMOTE/drm-intel-next
 	git push $DRY_RUN -f $DIM_DRM_INTEL_REMOTE $tag
 
 	echo "Updating -testing to latest -nightly"
-	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$DIM_DRM_INTEL_REMOTE/drm-intel-nightly:drm-intel-testing
+	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE +$remote/drm-tip:drm-intel-testing
 	$DRY git tag -f drm-intel-testing-$today $DIM_DRM_INTEL_REMOTE/drm-intel-testing
 	$DRY git push -f $DIM_DRM_INTEL_REMOTE drm-intel-testing-$today
 
@@ -1198,16 +1205,17 @@ function dim_setup
 	# check remote configuration
 	remote=`url_to_remote $linux_upstream_git`
 	remote=`url_to_remote $drm_intel_ssh`
+	remote=`url_to_remote $drm_tip_ssh`
 	remote=`url_to_remote $drm_upstream_git`
 
 	cd ..
 
 	setup_aux_checkout maintainer-tools $drm_intel_ssh maintainer-tools
 
-	setup_aux_checkout rerere-cache $drm_intel_ssh drm-intel-rerere
+	setup_aux_checkout rerere-cache $drm_tip_ssh drm-rerere
 
-	setup_aux_checkout drm-intel-nightly $drm_intel_ssh drm-intel-nightly
-	cd drm-intel-nightly
+	setup_aux_checkout drm-tip $drm_tip_ssh drm-tip
+	cd drm-tip
 	if git remote | grep drm-upstream > /dev/null ; then
 		git config remote.drm-upstream.url $drm_upstream_git
 	else
@@ -1265,7 +1273,7 @@ function dim_list_aliases
 
 function dim_cat_to_fixup
 {
-	cd $DIM_PREFIX/drm-intel-nightly
+	cd $DIM_PREFIX/drm-tip
 	cat > `cat .fixup_file_path`
 }
 

@@ -4,7 +4,7 @@
 # Defaults are in the comments below.
 
 # Prefix for the repo directories. The prefix will contain
-# $DIM_DRM_INTEL, drm-intel-nightly, maintainer-tools, etc.
+# $DIM_DRM_INTEL, drm-tip, maintainer-tools, etc.
 #DIM_PREFIX=$HOME/linux
 
 # Name of the main maintainer repo under $DIM_PREFIX.
