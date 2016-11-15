@@ -310,11 +310,20 @@ function check_conflicts
 	true
 }
 
+function rr_cache_dir
+{
+	if [ -d $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ ] ; then
+		echo $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/
+	else
+		echo $DIM_PREFIX/$DIM_DRM_INTEL/.git/rr-cache/
+	fi
+}
+
 function update_rerere_cache
 {
 	cd $DIM_PREFIX/drm-intel-rerere/
 	git pull
-	cp rr-cache/* $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ -r
+	cp rr-cache/* `rr_cache_dir` -r
 	cd -
 }
 
@@ -322,7 +331,7 @@ function dim_revert_rerere
 {
 	cd $DIM_PREFIX/drm-intel-rerere/
 	git revert $1
-	rm $DIM_PREFIX/drm-intel-nightly/.git/rr-cache/ -Rf
+	rm `rr_cache_dir`/* -Rf
 }
 
 function dim_rebuild_nightly
@@ -419,7 +428,7 @@ function dim_rebuild_nightly
 	cd $rerere
 	if git branch --list rerere-cache | grep '\*' >& /dev/null ; then
 		git pull >& /dev/null
-		cp $DIM_PREFIX/$integration_branch/.git/rr-cache/* rr-cache -r
+		cp `rr_cache_dir`/* rr-cache -r
 		git add *.patch >& /dev/null || true
 		git add rr-cache/* > /dev/null
 		if git commit -m "$time: $integration_branch rerere cache update" >& /dev/null; then
@@ -1121,12 +1130,21 @@ function setup_aux_checkout # name url directory
 	echo "Setting up $dir ..."
 
 	if [ ! -d $dir ]; then
-		git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $url $dir
-		cd $dir
-		git config remote.origin.url $url
-		echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
-		git repack -a -d -l
-		remote=origin
+		if git help worktree &> /dev/null ; then
+			cd $DIM_PREFIX/$DIM_DRM_INTEL
+			remote=`url_to_remote $url`
+			if [[ `git branch --list $name` == "" ]] ; then
+				git branch --track $name $remote/$name
+			fi
+			git worktree add ../$dir $name
+		else
+			git clone --reference=$DIM_PREFIX/$DIM_DRM_INTEL/.git $url $dir
+			cd $dir
+			git config remote.origin.url $url
+			echo "$DIM_PREFIX/$DIM_DRM_INTEL/.git/objects" > .git/objects/info/alternates
+			git repack -a -d -l
+			remote=origin
+		fi
 	else
 		cd $dir
 		remote=`url_to_remote $url`
