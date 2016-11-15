@@ -5833,6 +5833,28 @@ enum {
 			_ID(id, _PS_ECC_STAT_1A, _PS_ECC_STAT_2A),   \
 			_ID(id, _PS_ECC_STAT_1B, _PS_ECC_STAT_2B))
 
+#define PLANE_AUX_DIST_1_A		0x701c0
+#define PLANE_AUX_DIST_2_A		0x702c0
+#define PLANE_AUX_DIST_1_B		0x711c0
+#define PLANE_AUX_DIST_2_B		0x712c0
+#define _PLANE_AUX_DIST_1(pipe) \
+			_PIPE(pipe, PLANE_AUX_DIST_1_A, PLANE_AUX_DIST_1_B)
+#define _PLANE_AUX_DIST_2(pipe) \
+			_PIPE(pipe, PLANE_AUX_DIST_2_A, PLANE_AUX_DIST_2_B)
+#define PLANE_AUX_DIST(pipe, plane)     \
+	_MMIO_PLANE(plane, _PLANE_AUX_DIST_1(pipe), _PLANE_AUX_DIST_2(pipe))
+
+#define PLANE_AUX_OFFSET_1_A		0x701c4
+#define PLANE_AUX_OFFSET_2_A		0x702c4
+#define PLANE_AUX_OFFSET_1_B		0x711c4
+#define PLANE_AUX_OFFSET_2_B		0x712c4
+#define _PLANE_AUX_OFFSET_1(pipe)       \
+		_PIPE(pipe, PLANE_AUX_OFFSET_1_A, PLANE_AUX_OFFSET_1_B)
+#define _PLANE_AUX_OFFSET_2(pipe)       \
+		_PIPE(pipe, PLANE_AUX_OFFSET_2_A, PLANE_AUX_OFFSET_2_B)
+#define PLANE_AUX_OFFSET(pipe, plane)   \
+	_MMIO_PLANE(plane, _PLANE_AUX_OFFSET_1(pipe), _PLANE_AUX_OFFSET_2(pipe))
+
 /* legacy palette */
 #define _LGC_PALETTE_A           0x4a000
 #define _LGC_PALETTE_B           0x4a800

@@ -218,6 +218,50 @@ extern "C" {
  */
 #define I915_FORMAT_MOD_Yf_TILED fourcc_mod_code(INTEL, 3)
 
+/*
+ * Intel CCS aux plane for render compression
+ *
+ * Main surface assumed to be Y-tiled, 32bpp.
+ *
+ * Each byte of CCS contains 4 pairs of bits, with each pair of bits matching an
+ * area of 8x4 pixels of the main surface. Which would seem to match 2
+ * cachelines containing 4x4 pixels each. The pairs bits within the byte form a
+ * 2x2 grid, which thus matches a 16x8 pixel area of the main surface. This is
+ * the 2x2 pattern the bits form (0=lsb, 7=msb):
+ * -----------
+ * | 01 | 23 |
+ *  ----------
+ * | 45 | 67 |
+ * -----------
+ *
+ * Actually only the lower bit of the pair seems to have any effect. No idea
+ * why. 0 in the lower bit would seem to mean not compressed, and 1 is
+ * compressed.  The interpreation of the main surface data when the block is
+ * marked compressed is unknown as of now.
+ *
+ * CCS tile is laid out in 8 byte horizontal strips each strip thus corresponds
+ * to a 128x8 pixel are of the main surface. So each 8x8 bytes of the CCS (1
+ * cacheline) will match an area of 4x2 tiles on the main surface.
+ *
+ * Here is the layout of a full CCS tile, with the 8 byte strips numbered 0-511:
+ * ------------------------
+ * |  0 |  64 | ... | 448 |
+ * |  1 |  65 |     | 449 |
+ * |  2 |  66 |     | 450 |
+ * |  . |   . |     |   . |
+ * |  . |   . |     |   . |
+ * |  . |   . |     |   . |
+ * | 63 | 127 |     | 511 |
+ * ------------------------
+ *
+ * This will match an area of 1024x512 pixels on the main surface.
+ *
+ * AUX stride will be specified in units of these CCS tile widths. So eg. AUX
+ * stride of 1 equals 1024 pixels on the main surface.
+ *
+ * TODO figure out Yf
+ */
+
 #define I915_FORMAT_MOD_Y_TILED_CCS	fourcc_mod_code(INTEL, 4)
 #define I915_FORMAT_MOD_Yf_TILED_CCS	fourcc_mod_code(INTEL, 5)
 

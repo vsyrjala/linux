@@ -210,6 +210,7 @@ skl_update_plane(struct drm_plane *drm_plane,
 	u32 surf_addr = plane_state->main.offset;
 	unsigned int rotation = plane_state->base.rotation;
 	u32 stride = skl_plane_stride(fb, 0, rotation);
+	u32 aux_stride = skl_plane_stride(fb, 1, rotation);
 	int crtc_x = plane_state->base.dst.x1;
 	int crtc_y = plane_state->base.dst.y1;
 	uint32_t crtc_w = drm_rect_width(&plane_state->base.dst);
@@ -227,6 +228,10 @@ skl_update_plane(struct drm_plane *drm_plane,
 	plane_ctl |= skl_plane_ctl_tiling(fb->modifier);
 
 	plane_ctl |= skl_plane_ctl_rotation(rotation);
+
+	if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+	    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS)
+		plane_ctl |= PLANE_CTL_DECOMPRESSION_ENABLE;
 
 	if (key->flags) {
 		I915_WRITE(PLANE_KEYVAL(pipe, plane), key->min_value);
@@ -248,6 +253,10 @@ skl_update_plane(struct drm_plane *drm_plane,
 	I915_WRITE(PLANE_OFFSET(pipe, plane), (y << 16) | x);
 	I915_WRITE(PLANE_STRIDE(pipe, plane), stride);
 	I915_WRITE(PLANE_SIZE(pipe, plane), (src_h << 16) | src_w);
+	I915_WRITE(PLANE_AUX_DIST(pipe, 0),
+			plane_state->aux.offset | aux_stride);
+	I915_WRITE(PLANE_AUX_OFFSET(pipe, 0),
+			plane_state->aux.y <<16 | plane_state->aux.x);
 
 	/* program plane scaler */
 	if (plane_state->scaler_id >= 0) {

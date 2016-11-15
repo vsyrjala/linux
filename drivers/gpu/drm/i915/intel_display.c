@@ -2064,11 +2064,19 @@ intel_tile_width_bytes(const struct drm_framebuffer *fb, int plane)
 			return 128;
 		else
 			return 512;
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+		if (plane == 1)
+			return 64;
+		/* fall through */
 	case I915_FORMAT_MOD_Y_TILED:
 		if (IS_GEN2(dev_priv) || HAS_128_BYTE_Y_TILING(dev_priv))
 			return 128;
 		else
 			return 512;
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		if (plane == 1)
+			return 64;
+		/* fall through */
 	case I915_FORMAT_MOD_Yf_TILED:
 		switch (cpp) {
 		case 1:
@@ -2174,6 +2182,12 @@ static unsigned int intel_surf_alignment(const struct drm_framebuffer *fb,
 		if (INTEL_GEN(dev_priv) >= 9)
 			return 256 * 1024;
 		return 0;
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		/* AUX_DIST needs only 4K alignment */
+		if (plane == 1)
+			return 4096;
+		/* fall through */
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
 		return 1 * 1024 * 1024;
@@ -2545,6 +2559,40 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 
 		intel_fb_offset_to_xy(&x, &y, fb, i);
 
+		if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+		    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) {
+			int main_x, main_y;
+			int ccs_x, ccs_y;
+
+			if (i != 1) {
+				DRM_DEBUG_KMS("Invalid plane %d for CCS\n", i);
+				return -EINVAL;
+			}
+
+			/*
+			 * Each byte of CCS corresponds to a 16x8 area of the main surface, and
+			 * each CCS tile is 64x64 bytes.
+			 */
+			ccs_x = (x * 16) % (64 * 16);
+			ccs_y = (y * 8) % (64 * 8);
+			main_x = intel_fb->normal[0].x % (64 * 16);
+			main_y = intel_fb->normal[0].y % (64 * 8);
+
+			/*
+			 * CCS doesn't have its own x/y offset register, so the intra CCS tile
+			 * x/y offsets must match between CCS and the main surface.
+			 */
+			if (main_x != ccs_x || main_y != ccs_y) {
+				DRM_DEBUG_KMS("Bad CCS x/y (main %d,%d ccs %d,%d) full (main %d,%d ccs %d,%d)\n",
+					      main_x, main_y,
+					      ccs_x, ccs_y,
+					      intel_fb->normal[0].x,
+					      intel_fb->normal[0].y,
+					      x, y);
+				return -EINVAL;
+			}
+		}
+
 		/*
 		 * The fence (if used) is aligned to the start of the object
 		 * so having the framebuffer wrap around across the edge of the
@@ -2556,8 +2604,8 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 		 */
 		if (i915_gem_object_is_tiled(intel_fb->obj) &&
 		    (x + width) * cpp > fb->pitches[i]) {
-			DRM_DEBUG("bad fb plane %d offset: 0x%x\n",
-				  i, fb->offsets[i]);
+			DRM_DEBUG_KMS("bad fb plane %d offset: 0x%x\n",
+				      i, fb->offsets[i]);
 			return -EINVAL;
 		}
 
@@ -2568,10 +2616,15 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 		intel_fb->normal[i].x = x;
 		intel_fb->normal[i].y = y;
 
+		DRM_DEBUG_KMS("full %d %d,%d\n", i, x, y);
+		DRM_DEBUG_KMS("full %d w=%d,h=%d,cpp=%d\n", i, width, height, cpp);
+
 		offset = _intel_compute_tile_offset(dev_priv, &x, &y,
-						    fb, 0, fb->pitches[i],
+						    fb, i, fb->pitches[i],
 						    DRM_ROTATE_0, tile_size);
+
 		offset /= tile_size;
+		DRM_DEBUG_KMS("tile %d %d %d,%d\n", i, offset, x, y);
 
 		if (fb->modifier != DRM_FORMAT_MOD_NONE) {
 			unsigned int tile_width, tile_height;
@@ -2588,14 +2641,21 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 			intel_fb->rotated[i].pitch =
 				rot_info->plane[i].height * tile_height;
 
+			DRM_DEBUG_KMS("w=%d h=%d stride=%d\n",
+				      rot_info->plane[i].width,
+				      rot_info->plane[i].height,
+				      rot_info->plane[i].stride);
+
 			/* how many tiles does this plane need */
 			size = rot_info->plane[i].stride * rot_info->plane[i].height;
+			DRM_DEBUG_KMS("%d size %d\n", i, size);
 			/*
 			 * If the plane isn't horizontally tile aligned,
 			 * we need one more tile.
 			 */
 			if (x != 0)
 				size++;
+			DRM_DEBUG_KMS("%d size %d\n", i, size);
 
 			/* rotate the x/y offsets to match the GTT view */
 			r.x1 = x;
@@ -2638,9 +2698,9 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 		max_size = max(max_size, offset + size);
 	}
 
-	if (max_size * tile_size > to_intel_framebuffer(fb)->obj->base.size) {
-		DRM_DEBUG("fb too big for bo (need %u bytes, have %zu bytes)\n",
-			  max_size * tile_size, to_intel_framebuffer(fb)->obj->base.size);
+	if (max_size * tile_size > intel_fb->obj->base.size) {
+		DRM_DEBUG_KMS("fb too big for bo (need %u bytes, have %zu bytes)\n",
+			      max_size * tile_size, intel_fb->obj->base.size);
 		return -EINVAL;
 	}
 
@@ -2955,6 +3015,27 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 		}
 	}
 
+	/*
+	 * CCS AUX surface doesn't have its own x/y offsets, we must make sure
+	 * they match with the main surface x/y offsets.
+	 */
+	if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+	    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) {
+		while (x != plane_state->aux.x || y < plane_state->aux.y) {
+			if (offset == 0) {
+				DRM_DEBUG_KMS("Unable to find suitable display surface offset\n");
+				return -EINVAL;
+			}
+
+			offset = intel_adjust_tile_offset(&x, &y, plane_state, 0,
+							  offset, offset - alignment);
+		}
+		if (y != plane_state->aux.y) {
+			DRM_DEBUG_KMS("Unable to find suitable display surface offset\n");
+			return -EINVAL;
+		}
+	}
+
 	plane_state->main.offset = offset;
 	plane_state->main.x = x;
 	plane_state->main.y = y;
@@ -2991,6 +3072,49 @@ static int skl_check_nv12_aux_surface(struct intel_plane_state *plane_state)
 	return 0;
 }
 
+static int skl_check_ccs_aux_surface(struct intel_plane_state *plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
+	struct intel_crtc *crtc = to_intel_crtc(plane_state->base.crtc);
+	int src_x = plane_state->base.src.x1 >> 16;
+	int src_y = plane_state->base.src.y1 >> 16;
+	int x = src_x / 16;
+	int y = src_y / 8;
+	u32 offset;
+
+	if (plane->plane != PLANE_A) {
+		DRM_DEBUG_KMS("RC support only on the first plane\n");
+		return -EINVAL;
+	}
+
+	if (crtc->pipe == PIPE_C) {
+		DRM_DEBUG_KMS("No RC support on pipe C\n");
+		return -EINVAL;
+	}
+	/*
+	 * TODO:
+	 * 1. Disable stereo 3D when render decomp is enabled (bit 7:6)
+	 * 2. Render decompression must not be used in VTd pass-through mode
+	 * 3. Program hashing select CHICKEN_MISC1 bit 15
+	 */
+
+	if (plane_state->base.rotation &&
+	    plane_state->base.rotation & ~(DRM_ROTATE_0 | DRM_ROTATE_180)) {
+		DRM_DEBUG_KMS("RC support only with 0/180 degree rotation %x\n",
+			      plane_state->base.rotation);
+		return -EINVAL;
+	}
+
+	intel_add_fb_offsets(&x, &y, plane_state, 1);
+	offset = intel_compute_tile_offset(&x, &y, plane_state, 1);
+
+	plane_state->aux.offset = offset;
+	plane_state->aux.x = x * 16 + src_x % 16;
+	plane_state->aux.y = y * 8 + src_y % 8;
+
+	return 0;
+}
+
 int skl_check_plane_surface(struct intel_plane_state *plane_state)
 {
 	const struct drm_framebuffer *fb = plane_state->base.fb;
@@ -3009,6 +3133,11 @@ int skl_check_plane_surface(struct intel_plane_state *plane_state)
 	 */
 	if (fb->format->format == DRM_FORMAT_NV12) {
 		ret = skl_check_nv12_aux_surface(plane_state);
+		if (ret)
+			return ret;
+	} else if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+		   fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) {
+		ret = skl_check_ccs_aux_surface(plane_state);
 		if (ret)
 			return ret;
 	} else {
@@ -3404,6 +3533,7 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 	u32 plane_ctl;
 	unsigned int rotation = plane_state->base.rotation;
 	u32 stride = skl_plane_stride(fb, 0, rotation);
+	u32 aux_stride = skl_plane_stride(fb, 1, rotation);
 	u32 surf_addr = plane_state->main.offset;
 	int scaler_id = plane_state->scaler_id;
 	int src_x = plane_state->main.x;
@@ -3424,6 +3554,10 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 	plane_ctl |= PLANE_CTL_PLANE_GAMMA_DISABLE;
 	plane_ctl |= skl_plane_ctl_rotation(rotation);
 
+	if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+	    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS)
+		plane_ctl |= PLANE_CTL_DECOMPRESSION_ENABLE;
+
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
@@ -3439,6 +3573,10 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 	I915_WRITE(PLANE_OFFSET(pipe, 0), (src_y << 16) | src_x);
 	I915_WRITE(PLANE_STRIDE(pipe, 0), stride);
 	I915_WRITE(PLANE_SIZE(pipe, 0), (src_h << 16) | src_w);
+	I915_WRITE(PLANE_AUX_DIST(pipe, 0),
+				plane_state->aux.offset | aux_stride);
+	I915_WRITE(PLANE_AUX_OFFSET(pipe, 0),
+				plane_state->aux.y <<16 | plane_state->aux.x);
 
 	if (scaler_id >= 0) {
 		uint32_t ps_ctrl = 0;
@@ -15755,8 +15893,9 @@ static int intel_framebuffer_init(struct drm_device *dev,
 				  struct drm_i915_gem_object *obj)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_framebuffer *fb = &intel_fb->base;
 	unsigned int tiling = i915_gem_object_get_tiling(obj);
-	int ret;
+	int ret, i;
 	u32 pitch_limit, stride_alignment;
 	struct drm_format_name_buf format_name;
 
@@ -15783,6 +15922,19 @@ static int intel_framebuffer_init(struct drm_device *dev,
 
 	/* Passed in modifier sanity checking. */
 	switch (mode_cmd->modifier[0]) {
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		switch (mode_cmd->pixel_format) {
+		case DRM_FORMAT_XBGR8888:
+		case DRM_FORMAT_ABGR8888:
+		case DRM_FORMAT_XRGB8888:
+		case DRM_FORMAT_ARGB8888:
+			break;
+		default:
+			DRM_DEBUG_KMS("RC supported only with RGB8888 formats\n");
+			return -EINVAL;
+		}
+		/* fall through */
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
 		if (INTEL_GEN(dev_priv) < 9) {
@@ -15889,22 +16041,30 @@ static int intel_framebuffer_init(struct drm_device *dev,
 	if (mode_cmd->offsets[0] != 0)
 		return -EINVAL;
 
-	drm_helper_mode_fill_fb_struct(dev, &intel_fb->base, mode_cmd);
+	drm_helper_mode_fill_fb_struct(dev, fb, mode_cmd);
 
-	stride_alignment = intel_fb_stride_alignment(&intel_fb->base, 0);
-	if (mode_cmd->pitches[0] & (stride_alignment - 1)) {
-		DRM_DEBUG("pitch (%d) must be at least %u byte aligned\n",
-			  mode_cmd->pitches[0], stride_alignment);
-		return -EINVAL;
+	for (i = 0; i < fb->format->num_planes; i++) {
+		if (mode_cmd->handles[i] != mode_cmd->handles[0]) {
+			DRM_DEBUG("bad plane %d handle\n", i);
+			return -EINVAL;
+		}
+
+		stride_alignment = intel_fb_stride_alignment(fb, i);
+
+		if (mode_cmd->pitches[i] & (stride_alignment - 1)) {
+			DRM_DEBUG("plane %d pitch (%d) must be at least %u byte aligned\n",
+				  i, mode_cmd->pitches[i], stride_alignment);
+			return -EINVAL;
+		}
 	}
 
 	intel_fb->obj = obj;
 
-	ret = intel_fill_fb_info(dev_priv, &intel_fb->base);
+	ret = intel_fill_fb_info(dev_priv, fb);
 	if (ret)
 		return ret;
 
-	ret = drm_framebuffer_init(dev, &intel_fb->base, &intel_fb_funcs);
+	ret = drm_framebuffer_init(dev, fb, &intel_fb_funcs);
 	if (ret) {
 		DRM_ERROR("framebuffer init failed %d\n", ret);
 		return ret;
