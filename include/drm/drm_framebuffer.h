@@ -268,4 +268,10 @@ static inline uint32_t drm_framebuffer_read_refcount(struct drm_framebuffer *fb)
 					  struct drm_framebuffer, head);	\
 	     &fb->head != (&(dev)->mode_config.fb_list);			\
 	     fb = list_next_entry(fb, head))
+
+int drm_framebuffer_plane_width(int width,
+				const struct drm_framebuffer *fb, int plane);
+int drm_framebuffer_plane_height(int height,
+				 const struct drm_framebuffer *fb, int plane);
+
 #endif
