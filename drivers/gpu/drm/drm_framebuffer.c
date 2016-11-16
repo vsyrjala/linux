@@ -632,7 +632,8 @@ int drm_framebuffer_init(struct drm_device *dev, struct drm_framebuffer *fb,
 	int ret;
 
 	INIT_LIST_HEAD(&fb->filp_head);
-	fb->dev = dev;
+	if (WARN_ON_ONCE(fb->dev != dev))
+		fb->dev = dev;
 	fb->funcs = funcs;
 
 	ret = drm_mode_object_get_reg(dev, &fb->base, DRM_MODE_OBJECT_FB,
