@@ -79,7 +79,6 @@ today=`date +%Y-%m-%d`
 
 drm_intel_ssh=ssh://git.freedesktop.org/git/drm-intel
 drm_tip_ssh=ssh://git.freedesktop.org/git/drm-tip
-drm_intel_git=git://anongit.freedesktop.org/drm-intel
 drm_upstream_git=git://people.freedesktop.org/~airlied/linux
 sound_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/tiwai/sound.git
 driver_core_upstream_git=git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core.git
@@ -110,7 +109,7 @@ function read_integration_config
 	dim_branches=
 	for conf in "${drm_tip_config[@]}"; do
 		read repo branch override <<< $conf
-		if [[ "$repo" = "drm-intel" ]]; then
+		if [[ "$repo" = "drm-intel" || "$repo" = "drm-misc" ]]; then
 			dim_branches="$dim_branches $branch"
 		fi
 	done
@@ -230,6 +229,20 @@ function branch_to_remote # branch
 	remote=${remote%%/*}
 
 	echo $remote
+}
+
+function branch_to_repo # branch
+{
+	for conf in "${drm_tip_config[@]}"; do
+		local repo branch override
+		read repo branch override <<< $conf
+
+		if [[ $branch == $1 ]] ; then
+			echo $repo
+		fi
+	done
+
+	echo ""
 }
 
 function dim_uptodate
@@ -472,12 +485,14 @@ function dim_push_branch
 		exit 1
 	fi
 
-	branch=$1
+	local branch=$1
 	shift
 
 	assert_branch $branch
 
-	git push $DRY_RUN $DIM_DRM_INTEL_REMOTE $branch "$@"
+	local remote=`branch_to_remote $branch`
+
+	git push $DRY_RUN $remote $branch "$@"
 
 	dim_rebuild_nightly
 }
@@ -769,7 +784,11 @@ function dim_checkout
 
 	dim_cd $1
 	if [[ `git branch --list $1` ==  "" ]] ; then
-		git checkout -t $DIM_DRM_INTEL_REMOTE/$1
+		if [[ `git branch --list --remote $1` == "" ]] ; then
+			git checkout -t $DIM_DRM_INTEL_REMOTE/$1
+		else
+			git checkout -t $1
+		fi
 	else
 		git checkout $1
 	fi
@@ -1053,8 +1072,9 @@ function dim_pull_request
 		exit 1
 	fi
 
-	branch=$1
-	upstream=$2
+	local branch=$1
+	local upstream=$2
+	local remote=`branch_to_remote $branch`
 
 	if [ "$branch" != "drm-intel-next" ]; then
 		assert_branch $branch
@@ -1067,17 +1087,24 @@ function dim_pull_request
 
 	if [ "$branch" = "drm-intel-next" ]; then
 		# drm-intel-next pulls have been tagged using dim update-next
-		drm_intel_next_tags=`git log $DIM_DRM_INTEL_REMOTE/drm-intel-next ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag: \(drm-intel-next-[^ ,]*\).*)$/\1/"`
+		drm_intel_next_tags=`git log $branch@{upstream} ^$upstream --decorate | grep "(.*tag: drm-intel-next-" | sed -e "s/^.*(.*tag: \(drm-intel-next-[^ ,]*\).*)$/\1/"`
 		prep_pull_mail $drm_intel_next_tags
-		tag=`git describe --all --exact $DIM_DRM_INTEL_REMOTE/drm-intel-next`
+		tag=`git describe --all --exact $branch@{upstream}`
+
+		local repo="drm-intel"
 	else
 		tag=$branch-$today
-		$DRY git tag -f $tag $DIM_DRM_INTEL_REMOTE/$branch
-		$DRY git push -f $DIM_DRM_INTEL_REMOTE $tag
+		$DRY git tag -f $tag $branch@{upstream}
+		$DRY git push -f $remote $tag
 		prep_pull_mail
+
+		local repo=`branch_to_repo $branch`
 	fi
 
-	git request-pull $upstream $drm_intel_git $tag >> ~/tmp/dim-pull-request
+	local url=${drm_tip_repos[$repo]}
+	local git_url=`echo $url | sed -e 's/git\./anongit./' -e 's/ssh:/git:/'`
+
+	git request-pull $upstream $git_url $tag >> ~/tmp/dim-pull-request
 	$DRY $DIM_MUA -s "[PULL] $branch" \
 		-i ~/tmp/dim-pull-request \
 		-c "$addr_intel_gfx" \
