@@ -108,6 +108,7 @@ function read_integration_config
 
 	dim_branches=
 	for conf in "${drm_tip_config[@]}"; do
+		local repo branch override
 		read repo branch override <<< $conf
 		if [[ "$repo" = "drm-intel" || "$repo" = "drm-misc" ]]; then
 			dim_branches="$dim_branches $branch"
@@ -300,30 +301,42 @@ function dim_commit_add_tag
 	done
 }
 
-function update_linux_next
+
+# update for-linux-next and for-linux-next-fixes branches
+function update_linux_next # branch next next-fixes fixes
 {
 	cd $DIM_PREFIX/drm-tip
+	local branch=$1
+	local linux_next=$2
+	local linux_next_fixes=$3
+	local linux_fixes=$4
 
-	local remote=`url_to_remote $drm_tip_ssh`
+	local repo=`branch_to_repo $branch`
+
+	if [[ $repo != `branch_to_repo $linux_next` ]] ; then
+		return
+	fi
+
+	local remote=`repo_to_remote $repo`
 
 	# always update drm-intel-fixes
-	echo -n "Pushing drm-intel-fixes to for-linux-next-fixes... "
-	git push $DRY_RUN $remote +$remote/drm-intel-fixes:for-linux-next-fixes >& /dev/null
+	echo -n "Pushing $linux_fixes to for-linux-next-fixes... "
+	git push $DRY_RUN $remote +$remote/$linux_fixes:for-linux-next-fixes # >& /dev/null
 	echo "Done."
 
-	if git merge-base --is-ancestor $remote/drm-intel-next-fixes $remote/drm-intel-fixes ; then
+	if git merge-base --is-ancestor $remote/$linux_next_fixes $remote/$linux_fixes ; then
 		# -fixes has caught up to dinf, i.e. we're out of the merge
 		# window. Push the next queue.
-		echo -n "Out of merge window. Pushing drm-intel-next-queued to for-linux-next... "
-		git push $DRY_RUN $remote +$remote/drm-intel-next-queued:for-linux-next >& /dev/null
+		echo -n "Out of merge window. Pushing $linux_next to for-linux-next... "
+		git push $DRY_RUN $remote +$remote/$linux_next:for-linux-next >& /dev/null
 		echo "Done."
 	else
 		# dinf is ahead of -fixes, i.e. drm-next has already closed for
 		# the next merge window and we've started to gather new fixes
 		# for the current -next cycle. Push dinf
 
-		echo -n "Pushing drm-intel-next-fixes to for-linux-next... "
-		git push $DRY_RUN $remote +$remote/drm-intel-next-fixes:for-linux-next >& /dev/null
+		echo -n "Pushing $linux_next_fixes to for-linux-next... "
+		git push $DRY_RUN $remote +$remote/$linux_next_fixes:for-linux-next >& /dev/null
 		echo "Done."
 	fi
 }
@@ -404,6 +417,7 @@ function dim_rebuild_nightly
 
 	# merge -fixes
 	for conf in "${drm_tip_config[@]}"; do
+		local repo branch override
 		read repo branch override <<< $conf
 		local url=${drm_tip_repos[$repo]}
 		local remote=$(url_to_remote $url)
@@ -478,8 +492,6 @@ function dim_rebuild_nightly
 		echo "Fail: Branch setup for the rerere-cache is borked."
 		exit 1
 	fi
-
-	update_linux_next
 }
 # push branch $1, rebuild nightly. the rest of the arguments are passed to git
 # push.
@@ -498,6 +510,9 @@ function dim_push_branch
 	local remote=`branch_to_remote $branch`
 
 	git push $DRY_RUN $remote $branch "$@"
+
+	update_linux_next $branch drm-intel-next-queued drm-intel-next-fixes drm-intel-fixes
+	update_linux_next $branch drm-misc-next drm-misc-next-fixes drm-misc-fixes
 
 	dim_rebuild_nightly
 }
@@ -753,18 +768,7 @@ function dim_remove_branch
 
 	cd $DIM_PREFIX/drm-tip
 
-	source $DIM_PREFIX/drm-rerere/nightly.conf
-
-	local repo=""
-
-	for conf in "${drm_tip_config[@]}"; do
-		read nightly_repo nightly_branch nightly_override <<< $conf
-
-		if [[ $nightly_branch == $branch ]] ; then
-			repo=$nightly_repo
-			break
-		fi
-	done
+	local repo=`branch_to_repo $branch`
 
 	if [[ $repo == "" ]] ; then
 		echoerr "$branch not found in nightly.conf"
