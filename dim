@@ -223,6 +223,14 @@ function url_to_remote # url
 	echo $remote
 }
 
+function branch_to_remote # branch
+{
+	local remote=`git rev-parse --abbrev-ref --symbolic-full-name $1@{upstream}`
+	remote=${remote%%/*}
+
+	echo $remote
+}
+
 function dim_uptodate
 {
 	local using="${BASH_SOURCE[0]}"
@@ -431,7 +439,9 @@ function dim_rebuild_nightly
 
 	echo -n "Updating rerere cache... "
 	cd $rerere
-	if git branch --list rerere-cache | grep '\*' >& /dev/null ; then
+	if git branch --list rerere-cache | grep -q '\*' ; then
+		local rerere_remote=`branch_to_remote rerere-cache`
+
 		git pull >& /dev/null
 		cp `rr_cache_dir`/* rr-cache -r
 		git add *.patch >& /dev/null || true
@@ -442,7 +452,7 @@ function dim_rebuild_nightly
 			echo -n "Nothing changed. "
 		fi
 		echo -n "Pushing rerere cache... "
-		git push $DRY_RUN $nightly_remote HEAD >& /dev/null && echo "Done."
+		git push $DRY_RUN $rerere_remote HEAD >& /dev/null && echo "Done."
 	else
 		echo "Fail: Branch setup for the rerere-cache is borked."
 		exit 1
