@@ -524,6 +524,7 @@ static int vmw_kms_new_framebuffer_surface(struct vmw_private *dev_priv,
 	struct drm_device *dev = dev_priv->dev;
 	struct vmw_framebuffer_surface *vfbs;
 	enum SVGA3dSurfaceFormat format;
+	u32 pixel_format;
 	int ret;
 
 	/* 3D is only supported on HWv8 and newer hosts */
@@ -548,17 +549,22 @@ static int vmw_kms_new_framebuffer_surface(struct vmw_private *dev_priv,
 		return -EINVAL;
 	}
 
+	/* FIXME 'A' format implies per-pixel alpha blending for KMS */
 	switch (mode_cmd->depth) {
 	case 32:
+		pixel_format = DRM_FORMAT_ARGB8888;
 		format = SVGA3D_A8R8G8B8;
 		break;
 	case 24:
+		pixel_format = DRM_FORMAT_XRGB8888;
 		format = SVGA3D_X8R8G8B8;
 		break;
 	case 16:
+		pixel_format = DRM_FORMAT_RGB565;
 		format = SVGA3D_R5G6B5;
 		break;
 	case 15:
+		pixel_format = DRM_FORMAT_ARGB1555;
 		format = SVGA3D_A1R5G5B5;
 		break;
 	default:
@@ -582,7 +588,8 @@ static int vmw_kms_new_framebuffer_surface(struct vmw_private *dev_priv,
 	}
 
 	vfbs->base.base.dev = dev;
-	/* XXX get the first 3 from the surface info */
+	/* XXX get the first 4 from the surface info */
+	vfbs->base.base.pixel_format = pixel_format;
 	vfbs->base.base.bits_per_pixel = mode_cmd->bpp;
 	vfbs->base.base.pitches[0] = mode_cmd->pitch;
 	vfbs->base.base.depth = mode_cmd->depth;
@@ -834,6 +841,7 @@ static int vmw_kms_new_framebuffer_dmabuf(struct vmw_private *dev_priv,
 	struct drm_device *dev = dev_priv->dev;
 	struct vmw_framebuffer_dmabuf *vfbd;
 	unsigned int requested_size;
+	u32 pixel_format;
 	int ret;
 
 	requested_size = mode_cmd->height * mode_cmd->pitch;
@@ -852,6 +860,12 @@ static int vmw_kms_new_framebuffer_dmabuf(struct vmw_private *dev_priv,
 			if (mode_cmd->bpp == 32)
 				break;
 
+			/* FIXME 'A' format implies per-pixel alpha blending for KMS */
+			if (mode_cmd->depth == 32)
+				pixel_format = DRM_FORMAT_ARGB8888;
+			else
+				pixel_format = DRM_FORMAT_XRGB8888;
+
 			DRM_ERROR("Invalid color depth/bbp: %d %d\n",
 				  mode_cmd->depth, mode_cmd->bpp);
 			return -EINVAL;
@@ -860,6 +874,12 @@ static int vmw_kms_new_framebuffer_dmabuf(struct vmw_private *dev_priv,
 			/* Only support 16 bpp for 16 and 15 depth fbs */
 			if (mode_cmd->bpp == 16)
 				break;
+
+			/* FIXME 'A' format implies per-pixel alpha blending for KMS */
+			if (mode_cmd->depth == 16)
+				pixel_format = DRM_FORMAT_RGB565;
+			else
+				pixel_format = DRM_FORMAT_ARGB1555;
 
 			DRM_ERROR("Invalid color depth/bbp: %d %d\n",
 				  mode_cmd->depth, mode_cmd->bpp);
@@ -877,6 +897,7 @@ static int vmw_kms_new_framebuffer_dmabuf(struct vmw_private *dev_priv,
 	}
 
 	vfbd->base.base.dev = dev;
+	vfbd->base.base.pixel_format = pixel_format;
 	vfbd->base.base.bits_per_pixel = mode_cmd->bpp;
 	vfbd->base.base.pitches[0] = mode_cmd->pitch;
 	vfbd->base.base.depth = mode_cmd->depth;
