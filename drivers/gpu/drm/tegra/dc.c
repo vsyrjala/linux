@@ -511,7 +511,7 @@ static int tegra_plane_atomic_check(struct drm_plane *plane,
 	if (!state->crtc)
 		return 0;
 
-	err = tegra_dc_format(state->fb->pixel_format, &plane_state->format,
+	err = tegra_dc_format(state->fb->format->format, &plane_state->format,
 			      &plane_state->swap);
 	if (err < 0)
 		return err;
@@ -531,7 +531,7 @@ static int tegra_plane_atomic_check(struct drm_plane *plane,
 	 * error out if the user tries to display a framebuffer with such a
 	 * configuration.
 	 */
-	if (drm_format_num_planes(state->fb->pixel_format) > 2) {
+	if (drm_format_num_planes(state->fb->format->format) > 2) {
 		if (state->fb->pitches[2] != state->fb->pitches[1]) {
 			DRM_ERROR("unsupported UV-plane configuration\n");
 			return -EINVAL;
@@ -576,7 +576,7 @@ static void tegra_plane_atomic_update(struct drm_plane *plane,
 	window.format = state->format;
 	window.swap = state->swap;
 
-	for (i = 0; i < drm_format_num_planes(fb->pixel_format); i++) {
+	for (i = 0; i < drm_format_num_planes(fb->format->format); i++) {
 		struct tegra_bo *bo = tegra_fb_get_plane(fb, i);
 
 		window.base[i] = bo->paddr + fb->offsets[i];

@@ -65,7 +65,7 @@ static int hdlcd_set_pxl_fmt(struct drm_crtc *crtc)
 	struct simplefb_format *format = NULL;
 	int i;
 
-	pixel_format = fb->pixel_format;
+	pixel_format = fb->format->format;
 
 	for (i = 0; i < ARRAY_SIZE(supported_formats); i++) {
 		if (supported_formats[i].fourcc == pixel_format)
@@ -239,7 +239,7 @@ static void hdlcd_plane_atomic_update(struct drm_plane *plane,
 	scanout_start = gem->paddr + fb->offsets[0] +
 		plane->state->crtc_y * fb->pitches[0] +
 		plane->state->crtc_x *
-		drm_format_plane_cpp(fb->pixel_format, 0);
+		drm_format_plane_cpp(fb->format->format, 0);
 
 	hdlcd = plane->dev->dev_private;
 	hdlcd_write(hdlcd, HDLCD_REG_FB_LINE_LENGTH, fb->pitches[0]);

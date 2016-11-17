@@ -446,7 +446,7 @@ void atmel_hlcdc_layer_update_set_fb(struct atmel_hlcdc_layer *layer,
 		return;
 
 	if (fb)
-		nplanes = drm_format_num_planes(fb->pixel_format);
+		nplanes = drm_format_num_planes(fb->format->format);
 
 	if (nplanes > layer->max_planes)
 		return;
