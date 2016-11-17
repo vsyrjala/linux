@@ -169,12 +169,12 @@ static unsigned armada_drm_crtc_calc_fb(struct drm_framebuffer *fb,
 {
 	struct armada_gem_object *obj = drm_fb_obj(fb);
 	unsigned pitch = fb->pitches[0];
-	unsigned offset = y * pitch + x * fb->bits_per_pixel / 8;
+	unsigned offset = y * pitch + x * fb->format->cpp[0];
 	uint32_t addr_odd, addr_even;
 	unsigned i = 0;
 
 	DRM_DEBUG_DRIVER("pitch %u x %d y %d bpp %d\n",
-		pitch, x, y, fb->bits_per_pixel);
+		pitch, x, y, fb->format->cpp[0] * 8);
 
 	addr_odd = addr_even = obj->dev_addr + offset;
 
