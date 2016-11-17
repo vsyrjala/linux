@@ -589,6 +589,7 @@ static int vmw_kms_new_framebuffer_surface(struct vmw_private *dev_priv,
 
 	vfbs->base.base.dev = dev;
 	/* XXX get the first 4 from the surface info */
+	vfbs->base.base.format = drm_format_info(pixel_format);
 	vfbs->base.base.pixel_format = pixel_format;
 	vfbs->base.base.bits_per_pixel = mode_cmd->bpp;
 	vfbs->base.base.pitches[0] = mode_cmd->pitch;
@@ -897,6 +898,7 @@ static int vmw_kms_new_framebuffer_dmabuf(struct vmw_private *dev_priv,
 	}
 
 	vfbd->base.base.dev = dev;
+	vfbd->base.base.format = drm_format_info(pixel_format);
 	vfbd->base.base.pixel_format = pixel_format;
 	vfbd->base.base.bits_per_pixel = mode_cmd->bpp;
 	vfbd->base.base.pitches[0] = mode_cmd->pitch;
