@@ -83,7 +83,7 @@ static int vmw_fb_setcolreg(unsigned regno, unsigned red, unsigned green,
 		return 1;
 	}
 
-	switch (par->set_fb->depth) {
+	switch (par->set_fb->format->depth) {
 	case 24:
 	case 32:
 		pal[regno] = ((red & 0xff00) << 8) |
@@ -91,7 +91,8 @@ static int vmw_fb_setcolreg(unsigned regno, unsigned red, unsigned green,
 			     ((blue  & 0xff00) >> 8);
 		break;
 	default:
-		DRM_ERROR("Bad depth %u, bpp %u.\n", par->set_fb->depth,
+		DRM_ERROR("Bad depth %u, bpp %u.\n",
+			  par->set_fb->format->depth,
 			  par->set_fb->bits_per_pixel);
 		return 1;
 	}
@@ -486,7 +487,7 @@ static int vmw_fb_kms_framebuffer(struct fb_info *info)
 	if (cur_fb && cur_fb->width == mode_cmd.width &&
 	    cur_fb->height == mode_cmd.height &&
 	    cur_fb->bits_per_pixel == mode_cmd.bpp &&
-	    cur_fb->depth == mode_cmd.depth &&
+	    cur_fb->format->depth == mode_cmd.depth &&
 	    cur_fb->pitches[0] == mode_cmd.pitch)
 		return 0;
 
