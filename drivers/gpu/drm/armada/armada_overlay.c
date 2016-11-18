@@ -182,7 +182,7 @@ armada_ovl_plane_update(struct drm_plane *plane, struct drm_crtc *crtc,
 		src_y = src.y1 >> 16;
 		src_x = src.x1 >> 16;
 
-		pixel_format = fb->pixel_format;
+		pixel_format = fb->format->format;
 		hsub = drm_format_horz_chroma_subsampling(pixel_format);
 		num_planes = fb->format->num_planes;
 

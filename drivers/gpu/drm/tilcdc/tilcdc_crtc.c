@@ -459,7 +459,7 @@ static void tilcdc_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	if (info->tft_alt_mode)
 		reg |= LCDC_TFT_ALT_ENABLE;
 	if (priv->rev == 2) {
-		switch (fb->pixel_format) {
+		switch (fb->format->format) {
 		case DRM_FORMAT_BGR565:
 		case DRM_FORMAT_RGB565:
 			break;
