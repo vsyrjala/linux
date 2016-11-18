@@ -340,7 +340,7 @@ static int mdp5_plane_atomic_check(struct drm_plane *plane,
 	if (plane_enabled(state) && plane_enabled(old_state)) {
 		/* we cannot change SMP block configuration during scanout: */
 		bool full_modeset = false;
-		if (state->fb->format->format != old_state->fb->format->format) {
+		if (state->fb->format != old_state->fb->format) {
 			DBG("%s: pixel_format change!", mdp5_plane->name);
 			full_modeset = true;
 		}
