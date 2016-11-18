@@ -197,7 +197,7 @@ armada_ovl_plane_update(struct drm_plane *plane, struct drm_crtc *crtc,
 		for (i = 0; i < num_planes; i++)
 			addr[i] = obj->dev_addr + fb->offsets[i] +
 				  src_y * fb->pitches[i] +
-				  src_x * drm_format_plane_cpp(pixel_format, i);
+				  src_x * fb->format->cpp[i];
 		for (; i < ARRAY_SIZE(addr); i++)
 			addr[i] = 0;
 
