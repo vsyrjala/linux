@@ -2484,6 +2484,13 @@ static unsigned int intel_fb_modifier_to_tiling(uint64_t fb_modifier)
 	}
 }
 
+/*
+ * 1 byte of CCS actually corresponds to 16x8 pixels on the main
+ * surface, and the memory layout for the CCS tile is 64x64 bytes.
+ * But since we're pretending the CCS tile is 128 bytes wide we
+ * adjust hsub/vsub here accordingly to 8x16 so that the
+ * bytes<->x/y conversions come out correct.
+ */
 static const struct drm_format_info ccs_formats[] = {
 	{ .format = DRM_FORMAT_XRGB8888, .depth = 24, .num_planes = 2, .cpp = { 4, 1, }, .hsub = 8, .vsub = 16, },
 	{ .format = DRM_FORMAT_XBGR8888, .depth = 24, .num_planes = 2, .cpp = { 4, 1, }, .hsub = 8, .vsub = 16, },
