@@ -1177,12 +1177,8 @@ void intel_ddi_set_vc_payload_alloc(struct drm_crtc *crtc, bool state);
 uint32_t ddi_signal_levels(struct intel_dp *intel_dp);
 struct intel_shared_dpll *intel_ddi_get_link_dpll(struct intel_dp *intel_dp,
 						  int clock);
-unsigned int intel_fb_align_height(struct drm_device *dev,
-				   unsigned int height,
-				   uint32_t pixel_format,
-				   uint64_t fb_format_modifier);
-u32 intel_fb_stride_alignment(const struct drm_i915_private *dev_priv,
-			      uint64_t fb_modifier, uint32_t pixel_format);
+unsigned int intel_fb_align_height(const struct drm_framebuffer *fb,
+				   int plane, unsigned int height);
 
 /* intel_audio.c */
 void intel_init_audio_hooks(struct drm_i915_private *dev_priv);
@@ -1293,9 +1289,6 @@ int intel_plane_atomic_set_property(struct drm_plane *plane,
 				    uint64_t val);
 int intel_plane_atomic_calc_changes(struct drm_crtc_state *crtc_state,
 				    struct drm_plane_state *plane_state);
-
-unsigned int intel_tile_height(const struct drm_i915_private *dev_priv,
-			       uint64_t fb_modifier, unsigned int cpp);
 
 void assert_pch_transcoder_disabled(struct drm_i915_private *dev_priv,
 				    enum pipe pipe);

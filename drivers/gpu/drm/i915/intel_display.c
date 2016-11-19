@@ -2050,10 +2050,13 @@ static unsigned int intel_tile_size(const struct drm_i915_private *dev_priv)
 	return IS_GEN2(dev_priv) ? 2048 : 4096;
 }
 
-static unsigned int intel_tile_width_bytes(const struct drm_i915_private *dev_priv,
-					   uint64_t fb_modifier, unsigned int cpp)
+static unsigned int
+intel_tile_width_bytes(const struct drm_framebuffer *fb, int plane)
 {
-	switch (fb_modifier) {
+	struct drm_i915_private *dev_priv = to_i915(fb->dev);
+	unsigned int cpp = fb->format->cpp[plane];
+
+	switch (fb->modifier) {
 	case DRM_FORMAT_MOD_NONE:
 		return cpp;
 	case I915_FORMAT_MOD_X_TILED:
@@ -2082,41 +2085,38 @@ static unsigned int intel_tile_width_bytes(const struct drm_i915_private *dev_pr
 		}
 		break;
 	default:
-		MISSING_CASE(fb_modifier);
+		MISSING_CASE(fb->modifier);
 		return cpp;
 	}
 }
 
-unsigned int intel_tile_height(const struct drm_i915_private *dev_priv,
-			       uint64_t fb_modifier, unsigned int cpp)
+static unsigned int
+intel_tile_height(const struct drm_framebuffer *fb, int plane)
 {
-	if (fb_modifier == DRM_FORMAT_MOD_NONE)
+	if (fb->modifier == DRM_FORMAT_MOD_NONE)
 		return 1;
 	else
-		return intel_tile_size(dev_priv) /
-			intel_tile_width_bytes(dev_priv, fb_modifier, cpp);
+		return intel_tile_size(to_i915(fb->dev)) /
+			intel_tile_width_bytes(fb, plane);
 }
 
 /* Return the tile dimensions in pixel units */
-static void intel_tile_dims(const struct drm_i915_private *dev_priv,
+static void intel_tile_dims(const struct drm_framebuffer *fb, int plane,
 			    unsigned int *tile_width,
-			    unsigned int *tile_height,
-			    uint64_t fb_modifier,
-			    unsigned int cpp)
+			    unsigned int *tile_height)
 {
-	unsigned int tile_width_bytes =
-		intel_tile_width_bytes(dev_priv, fb_modifier, cpp);
+	unsigned int tile_width_bytes = intel_tile_width_bytes(fb, plane);
+	unsigned int cpp = fb->format->cpp[plane];
 
 	*tile_width = tile_width_bytes / cpp;
-	*tile_height = intel_tile_size(dev_priv) / tile_width_bytes;
+	*tile_height = intel_tile_size(to_i915(fb->dev)) / tile_width_bytes;
 }
 
 unsigned int
-intel_fb_align_height(struct drm_device *dev, unsigned int height,
-		      uint32_t pixel_format, uint64_t fb_modifier)
+intel_fb_align_height(const struct drm_framebuffer *fb,
+		      int plane, unsigned int height)
 {
-	unsigned int cpp = drm_format_plane_cpp(pixel_format, 0);
-	unsigned int tile_height = intel_tile_height(to_i915(dev), fb_modifier, cpp);
+	unsigned int tile_height = intel_tile_height(fb, plane);
 
 	return ALIGN(height, tile_height);
 }
@@ -2158,21 +2158,23 @@ static unsigned int intel_linear_alignment(const struct drm_i915_private *dev_pr
 		return 0;
 }
 
-static unsigned int intel_surf_alignment(const struct drm_i915_private *dev_priv,
-					 uint64_t fb_modifier)
+static unsigned int intel_surf_alignment(const struct drm_framebuffer *fb,
+					 int plane)
 {
-	switch (fb_modifier) {
+	struct drm_i915_private *dev_priv = to_i915(fb->dev);
+
+	switch (fb->modifier) {
 	case DRM_FORMAT_MOD_NONE:
 		return intel_linear_alignment(dev_priv);
 	case I915_FORMAT_MOD_X_TILED:
-		if (INTEL_INFO(dev_priv)->gen >= 9)
+		if (INTEL_GEN(dev_priv) >= 9)
 			return 256 * 1024;
 		return 0;
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
 		return 1 * 1024 * 1024;
 	default:
-		MISSING_CASE(fb_modifier);
+		MISSING_CASE(fb->modifier);
 		return 0;
 	}
 }
@@ -2189,7 +2191,7 @@ intel_pin_and_fence_fb_obj(struct drm_framebuffer *fb, unsigned int rotation)
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
-	alignment = intel_surf_alignment(dev_priv, fb->modifier);
+	alignment = intel_surf_alignment(fb, 0);
 
 	intel_fill_fb_ggtt_view(&view, fb, rotation);
 
@@ -2355,8 +2357,7 @@ static u32 intel_adjust_tile_offset(int *x, int *y,
 		unsigned int pitch_tiles;
 
 		tile_size = intel_tile_size(dev_priv);
-		intel_tile_dims(dev_priv, &tile_width, &tile_height,
-				fb->modifier, cpp);
+		intel_tile_dims(fb, plane, &tile_width, &tile_height);
 
 		if (drm_rotation_90_or_270(rotation)) {
 			pitch_tiles = pitch / tile_height;
@@ -2411,8 +2412,7 @@ static u32 _intel_compute_tile_offset(const struct drm_i915_private *dev_priv,
 		unsigned int tile_rows, tiles, pitch_tiles;
 
 		tile_size = intel_tile_size(dev_priv);
-		intel_tile_dims(dev_priv, &tile_width, &tile_height,
-				fb_modifier, cpp);
+		intel_tile_dims(fb, plane, &tile_width, &tile_height);
 
 		if (drm_rotation_90_or_270(rotation)) {
 			pitch_tiles = pitch / tile_height;
@@ -2458,7 +2458,7 @@ u32 intel_compute_tile_offset(int *x, int *y,
 	if (fb->format->format == DRM_FORMAT_NV12 && plane == 1)
 		alignment = 4096;
 	else
-		alignment = intel_surf_alignment(dev_priv, fb->modifier);
+		alignment = intel_surf_alignment(fb, plane);
 
 	return _intel_compute_tile_offset(dev_priv, x, y, fb, plane, pitch,
 					  rotation, alignment);
@@ -2580,8 +2580,7 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 			unsigned int pitch_tiles;
 			struct drm_rect r;
 
-			intel_tile_dims(dev_priv, &tile_width, &tile_height,
-					fb->modifier, cpp);
+			intel_tile_dims(fb, i, &tile_width, &tile_height);
 
 			rot_info->plane[i].offset = offset;
 			rot_info->plane[i].stride = DIV_ROUND_UP(fb->pitches[i], tile_width * cpp);
@@ -2909,7 +2908,6 @@ static int skl_max_plane_width(const struct drm_framebuffer *fb, int plane,
 
 static int skl_check_main_surface(struct intel_plane_state *plane_state)
 {
-	const struct drm_i915_private *dev_priv = to_i915(plane_state->base.plane->dev);
 	const struct drm_framebuffer *fb = plane_state->base.fb;
 	unsigned int rotation = plane_state->base.rotation;
 	int x = plane_state->base.src.x1 >> 16;
@@ -2928,8 +2926,7 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 
 	intel_add_fb_offsets(&x, &y, plane_state, 0);
 	offset = intel_compute_tile_offset(&x, &y, plane_state, 0);
-
-	alignment = intel_surf_alignment(dev_priv, fb->modifier);
+	alignment = intel_surf_alignment(fb, 0);
 
 	/*
 	 * AUX surface offset is specified as the distance from the
@@ -3246,16 +3243,13 @@ static void ironlake_update_primary_plane(struct drm_plane *primary,
 	POSTING_READ(reg);
 }
 
-u32 intel_fb_stride_alignment(const struct drm_i915_private *dev_priv,
-			      uint64_t fb_modifier, uint32_t pixel_format)
+static u32
+intel_fb_stride_alignment(const struct drm_framebuffer *fb, int plane)
 {
-	if (fb_modifier == DRM_FORMAT_MOD_NONE) {
+	if (fb->modifier == DRM_FORMAT_MOD_NONE)
 		return 64;
-	} else {
-		int cpp = drm_format_plane_cpp(pixel_format, 0);
-
-		return intel_tile_width_bytes(dev_priv, fb_modifier, cpp);
-	}
+	else
+		return intel_tile_width_bytes(fb, plane);
 }
 
 u32 intel_fb_gtt_offset(struct drm_framebuffer *fb,
@@ -3305,21 +3299,16 @@ static void skl_detach_scalers(struct intel_crtc *intel_crtc)
 u32 skl_plane_stride(const struct drm_framebuffer *fb, int plane,
 		     unsigned int rotation)
 {
-	const struct drm_i915_private *dev_priv = to_i915(fb->dev);
 	u32 stride = intel_fb_pitch(fb, plane, rotation);
 
 	/*
 	 * The stride is either expressed as a multiple of 64 bytes chunks for
 	 * linear buffers or in number of tiles for tiled buffers.
 	 */
-	if (drm_rotation_90_or_270(rotation)) {
-		int cpp = fb->format->cpp[plane];
-
-		stride /= intel_tile_height(dev_priv, fb->modifier, cpp);
-	} else {
-		stride /= intel_fb_stride_alignment(dev_priv, fb->modifier,
-						    fb->format->format);
-	}
+	if (drm_rotation_90_or_270(rotation))
+		stride /= intel_tile_height(fb, plane);
+	else
+		stride /= intel_fb_stride_alignment(fb, plane);
 
 	return stride;
 }
@@ -8770,9 +8759,7 @@ i9xx_get_initial_plane_config(struct intel_crtc *crtc,
 	val = I915_READ(DSPSTRIDE(pipe));
 	fb->pitches[0] = val & 0xffffffc0;
 
-	aligned_height = intel_fb_align_height(dev, fb->height,
-					       fb->format->format,
-					       fb->modifier);
+	aligned_height = intel_fb_align_height(fb, 0, fb->height);
 
 	plane_config->size = fb->pitches[0] * aligned_height;
 
@@ -9812,13 +9799,10 @@ skylake_get_initial_plane_config(struct intel_crtc *crtc,
 	fb->width = ((val >> 0) & 0x1fff) + 1;
 
 	val = I915_READ(PLANE_STRIDE(pipe, 0));
-	stride_mult = intel_fb_stride_alignment(dev_priv, fb->modifier,
-						fb->format->format);
+	stride_mult = intel_fb_stride_alignment(fb, 0);
 	fb->pitches[0] = (val & 0x3ff) * stride_mult;
 
-	aligned_height = intel_fb_align_height(dev, fb->height,
-					       fb->format->format,
-					       fb->modifier);
+	aligned_height = intel_fb_align_height(fb, 0, fb->height);
 
 	plane_config->size = fb->pitches[0] * aligned_height;
 
@@ -9914,9 +9898,7 @@ ironlake_get_initial_plane_config(struct intel_crtc *crtc,
 	val = I915_READ(DSPSTRIDE(pipe));
 	fb->pitches[0] = val & 0xffffffc0;
 
-	aligned_height = intel_fb_align_height(dev, fb->height,
-					       fb->format->format,
-					       fb->modifier);
+	aligned_height = intel_fb_align_height(fb, 0, fb->height);
 
 	plane_config->size = fb->pitches[0] * aligned_height;
 
@@ -15829,15 +15811,6 @@ static int intel_framebuffer_init(struct drm_device *dev,
 		return -EINVAL;
 	}
 
-	stride_alignment = intel_fb_stride_alignment(dev_priv,
-						     mode_cmd->modifier[0],
-						     mode_cmd->pixel_format);
-	if (mode_cmd->pitches[0] & (stride_alignment - 1)) {
-		DRM_DEBUG("pitch (%d) must be at least %u byte aligned\n",
-			  mode_cmd->pitches[0], stride_alignment);
-		return -EINVAL;
-	}
-
 	pitch_limit = intel_fb_pitch_limit(dev_priv, mode_cmd->modifier[0],
 					   mode_cmd->pixel_format);
 	if (mode_cmd->pitches[0] > pitch_limit) {
@@ -15919,6 +15892,14 @@ static int intel_framebuffer_init(struct drm_device *dev,
 		return -EINVAL;
 
 	drm_helper_mode_fill_fb_struct(dev, &intel_fb->base, mode_cmd);
+
+	stride_alignment = intel_fb_stride_alignment(&intel_fb->base, 0);
+	if (mode_cmd->pitches[0] & (stride_alignment - 1)) {
+		DRM_DEBUG("pitch (%d) must be at least %u byte aligned\n",
+			  mode_cmd->pitches[0], stride_alignment);
+		return -EINVAL;
+	}
+
 	intel_fb->obj = obj;
 
 	ret = intel_fill_fb_info(dev_priv, &intel_fb->base);
