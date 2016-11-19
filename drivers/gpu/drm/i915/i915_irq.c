@@ -1541,7 +1541,7 @@ static void gmbus_irq_handler(struct drm_i915_private *dev_priv)
 
 static void dp_aux_irq_handler(struct drm_i915_private *dev_priv)
 {
-	wake_up_all(&dev_priv->gmbus_wait_queue);
+	wake_up_all(&dev_priv->aux_wait_queue);
 }
 
 #if defined(CONFIG_DEBUG_FS)
