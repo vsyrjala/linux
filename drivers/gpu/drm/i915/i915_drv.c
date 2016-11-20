@@ -792,6 +792,7 @@ static int i915_driver_init_early(struct drm_i915_private *dev_priv,
 	const struct intel_device_info *match_info =
 		(struct intel_device_info *)ent->driver_data;
 	struct intel_device_info *device_info;
+	enum aux_ch aux_ch;
 	int ret = 0;
 
 	if (i915_inject_load_failure())
@@ -807,15 +808,21 @@ static int i915_driver_init_early(struct drm_i915_private *dev_priv,
 
 	spin_lock_init(&dev_priv->irq_lock);
 	spin_lock_init(&dev_priv->gpu_error.lock);
-	mutex_init(&dev_priv->backlight_lock);
 	spin_lock_init(&dev_priv->uncore.lock);
 	spin_lock_init(&dev_priv->mm.object_stat_lock);
 	spin_lock_init(&dev_priv->mmio_flip_lock);
+
+	mutex_init(&dev_priv->backlight_lock);
 	mutex_init(&dev_priv->sb_lock);
 	mutex_init(&dev_priv->modeset_restore_lock);
 	mutex_init(&dev_priv->av_mutex);
 	mutex_init(&dev_priv->wm.wm_mutex);
 	mutex_init(&dev_priv->pps_mutex);
+	mutex_init(&dev_priv->gmbus_mutex);
+
+	for_each_aux_ch(aux_ch)
+		init_waitqueue_head(&dev_priv->aux_wait_queue[aux_ch]);
+	init_waitqueue_head(&dev_priv->gmbus_wait_queue);
 
 	i915_memcpy_init_early(dev_priv);
 

@@ -1362,8 +1362,6 @@ intel_dp_aux_init(struct intel_dp *intel_dp)
 
 	intel_dp->aux_ch = intel_aux_ch_for_port(dev_priv, port);
 
-	init_waitqueue_head(&dev_priv->aux_wait_queue[intel_dp->aux_ch]);
-
 	intel_aux_reg_init(intel_dp);
 	drm_dp_aux_init(&intel_dp->aux);
 

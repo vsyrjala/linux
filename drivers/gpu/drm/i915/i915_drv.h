@@ -346,6 +346,9 @@ struct i915_hotplug {
 	for ((__port) = PORT_A; (__port) < I915_MAX_PORTS; (__port)++)	\
 		for_each_if ((__ports_mask) & (1 << (__port)))
 
+#define for_each_aux_ch(__aux_ch) \
+	for ((__aux_ch) = AUX_CH_A; (__aux_ch) < I915_MAX_AUX_CH; (__aux_ch)++)
+
 #define for_each_crtc(dev, crtc) \
 	list_for_each_entry(crtc, &(dev)->mode_config.crtc_list, head)
 
