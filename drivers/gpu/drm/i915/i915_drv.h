@@ -1853,6 +1853,7 @@ struct drm_i915_private {
 
 	wait_queue_head_t aux_wait_queue[I915_MAX_AUX_CH];
 	wait_queue_head_t gmbus_wait_queue;
+	wait_queue_head_t pcode_wait_queue;
 
 	struct pci_dev *bridge_dev;
 	struct i915_gem_context *kernel_context;

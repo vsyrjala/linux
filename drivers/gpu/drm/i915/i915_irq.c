@@ -1536,6 +1536,11 @@ static void dp_aux_irq_handler(struct drm_i915_private *dev_priv,
 	wake_up_all(&dev_priv->aux_wait_queue[aux_ch]);
 }
 
+static void pcode_irq_handler(struct drm_i915_private *dev_priv)
+{
+	wake_up_all(&dev_priv->pcode_wait_queue);
+}
+
 #if defined(CONFIG_DEBUG_FS)
 static void display_pipe_crc_irq_handler(struct drm_i915_private *dev_priv,
 					 enum pipe pipe,
@@ -2365,8 +2370,15 @@ static irqreturn_t ironlake_irq_handler(int irq, void *arg)
 		if (pm_iir) {
 			I915_WRITE(GEN6_PMIIR, pm_iir);
 			ret = IRQ_HANDLED;
-			gen6_rps_irq_handler(dev_priv, pm_iir);
 		}
+
+		if (pm_iir & GEN6_PM_MBOX_EVENT) {
+			pcode_irq_handler(dev_priv);
+			pm_iir &= ~GEN6_PM_MBOX_EVENT;
+		}
+
+		if (pm_iir)
+			gen6_rps_irq_handler(dev_priv, pm_iir);
 	}
 
 	I915_WRITE(DEIER, de_ier);
@@ -2550,12 +2562,47 @@ gen8_de_irq_handler(struct drm_i915_private *dev_priv, u32 master_ctl)
 	return ret;
 }
 
+static irqreturn_t
+gen8_pcu_irq_ack(struct drm_i915_private *dev_priv,
+		 u32 master_ctl, u32 *pcu_iir)
+{
+	irqreturn_t ret = IRQ_NONE;
+
+	if (master_ctl & GEN8_PCU_IRQ) {
+		*pcu_iir = I915_READ(GEN8_PCU_IIR);
+
+		if (*pcu_iir) {
+			I915_WRITE(GEN8_PCU_IIR, *pcu_iir);
+			ret = IRQ_HANDLED;
+		} else {
+			DRM_ERROR("The master control interrupt lied (PCU)!\n");
+		}
+	}
+
+	return ret;
+}
+
+static void
+gen8_pcu_irq_handler(struct drm_i915_private *dev_priv, u32 pcu_iir)
+{
+	bool found = false;
+
+	if (pcu_iir & GEN8_PCU_MBOX_EVENT) {
+		pcode_irq_handler(dev_priv);
+		found = true;
+	}
+
+	if (!found)
+		DRM_ERROR("Unexpected PCU interrupt\n");
+}
+
 static irqreturn_t gen8_irq_handler(int irq, void *arg)
 {
 	struct drm_device *dev = arg;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	u32 master_ctl;
 	u32 gt_iir[4] = {};
+	u32 pcu_iir = 0;
 	irqreturn_t ret;
 
 	if (!intel_irqs_enabled(dev_priv))
@@ -2573,7 +2620,9 @@ static irqreturn_t gen8_irq_handler(int irq, void *arg)
 
 	/* Find, clear, then process each source of interrupt */
 	ret = gen8_gt_irq_ack(dev_priv, master_ctl, gt_iir);
+	ret |= gen8_pcu_irq_ack(dev_priv, master_ctl, &pcu_iir);
 	gen8_gt_irq_handler(dev_priv, gt_iir);
+	gen8_pcu_irq_handler(dev_priv, pcu_iir);
 	ret |= gen8_de_irq_handler(dev_priv, master_ctl);
 
 	I915_WRITE_FW(GEN8_MASTER_IRQ, GEN8_MASTER_IRQ_CONTROL);
@@ -3247,6 +3296,9 @@ static void gen5_gt_irq_postinstall(struct drm_device *dev)
 		if (HAS_VEBOX(dev_priv))
 			pm_ier |= PM_VEBOX_USER_INTERRUPT;
 
+		pm_ier |= GEN6_PM_MBOX_EVENT;
+		dev_priv->pm_imr &= ~GEN6_PM_MBOX_EVENT;
+
 		GEN5_IRQ_INIT(GEN6_PM, dev_priv->pm_imr, pm_ier);
 	}
 }
@@ -3430,6 +3482,13 @@ static void gen8_de_irq_postinstall(struct drm_i915_private *dev_priv)
 	GEN5_IRQ_INIT(GEN8_DE_MISC_, ~de_misc_masked, de_misc_masked);
 }
 
+static void gen8_pcu_irq_postinstall(struct drm_i915_private *dev_priv)
+{
+	u32 pcu_unmask = GEN8_PCU_MBOX_EVENT;
+
+	GEN5_IRQ_INIT(GEN8_PCU_, ~pcu_unmask, pcu_unmask);
+}
+
 static int gen8_irq_postinstall(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
@@ -3439,6 +3498,7 @@ static int gen8_irq_postinstall(struct drm_device *dev)
 
 	gen8_gt_irq_postinstall(dev_priv);
 	gen8_de_irq_postinstall(dev_priv);
+	gen8_pcu_irq_postinstall(dev_priv);
 
 	if (HAS_PCH_SPLIT(dev_priv))
 		ibx_irq_postinstall(dev);

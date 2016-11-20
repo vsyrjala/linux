@@ -7851,6 +7851,7 @@ int sandybridge_pcode_write(struct drm_i915_private *dev_priv,
 			    u32 mbox, u32 val)
 {
 	int status;
+	bool done;
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
@@ -7867,9 +7868,10 @@ int sandybridge_pcode_write(struct drm_i915_private *dev_priv,
 	I915_WRITE_FW(GEN6_PCODE_DATA, val);
 	I915_WRITE_FW(GEN6_PCODE_MAILBOX, GEN6_PCODE_READY | mbox);
 
-	if (intel_wait_for_register_fw(dev_priv,
-				       GEN6_PCODE_MAILBOX, GEN6_PCODE_READY, 0,
-				       500)) {
+	done = wait_event_timeout(dev_priv->pcode_wait_queue,
+				  (I915_READ_FW(GEN6_PCODE_MAILBOX) & GEN6_PCODE_READY) == 0,
+				  msecs_to_jiffies_timeout(500));
+	if (!done) {
 		DRM_ERROR("timeout waiting for pcode write (%d) to finish\n", mbox);
 		return -ETIMEDOUT;
 	}

@@ -6029,6 +6029,8 @@ enum {
 #define GEN8_PCU_IMR _MMIO(0x444e4)
 #define GEN8_PCU_IIR _MMIO(0x444e8)
 #define GEN8_PCU_IER _MMIO(0x444ec)
+#define  GEN8_PCU_MBOX_EVENT		(1<<25)
+#define  GEN8_PCU_THERMAL_EVENT		(1<<24)
 
 #define ILK_DISPLAY_CHICKEN2	_MMIO(0x42004)
 /* Required on all Ironlake and Sandybridge according to the B-Spec. */

@@ -823,6 +823,7 @@ static int i915_driver_init_early(struct drm_i915_private *dev_priv,
 	for_each_aux_ch(aux_ch)
 		init_waitqueue_head(&dev_priv->aux_wait_queue[aux_ch]);
 	init_waitqueue_head(&dev_priv->gmbus_wait_queue);
+	init_waitqueue_head(&dev_priv->pcode_wait_queue);
 
 	i915_memcpy_init_early(dev_priv);
 
