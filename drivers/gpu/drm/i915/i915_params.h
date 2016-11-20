@@ -66,6 +66,7 @@ struct i915_params {
 	bool enable_dp_mst;
 	bool enable_dpcd_backlight;
 	bool enable_gvt;
+	bool pcode_irq;
 };
 
 extern struct i915_params i915 __read_mostly;

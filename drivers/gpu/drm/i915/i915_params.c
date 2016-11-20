@@ -63,7 +63,12 @@ struct i915_params i915 __read_mostly = {
 	.inject_load_failure = 0,
 	.enable_dpcd_backlight = false,
 	.enable_gvt = false,
+	.pcode_irq = true,
 };
+
+module_param_named(pcode_irq, i915.pcode_irq, bool, 0600);
+MODULE_PARM_DESC(pcode_irq,
+	"Use irq for pcode communication [default])");
 
 module_param_named(modeset, i915.modeset, int, 0400);
 MODULE_PARM_DESC(modeset,
