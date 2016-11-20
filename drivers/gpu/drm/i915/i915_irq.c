@@ -283,11 +283,6 @@ static i915_reg_t gen6_pm_imr(struct drm_i915_private *dev_priv)
 	return INTEL_INFO(dev_priv)->gen >= 8 ? GEN8_GT_IMR(2) : GEN6_PMIMR;
 }
 
-static i915_reg_t gen6_pm_ier(struct drm_i915_private *dev_priv)
-{
-	return INTEL_INFO(dev_priv)->gen >= 8 ? GEN8_GT_IER(2) : GEN6_PMIER;
-}
-
 /**
  * snb_update_pm_irq - update GEN6_PMIMR
  * @dev_priv: driver private
@@ -351,8 +346,6 @@ void gen6_enable_pm_irq(struct drm_i915_private *dev_priv, u32 enable_mask)
 {
 	assert_spin_locked(&dev_priv->irq_lock);
 
-	dev_priv->pm_ier |= enable_mask;
-	I915_WRITE(gen6_pm_ier(dev_priv), dev_priv->pm_ier);
 	gen6_unmask_pm_irq(dev_priv, enable_mask);
 	/* unmask_pm_irq provides an implicit barrier (POSTING_READ) */
 }
@@ -361,9 +354,7 @@ void gen6_disable_pm_irq(struct drm_i915_private *dev_priv, u32 disable_mask)
 {
 	assert_spin_locked(&dev_priv->irq_lock);
 
-	dev_priv->pm_ier &= ~disable_mask;
 	__gen6_mask_pm_irq(dev_priv, disable_mask);
-	I915_WRITE(gen6_pm_ier(dev_priv), dev_priv->pm_ier);
 	/* though a barrier is missing here, but don't really need a one */
 }
 
@@ -3220,10 +3211,9 @@ static void ibx_irq_postinstall(struct drm_device *dev)
 static void gen5_gt_irq_postinstall(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	u32 pm_irqs, gt_irqs;
+	u32 gt_irqs;
 
-	pm_irqs = gt_irqs = 0;
-
+	gt_irqs = 0;
 	dev_priv->gt_irq_mask = ~0;
 	if (HAS_L3_DPF(dev_priv)) {
 		/* L3 parity interrupt is always unmasked. */
@@ -3241,17 +3231,23 @@ static void gen5_gt_irq_postinstall(struct drm_device *dev)
 	GEN5_IRQ_INIT(GT, dev_priv->gt_irq_mask, gt_irqs);
 
 	if (INTEL_GEN(dev_priv) >= 6) {
-		/*
-		 * RPS interrupts will get enabled/disabled on demand when RPS
-		 * itself is enabled/disabled.
-		 */
-		if (HAS_VEBOX(dev_priv)) {
-			pm_irqs |= PM_VEBOX_USER_INTERRUPT;
-			dev_priv->pm_ier |= PM_VEBOX_USER_INTERRUPT;
-		}
+		u32 pm_ier;
 
+		pm_ier = GEN6_PM_RP_DOWN_TIMEOUT |
+			GEN6_PM_RP_UP_THRESHOLD |
+			GEN6_PM_RP_DOWN_THRESHOLD |
+			GEN6_PM_RP_UP_EI_EXPIRED |
+			GEN6_PM_RP_DOWN_EI_EXPIRED;
+		/*
+		 * RPS interrupts will get masked/unmasked on
+		 * demand when RPS itself is enabled/disabled.
+		 */
 		dev_priv->pm_imr = 0xffffffff;
-		GEN5_IRQ_INIT(GEN6_PM, dev_priv->pm_imr, pm_irqs);
+
+		if (HAS_VEBOX(dev_priv))
+			pm_ier |= PM_VEBOX_USER_INTERRUPT;
+
+		GEN5_IRQ_INIT(GEN6_PM, dev_priv->pm_imr, pm_ier);
 	}
 }
 
@@ -3367,19 +3363,25 @@ static void gen8_gt_irq_postinstall(struct drm_i915_private *dev_priv)
 		GT_RENDER_USER_INTERRUPT << GEN8_VECS_IRQ_SHIFT |
 			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VECS_IRQ_SHIFT
 		};
+	u32 pm_ier;
 
 	if (HAS_L3_DPF(dev_priv))
 		gt_interrupts[0] |= GT_RENDER_L3_PARITY_ERROR_INTERRUPT;
 
-	dev_priv->pm_ier = 0x0;
-	dev_priv->pm_imr = ~dev_priv->pm_ier;
+	pm_ier = GEN6_PM_RP_DOWN_TIMEOUT |
+		GEN6_PM_RP_UP_THRESHOLD |
+		GEN6_PM_RP_DOWN_THRESHOLD |
+		GEN6_PM_RP_UP_EI_EXPIRED |
+		GEN6_PM_RP_DOWN_EI_EXPIRED;
+	/*
+	 * RPS interrupts will get masked/unmasked on
+	 * demand when RPS itself is enabled/disabled.
+	 */
+	dev_priv->pm_imr = 0xffffffff;
+
 	GEN8_IRQ_INIT_NDX(GT, 0, ~gt_interrupts[0], gt_interrupts[0]);
 	GEN8_IRQ_INIT_NDX(GT, 1, ~gt_interrupts[1], gt_interrupts[1]);
-	/*
-	 * RPS interrupts will get enabled/disabled on demand when RPS itself
-	 * is enabled/disabled. Same wil be the case for GuC interrupts.
-	 */
-	GEN8_IRQ_INIT_NDX(GT, 2, dev_priv->pm_imr, dev_priv->pm_ier);
+	GEN8_IRQ_INIT_NDX(GT, 2, dev_priv->pm_imr, pm_ier);
 	GEN8_IRQ_INIT_NDX(GT, 3, ~gt_interrupts[3], gt_interrupts[3]);
 }
 
