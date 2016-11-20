@@ -886,6 +886,7 @@ struct intel_dp {
 	i915_reg_t aux_ch_data_reg[5];
 	uint32_t DP;
 	int link_rate;
+	enum aux_ch aux_ch;
 	uint8_t lane_count;
 	uint8_t sink_count;
 	bool link_mst;

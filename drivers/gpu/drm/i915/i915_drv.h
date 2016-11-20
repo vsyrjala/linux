@@ -207,6 +207,16 @@ enum port {
 };
 #define port_name(p) ((p) + 'A')
 
+enum aux_ch {
+	AUX_CH_A,
+	AUX_CH_B,
+	AUX_CH_C,
+	AUX_CH_D,
+	AUX_CH_E,
+	I915_MAX_AUX_CH
+};
+#define aux_ch_name(a) ((a) + 'A')
+
 #define I915_NUM_PHYS_VLV 2
 
 enum dpio_channel {
