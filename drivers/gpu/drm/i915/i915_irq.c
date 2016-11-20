@@ -1539,9 +1539,10 @@ static void gmbus_irq_handler(struct drm_i915_private *dev_priv)
 	wake_up_all(&dev_priv->gmbus_wait_queue);
 }
 
-static void dp_aux_irq_handler(struct drm_i915_private *dev_priv)
+static void dp_aux_irq_handler(struct drm_i915_private *dev_priv,
+			       enum aux_ch aux_ch)
 {
-	wake_up_all(&dev_priv->aux_wait_queue);
+	wake_up_all(&dev_priv->aux_wait_queue[aux_ch]);
 }
 
 #if defined(CONFIG_DEBUG_FS)
@@ -1823,8 +1824,12 @@ static void i9xx_hpd_irq_handler(struct drm_i915_private *dev_priv,
 			intel_hpd_irq_handler(dev_priv, pin_mask, long_mask);
 		}
 
-		if (hotplug_status & DP_AUX_CHANNEL_MASK_INT_STATUS_G4X)
-			dp_aux_irq_handler(dev_priv);
+		if (hotplug_status & DP_AUX_CHANNEL_B_INT_STATUS_G4X)
+			dp_aux_irq_handler(dev_priv, AUX_CH_B);
+		if (hotplug_status & DP_AUX_CHANNEL_C_INT_STATUS_G4X)
+			dp_aux_irq_handler(dev_priv, AUX_CH_C);
+		if (hotplug_status & DP_AUX_CHANNEL_D_INT_STATUS_G4X)
+			dp_aux_irq_handler(dev_priv, AUX_CH_D);
 	} else {
 		u32 hotplug_trigger = hotplug_status & HOTPLUG_INT_STATUS_I915;
 
@@ -2043,8 +2048,12 @@ static void ibx_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 				 port_name(port));
 	}
 
-	if (pch_iir & SDE_AUX_MASK)
-		dp_aux_irq_handler(dev_priv);
+	if (pch_iir & SDE_AUXB)
+		dp_aux_irq_handler(dev_priv, AUX_CH_B);
+	if (pch_iir & SDE_AUXC)
+		dp_aux_irq_handler(dev_priv, AUX_CH_C);
+	if (pch_iir & SDE_AUXD)
+		dp_aux_irq_handler(dev_priv, AUX_CH_D);
 
 	if (pch_iir & SDE_GMBUS)
 		gmbus_irq_handler(dev_priv);
@@ -2133,8 +2142,12 @@ static void cpt_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 				 port_name(port));
 	}
 
-	if (pch_iir & SDE_AUX_MASK_CPT)
-		dp_aux_irq_handler(dev_priv);
+	if (pch_iir & SDE_AUXB_CPT)
+		dp_aux_irq_handler(dev_priv, AUX_CH_B);
+	if (pch_iir & SDE_AUXC_CPT)
+		dp_aux_irq_handler(dev_priv, AUX_CH_C);
+	if (pch_iir & SDE_AUXD_CPT)
+		dp_aux_irq_handler(dev_priv, AUX_CH_D);
 
 	if (pch_iir & SDE_GMBUS_CPT)
 		gmbus_irq_handler(dev_priv);
@@ -2217,7 +2230,7 @@ static void ilk_display_irq_handler(struct drm_i915_private *dev_priv,
 		ilk_hpd_irq_handler(dev_priv, hotplug_trigger, hpd_ilk);
 
 	if (de_iir & DE_AUX_CHANNEL_A)
-		dp_aux_irq_handler(dev_priv);
+		dp_aux_irq_handler(dev_priv, AUX_CH_A);
 
 	if (de_iir & DE_GSE)
 		intel_opregion_asle_intr(dev_priv);
@@ -2271,7 +2284,7 @@ static void ivb_display_irq_handler(struct drm_i915_private *dev_priv,
 		ivb_err_int_handler(dev_priv);
 
 	if (de_iir & DE_AUX_CHANNEL_A_IVB)
-		dp_aux_irq_handler(dev_priv);
+		dp_aux_irq_handler(dev_priv, AUX_CH_A);
 
 	if (de_iir & DE_GSE_IVB)
 		intel_opregion_asle_intr(dev_priv);
@@ -2424,15 +2437,24 @@ gen8_de_irq_handler(struct drm_i915_private *dev_priv, u32 master_ctl)
 			I915_WRITE(GEN8_DE_PORT_IIR, iir);
 			ret = IRQ_HANDLED;
 
-			tmp_mask = GEN8_AUX_CHANNEL_A;
-			if (INTEL_INFO(dev_priv)->gen >= 9)
-				tmp_mask |= GEN9_AUX_CHANNEL_B |
-					    GEN9_AUX_CHANNEL_C |
-					    GEN9_AUX_CHANNEL_D;
-
-			if (iir & tmp_mask) {
-				dp_aux_irq_handler(dev_priv);
+			if (iir & GEN8_AUX_CHANNEL_A) {
+				dp_aux_irq_handler(dev_priv, AUX_CH_A);
 				found = true;
+			}
+
+			if (INTEL_INFO(dev_priv)->gen >= 9) {
+				if (iir & GEN9_AUX_CHANNEL_B) {
+					dp_aux_irq_handler(dev_priv, AUX_CH_B);
+					found = true;
+				}
+				if (iir & GEN9_AUX_CHANNEL_C) {
+					dp_aux_irq_handler(dev_priv, AUX_CH_C);
+					found = true;
+				}
+				if (iir & GEN9_AUX_CHANNEL_D) {
+					dp_aux_irq_handler(dev_priv, AUX_CH_D);
+					found = true;
+				}
 			}
 
 			if (IS_BROXTON(dev_priv)) {

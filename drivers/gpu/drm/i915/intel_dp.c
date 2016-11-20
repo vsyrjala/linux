@@ -811,12 +811,13 @@ intel_dp_aux_wait_done(struct intel_dp *intel_dp, bool has_aux_irq)
 	struct drm_device *dev = intel_dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	i915_reg_t ch_ctl = intel_dp->aux_ch_ctl_reg;
+	enum aux_ch aux_ch = intel_dp->aux_ch;
 	uint32_t status;
 	bool done;
 
 #define C (((status = I915_READ_NOTRACE(ch_ctl)) & DP_AUX_CH_CTL_SEND_BUSY) == 0)
 	if (has_aux_irq)
-		done = wait_event_timeout(dev_priv->aux_wait_queue, C,
+		done = wait_event_timeout(dev_priv->aux_wait_queue[aux_ch], C,
 					  msecs_to_jiffies_timeout(10));
 	else
 		done = wait_for(C, 10) == 0;
@@ -1361,7 +1362,7 @@ intel_dp_aux_init(struct intel_dp *intel_dp)
 
 	intel_dp->aux_ch = intel_aux_ch_for_port(dev_priv, port);
 
-	init_waitqueue_head(&dev_priv->aux_wait_queue);
+	init_waitqueue_head(&dev_priv->aux_wait_queue[intel_dp->aux_ch]);
 
 	intel_aux_reg_init(intel_dp);
 	drm_dp_aux_init(&intel_dp->aux);

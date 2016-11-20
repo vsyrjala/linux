@@ -1848,7 +1848,7 @@ struct drm_i915_private {
 
 	uint32_t pps_mmio_base;
 
-	wait_queue_head_t aux_wait_queue;
+	wait_queue_head_t aux_wait_queue[I915_MAX_AUX_CH];
 	wait_queue_head_t gmbus_wait_queue;
 
 	struct pci_dev *bridge_dev;
