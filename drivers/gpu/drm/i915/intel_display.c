@@ -2559,15 +2559,10 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 
 		intel_fb_offset_to_xy(&x, &y, fb, i);
 
-		if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
-		    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) {
+		if ((fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+		     fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) && i == 1) {
 			int main_x, main_y;
 			int ccs_x, ccs_y;
-
-			if (i != 1) {
-				DRM_DEBUG_KMS("Invalid plane %d for CCS\n", i);
-				return -EINVAL;
-			}
 
 			/*
 			 * Each byte of CCS corresponds to a 16x8 area of the main surface, and
