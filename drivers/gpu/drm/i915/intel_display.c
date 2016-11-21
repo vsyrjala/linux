@@ -2494,6 +2494,7 @@ static unsigned int intel_fb_modifier_to_tiling(uint64_t fb_modifier)
 	case I915_FORMAT_MOD_X_TILED:
 		return I915_TILING_X;
 	case I915_FORMAT_MOD_Y_TILED:
+	case I915_FORMAT_MOD_Y_TILED_CCS:
 		return I915_TILING_Y;
 	default:
 		return I915_TILING_NONE;
@@ -2937,6 +2938,9 @@ static int skl_max_plane_width(const struct drm_framebuffer *fb, int plane,
 			break;
 		}
 		break;
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		/* FIXME AUX plane? */
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
 		switch (cpp) {
@@ -3484,8 +3488,10 @@ u32 skl_plane_ctl_tiling(uint64_t fb_modifier)
 	case I915_FORMAT_MOD_X_TILED:
 		return PLANE_CTL_TILED_X;
 	case I915_FORMAT_MOD_Y_TILED:
+	case I915_FORMAT_MOD_Y_TILED_CCS:
 		return PLANE_CTL_TILED_Y;
 	case I915_FORMAT_MOD_Yf_TILED:
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
 		return PLANE_CTL_TILED_YF;
 	default:
 		MISSING_CASE(fb_modifier);
