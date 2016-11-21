@@ -3488,11 +3488,13 @@ u32 skl_plane_ctl_tiling(uint64_t fb_modifier)
 	case I915_FORMAT_MOD_X_TILED:
 		return PLANE_CTL_TILED_X;
 	case I915_FORMAT_MOD_Y_TILED:
-	case I915_FORMAT_MOD_Y_TILED_CCS:
 		return PLANE_CTL_TILED_Y;
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+		return PLANE_CTL_TILED_Y | PLANE_CTL_DECOMPRESSION_ENABLE;
 	case I915_FORMAT_MOD_Yf_TILED:
-	case I915_FORMAT_MOD_Yf_TILED_CCS:
 		return PLANE_CTL_TILED_YF;
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		return PLANE_CTL_TILED_YF | PLANE_CTL_DECOMPRESSION_ENABLE;
 	default:
 		MISSING_CASE(fb_modifier);
 	}
@@ -3554,10 +3556,6 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 	plane_ctl |= skl_plane_ctl_tiling(fb->modifier);
 	plane_ctl |= PLANE_CTL_PLANE_GAMMA_DISABLE;
 	plane_ctl |= skl_plane_ctl_rotation(rotation);
-
-	if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
-	    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS)
-		plane_ctl |= PLANE_CTL_DECOMPRESSION_ENABLE;
 
 	/* Sizes are 0 based */
 	src_w--;
@@ -9916,10 +9914,16 @@ skylake_get_initial_plane_config(struct intel_crtc *crtc,
 		fb->modifier = I915_FORMAT_MOD_X_TILED;
 		break;
 	case PLANE_CTL_TILED_Y:
-		fb->modifier = I915_FORMAT_MOD_Y_TILED;
+		if (val & PLANE_CTL_DECOMPRESSION_ENABLE)
+			fb->modifier = I915_FORMAT_MOD_Y_TILED_CCS;
+		else
+			fb->modifier = I915_FORMAT_MOD_Y_TILED;
 		break;
 	case PLANE_CTL_TILED_YF:
-		fb->modifier = I915_FORMAT_MOD_Yf_TILED;
+		if (val & PLANE_CTL_DECOMPRESSION_ENABLE)
+			fb->modifier = I915_FORMAT_MOD_Yf_TILED_CCS;
+		else
+			fb->modifier = I915_FORMAT_MOD_Yf_TILED;
 		break;
 	default:
 		MISSING_CASE(tiling);
@@ -12125,7 +12129,7 @@ static void skl_do_mmio_flip(struct intel_crtc *intel_crtc,
 	u32 ctl, stride = skl_plane_stride(fb, 0, rotation);
 
 	ctl = I915_READ(PLANE_CTL(pipe, 0));
-	ctl &= ~PLANE_CTL_TILED_MASK;
+	ctl &= ~(PLANE_CTL_TILED_MASK | PLANE_CTL_DECOMPRESSION_ENABLE);
 	switch (fb->modifier) {
 	case DRM_FORMAT_MOD_NONE:
 		break;
@@ -12135,8 +12139,14 @@ static void skl_do_mmio_flip(struct intel_crtc *intel_crtc,
 	case I915_FORMAT_MOD_Y_TILED:
 		ctl |= PLANE_CTL_TILED_Y;
 		break;
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+		ctl |= PLANE_CTL_TILED_Y | PLANE_CTL_DECOMPRESSION_ENABLE;
+		break;
 	case I915_FORMAT_MOD_Yf_TILED:
 		ctl |= PLANE_CTL_TILED_YF;
+		break;
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		ctl |= PLANE_CTL_TILED_YF | PLANE_CTL_DECOMPRESSION_ENABLE;
 		break;
 	default:
 		MISSING_CASE(fb->modifier);

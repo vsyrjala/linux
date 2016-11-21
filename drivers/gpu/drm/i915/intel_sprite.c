@@ -229,10 +229,6 @@ skl_update_plane(struct drm_plane *drm_plane,
 
 	plane_ctl |= skl_plane_ctl_rotation(rotation);
 
-	if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
-	    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS)
-		plane_ctl |= PLANE_CTL_DECOMPRESSION_ENABLE;
-
 	if (key->flags) {
 		I915_WRITE(PLANE_KEYVAL(pipe, plane), key->min_value);
 		I915_WRITE(PLANE_KEYMAX(pipe, plane), key->max_value);
