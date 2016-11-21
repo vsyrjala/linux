@@ -2973,7 +2973,7 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 	int h = drm_rect_height(&plane_state->base.src) >> 16;
 	int max_width = skl_max_plane_width(fb, 0, rotation);
 	int max_height = 4096;
-	u32 alignment, offset, aux_offset = plane_state->aux.offset;
+	u32 alignment, offset = 0, aux_offset = plane_state->aux.offset;
 
 	if (w > max_width || h > max_height) {
 		DRM_DEBUG_KMS("requested Y/RGB source size %dx%d too big (limit %dx%d)\n",
@@ -2981,18 +2981,32 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 		return -EINVAL;
 	}
 
+	DRM_DEBUG_KMS("MAIN %d %d / %d %d\n",
+		      plane_state->base.src.x1 >> 16,
+		      plane_state->base.src.y1 >> 16,
+		      to_intel_framebuffer(fb)->normal[0].x,
+		      to_intel_framebuffer(fb)->normal[0].y);
+
+	x = y = 0;
 	intel_add_fb_offsets(&x, &y, plane_state, 0);
+	DRM_DEBUG_KMS("MAIN post-fb %d %d 0x%08x\n", x, y, offset);
 	offset = intel_compute_tile_offset(&x, &y, plane_state, 0);
+	x += plane_state->base.src.x1 >> 16;
+	y += plane_state->base.src.y1 >> 16;
+	DRM_DEBUG_KMS("MAIN post-tileoff %d %d 0x%08x\n", x, y, offset);
 	alignment = intel_surf_alignment(fb, 0);
+
 
 	/*
 	 * AUX surface offset is specified as the distance from the
 	 * main surface offset, and it must be non-negative. Make
 	 * sure that is what we will get.
 	 */
-	if (offset > aux_offset)
+	if (offset > aux_offset) {
 		offset = intel_adjust_tile_offset(&x, &y, plane_state, 0,
 						  offset, aux_offset & ~(alignment - 1));
+		DRM_DEBUG_KMS("MAIN post-aux %d %d 0x%08x\n", x, y, offset);
+	}
 
 	/*
 	 * When using an X-tiled surface, the plane blows up
@@ -3021,6 +3035,7 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 	if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
 	    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) {
 		while (x != plane_state->aux.x || y < plane_state->aux.y) {
+			DRM_DEBUG_KMS("MAIN loop %d %d 0x%08x\n", x, y, offset);
 			if (offset == 0) {
 				DRM_DEBUG_KMS("Unable to find suitable display surface offset\n");
 				return -EINVAL;
@@ -3030,6 +3045,7 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 							  offset, offset - alignment);
 		}
 		if (y != plane_state->aux.y) {
+			DRM_DEBUG_KMS("MAIN loop %d %d 0x%08x\n", x, y, offset);
 			DRM_DEBUG_KMS("Unable to find suitable display surface offset\n");
 			return -EINVAL;
 		}
@@ -3038,6 +3054,8 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 	plane_state->main.offset = offset;
 	plane_state->main.x = x;
 	plane_state->main.y = y;
+
+	DRM_DEBUG_KMS("MAIN final %d %d 0x%08x\n", x, y, offset);
 
 	return 0;
 }
@@ -3052,10 +3070,13 @@ static int skl_check_nv12_aux_surface(struct intel_plane_state *plane_state)
 	int y = plane_state->base.src.y1 >> 17;
 	int w = drm_rect_width(&plane_state->base.src) >> 17;
 	int h = drm_rect_height(&plane_state->base.src) >> 17;
-	u32 offset;
+	u32 offset = 0;
 
+	x = y = 0;
 	intel_add_fb_offsets(&x, &y, plane_state, 1);
 	offset = intel_compute_tile_offset(&x, &y, plane_state, 1);
+	x += plane_state->base.src.x1 >> 17;
+	y += plane_state->base.src.y1 >> 17;
 
 	/* FIXME not quite sure how/if these apply to the chroma plane */
 	if (w > max_width || h > max_height) {
@@ -3079,7 +3100,7 @@ static int skl_check_ccs_aux_surface(struct intel_plane_state *plane_state)
 	int src_y = plane_state->base.src.y1 >> 16;
 	int x = src_x / 16;
 	int y = src_y / 8;
-	u32 offset;
+	u32 offset = 0;
 
 	if (plane->plane != PLANE_A) {
 		DRM_DEBUG_KMS("RC support only on the first plane\n");
@@ -3104,12 +3125,25 @@ static int skl_check_ccs_aux_surface(struct intel_plane_state *plane_state)
 		return -EINVAL;
 	}
 
+	DRM_DEBUG_KMS("AUX %d %d / %d %d\n",
+		      plane_state->base.src.x1 >> 16,
+		      plane_state->base.src.y1 >> 16,
+		      to_intel_framebuffer(plane_state->base.fb)->normal[1].x,
+		      to_intel_framebuffer(plane_state->base.fb)->normal[1].y);
+	x = y = 0;
 	intel_add_fb_offsets(&x, &y, plane_state, 1);
+	DRM_DEBUG_KMS("AUX post-fb %d %d 0x%08x\n", x, y, offset);
 	offset = intel_compute_tile_offset(&x, &y, plane_state, 1);
+	x = x * 16 + (plane_state->base.src.x1 >> 16);
+	y = y * 8 + (plane_state->base.src.y1 >> 16);
+	DRM_DEBUG_KMS("AUX post-tileoff %d %d 0x%08x\n", x, y, offset);
 
 	plane_state->aux.offset = offset;
-	plane_state->aux.x = x * 16 + src_x % 16;
-	plane_state->aux.y = y * 8 + src_y % 8;
+	plane_state->aux.x = x;
+	plane_state->aux.y = y;
+
+	DRM_DEBUG_KMS("AUX final-tileoff %d %d 0x%08x\n",
+		      plane_state->aux.x, plane_state->aux.y,plane_state->aux.offset);
 
 	return 0;
 }
