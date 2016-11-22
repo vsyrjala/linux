@@ -556,7 +556,7 @@ function dim_apply_branch
 		sob=-s
 	fi
 
-	cat $file | git am -3 $sob "$@"
+	cat $file | git am --scissors -3 $sob "$@"
 
 	if [ -n "$message_id" ]; then
 		dim_commit_add_tag "Link: http://patchwork.freedesktop.org/patch/msgid/$message_id"
