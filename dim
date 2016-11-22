@@ -804,16 +804,26 @@ function dim_checkout
 		echo "usage: $dim $subcommand branch"
 		exit 1
 	fi
+	local branch=$1
 
-	dim_cd $1
-	if [[ `git branch --list $1` ==  "" ]] ; then
-		if [[ `git branch --list --remote $1` == "" ]] ; then
-			git checkout -t $DIM_DRM_INTEL_REMOTE/$1
-		else
-			git checkout -t $1
+	dim_cd $branch
+	if [[ `git branch --list $branch` ==  "" ]] ; then
+		local repo=`branch_to_repo $branch`
+
+		if [[ $repo == "" ]] ; then
+			echoerr "$branch not found in nightly.conf"
+			exit 1
 		fi
+
+		local remote=`repo_to_remote $repo`
+
+		if [ "$remote" == "" ] ; then
+			exit 1
+		fi
+		git fetch $remote
+		git checkout -t $remote/$branch
 	else
-		git checkout $1
+		git checkout $branch
 	fi
 }
 
@@ -1182,7 +1192,10 @@ function dim_update_branches
 
 	for branch in $dim_branches ; do
 		dim_checkout $branch
-		if git diff --quiet $DIM_DRM_INTEL_REMOTE/$branch; then
+		local repo=`branch_to_repo $branch`
+		local remote=`repo_to_remote $repo`
+
+		if git diff --quiet $remote/$branch; then
 			$DRY git rebase
 		else
 			$DRY git rebase -i
@@ -1257,7 +1270,6 @@ function dim_setup
 	# check remote configuration
 	remote=`url_to_remote $linux_upstream_git`
 	remote=`url_to_remote $drm_intel_ssh`
-	remote=`url_to_remote $drm_tip_ssh`
 	remote=`url_to_remote $drm_upstream_git`
 
 	cd $DIM_PREFIX
@@ -1271,6 +1283,7 @@ function dim_setup
 	if git remote | grep -q drm-upstream ; then
 		git config remote.drm-upstream.url $drm_upstream_git
 	else
+		remote=`url_to_remote $drm_tip_ssh`
 		remote=`url_to_remote $drm_upstream_git`
 	fi
 
