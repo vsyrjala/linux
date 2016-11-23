@@ -351,7 +351,7 @@ function check_conflicts # tree
 
 function rr_cache_dir
 {
-	if [ -d $DIM_PREFIX/drm-tip/.git/rr-cache/ ] ; then
+	if [ -d $DIM_PREFIX/drm-tip/.git/ ] ; then
 		echo $DIM_PREFIX/drm-tip/.git/rr-cache/
 	else
 		echo $DIM_PREFIX/$DIM_DRM_INTEL/.git/rr-cache/
@@ -362,6 +362,7 @@ function update_rerere_cache
 {
 	cd $DIM_PREFIX/drm-rerere/
 	git pull
+	mkdir `rr_cache_dir` &> /dev/null || true
 	cp rr-cache/* `rr_cache_dir` -r
 	cd - > /dev/null
 }
@@ -810,6 +811,10 @@ function dim_checkout
 	if [[ `git branch --list $branch` ==  "" ]] ; then
 		local repo=`branch_to_repo $branch`
 
+		if [[ $branch == "drm-intel-next" ]] ; then
+			repo="drm-intel"
+		fi
+
 		if [[ $repo == "" ]] ; then
 			echoerr "$branch not found in nightly.conf"
 			exit 1
@@ -1222,6 +1227,7 @@ function setup_aux_checkout # name url directory
 			cd $DIM_PREFIX/$DIM_DRM_INTEL
 			remote=`url_to_remote $url`
 			if [[ `git branch --list $name` == "" ]] ; then
+				git fetch $remote
 				git branch --track $name $remote/$name
 			fi
 			git worktree add $DIM_PREFIX/$dir $name
