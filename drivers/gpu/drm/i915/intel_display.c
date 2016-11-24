@@ -3523,15 +3523,15 @@ static void intel_update_primary_planes(struct drm_device *dev)
 }
 
 static int
-__intel_display_resume(struct drm_device *dev,
+__intel_display_resume(struct drm_i915_private *dev_priv,
 		       struct drm_atomic_state *state)
 {
 	struct drm_crtc_state *crtc_state;
 	struct drm_crtc *crtc;
 	int i, ret;
 
-	intel_modeset_setup_hw_state(dev);
-	i915_redisable_vga(to_i915(dev));
+	intel_modeset_setup_hw_state(&dev_priv->drm);
+	i915_redisable_vga(dev_priv);
 
 	if (!state)
 		return 0;
@@ -3546,7 +3546,8 @@ __intel_display_resume(struct drm_device *dev,
 	}
 
 	/* ignore any reset values/BIOS leftovers in the WM registers */
-	to_intel_atomic_state(state)->skip_intermediate_wm = true;
+	if (!HAS_GMCH_DISPLAY(dev_priv))
+		to_intel_atomic_state(state)->skip_intermediate_wm = true;
 
 	ret = drm_atomic_commit(state);
 
@@ -3642,7 +3643,7 @@ void intel_finish_reset(struct drm_i915_private *dev_priv)
 			 */
 			intel_update_primary_planes(dev);
 		} else {
-			ret = __intel_display_resume(dev, state);
+			ret = __intel_display_resume(dev_priv, state);
 			if (ret)
 				DRM_ERROR("Restoring old state failed with %i\n", ret);
 		}
@@ -3662,7 +3663,7 @@ void intel_finish_reset(struct drm_i915_private *dev_priv)
 			dev_priv->display.hpd_irq_setup(dev_priv);
 		spin_unlock_irq(&dev_priv->irq_lock);
 
-		ret = __intel_display_resume(dev, state);
+		ret = __intel_display_resume(dev_priv, state);
 		if (ret)
 			DRM_ERROR("Restoring old state failed with %i\n", ret);
 
@@ -16428,7 +16429,8 @@ retry:
 	 * intermediate watermarks (since we don't trust the current
 	 * watermarks).
 	 */
-	intel_state->skip_intermediate_wm = true;
+	if (!HAS_GMCH_DISPLAY(dev_priv))
+		intel_state->skip_intermediate_wm = true;
 
 	ret = intel_atomic_check(dev, state);
 	if (ret) {
@@ -17036,12 +17038,14 @@ intel_modeset_setup_hw_state(struct drm_device *dev)
 		pll->on = false;
 	}
 
-	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
+	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
 		vlv_wm_get_hw_state(dev);
-	else if (IS_GEN9(dev_priv))
+		vlv_wm_sanitize(dev_priv);
+	} else if (IS_GEN9(dev_priv)) {
 		skl_wm_get_hw_state(dev);
-	else if (HAS_PCH_SPLIT(dev_priv))
+	} else if (HAS_PCH_SPLIT(dev_priv)) {
 		ilk_wm_get_hw_state(dev);
+	}
 
 	for_each_intel_crtc(dev, crtc) {
 		unsigned long put_domains;
@@ -17084,7 +17088,7 @@ void intel_display_resume(struct drm_device *dev)
 	}
 
 	if (!ret)
-		ret = __intel_display_resume(dev, state);
+		ret = __intel_display_resume(dev_priv, state);
 
 	drm_modeset_drop_locks(&ctx);
 	drm_modeset_acquire_fini(&ctx);

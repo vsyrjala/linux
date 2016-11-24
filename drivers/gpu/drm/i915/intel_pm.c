@@ -4787,6 +4787,7 @@ void vlv_wm_get_hw_state(struct drm_device *dev)
 		const struct vlv_fifo_state *fifo_state =
 			&crtc_state->wm.vlv.fifo_state;
 		enum pipe pipe = crtc->pipe;
+		enum plane_id plane_id;
 		int level;
 
 		vlv_get_fifo_size(crtc_state);
@@ -4797,10 +4798,9 @@ void vlv_wm_get_hw_state(struct drm_device *dev)
 		vlv_get_fifo_size(crtc_state);
 
 		/* FIXME sanitize things more */
-		for (level = 0; level < vlv_num_wm_levels(dev_priv); level++) {
+		for (level = 0; level < active->num_levels; level++) {
 			struct vlv_pipe_wm *noninverted =
 				&crtc_state->wm.vlv.noninverted[level];
-			enum plane_id plane_id;
 
 			active->sr[level].plane = wm->sr.plane;
 			active->sr[level].cursor = wm->sr.cursor;
@@ -4813,6 +4813,10 @@ void vlv_wm_get_hw_state(struct drm_device *dev)
 							    fifo_state->plane[plane_id]);
 			}
 		}
+
+		for_each_plane_id_on_crtc(crtc, plane_id)
+			vlv_plane_wm_set(crtc_state, level, plane_id, USHRT_MAX);
+		vlv_invalidate_wms(crtc, active, level);
 
 		crtc_state->wm.vlv.optimal = *active;
 		crtc_state->wm.vlv.intermediate = *active;
@@ -4832,6 +4836,60 @@ void vlv_wm_get_hw_state(struct drm_device *dev)
 
 	DRM_DEBUG_KMS("Initial watermarks: SR plane=%d, SR cursor=%d level=%d cxsr=%d\n",
 		      wm->sr.plane, wm->sr.cursor, wm->level, wm->cxsr);
+}
+
+void vlv_wm_sanitize(struct drm_i915_private *dev_priv)
+{
+	struct intel_plane *plane;
+	struct intel_crtc *crtc;
+
+	mutex_lock(&dev_priv->wm.wm_mutex);
+
+	for_each_intel_plane(&dev_priv->drm, plane) {
+		struct intel_crtc *crtc =
+			intel_get_crtc_for_pipe(dev_priv, plane->pipe);
+		struct intel_crtc_state *crtc_state =
+			to_intel_crtc_state(crtc->base.state);
+		struct intel_plane_state *plane_state =
+			to_intel_plane_state(plane->base.state);
+		struct vlv_wm_state *active = &crtc->wm.active.vlv;
+		const struct vlv_fifo_state *fifo_state =
+			&crtc_state->wm.vlv.fifo_state;
+		enum plane_id plane_id = plane->id;
+		int level;
+
+		if (plane_state->base.visible)
+			continue;
+
+		for (level = 0; level < active->num_levels; level++) {
+			struct vlv_pipe_wm *noninverted =
+				&crtc_state->wm.vlv.noninverted[level];
+
+			noninverted->plane[plane_id] = 0;
+
+			active->wm[level].plane[plane_id] =
+				vlv_invert_wm_value(noninverted->plane[plane_id],
+						    fifo_state->plane[plane_id]);
+		}
+	}
+
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
+		struct intel_crtc_state *crtc_state =
+			to_intel_crtc_state(crtc->base.state);
+		struct vlv_wm_state *active = &crtc->wm.active.vlv;
+
+		crtc_state->wm.vlv.optimal = *active;
+		crtc_state->wm.vlv.intermediate = *active;
+
+		vlv_dump_wms(crtc, "sanitized act", active);
+		vlv_dump_wms(crtc, "sanitized opt", &crtc_state->wm.vlv.optimal);
+		vlv_dump_wms(crtc, "sanitized int", &crtc_state->wm.vlv.intermediate);
+		vlv_dump_crtc_wms(crtc, "initial noninverted", crtc_state);
+	}
+
+	vlv_program_watermarks(dev_priv);
+
+	mutex_unlock(&dev_priv->wm.wm_mutex);
 }
 
 void ilk_wm_get_hw_state(struct drm_device *dev)
