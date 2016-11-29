@@ -2070,20 +2070,12 @@ intel_tile_width_bytes(const struct drm_framebuffer *fb, int plane)
 		else
 			return 512;
 	case I915_FORMAT_MOD_Yf_TILED:
-		switch (cpp) {
-		case 1:
-			return 64;
-		case 2:
-		case 4:
-			return 128;
-		case 8:
-		case 16:
-			return 256;
-		default:
-			MISSING_CASE(cpp);
-			return cpp;
-		}
-		break;
+		/*
+		 * Bspec seems to suggest that the Yf tile width would
+		 * depend on the cpp. In reality it doesn't, at least
+		 * as far as the display engine is concerned.
+		 */
+		return 128;
 	default:
 		MISSING_CASE(fb->modifier);
 		return cpp;
