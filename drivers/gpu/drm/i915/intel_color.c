@@ -274,7 +274,7 @@ static void i9xx_load_luts_internal(struct drm_crtc *crtc,
 
 	if (HAS_GMCH_DISPLAY(dev_priv)) {
 		if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DSI))
-			assert_dsi_pll_enabled(dev_priv);
+			;//assert_dsi_pll_enabled(dev_priv);
 		else
 			assert_pll_enabled(dev_priv, pipe);
 	}
