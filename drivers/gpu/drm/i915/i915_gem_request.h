@@ -657,39 +657,8 @@ i915_gem_active_wait(const struct i915_gem_active *active, unsigned int flags)
 	return ret < 0 ? ret : 0;
 }
 
-/**
- * i915_gem_active_retire - waits until the request is retired
- * @active - the active request on which to wait
- *
- * i915_gem_active_retire() waits until the request is completed,
- * and then ensures that at least the retirement handler for this
- * @active tracker is called before returning. If the @active
- * tracker is idle, the function returns immediately.
- */
-static inline int __must_check
-i915_gem_active_retire(struct i915_gem_active *active,
-		       struct mutex *mutex)
-{
-	struct drm_i915_gem_request *request;
-	long ret;
-
-	request = i915_gem_active_raw(active, mutex);
-	if (!request)
-		return 0;
-
-	ret = i915_wait_request(request,
-				I915_WAIT_INTERRUPTIBLE | I915_WAIT_LOCKED,
-				MAX_SCHEDULE_TIMEOUT);
-	if (ret < 0)
-		return ret;
-
-	list_del_init(&active->link);
-	RCU_INIT_POINTER(active->request, NULL);
-
-	active->retire(active, request);
-
-	return 0;
-}
+int __must_check i915_gem_active_retire(struct i915_gem_active *active,
+					struct mutex *mutex);
 
 #define for_each_active(mask, idx) \
 	for (; mask ? idx = ffs(mask) - 1, 1 : 0; mask &= ~BIT(idx))

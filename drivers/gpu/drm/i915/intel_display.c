@@ -4923,7 +4923,7 @@ static void intel_crtc_dpms_overlay_disable(struct intel_crtc *intel_crtc)
 
 		mutex_lock(&dev->struct_mutex);
 		dev_priv->mm.interruptible = false;
-		(void) intel_overlay_switch_off(intel_crtc->overlay);
+		WARN_ON(intel_overlay_switch_off(intel_crtc->overlay) != 0);
 		dev_priv->mm.interruptible = true;
 		mutex_unlock(&dev->struct_mutex);
 	}

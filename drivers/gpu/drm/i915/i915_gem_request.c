@@ -1199,3 +1199,39 @@ void i915_gem_retire_requests(struct drm_i915_private *dev_priv)
 	for_each_engine(engine, dev_priv, id)
 		engine_retire_requests(engine);
 }
+
+/**
+ * i915_gem_active_retire - waits until the request is retired
+ * @active - the active request on which to wait
+ *
+ * i915_gem_active_retire() waits until the request is completed,
+ * and then ensures that at least the retirement handler for this
+ * @active tracker is called before returning. If the @active
+ * tracker is idle, the function returns immediately.
+ */
+int __must_check
+i915_gem_active_retire(struct i915_gem_active *active,
+		       struct mutex *mutex)
+{
+	struct drm_i915_gem_request *request;
+	long ret;
+
+	request = i915_gem_active_raw(active, mutex);
+	if (!request)
+		return 0;
+
+	ret = i915_wait_request(request,
+				(request->i915->mm.interruptible ?
+				 I915_WAIT_INTERRUPTIBLE : 0) |
+				I915_WAIT_LOCKED,
+				MAX_SCHEDULE_TIMEOUT);
+	if (ret < 0)
+		return ret;
+
+	list_del_init(&active->link);
+	RCU_INIT_POINTER(active->request, NULL);
+
+	active->retire(active, request);
+
+	return 0;
+}
