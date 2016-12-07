@@ -1,0 +1,22 @@
+drm-intel drm-intel-fixes 3e5de27e940d00d8d504dfb96625fb654f641509
+	Linux 4.9-rc8
+drm-upstream drm-fixes ab7cd8d83e5dba13027de66f1b008b08b30b71a4
+	Merge tag 'drm-intel-fixes-2016-12-01' of git://anongit.freedesktop.org/git/drm-intel into drm-fixes
+drm-intel drm-intel-next-fixes 7a9e10253e9e52451bbe80ddb2874368dbd240a3
+	drm/i915: Move priority bumping for flips earlier
+drm-intel drm-intel-next-queued 467a14d935c6d95b94e4197bf63e264eab4c5d06
+	drm/i915: Protect DSPARB registers with a spinlock
+drm-upstream drm-next 197aa6ed522cc44710687d3b02dd4e4573991416
+	Merge branch 'exynos-drm-next' of git://git.kernel.org/pub/scm/linux/kernel/git/daeinki/drm-exynos into drm-next
+sound-upstream for-next 048ea6dfbe94f00afe52a2403324449efb356cd6
+	ALSA: cs46xx: add a new line
+sound-upstream for-linus f73cd43ac3b41c0f09a126387f302bbc0d9c726d
+	ALSA: hda - Gate the mic jack on HP Z1 Gen3 AiO
+drm-intel topic/core-for-CI 166d729b45d95570a75bc01a22c6b4c478ad79aa
+	mm/vmalloc: Replace opencoded 4-level page walkers
+drm-misc drm-misc-next 35f8cc3b9a92c661e5331d64fdfdedb518891d5c
+	drm/fence: add drm_crtc_create_fence()
+drm-misc drm-misc-next-fixes 1001354ca34179f3db924eb66672442a173147dc
+	Linux 4.9-rc1
+drm-misc drm-misc-fixes e94bd1736f1f60e916a85a80c0b0ebeaae36cce5
+	drm: Don't call drm_for_each_crtc with a non-KMS driver
