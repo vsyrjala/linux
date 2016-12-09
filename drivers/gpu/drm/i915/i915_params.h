@@ -67,6 +67,7 @@
 	func(bool, nuclear_pageflip); \
 	func(bool, enable_dp_mst); \
 	func(bool, enable_dpcd_backlight); \
+	func(bool, enable_cxsr); \
 	func(bool, enable_gvt)
 
 #define MEMBER(T, member) T member
