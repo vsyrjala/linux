@@ -63,7 +63,12 @@ struct i915_params i915 __read_mostly = {
 	.inject_load_failure = 0,
 	.enable_dpcd_backlight = false,
 	.enable_gvt = false,
+	.enable_cxsr = true,
 };
+
+module_param_named(enable_cxsr, i915.enable_cxsr, bool, 0600);
+MODULE_PARM_DESC(enable_cxsr,
+	"Allow CxSR (default: true)");
 
 module_param_named(modeset, i915.modeset, int, 0400);
 MODULE_PARM_DESC(modeset,
