@@ -1157,7 +1157,8 @@ static bool vlv_plane_wm_compute(struct intel_crtc_state *crtc_state,
 	bool dirty = false;
 
 	if (!plane_state->base.visible) {
-		dirty |= vlv_plane_wm_set(crtc_state, 0, plane_id, 0);
+		dirty |= vlv_plane_wm_set(crtc_state, 0, plane_id,
+					  plane_id == PLANE_CURSOR ? 63 : 0);
 		goto out;
 	}
 
