@@ -1271,7 +1271,7 @@ static int vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	 * enabled can wedge the pipe. Hence we only allow cxsr
 	 * with exactly one enabled primary/sprite plane.
 	 */
-	wm_state->cxsr = crtc->pipe != PIPE_C && num_active_planes == 1;
+	wm_state->cxsr = i915.enable_cxsr && crtc->pipe != PIPE_C && num_active_planes == 1;
 
 	for (level = 0; level < wm_state->num_levels; level++) {
 		const struct vlv_pipe_wm *noninverted =
