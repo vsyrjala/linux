@@ -1,0 +1,22 @@
+drm-intel drm-intel-fixes 3e5de27e940d00d8d504dfb96625fb654f641509
+	Linux 4.9-rc8
+drm-upstream drm-fixes 4e4f3e984954143fb0b8e5035df7ff22dd07bb6a
+	Merge branch 'drm-fixes-4.9' of git://people.freedesktop.org/~agd5f/linux into drm-fixes
+drm-intel drm-intel-next-fixes 7a9e10253e9e52451bbe80ddb2874368dbd240a3
+	drm/i915: Move priority bumping for flips earlier
+drm-intel drm-intel-next-queued 7e3eb599236db605413b4e047692dab9b600d6c6
+	drm/i915/psr: report psr2 hw enabled from psr2_ctl
+drm-upstream drm-next acc5ddd972793d6ec7e51a9543f24b7e932134dc
+	Merge tag 'drm-misc-next-2016-12-08' of git://anongit.freedesktop.org/git/drm-misc into drm-next
+sound-upstream for-next d71bb23a81f80eeb5291e5c782377024e7265a23
+	Merge branch 'for-linus' into for-next
+sound-upstream for-linus 82ffb6fc637150b279f49e174166d2aa3853eaf4
+	ALSA: usb-audio: Add QuickCam Communicate Deluxe/S7500 to volume_control_quirks
+drm-intel topic/core-for-CI 166d729b45d95570a75bc01a22c6b4c478ad79aa
+	mm/vmalloc: Replace opencoded 4-level page walkers
+drm-misc drm-misc-next 7da0e124af76c79927f0d7abcc58d58d0fd7072f
+	drm/atomic: Use active instead of enable in wait_for_vblanks.
+drm-misc drm-misc-next-fixes 6449b088dd51dd5aa6b38455888bbf538d21f2fc
+	drm: Add fake controlD* symlinks for backwards compat
+drm-misc drm-misc-fixes e94bd1736f1f60e916a85a80c0b0ebeaae36cce5
+	drm: Don't call drm_for_each_crtc with a non-KMS driver
