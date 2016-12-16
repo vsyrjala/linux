@@ -1417,18 +1417,6 @@ static int vlv_modeset_calc_cdclk(struct drm_atomic_state *state)
 	return 0;
 }
 
-static void vlv_modeset_commit_cdclk(struct drm_atomic_state *old_state)
-{
-	struct drm_i915_private *dev_priv = to_i915(old_state->dev);
-	struct intel_atomic_state *old_intel_state =
-		to_intel_atomic_state(old_state);
-
-	if (IS_CHERRYVIEW(dev_priv))
-		chv_set_cdclk(dev_priv, &old_intel_state->cdclk.actual);
-	else
-		vlv_set_cdclk(dev_priv, &old_intel_state->cdclk.actual);
-}
-
 static int bdw_modeset_calc_cdclk(struct drm_atomic_state *state)
 {
 	struct drm_i915_private *dev_priv = to_i915(state->dev);
@@ -1460,15 +1448,6 @@ static int bdw_modeset_calc_cdclk(struct drm_atomic_state *state)
 	}
 
 	return 0;
-}
-
-static void bdw_modeset_commit_cdclk(struct drm_atomic_state *old_state)
-{
-	struct drm_i915_private *dev_priv = to_i915(old_state->dev);
-	struct intel_atomic_state *old_intel_state =
-		to_intel_atomic_state(old_state);
-
-	bdw_set_cdclk(dev_priv, &old_intel_state->cdclk.actual);
 }
 
 static int skl_modeset_calc_cdclk(struct drm_atomic_state *state)
@@ -1508,15 +1487,6 @@ static int skl_modeset_calc_cdclk(struct drm_atomic_state *state)
 	}
 
 	return 0;
-}
-
-static void skl_modeset_commit_cdclk(struct drm_atomic_state *old_state)
-{
-	struct drm_i915_private *dev_priv = to_i915(old_state->dev);
-	struct intel_atomic_state *intel_state =
-		to_intel_atomic_state(old_state);
-
-	skl_set_cdclk(dev_priv, &intel_state->cdclk.actual);
 }
 
 static int bxt_modeset_calc_cdclk(struct drm_atomic_state *state)
@@ -1561,15 +1531,6 @@ static int bxt_modeset_calc_cdclk(struct drm_atomic_state *state)
 	}
 
 	return 0;
-}
-
-static void bxt_modeset_commit_cdclk(struct drm_atomic_state *old_state)
-{
-	struct drm_i915_private *dev_priv = to_i915(old_state->dev);
-	struct intel_atomic_state *old_intel_state =
-		to_intel_atomic_state(old_state);
-
-	bxt_set_cdclk(dev_priv, &old_intel_state->cdclk.actual);
 }
 
 static int intel_compute_max_dotclk(struct drm_i915_private *dev_priv)
@@ -1726,24 +1687,24 @@ void intel_update_rawclk(struct drm_i915_private *dev_priv)
 
 void intel_init_cdclk_hooks(struct drm_i915_private *dev_priv)
 {
-	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
-		dev_priv->display.modeset_commit_cdclk =
-			vlv_modeset_commit_cdclk;
+	if (IS_CHERRYVIEW(dev_priv)) {
+		dev_priv->display.set_cdclk = chv_set_cdclk;
+		dev_priv->display.modeset_calc_cdclk =
+			vlv_modeset_calc_cdclk;
+	} else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
+		dev_priv->display.set_cdclk = vlv_set_cdclk;
 		dev_priv->display.modeset_calc_cdclk =
 			vlv_modeset_calc_cdclk;
 	} else if (IS_BROADWELL(dev_priv)) {
-		dev_priv->display.modeset_commit_cdclk =
-			bdw_modeset_commit_cdclk;
+		dev_priv->display.set_cdclk = bdw_set_cdclk;
 		dev_priv->display.modeset_calc_cdclk =
 			bdw_modeset_calc_cdclk;
 	} else if (IS_GEN9_LP(dev_priv)) {
-		dev_priv->display.modeset_commit_cdclk =
-			bxt_modeset_commit_cdclk;
+		dev_priv->display.set_cdclk = bxt_set_cdclk;
 		dev_priv->display.modeset_calc_cdclk =
 			bxt_modeset_calc_cdclk;
 	} else if (IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev_priv)) {
-		dev_priv->display.modeset_commit_cdclk =
-			skl_modeset_commit_cdclk;
+		dev_priv->display.set_cdclk = skl_set_cdclk;
 		dev_priv->display.modeset_calc_cdclk =
 			skl_modeset_calc_cdclk;
 	}
