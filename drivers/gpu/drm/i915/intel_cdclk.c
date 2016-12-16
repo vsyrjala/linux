@@ -433,8 +433,10 @@ static void vlv_program_pfi_credits(struct drm_i915_private *dev_priv)
 	WARN_ON(I915_READ(GCI_CONTROL) & PFI_CREDIT_RESEND);
 }
 
-static void vlv_set_cdclk(struct drm_i915_private *dev_priv, int cdclk)
+static void vlv_set_cdclk(struct drm_i915_private *dev_priv,
+			  const struct intel_cdclk_state *cdclk_state)
 {
+	int cdclk = cdclk_state->cdclk;
 	u32 val, cmd;
 
 	if (cdclk >= 320000) /* jump to highest voltage for 400MHz too */
@@ -495,8 +497,10 @@ static void vlv_set_cdclk(struct drm_i915_private *dev_priv, int cdclk)
 	intel_update_cdclk(dev_priv);
 }
 
-static void chv_set_cdclk(struct drm_i915_private *dev_priv, int cdclk)
+static void chv_set_cdclk(struct drm_i915_private *dev_priv,
+			  const struct intel_cdclk_state *cdclk_state)
 {
+	int cdclk = cdclk_state->cdclk;
 	u32 val, cmd;
 
 	switch (cdclk) {
@@ -564,8 +568,10 @@ static void bdw_get_cdclk(struct drm_i915_private *dev_priv,
 		cdclk_state->cdclk = 675000;
 }
 
-static void bdw_set_cdclk(struct drm_i915_private *dev_priv, int cdclk)
+static void bdw_set_cdclk(struct drm_i915_private *dev_priv,
+			  const struct intel_cdclk_state *cdclk_state)
 {
+	int cdclk = cdclk_state->cdclk;
 	uint32_t val, data;
 	int ret;
 
@@ -836,8 +842,10 @@ static void skl_dpll0_disable(struct drm_i915_private *dev_priv)
 }
 
 static void skl_set_cdclk(struct drm_i915_private *dev_priv,
-			  int cdclk, int vco)
+			  const struct intel_cdclk_state *cdclk_state)
 {
+	int cdclk = cdclk_state->cdclk;
+	int vco = cdclk_state->vco;
 	u32 freq_select, pcu_ack;
 	int ret;
 
@@ -942,12 +950,17 @@ sanitize:
 
 void skl_uninit_cdclk(struct drm_i915_private *dev_priv)
 {
-	skl_set_cdclk(dev_priv, dev_priv->cdclk.hw.ref, 0);
+	struct intel_cdclk_state cdclk_state = dev_priv->cdclk.hw;
+
+	cdclk_state.cdclk = cdclk_state.ref;
+	cdclk_state.vco = 0;
+
+	skl_set_cdclk(dev_priv, &cdclk_state);
 }
 
 void skl_init_cdclk(struct drm_i915_private *dev_priv)
 {
-	int cdclk, vco;
+	struct intel_cdclk_state cdclk_state;
 
 	skl_sanitize_cdclk(dev_priv);
 
@@ -963,12 +976,14 @@ void skl_init_cdclk(struct drm_i915_private *dev_priv)
 		return;
 	}
 
-	vco = dev_priv->skl_preferred_vco_freq;
-	if (vco == 0)
-		vco = 8100000;
-	cdclk = skl_calc_cdclk(0, vco);
+	cdclk_state = dev_priv->cdclk.hw;
 
-	skl_set_cdclk(dev_priv, cdclk, vco);
+	cdclk_state.vco = dev_priv->skl_preferred_vco_freq;
+	if (cdclk_state.vco == 0)
+		cdclk_state.vco = 8100000;
+	cdclk_state.cdclk = skl_calc_cdclk(0, cdclk_state.vco);
+
+	skl_set_cdclk(dev_priv, &cdclk_state);
 }
 
 static int bxt_calc_cdclk(int max_pixclk)
@@ -1132,8 +1147,10 @@ static void bxt_de_pll_enable(struct drm_i915_private *dev_priv, int vco)
 }
 
 static void bxt_set_cdclk(struct drm_i915_private *dev_priv,
-			  int cdclk, int vco)
+			  const struct intel_cdclk_state *cdclk_state)
 {
+	int cdclk = cdclk_state->cdclk;
+	int vco = cdclk_state->vco;
 	u32 val, divider;
 	int ret;
 
@@ -1259,7 +1276,7 @@ sanitize:
 
 void bxt_init_cdclk(struct drm_i915_private *dev_priv)
 {
-	int cdclk, vco;
+	struct intel_cdclk_state cdclk_state;
 
 	bxt_sanitize_cdclk(dev_priv);
 
@@ -1267,25 +1284,33 @@ void bxt_init_cdclk(struct drm_i915_private *dev_priv)
 	    dev_priv->cdclk.hw.vco != 0)
 		return;
 
+	cdclk_state = dev_priv->cdclk.hw;
+
 	/*
 	 * FIXME:
 	 * - The initial CDCLK needs to be read from VBT.
 	 *   Need to make this change after VBT has changes for BXT.
 	 */
 	if (IS_GEMINILAKE(dev_priv)) {
-		cdclk = glk_calc_cdclk(0);
-		vco = glk_de_pll_vco(dev_priv, cdclk);
+		cdclk_state.cdclk = glk_calc_cdclk(0);
+		cdclk_state.vco = glk_de_pll_vco(dev_priv, cdclk_state.cdclk);
 	} else {
-		cdclk = bxt_calc_cdclk(0);
-		vco = bxt_de_pll_vco(dev_priv, cdclk);
+		cdclk_state.ref = dev_priv->cdclk.hw.ref;
+		cdclk_state.cdclk = bxt_calc_cdclk(0);
+		cdclk_state.vco = bxt_de_pll_vco(dev_priv, cdclk_state.cdclk);
 	}
 
-	bxt_set_cdclk(dev_priv, cdclk, vco);
+	bxt_set_cdclk(dev_priv, &cdclk_state);
 }
 
 void bxt_uninit_cdclk(struct drm_i915_private *dev_priv)
 {
-	bxt_set_cdclk(dev_priv, dev_priv->cdclk.hw.ref, 0);
+	struct intel_cdclk_state cdclk_state = dev_priv->cdclk.hw;
+
+	cdclk_state.cdclk = cdclk_state.ref;
+	cdclk_state.vco = 0;
+
+	bxt_set_cdclk(dev_priv, &cdclk_state);
 }
 
 bool intel_cdclk_state_compare(struct intel_cdclk_state *a,
@@ -1393,7 +1418,6 @@ static void vlv_modeset_commit_cdclk(struct drm_atomic_state *old_state)
 	struct drm_i915_private *dev_priv = to_i915(old_state->dev);
 	struct intel_atomic_state *old_intel_state =
 		to_intel_atomic_state(old_state);
-	unsigned int req_cdclk = old_intel_state->cdclk.actual.cdclk;
 
 	/*
 	 * FIXME: We can end up here with all power domains off, yet
@@ -1407,9 +1431,9 @@ static void vlv_modeset_commit_cdclk(struct drm_atomic_state *old_state)
 	intel_display_power_get(dev_priv, POWER_DOMAIN_PIPE_A);
 
 	if (IS_CHERRYVIEW(dev_priv))
-		chv_set_cdclk(dev_priv, req_cdclk);
+		chv_set_cdclk(dev_priv, &old_intel_state->cdclk.actual);
 	else
-		vlv_set_cdclk(dev_priv, req_cdclk);
+		vlv_set_cdclk(dev_priv, &old_intel_state->cdclk.actual);
 
 	vlv_program_pfi_credits(dev_priv);
 
@@ -1454,9 +1478,8 @@ static void bdw_modeset_commit_cdclk(struct drm_atomic_state *old_state)
 	struct drm_i915_private *dev_priv = to_i915(old_state->dev);
 	struct intel_atomic_state *old_intel_state =
 		to_intel_atomic_state(old_state);
-	unsigned int req_cdclk = old_intel_state->cdclk.actual.cdclk;
 
-	bdw_set_cdclk(dev_priv, req_cdclk);
+	bdw_set_cdclk(dev_priv, &old_intel_state->cdclk.actual);
 }
 
 static int skl_modeset_calc_cdclk(struct drm_atomic_state *state)
@@ -1503,10 +1526,8 @@ static void skl_modeset_commit_cdclk(struct drm_atomic_state *old_state)
 	struct drm_i915_private *dev_priv = to_i915(old_state->dev);
 	struct intel_atomic_state *intel_state =
 		to_intel_atomic_state(old_state);
-	unsigned int req_cdclk = intel_state->cdclk.actual.cdclk;
-	unsigned int req_vco = intel_state->cdclk.actual.vco;
 
-	skl_set_cdclk(dev_priv, req_cdclk, req_vco);
+	skl_set_cdclk(dev_priv, &intel_state->cdclk.actual);
 }
 
 static int bxt_modeset_calc_cdclk(struct drm_atomic_state *state)
@@ -1558,10 +1579,8 @@ static void bxt_modeset_commit_cdclk(struct drm_atomic_state *old_state)
 	struct drm_i915_private *dev_priv = to_i915(old_state->dev);
 	struct intel_atomic_state *old_intel_state =
 		to_intel_atomic_state(old_state);
-	unsigned int req_cdclk = old_intel_state->cdclk.actual.cdclk;
-	unsigned int req_vco = old_intel_state->cdclk.actual.vco;
 
-	bxt_set_cdclk(dev_priv, req_cdclk, req_vco);
+	bxt_set_cdclk(dev_priv, &old_intel_state->cdclk.actual);
 }
 
 static int intel_compute_max_dotclk(struct drm_i915_private *dev_priv)
