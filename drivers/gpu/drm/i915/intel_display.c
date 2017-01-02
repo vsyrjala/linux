@@ -2064,11 +2064,19 @@ intel_tile_width_bytes(const struct drm_framebuffer *fb, int plane)
 			return 128;
 		else
 			return 512;
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+		if (plane == 1)
+			return 64;
+		/* fall through */
 	case I915_FORMAT_MOD_Y_TILED:
 		if (IS_GEN2(dev_priv) || HAS_128_BYTE_Y_TILING(dev_priv))
 			return 128;
 		else
 			return 512;
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		if (plane == 1)
+			return 64;
+		/* fall through */
 	case I915_FORMAT_MOD_Yf_TILED:
 		/*
 		 * Bspec seems to suggest that the Yf tile width would
@@ -2156,7 +2164,7 @@ static unsigned int intel_surf_alignment(const struct drm_framebuffer *fb,
 	struct drm_i915_private *dev_priv = to_i915(fb->dev);
 
 	/* AUX_DIST needs only 4K alignment */
-	if (fb->format->format == DRM_FORMAT_NV12 && plane == 1)
+	if (plane == 1)
 		return 4096;
 
 	switch (fb->modifier) {
@@ -2166,6 +2174,8 @@ static unsigned int intel_surf_alignment(const struct drm_framebuffer *fb,
 		if (INTEL_GEN(dev_priv) >= 9)
 			return 256 * 1024;
 		return 0;
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
 		return 1 * 1024 * 1024;
@@ -2472,6 +2482,7 @@ static unsigned int intel_fb_modifier_to_tiling(uint64_t fb_modifier)
 	case I915_FORMAT_MOD_X_TILED:
 		return I915_TILING_X;
 	case I915_FORMAT_MOD_Y_TILED:
+	case I915_FORMAT_MOD_Y_TILED_CCS:
 		return I915_TILING_Y;
 	default:
 		return I915_TILING_NONE;
@@ -2535,6 +2546,35 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 		height = drm_framebuffer_plane_height(fb->height, fb, i);
 
 		intel_fb_offset_to_xy(&x, &y, fb, i);
+
+		if ((fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+		     fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) && i == 1) {
+			int main_x, main_y;
+			int ccs_x, ccs_y;
+
+			/*
+			 * Each byte of CCS corresponds to a 16x8 area of the main surface, and
+			 * each CCS tile is 64x64 bytes.
+			 */
+			ccs_x = (x * 16) % (64 * 16);
+			ccs_y = (y * 8) % (64 * 8);
+			main_x = intel_fb->normal[0].x % (64 * 16);
+			main_y = intel_fb->normal[0].y % (64 * 8);
+
+			/*
+			 * CCS doesn't have its own x/y offset register, so the intra CCS tile
+			 * x/y offsets must match between CCS and the main surface.
+			 */
+			if (main_x != ccs_x || main_y != ccs_y) {
+				DRM_DEBUG_KMS("Bad CCS x/y (main %d,%d ccs %d,%d) full (main %d,%d ccs %d,%d)\n",
+					      main_x, main_y,
+					      ccs_x, ccs_y,
+					      intel_fb->normal[0].x,
+					      intel_fb->normal[0].y,
+					      x, y);
+				return -EINVAL;
+			}
+		}
 
 		/*
 		 * The fence (if used) is aligned to the start of the object
@@ -2873,6 +2913,9 @@ static int skl_max_plane_width(const struct drm_framebuffer *fb, int plane,
 			break;
 		}
 		break;
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		/* FIXME AUX plane? */
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
 		switch (cpp) {
@@ -2893,6 +2936,42 @@ static int skl_max_plane_width(const struct drm_framebuffer *fb, int plane,
 	}
 
 	return 2048;
+}
+
+static bool skl_check_main_ccs_coordinates(struct intel_plane_state *plane_state,
+					   int main_x, int main_y, u32 main_offset)
+{
+	const struct drm_framebuffer *fb = plane_state->base.fb;
+	int aux_x = plane_state->aux.x;
+	int aux_y = plane_state->aux.y;
+	u32 aux_offset = plane_state->aux.offset;
+	u32 alignment = intel_surf_alignment(fb, 1);
+
+	while (aux_offset >= main_offset && aux_y <= main_y) {
+		int x, y;
+
+		if (aux_x == main_x && aux_y == main_y)
+			break;
+
+		if (aux_offset == 0)
+			break;
+
+		x = aux_x / 16;
+		y = aux_y / 8;
+		aux_offset = intel_adjust_tile_offset(&x, &y, plane_state, 1,
+						      aux_offset, aux_offset - alignment);
+		aux_x = x * 16 + aux_x % 16;
+		aux_y = y * 8 + aux_y % 8;
+	}
+
+	if (aux_x != main_x || aux_y != main_y)
+		return false;
+
+	plane_state->aux.offset = aux_offset;
+	plane_state->aux.x = aux_x;
+	plane_state->aux.y = aux_y;
+
+	return true;
 }
 
 static int skl_check_main_surface(struct intel_plane_state *plane_state)
@@ -2937,12 +3016,32 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 
 		while ((x + w) * cpp > fb->pitches[0]) {
 			if (offset == 0) {
-				DRM_DEBUG_KMS("Unable to find suitable display surface offset\n");
+				DRM_DEBUG_KMS("Unable to find suitable display surface offset due to X-tiling\n");
 				return -EINVAL;
 			}
 
 			offset = intel_adjust_tile_offset(&x, &y, plane_state, 0,
 							  offset, offset - alignment);
+		}
+	}
+
+	/*
+	 * CCS AUX surface doesn't have its own x/y offsets, we must make sure
+	 * they match with the main surface x/y offsets.
+	 */
+	if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+	    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) {
+		while (!skl_check_main_ccs_coordinates(plane_state, x, y, offset)) {
+			if (offset == 0)
+				break;
+
+			offset = intel_adjust_tile_offset(&x, &y, plane_state, 0,
+							  offset, offset - alignment);
+		}
+
+		if (x != plane_state->aux.x || y != plane_state->aux.y) {
+			DRM_DEBUG_KMS("Unable to find suitable display surface offset due to CCS\n");
+			return -EINVAL;
 		}
 	}
 
@@ -2982,6 +3081,53 @@ static int skl_check_nv12_aux_surface(struct intel_plane_state *plane_state)
 	return 0;
 }
 
+static int skl_check_ccs_aux_surface(struct intel_plane_state *plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
+	struct intel_crtc *crtc = to_intel_crtc(plane_state->base.crtc);
+	int src_x = plane_state->base.src.x1 >> 16;
+	int src_y = plane_state->base.src.y1 >> 16;
+	int x = src_x / 16;
+	int y = src_y / 8;
+	u32 offset;
+
+	switch (plane->id) {
+	case PLANE_PRIMARY:
+	case PLANE_SPRITE0:
+		break;
+	default:
+		DRM_DEBUG_KMS("RC support only on plane 1 and 2\n");
+		return -EINVAL;
+	}
+
+	if (crtc->pipe == PIPE_C) {
+		DRM_DEBUG_KMS("No RC support on pipe C\n");
+		return -EINVAL;
+	}
+	/*
+	 * TODO:
+	 * 1. Disable stereo 3D when render decomp is enabled (bit 7:6)
+	 * 2. Render decompression must not be used in VTd pass-through mode
+	 * 3. Program hashing select CHICKEN_MISC1 bit 15
+	 */
+
+	if (plane_state->base.rotation &&
+	    plane_state->base.rotation & ~(DRM_ROTATE_0 | DRM_ROTATE_180)) {
+		DRM_DEBUG_KMS("RC support only with 0/180 degree rotation %x\n",
+			      plane_state->base.rotation);
+		return -EINVAL;
+	}
+
+	intel_add_fb_offsets(&x, &y, plane_state, 1);
+	offset = intel_compute_tile_offset(&x, &y, plane_state, 1);
+
+	plane_state->aux.offset = offset;
+	plane_state->aux.x = x * 16 + src_x % 16;
+	plane_state->aux.y = y * 8 + src_y % 8;
+
+	return 0;
+}
+
 int skl_check_plane_surface(struct intel_plane_state *plane_state)
 {
 	const struct drm_framebuffer *fb = plane_state->base.fb;
@@ -3000,6 +3146,11 @@ int skl_check_plane_surface(struct intel_plane_state *plane_state)
 	 */
 	if (fb->format->format == DRM_FORMAT_NV12) {
 		ret = skl_check_nv12_aux_surface(plane_state);
+		if (ret)
+			return ret;
+	} else if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+		   fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) {
+		ret = skl_check_ccs_aux_surface(plane_state);
 		if (ret)
 			return ret;
 	} else {
@@ -3357,8 +3508,12 @@ u32 skl_plane_ctl_tiling(uint64_t fb_modifier)
 		return PLANE_CTL_TILED_X;
 	case I915_FORMAT_MOD_Y_TILED:
 		return PLANE_CTL_TILED_Y;
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+		return PLANE_CTL_TILED_Y | PLANE_CTL_DECOMPRESSION_ENABLE;
 	case I915_FORMAT_MOD_Yf_TILED:
 		return PLANE_CTL_TILED_YF;
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		return PLANE_CTL_TILED_YF | PLANE_CTL_DECOMPRESSION_ENABLE;
 	default:
 		MISSING_CASE(fb_modifier);
 	}
@@ -3401,6 +3556,7 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 	u32 plane_ctl;
 	unsigned int rotation = plane_state->base.rotation;
 	u32 stride = skl_plane_stride(fb, 0, rotation);
+	u32 aux_stride = skl_plane_stride(fb, 1, rotation);
 	u32 surf_addr = plane_state->main.offset;
 	int scaler_id = plane_state->scaler_id;
 	int src_x = plane_state->main.x;
@@ -3436,6 +3592,10 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 	I915_WRITE(PLANE_OFFSET(pipe, plane_id), (src_y << 16) | src_x);
 	I915_WRITE(PLANE_STRIDE(pipe, plane_id), stride);
 	I915_WRITE(PLANE_SIZE(pipe, plane_id), (src_h << 16) | src_w);
+	I915_WRITE(PLANE_AUX_DIST(pipe, plane_id),
+		   (plane_state->aux.offset - surf_addr) | aux_stride);
+	I915_WRITE(PLANE_AUX_OFFSET(pipe, plane_id),
+		   (plane_state->aux.y << 16) | plane_state->aux.x);
 
 	if (scaler_id >= 0) {
 		uint32_t ps_ctrl = 0;
@@ -9807,10 +9967,16 @@ skylake_get_initial_plane_config(struct intel_crtc *crtc,
 		fb->modifier = I915_FORMAT_MOD_X_TILED;
 		break;
 	case PLANE_CTL_TILED_Y:
-		fb->modifier = I915_FORMAT_MOD_Y_TILED;
+		if (val & PLANE_CTL_DECOMPRESSION_ENABLE)
+			fb->modifier = I915_FORMAT_MOD_Y_TILED_CCS;
+		else
+			fb->modifier = I915_FORMAT_MOD_Y_TILED;
 		break;
 	case PLANE_CTL_TILED_YF:
-		fb->modifier = I915_FORMAT_MOD_Yf_TILED;
+		if (val & PLANE_CTL_DECOMPRESSION_ENABLE)
+			fb->modifier = I915_FORMAT_MOD_Yf_TILED_CCS;
+		else
+			fb->modifier = I915_FORMAT_MOD_Yf_TILED;
 		break;
 	default:
 		MISSING_CASE(tiling);
@@ -12014,7 +12180,7 @@ static void skl_do_mmio_flip(struct intel_crtc *intel_crtc,
 	u32 ctl, stride = skl_plane_stride(fb, 0, rotation);
 
 	ctl = I915_READ(PLANE_CTL(pipe, 0));
-	ctl &= ~PLANE_CTL_TILED_MASK;
+	ctl &= ~(PLANE_CTL_TILED_MASK | PLANE_CTL_DECOMPRESSION_ENABLE);
 	switch (fb->modifier) {
 	case DRM_FORMAT_MOD_NONE:
 		break;
@@ -12024,8 +12190,14 @@ static void skl_do_mmio_flip(struct intel_crtc *intel_crtc,
 	case I915_FORMAT_MOD_Y_TILED:
 		ctl |= PLANE_CTL_TILED_Y;
 		break;
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+		ctl |= PLANE_CTL_TILED_Y | PLANE_CTL_DECOMPRESSION_ENABLE;
+		break;
 	case I915_FORMAT_MOD_Yf_TILED:
 		ctl |= PLANE_CTL_TILED_YF;
+		break;
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		ctl |= PLANE_CTL_TILED_YF | PLANE_CTL_DECOMPRESSION_ENABLE;
 		break;
 	default:
 		MISSING_CASE(fb->modifier);
@@ -15926,8 +16098,8 @@ static int intel_framebuffer_init(struct drm_device *dev,
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	unsigned int tiling = i915_gem_object_get_tiling(obj);
-	int ret;
-	u32 pitch_limit, stride_alignment;
+	int ret, i;
+	u32 pitch_limit;
 	struct drm_format_name_buf format_name;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
@@ -15953,6 +16125,19 @@ static int intel_framebuffer_init(struct drm_device *dev,
 
 	/* Passed in modifier sanity checking. */
 	switch (mode_cmd->modifier[0]) {
+	case I915_FORMAT_MOD_Y_TILED_CCS:
+	case I915_FORMAT_MOD_Yf_TILED_CCS:
+		switch (mode_cmd->pixel_format) {
+		case DRM_FORMAT_XBGR8888:
+		case DRM_FORMAT_ABGR8888:
+		case DRM_FORMAT_XRGB8888:
+		case DRM_FORMAT_ARGB8888:
+			break;
+		default:
+			DRM_DEBUG_KMS("RC supported only with RGB8888 formats\n");
+			return -EINVAL;
+		}
+		/* fall through */
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
 		if (INTEL_GEN(dev_priv) < 9) {
@@ -16061,11 +16246,21 @@ static int intel_framebuffer_init(struct drm_device *dev,
 
 	drm_helper_mode_fill_fb_struct(dev, &intel_fb->base, mode_cmd);
 
-	stride_alignment = intel_fb_stride_alignment(&intel_fb->base, 0);
-	if (mode_cmd->pitches[0] & (stride_alignment - 1)) {
-		DRM_DEBUG_KMS("pitch (%d) must be at least %u byte aligned\n",
-			      mode_cmd->pitches[0], stride_alignment);
-		return -EINVAL;
+	for (i = 0; i < intel_fb->base.format->num_planes; i++) {
+		u32 stride_alignment;
+
+		if (mode_cmd->handles[i] != mode_cmd->handles[0]) {
+			DRM_DEBUG_KMS("bad plane %d handle\n", i);
+			return -EINVAL;
+		}
+
+		stride_alignment = intel_fb_stride_alignment(&intel_fb->base, i);
+
+		if (mode_cmd->pitches[i] & (stride_alignment - 1)) {
+			DRM_DEBUG_KMS("plane %d pitch (%d) must be at least %u byte aligned\n",
+				      i, mode_cmd->pitches[i], stride_alignment);
+			return -EINVAL;
+		}
 	}
 
 	intel_fb->obj = obj;
