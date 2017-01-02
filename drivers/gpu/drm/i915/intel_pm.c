@@ -58,9 +58,23 @@
 
 static void gen9_init_clock_gating(struct drm_i915_private *dev_priv)
 {
+	if (HAS_LLC(dev_priv)) {
+		/*
+		 * WaCompressedResourceDisplayNewHashMode:skl,kbl
+		 * Display WA#0390: skl,kbl
+		 *
+		 * Must match Sampler, Pixel Back End, and Media. See
+		 * WaCompressedResourceSamplerPbeMediaNewHashMode.
+		 */
+		I915_WRITE(CHICKEN_PAR1_1,
+			   I915_READ(CHICKEN_PAR1_1) |
+			   SKL_DE_COMPRESSED_HASH_MODE);
+	}
+
 	/* See Bspec note for PSR2_CTL bit 31, Wa#828:skl,bxt,kbl,cfl */
 	I915_WRITE(CHICKEN_PAR1_1,
 		   I915_READ(CHICKEN_PAR1_1) | SKL_EDP_PSR_FIX_RDWRAP);
+
 
 	I915_WRITE(GEN8_CONFIG0,
 		   I915_READ(GEN8_CONFIG0) | GEN9_DEFAULT_FIXES);
@@ -4071,7 +4085,9 @@ skl_ddb_min_alloc(const struct drm_plane_state *pstate,
 
 	/* For Non Y-tile return 8-blocks */
 	if (fb->modifier != I915_FORMAT_MOD_Y_TILED &&
-	    fb->modifier != I915_FORMAT_MOD_Yf_TILED)
+	    fb->modifier != I915_FORMAT_MOD_Yf_TILED &&
+	    fb->modifier != I915_FORMAT_MOD_Y_TILED_CCS &&
+	    fb->modifier != I915_FORMAT_MOD_Yf_TILED_CCS)
 		return 8;
 
 	/*
@@ -4456,7 +4472,9 @@ static int skl_compute_plane_wm(const struct drm_i915_private *dev_priv,
 		return 0;
 
 	y_tiled = fb->modifier == I915_FORMAT_MOD_Y_TILED ||
-		  fb->modifier == I915_FORMAT_MOD_Yf_TILED;
+		  fb->modifier == I915_FORMAT_MOD_Yf_TILED ||
+		  fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+		  fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS;
 	x_tiled = fb->modifier == I915_FORMAT_MOD_X_TILED;
 
 	/* Display WA #1141: kbl,cfl */
@@ -4552,6 +4570,13 @@ static int skl_compute_plane_wm(const struct drm_i915_private *dev_priv,
 	res_lines = div_round_up_fixed16(selected_result,
 					 plane_blocks_per_line);
 
+	/* Display WA #1125: skl,bxt,kbl,glk */
+	if (level == 0 &&
+	    (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+	     fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS))
+		res_blocks += fixed_16_16_to_u32_round_up(y_tile_minimum);
+
+	/* Display WA #1126: skl,bxt,kbl,glk */
 	if (level >= 1 && level <= 7) {
 		if (y_tiled) {
 			res_blocks += fixed_16_16_to_u32_round_up(y_tile_minimum);

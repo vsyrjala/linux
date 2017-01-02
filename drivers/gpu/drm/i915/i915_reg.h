@@ -5909,6 +5909,10 @@ enum {
 #define _PLANE_KEYMSK_2_A			0x70298
 #define _PLANE_KEYMAX_1_A			0x701a0
 #define _PLANE_KEYMAX_2_A			0x702a0
+#define _PLANE_AUX_DIST_1_A			0x701c0
+#define _PLANE_AUX_DIST_2_A			0x702c0
+#define _PLANE_AUX_OFFSET_1_A			0x701c4
+#define _PLANE_AUX_OFFSET_2_A			0x702c4
 #define _PLANE_COLOR_CTL_1_A			0x701CC /* GLK+ */
 #define _PLANE_COLOR_CTL_2_A			0x702CC /* GLK+ */
 #define _PLANE_COLOR_CTL_3_A			0x703CC /* GLK+ */
@@ -6014,6 +6018,24 @@ enum {
 	_PIPE(pipe, _PLANE_NV12_BUF_CFG_2_A, _PLANE_NV12_BUF_CFG_2_B)
 #define PLANE_NV12_BUF_CFG(pipe, plane)	\
 	_MMIO_PLANE(plane, _PLANE_NV12_BUF_CFG_1(pipe), _PLANE_NV12_BUF_CFG_2(pipe))
+
+#define _PLANE_AUX_DIST_1_B		0x711c0
+#define _PLANE_AUX_DIST_2_B		0x712c0
+#define _PLANE_AUX_DIST_1(pipe) \
+			_PIPE(pipe, _PLANE_AUX_DIST_1_A, _PLANE_AUX_DIST_1_B)
+#define _PLANE_AUX_DIST_2(pipe) \
+			_PIPE(pipe, _PLANE_AUX_DIST_2_A, _PLANE_AUX_DIST_2_B)
+#define PLANE_AUX_DIST(pipe, plane)     \
+	_MMIO_PLANE(plane, _PLANE_AUX_DIST_1(pipe), _PLANE_AUX_DIST_2(pipe))
+
+#define _PLANE_AUX_OFFSET_1_B		0x711c4
+#define _PLANE_AUX_OFFSET_2_B		0x712c4
+#define _PLANE_AUX_OFFSET_1(pipe)       \
+		_PIPE(pipe, _PLANE_AUX_OFFSET_1_A, _PLANE_AUX_OFFSET_1_B)
+#define _PLANE_AUX_OFFSET_2(pipe)       \
+		_PIPE(pipe, _PLANE_AUX_OFFSET_2_A, _PLANE_AUX_OFFSET_2_B)
+#define PLANE_AUX_OFFSET(pipe, plane)   \
+	_MMIO_PLANE(plane, _PLANE_AUX_OFFSET_1(pipe), _PLANE_AUX_OFFSET_2(pipe))
 
 #define _PLANE_COLOR_CTL_1_B			0x711CC
 #define _PLANE_COLOR_CTL_2_B			0x712CC
@@ -6498,6 +6520,7 @@ enum {
 # define CHICKEN3_DGMG_DONE_FIX_DISABLE		(1 << 2)
 
 #define CHICKEN_PAR1_1		_MMIO(0x42080)
+#define  SKL_DE_COMPRESSED_HASH_MODE	(1 << 15)
 #define  DPA_MASK_VBLANK_SRD	(1 << 15)
 #define  FORCE_ARB_IDLE_PLANES	(1 << 14)
 #define  SKL_EDP_PSR_FIX_RDWRAP	(1 << 3)
@@ -6566,6 +6589,7 @@ enum {
 # define GEN7_CSC1_RHWO_OPT_DISABLE_IN_RCC	((1<<10) | (1<<26))
 # define GEN9_RHWO_OPTIMIZATION_DISABLE		(1<<14)
 #define COMMON_SLICE_CHICKEN2			_MMIO(0x7014)
+# define GEN9_PBE_COMPRESSED_HASH_SELECTION	(1<<13)
 # define GEN9_DISABLE_GATHER_AT_SET_SHADER_COMMON_SLICE (1<<12)
 # define GEN8_SBE_DISABLE_REPLAY_BUF_OPTIMIZATION (1<<8)
 # define GEN8_CSC2_SBE_VUE_CACHE_CONSERVATIVE	(1<<0)
@@ -7653,6 +7677,7 @@ enum {
 #define   GEN8_SAMPLER_POWER_BYPASS_DIS	(1<<1)
 
 #define GEN9_HALF_SLICE_CHICKEN7	_MMIO(0xe194)
+#define   GEN9_SAMPLER_HASH_COMPRESSED_READ_ADDR	(1<<8)
 #define   GEN9_ENABLE_YV12_BUGFIX	(1<<4)
 #define   GEN9_ENABLE_GPGPU_PREEMPTION	(1<<2)
 
@@ -8868,5 +8893,9 @@ enum {
 #define   GEN8_L3_LRA_1_GPGPU_DEFAULT_VALUE_CHV  0x5FF101FF /* max/min for LRA1/2 */
 #define   GEN9_L3_LRA_1_GPGPU_DEFAULT_VALUE_SKL  0x67F1427F /*    "        " */
 #define   GEN9_L3_LRA_1_GPGPU_DEFAULT_VALUE_BXT  0x5FF101FF /*    "        " */
+
+#define MMCD_MISC_CTRL		_MMIO(0x4ddc) /* skl+ */
+#define  MMCD_PCLA		(1 << 31)
+#define  MMCD_HOTSPOT_EN	(1 << 27)
 
 #endif /* _I915_REG_H_ */
