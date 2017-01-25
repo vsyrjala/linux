@@ -264,13 +264,13 @@ ssize_t drm_dp_dpcd_read(struct drm_dp_aux *aux, unsigned int offset,
 	 * We just have to do it before any DPCD access and hope that the
 	 * monitor doesn't power down exactly after the throw away read.
 	 */
-	ret = drm_dp_dpcd_access(aux, DP_AUX_NATIVE_READ, DP_DPCD_REV, buffer,
-				 1);
+	ret = drm_dp_dpcd_access(aux, DP_AUX_NATIVE_READ,
+				 DP_DPCD_REV, buffer, 1);
 	if (ret != 1)
 		return ret;
 
-	return drm_dp_dpcd_access(aux, DP_AUX_NATIVE_READ, offset, buffer,
-				  size);
+	return drm_dp_dpcd_access(aux, DP_AUX_NATIVE_READ,
+				  offset, buffer, size);
 }
 EXPORT_SYMBOL(drm_dp_dpcd_read);
 
@@ -291,8 +291,8 @@ EXPORT_SYMBOL(drm_dp_dpcd_read);
 ssize_t drm_dp_dpcd_write(struct drm_dp_aux *aux, unsigned int offset,
 			  void *buffer, size_t size)
 {
-	return drm_dp_dpcd_access(aux, DP_AUX_NATIVE_WRITE, offset, buffer,
-				  size);
+	return drm_dp_dpcd_access(aux, DP_AUX_NATIVE_WRITE,
+				  offset, buffer, size);
 }
 EXPORT_SYMBOL(drm_dp_dpcd_write);
 

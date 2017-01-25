@@ -33,6 +33,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 #include <drm/drm_dp_helper.h>
+#include <drm/drm_dp_mst_helper.h>
 #include <drm/drm_crtc.h>
 #include <drm/drmP.h>
 
@@ -167,7 +168,10 @@ static ssize_t auxdev_read(struct file *file, char __user *buf, size_t count,
 			goto out;
 		}
 
-		res = drm_dp_dpcd_read(aux_dev->aux, *offset, localbuf, todo);
+		if (aux_dev->aux->is_remote)
+			res = drm_dp_mst_dpcd_read(aux_dev->aux, *offset, localbuf, todo);
+		else
+			res = drm_dp_dpcd_read(aux_dev->aux, *offset, localbuf, todo);
 		if (res <= 0) {
 			res = num_bytes_processed ? num_bytes_processed : res;
 			goto out;
@@ -223,7 +227,10 @@ static ssize_t auxdev_write(struct file *file, const char __user *buf,
 			goto out;
 		}
 
-		res = drm_dp_dpcd_write(aux_dev->aux, *offset, localbuf, todo);
+		if (aux_dev->aux->is_remote)
+			res = drm_dp_mst_dpcd_write(aux_dev->aux, *offset, localbuf, todo);
+		else
+			res = drm_dp_dpcd_write(aux_dev->aux, *offset, localbuf, todo);
 		if (res <= 0) {
 			res = num_bytes_processed ? num_bytes_processed : res;
 			goto out;

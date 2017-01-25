@@ -779,6 +779,10 @@ struct drm_dp_aux {
 	 * @i2c_defer_count: Counts I2C DEFERs, used for DP validation.
 	 */
 	unsigned i2c_defer_count;
+	/**
+	 * @is_remote: Is this "AUX CH" actually using sideband messaging.
+	 */
+	bool is_remote;
 };
 
 ssize_t drm_dp_dpcd_read(struct drm_dp_aux *aux, unsigned int offset,
