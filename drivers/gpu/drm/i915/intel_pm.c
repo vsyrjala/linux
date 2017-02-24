@@ -1206,7 +1206,7 @@ static bool vlv_need_sprite0_fifo_workaround(unsigned int active_planes)
 static int vlv_compute_fifo(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
-	const struct vlv_pipe_wm *noninverted =
+	const struct g4x_pipe_wm *noninverted =
 		&crtc_state->wm.vlv.noninverted[VLV_WM_LEVEL_PM2];
 	struct vlv_fifo_state *fifo_state = &crtc_state->wm.vlv.fifo_state;
 	unsigned int active_planes = crtc_state->active_planes & ~BIT(PLANE_CURSOR);
@@ -1319,7 +1319,7 @@ static bool vlv_plane_wm_set(struct intel_crtc_state *crtc_state,
 	bool dirty = false;
 
 	for (; level < num_levels; level++) {
-		struct vlv_pipe_wm *noninverted =
+		struct g4x_pipe_wm *noninverted =
 			&crtc_state->wm.vlv.noninverted[level];
 
 		dirty |= noninverted->plane[plane_id] != value;
@@ -1344,7 +1344,7 @@ static bool vlv_plane_wm_compute(struct intel_crtc_state *crtc_state,
 	}
 
 	for (level = 0; level < num_levels; level++) {
-		struct vlv_pipe_wm *noninverted =
+		struct g4x_pipe_wm *noninverted =
 			&crtc_state->wm.vlv.noninverted[level];
 		int wm = vlv_compute_wm_level(crtc_state, plane_state, level);
 		int max_wm = plane_id == PLANE_CURSOR ? 63 : 511;
@@ -1373,7 +1373,7 @@ out:
 static bool vlv_plane_wm_is_valid(const struct intel_crtc_state *crtc_state,
 				  enum plane_id plane_id, int level)
 {
-	const struct vlv_pipe_wm *noninverted =
+	const struct g4x_pipe_wm *noninverted =
 		&crtc_state->wm.vlv.noninverted[level];
 	const struct vlv_fifo_state *fifo_state =
 		&crtc_state->wm.vlv.fifo_state;
@@ -1458,7 +1458,7 @@ static int vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	wm_state->cxsr = i915.enable_cxsr && crtc->pipe != PIPE_C && num_active_planes == 1;
 
 	for (level = 0; level < wm_state->num_levels; level++) {
-		const struct vlv_pipe_wm *noninverted =
+		const struct g4x_pipe_wm *noninverted =
 			&crtc_state->wm.vlv.noninverted[level];
 		const int sr_fifo_size = INTEL_INFO(dev_priv)->num_pipes * 512 - 1;
 
@@ -4894,7 +4894,7 @@ void vlv_wm_get_hw_state(struct drm_device *dev)
 		vlv_get_fifo_size(crtc_state);
 
 		for (level = 0; level < active->num_levels; level++) {
-			struct vlv_pipe_wm *noninverted =
+			struct g4x_pipe_wm *noninverted =
 				&crtc_state->wm.vlv.noninverted[level];
 
 			active->sr[level].plane = wm->sr.plane;
@@ -4952,7 +4952,7 @@ void vlv_wm_sanitize(struct drm_i915_private *dev_priv)
 			continue;
 
 		for (level = 0; level < wm_state->num_levels; level++) {
-			struct vlv_pipe_wm *noninverted =
+			struct g4x_pipe_wm *noninverted =
 				&crtc_state->wm.vlv.noninverted[level];
 
 			noninverted->plane[plane_id] = 0;
