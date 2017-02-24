@@ -1372,7 +1372,7 @@ static bool vlv_plane_wm_compute(struct intel_crtc_state *crtc_state,
 
 out:
 	if (dirty)
-		DRM_DEBUG_KMS("%s wms: [0]=%d,[1]=%d,[2]=%d\n",
+		DRM_DEBUG_KMS("%s watermarks: pm2=%d, pm5=%d, ddr dvfs=%d\n",
 			      plane->base.name,
 			      crtc_state->wm.vlv.raw[VLV_WM_LEVEL_PM2].plane[plane_id],
 			      crtc_state->wm.vlv.raw[VLV_WM_LEVEL_PM5].plane[plane_id],
