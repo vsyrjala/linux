@@ -793,6 +793,16 @@ static unsigned int intel_calculate_wm(int pixel_rate,
 	return wm_size;
 }
 
+static bool is_disabling(int old, int new, int threshold)
+{
+	return old >= threshold && new < threshold;
+}
+
+static bool is_enabling(int old, int new, int threshold)
+{
+	return old < threshold && new >= threshold;
+}
+
 static int intel_num_wm_levels(struct drm_i915_private *dev_priv)
 {
 	return dev_priv->wm.max_level + 1;
@@ -1684,16 +1694,6 @@ static void vlv_merge_wm(struct drm_i915_private *dev_priv,
 		wm->ddl[pipe].plane[PLANE_SPRITE1] = DDL_PRECISION_HIGH | 2;
 		wm->ddl[pipe].plane[PLANE_CURSOR] = DDL_PRECISION_HIGH | 2;
 	}
-}
-
-static bool is_disabling(int old, int new, int threshold)
-{
-	return old >= threshold && new < threshold;
-}
-
-static bool is_enabling(int old, int new, int threshold)
-{
-	return old < threshold && new >= threshold;
 }
 
 static void vlv_program_watermarks(struct drm_i915_private *dev_priv)
