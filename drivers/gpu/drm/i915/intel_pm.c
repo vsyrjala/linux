@@ -1149,8 +1149,8 @@ static uint16_t g4x_compute_wm(const struct intel_crtc_state *crtc_state,
 	return min_t(int, wm, USHRT_MAX);
 }
 
-static bool g4x_plane_wm_set(struct intel_crtc_state *crtc_state,
-			     int level, enum plane_id plane_id, u16 value)
+static bool g4x_raw_plane_wm_set(struct intel_crtc_state *crtc_state,
+				 int level, enum plane_id plane_id, u16 value)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
 	bool dirty = false;
@@ -1165,11 +1165,14 @@ static bool g4x_plane_wm_set(struct intel_crtc_state *crtc_state,
 	return dirty;
 }
 
-static bool g4x_fbc_wm_set(struct intel_crtc_state *crtc_state,
-			   int level, u16 value)
+static bool g4x_raw_fbc_wm_set(struct intel_crtc_state *crtc_state,
+			       int level, u16 value)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
 	bool dirty = false;
+
+	/* NORMAL level doesn't have an FBC watermark */
+	level = max(level, G4X_WM_LEVEL_SR);
 
 	for (; level < intel_num_wm_levels(dev_priv); level++) {
 		struct g4x_pipe_wm *raw = &crtc_state->wm.g4x.raw[level];
@@ -1185,8 +1188,8 @@ static uint32_t ilk_compute_fbc_wm(const struct intel_crtc_state *cstate,
 				   const struct intel_plane_state *pstate,
 				   uint32_t pri_val);
 
-static bool g4x_plane_wm_compute(struct intel_crtc_state *crtc_state,
-				 const struct intel_plane_state *plane_state)
+static bool g4x_raw_plane_wm_compute(struct intel_crtc_state *crtc_state,
+				     const struct intel_plane_state *plane_state)
 {
 	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
 	int num_levels = intel_num_wm_levels(to_i915(plane->base.dev));
@@ -1195,9 +1198,9 @@ static bool g4x_plane_wm_compute(struct intel_crtc_state *crtc_state,
 	int level;
 
 	if (!intel_wm_plane_visible(crtc_state, plane_state)) {
-		dirty |= g4x_plane_wm_set(crtc_state, 0, plane_id, 0);
+		dirty |= g4x_raw_plane_wm_set(crtc_state, 0, plane_id, 0);
 		if (plane_id == PLANE_PRIMARY)
-			dirty |= g4x_fbc_wm_set(crtc_state, 0, 0);
+			dirty |= g4x_raw_fbc_wm_set(crtc_state, 0, 0);
 		goto out;
 	}
 
@@ -1213,45 +1216,42 @@ static bool g4x_plane_wm_compute(struct intel_crtc_state *crtc_state,
 
 		dirty |= raw->plane[plane_id] != wm;
 		raw->plane[plane_id] = wm;
-	}
 
-	if (plane_id == PLANE_PRIMARY) {
-		for (level = 1; level < num_levels; level++) {
-			struct g4x_pipe_wm *raw = &crtc_state->wm.g4x.raw[level];
-			int wm, max_wm;
+		if (plane_id != PLANE_PRIMARY ||
+		    level == G4X_WM_LEVEL_NORMAL)
+			continue;
 
-			wm = ilk_compute_fbc_wm(crtc_state, plane_state,
-						raw->plane[plane_id]);
-			max_wm = g4x_fbc_fifo_size(level);
+		wm = ilk_compute_fbc_wm(crtc_state, plane_state,
+					raw->plane[plane_id]);
+		max_wm = g4x_fbc_fifo_size(level);
 
-			/*
-			 * FBC wm is not mandatory as we
-			 * can always just disable its use.
-			 */
-			if (wm > max_wm)
-				wm = USHRT_MAX;
+		/*
+		 * FBC wm is not mandatory as we
+		 * can always just disable its use.
+		 */
+		if (wm > max_wm)
+			wm = USHRT_MAX;
 
-			dirty |= raw->fbc != wm;
-			raw->fbc = wm;
-		}
+		dirty |= raw->fbc != wm;
+		raw->fbc = wm;
 	}
 
 	/* mark watermarks as invalid */
-	dirty |= g4x_plane_wm_set(crtc_state, level, plane_id, USHRT_MAX);
+	dirty |= g4x_raw_plane_wm_set(crtc_state, level, plane_id, USHRT_MAX);
 
 	if (plane_id == PLANE_PRIMARY)
-		dirty |= g4x_fbc_wm_set(crtc_state, level, USHRT_MAX);
+		dirty |= g4x_raw_fbc_wm_set(crtc_state, level, USHRT_MAX);
 
  out:
 	if (dirty) {
-		DRM_DEBUG_KMS("%s watermarks: normal=%d, sr=%d, hpll=%d\n",
+		DRM_DEBUG_KMS("%s watermarks: NORMAL=%d, SR=%d, HPLL=%d\n",
 			      plane->base.name,
 			      crtc_state->wm.g4x.raw[G4X_WM_LEVEL_NORMAL].plane[plane_id],
 			      crtc_state->wm.g4x.raw[G4X_WM_LEVEL_SR].plane[plane_id],
 			      crtc_state->wm.g4x.raw[G4X_WM_LEVEL_HPLL].plane[plane_id]);
 
 		if (plane_id == PLANE_PRIMARY)
-			DRM_DEBUG_KMS("FBC watermarks: sr=%d, hpll=%d\n",
+			DRM_DEBUG_KMS("FBC watermarks: SR=%d, HPLL=%d\n",
 				      crtc_state->wm.g4x.raw[G4X_WM_LEVEL_SR].fbc,
 				      crtc_state->wm.g4x.raw[G4X_WM_LEVEL_HPLL].fbc);
 	}
@@ -1259,25 +1259,25 @@ static bool g4x_plane_wm_compute(struct intel_crtc_state *crtc_state,
 	return dirty;
 }
 
-static bool g4x_plane_wm_is_valid(const struct intel_crtc_state *crtc_state,
-				  enum plane_id plane_id, int level)
+static bool g4x_raw_plane_wm_is_valid(const struct intel_crtc_state *crtc_state,
+				      enum plane_id plane_id, int level)
 {
 	const struct g4x_pipe_wm *raw = &crtc_state->wm.g4x.raw[level];
 
 	return raw->plane[plane_id] <= g4x_plane_fifo_size(plane_id, level);
 }
 
-static bool g4x_crtc_wm_is_valid(const struct intel_crtc_state *crtc_state,
-				 int level)
+static bool g4x_raw_crtc_wm_is_valid(const struct intel_crtc_state *crtc_state,
+				     int level)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
 
 	if (level > dev_priv->wm.max_level)
 		return false;
 
-	return g4x_plane_wm_is_valid(crtc_state, PLANE_PRIMARY, level) &&
-		g4x_plane_wm_is_valid(crtc_state, PLANE_SPRITE0, level) &&
-		g4x_plane_wm_is_valid(crtc_state, PLANE_CURSOR, level);
+	return g4x_raw_plane_wm_is_valid(crtc_state, PLANE_PRIMARY, level) &&
+		g4x_raw_plane_wm_is_valid(crtc_state, PLANE_SPRITE0, level) &&
+		g4x_raw_plane_wm_is_valid(crtc_state, PLANE_CURSOR, level);
 }
 
 /* mark all levels starting from 'level' as invalid */
@@ -1329,7 +1329,7 @@ static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 		    old_plane_state->base.crtc != &crtc->base)
 			continue;
 
-		if (g4x_plane_wm_compute(crtc_state, plane_state))
+		if (g4x_raw_plane_wm_compute(crtc_state, plane_state))
 			dirty |= BIT(plane->id);
 	}
 
@@ -1337,7 +1337,7 @@ static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 		return 0;
 
 	level = G4X_WM_LEVEL_NORMAL;
-	if (!g4x_crtc_wm_is_valid(crtc_state, level))
+	if (!g4x_raw_crtc_wm_is_valid(crtc_state, level))
 		goto out;
 
 	raw = &crtc_state->wm.g4x.raw[level];
@@ -1346,7 +1346,7 @@ static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 
 	level++;
 
-	if (!g4x_crtc_wm_is_valid(crtc_state, level))
+	if (!g4x_raw_crtc_wm_is_valid(crtc_state, level))
 		goto out;
 
 	raw = &crtc_state->wm.g4x.raw[level];
@@ -1359,7 +1359,7 @@ static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 
 	level++;
 
-	if (!g4x_crtc_wm_is_valid(crtc_state, level))
+	if (!g4x_raw_crtc_wm_is_valid(crtc_state, level))
 		goto out;
 
 	raw = &crtc_state->wm.g4x.raw[level];
@@ -5295,8 +5295,9 @@ void g4x_wm_get_hw_state(struct drm_device *dev)
 
 	out:
 		for_each_plane_id_on_crtc(crtc, plane_id)
-			g4x_plane_wm_set(crtc_state, level, plane_id, USHRT_MAX);
-		g4x_fbc_wm_set(crtc_state, level, USHRT_MAX);
+			g4x_raw_plane_wm_set(crtc_state, level,
+					     plane_id, USHRT_MAX);
+		g4x_raw_fbc_wm_set(crtc_state, level, USHRT_MAX);
 
 		crtc_state->wm.g4x.optimal = *active;
 		crtc_state->wm.g4x.intermediate = *active;
