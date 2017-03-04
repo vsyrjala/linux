@@ -569,8 +569,9 @@ struct intel_crtc_wm_state {
 		struct {
 			/* "raw" watermarks */
 			struct g4x_pipe_wm raw[NUM_G4X_WM_LEVELS];
-			/* intermediate and optimal watermarks */
+			/* intermediate watermarks */
 			struct g4x_wm_state intermediate;
+			/* optimal watermarks */
 			struct g4x_wm_state optimal;
 		} g4x;
 	};
