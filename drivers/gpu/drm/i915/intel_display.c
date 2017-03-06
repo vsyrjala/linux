@@ -2989,8 +2989,7 @@ static void i9xx_update_primary_plane(struct drm_plane *primary,
 	dspcntr |= DISPLAY_PLANE_ENABLE;
 
 	if (INTEL_GEN(dev_priv) < 4) {
-		if (intel_crtc->pipe == PIPE_B)
-			dspcntr |= DISPPLANE_SEL_PIPE_B;
+		dspcntr |= DISPPLANE_SEL_PIPE(intel_crtc->pipe);
 
 		/* pipesrc and dspsize control the size that is scaled from,
 		 * which should always be the user's requested size.
@@ -9247,7 +9246,8 @@ static void i9xx_update_cursor(struct drm_crtc *crtc, u32 base,
 				MISSING_CASE(plane_state->base.crtc_w);
 				return;
 		}
-		cntl |= pipe << 28; /* Connect to correct pipe */
+
+		cntl |= MCURSOR_PIPE_SELECT(pipe);
 
 		if (HAS_DDI(dev_priv))
 			cntl |= CURSOR_PIPE_CSC_ENABLE;
