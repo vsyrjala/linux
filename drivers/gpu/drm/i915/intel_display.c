@@ -9347,7 +9347,7 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum pipe pipe = plane->pipe;
-	u32 cntl = 0, base = 0, pos = 0;
+	u32 cntl = 0, base = 0, pos = 0, size = 0;
 
 	if (plane_state && plane_state->base.visible) {
 		cntl = MCURSOR_GAMMA_ENABLE;
@@ -9376,15 +9376,22 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 
 		base = intel_cursor_base(plane, plane_state);
 		pos = intel_cursor_position(plane, plane_state);
+
+		if (plane_state->base.crtc_h != plane_state->base.crtc_w)
+			size = CUR_FBC_CTL_EN | (plane_state->base.crtc_h - 1);
 	}
 
 	if (plane->cursor.cntl != cntl)
 		I915_WRITE(CURCNTR(pipe), cntl);
 
+	if (plane->cursor.size != size)
+		I915_WRITE(CUR_FBC_CTL(pipe), size);
+
 	if (cntl)
 		I915_WRITE(CURPOS(pipe), pos);
 
 	if (plane->cursor.cntl != cntl ||
+	    plane->cursor.size != size ||
 	    plane->cursor.base != base)
 		I915_WRITE(CURBASE(pipe), base);
 
@@ -9392,6 +9399,7 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 
 	plane->cursor.cntl = cntl;
 	plane->cursor.base = base;
+	plane->cursor.size = size;
 }
 
 static void i9xx_disable_cursor(struct intel_plane *plane,
@@ -9410,11 +9418,8 @@ static bool i9xx_cursor_size_ok(const struct intel_plane_state *plane_state)
 	if (width == 0 || height == 0)
 		return false;
 
-	/*
-	 * Cursors are limited to a few power-of-two
-	 * sizes, and they must be square.
-	 */
-	switch (width | height) {
+	/* Cursor width is limited to a few power-of-two sizes */
+	switch (width) {
 	case 256:
 	case 128:
 		if (IS_GEN2(dev_priv))
@@ -9423,6 +9428,21 @@ static bool i9xx_cursor_size_ok(const struct intel_plane_state *plane_state)
 		break;
 	default:
 		return false;
+	}
+
+	/*
+	 * IVB+ have CUR_FBC_CTL which allows an arbitrary cursor
+	 * height from 8 lines up to the cursor width, when the
+	 * cursor is not rotated. Everything else requires square
+	 * cursors.
+	 */
+	if (HAS_CUR_FBC(dev_priv) &&
+	    plane_state->base.rotation & DRM_ROTATE_0) {
+		if (height < 8 || height > width)
+			return false;
+	} else {
+		if (height != width)
+			return false;
 	}
 
 	return true;
@@ -13833,7 +13853,9 @@ intel_cursor_plane_create(struct drm_i915_private *dev_priv,
 
 	cursor->cursor.base = ~0;
 	cursor->cursor.cntl = ~0;
-	cursor->cursor.size = ~0;
+
+	if (IS_I845G(dev_priv) || IS_I865G(dev_priv) || HAS_CUR_FBC(dev_priv))
+		cursor->cursor.size = ~0;
 
 	ret = drm_universal_plane_init(&dev_priv->drm, &cursor->base,
 				       0, &intel_cursor_plane_funcs,
