@@ -2498,6 +2498,9 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 
 		if ((fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
 		     fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) && i == 1) {
+			int hsub = fb->format->hsub;
+			int vsub = fb->format->vsub;
+			int tile_width, tile_height;
 			int main_x, main_y;
 			int ccs_x, ccs_y;
 
@@ -2505,10 +2508,12 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 			 * We consider that each byte of CCS corresponds to a 8x16
 			 * area of the main surface, and each CCS tile is 128x32 bytes.
 			 */
-			ccs_x = (x * 8) % (128 * 8);
-			ccs_y = (y * 16) % (32 * 16);
-			main_x = intel_fb->normal[0].x % (128 * 8);
-			main_y = intel_fb->normal[0].y % (32 * 16);
+			intel_tile_dims(fb, i, &tile_width, &tile_height);
+
+			ccs_x = (x * hsub) % (tile_width * hsub);
+			ccs_y = (y * vsub) % (tile_height * vsub);
+			main_x = intel_fb->normal[0].x % (tile_width * hsub);
+			main_y = intel_fb->normal[0].y % (tile_height * vsub);
 
 			/*
 			 * CCS doesn't have its own x/y offset register, so the intra CCS tile
@@ -2928,6 +2933,8 @@ static bool skl_check_main_ccs_coordinates(struct intel_plane_state *plane_state
 					   int main_x, int main_y, u32 main_offset)
 {
 	const struct drm_framebuffer *fb = plane_state->base.fb;
+	int hsub = fb->format->hsub;
+	int vsub = fb->format->vsub;
 	int aux_x = plane_state->aux.x;
 	int aux_y = plane_state->aux.y;
 	u32 aux_offset = plane_state->aux.offset;
@@ -2942,12 +2949,12 @@ static bool skl_check_main_ccs_coordinates(struct intel_plane_state *plane_state
 		if (aux_offset == 0)
 			break;
 
-		x = aux_x / 8;
-		y = aux_y / 16;
+		x = aux_x / hsub;
+		y = aux_y / vsub;
 		aux_offset = intel_adjust_tile_offset(&x, &y, plane_state, 1,
 						      aux_offset, aux_offset - alignment);
-		aux_x = x * 8 + aux_x % 8;
-		aux_y = y * 16 + aux_y % 16;
+		aux_x = x * hsub + aux_x % hsub;
+		aux_y = y * vsub + aux_y % vsub;
 	}
 
 	if (aux_x != main_x || aux_y != main_y)
@@ -3071,10 +3078,13 @@ static int skl_check_ccs_aux_surface(struct intel_plane_state *plane_state)
 {
 	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
 	struct intel_crtc *crtc = to_intel_crtc(plane_state->base.crtc);
+	const struct drm_framebuffer *fb = plane_state->base.fb;
 	int src_x = plane_state->base.src.x1 >> 16;
 	int src_y = plane_state->base.src.y1 >> 16;
-	int x = src_x / 8;
-	int y = src_y / 16;
+	int hsub = fb->format->hsub;
+	int vsub = fb->format->vsub;
+	int x = src_x / hsub;
+	int y = src_y / vsub;
 	u32 offset;
 
 	switch (plane->id) {
@@ -3101,8 +3111,8 @@ static int skl_check_ccs_aux_surface(struct intel_plane_state *plane_state)
 	offset = intel_compute_tile_offset(&x, &y, plane_state, 1);
 
 	plane_state->aux.offset = offset;
-	plane_state->aux.x = x * 8 + src_x % 8;
-	plane_state->aux.y = y * 16 + src_y % 16;
+	plane_state->aux.x = x * hsub + src_x % hsub;
+	plane_state->aux.y = y * vsub + src_y % vsub;
 
 	return 0;
 }
