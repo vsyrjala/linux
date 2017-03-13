@@ -2436,13 +2436,21 @@ static unsigned int intel_fb_modifier_to_tiling(uint64_t fb_modifier)
  * surface, and the memory layout for the CCS tile us 64x64 bytes.
  * But since we're pretending the CCS tile is 128 bytes wide we
  * adjust hsub/vsub here accordingly to 8x16 so that the
- * bytes<->x/y conversions come out correct.
+ * bytes<->x/y conversions come out correct. We don't require any
+ * CCS block size alignment of the fb under the assumption that the
+ * hardware will handle things correctly of only a single pixel
+ * gets touched. The compression should be lossless so any garbage
+ * pixels as part of the same block shouldn't cause visual artifacts.
  */
 static const struct drm_format_info ccs_formats[] = {
-	{ .format = DRM_FORMAT_XRGB8888, .depth = 24, .num_planes = 2, .cpp = { 4, 1, }, .hsub = 8, .vsub = 16, },
-	{ .format = DRM_FORMAT_XBGR8888, .depth = 24, .num_planes = 2, .cpp = { 4, 1, }, .hsub = 8, .vsub = 16, },
-	{ .format = DRM_FORMAT_ARGB8888, .depth = 32, .num_planes = 2, .cpp = { 4, 1, }, .hsub = 8, .vsub = 16, },
-	{ .format = DRM_FORMAT_ABGR8888, .depth = 32, .num_planes = 2, .cpp = { 4, 1, }, .hsub = 8, .vsub = 16, },
+	{ .format = DRM_FORMAT_XRGB8888, .depth = 24, .num_planes = 2, .cpp = { 4, 1, },
+	  .hsub = 8, .vsub = 16, .halign =  1, .valign = 1, },
+	{ .format = DRM_FORMAT_XBGR8888, .depth = 24, .num_planes = 2, .cpp = { 4, 1, },
+	  .hsub = 8, .vsub = 16, .halign = 1, .valign = 1, },
+	{ .format = DRM_FORMAT_ARGB8888, .depth = 32, .num_planes = 2, .cpp = { 4, 1, },
+	  .hsub = 8, .vsub = 16, .halign = 1, .valign = 1, },
+	{ .format = DRM_FORMAT_ABGR8888, .depth = 32, .num_planes = 2, .cpp = { 4, 1, },
+	  .hsub = 8, .vsub = 16, .halign = 1, .valign = 1, },
 };
 
 static const struct drm_format_info *
