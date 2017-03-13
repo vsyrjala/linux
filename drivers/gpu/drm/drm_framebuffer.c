@@ -132,7 +132,7 @@ static int plane_width(int width,
 	if (plane == 0)
 		return width;
 
-	return width / format->hsub;
+	return DIV_ROUND_UP(width, format->hsub);
 }
 
 static int plane_height(int height,
@@ -141,13 +141,14 @@ static int plane_height(int height,
 	if (plane == 0)
 		return height;
 
-	return height / format->vsub;
+	return DIV_ROUND_UP(height, format->vsub);
 }
 
 static int framebuffer_check(struct drm_device *dev,
 			     const struct drm_mode_fb_cmd2 *r)
 {
 	const struct drm_format_info *info;
+	int halign, valign;
 	int i;
 
 	/* check if the format is supported at all */
@@ -163,12 +164,14 @@ static int framebuffer_check(struct drm_device *dev,
 	/* now let the driver pick its own format info */
 	info = drm_get_format_info(dev, r);
 
-	if (r->width == 0 || r->width % info->hsub) {
+	halign = info->halign ? : info->hsub;
+	if (r->width == 0 || r->width % halign){
 		DRM_DEBUG_KMS("bad framebuffer width %u\n", r->width);
 		return -EINVAL;
 	}
 
-	if (r->height == 0 || r->height % info->vsub) {
+	valign = info->valign ? : info->vsub;
+	if (r->height == 0 || r->height % valign) {
 		DRM_DEBUG_KMS("bad framebuffer height %u\n", r->height);
 		return -EINVAL;
 	}

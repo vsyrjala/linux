@@ -46,6 +46,8 @@ struct drm_format_info {
 	u8 cpp[3];
 	u8 hsub;
 	u8 vsub;
+	u8 halign; /* specified only if != hsub */
+	u8 valign; /* specified only if != vsub */
 };
 
 /**
