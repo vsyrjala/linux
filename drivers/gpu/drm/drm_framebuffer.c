@@ -126,6 +126,24 @@ int drm_mode_addfb(struct drm_device *dev,
 	return 0;
 }
 
+static int plane_width(int width,
+		       const struct drm_format_info *format, int plane)
+{
+	if (plane == 0)
+		return width;
+
+	return width / format->hsub;
+}
+
+static int plane_height(int height,
+			const struct drm_format_info *format, int plane)
+{
+	if (plane == 0)
+		return height;
+
+	return height / format->vsub;
+}
+
 static int framebuffer_check(struct drm_device *dev,
 			     const struct drm_mode_fb_cmd2 *r)
 {
@@ -156,8 +174,8 @@ static int framebuffer_check(struct drm_device *dev,
 	}
 
 	for (i = 0; i < info->num_planes; i++) {
-		unsigned int width = r->width / (i != 0 ? info->hsub : 1);
-		unsigned int height = r->height / (i != 0 ? info->vsub : 1);
+		unsigned int width = plane_width(r->width, info, i);
+		unsigned int height = plane_height(r->height, info, i);
 		unsigned int cpp = info->cpp[i];
 
 		if (!r->handles[i]) {
@@ -821,10 +839,7 @@ int drm_framebuffer_plane_width(int width,
 	if (plane >= fb->format->num_planes)
 		return 0;
 
-	if (plane == 0)
-		return width;
-
-	return width / fb->format->hsub;
+	return plane_width(width, fb->format, plane);
 }
 EXPORT_SYMBOL(drm_framebuffer_plane_width);
 
@@ -843,9 +858,6 @@ int drm_framebuffer_plane_height(int height,
 	if (plane >= fb->format->num_planes)
 		return 0;
 
-	if (plane == 0)
-		return height;
-
-	return height / fb->format->vsub;
+	return plane_height(height, fb->format, plane);
 }
 EXPORT_SYMBOL(drm_framebuffer_plane_height);
