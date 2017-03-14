@@ -137,8 +137,6 @@ void intel_pipe_update_start(struct intel_crtc *crtc)
 
 	finish_wait(wq, &wait);
 
-	drm_crtc_vblank_put(&crtc->base);
-
 	crtc->debug.scanline_start = scanline;
 	crtc->debug.start_vbl_time = ktime_get();
 	crtc->debug.start_vbl_count = intel_crtc_get_vblank_counter(crtc);
@@ -184,6 +182,15 @@ void intel_pipe_update_end(struct intel_crtc *crtc, struct intel_flip_work *work
 
 		crtc->base.state->event = NULL;
 	}
+
+	/*
+	 * The reference was taken in intel_pipe_update_start(). It could
+	 * have been dropped as soon as the vblank was evaded, but we hold
+	 * on to it until this time to avoid the extra vblank interrupt
+	 * enable->disable->enable ping-pong whenever we have to deliver
+	 * an event.
+	 */
+	drm_crtc_vblank_put(&crtc->base);
 
 	local_irq_enable();
 
