@@ -83,6 +83,7 @@ int intel_usecs_to_scanlines(const struct drm_display_mode *adjusted_mode,
  */
 void intel_pipe_update_start(struct intel_crtc *crtc)
 {
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	const struct drm_display_mode *adjusted_mode = &crtc->config->base.adjusted_mode;
 	long timeout = msecs_to_jiffies_timeout(1);
 	int scanline, min, max, vblank_start;
@@ -106,6 +107,8 @@ void intel_pipe_update_start(struct intel_crtc *crtc)
 	if (WARN_ON(drm_crtc_vblank_get(&crtc->base)))
 		return;
 
+	spin_lock(&dev_priv->uncore.lock);
+
 	crtc->debug.min_vbl = min;
 	crtc->debug.max_vbl = max;
 	trace_i915_pipe_update_start(crtc);
@@ -118,7 +121,7 @@ void intel_pipe_update_start(struct intel_crtc *crtc)
 		 */
 		prepare_to_wait(wq, &wait, TASK_UNINTERRUPTIBLE);
 
-		scanline = intel_get_crtc_scanline(crtc);
+		scanline = __intel_crtc_get_scanline(crtc);
 		if (scanline < min || scanline > max)
 			break;
 
@@ -128,20 +131,18 @@ void intel_pipe_update_start(struct intel_crtc *crtc)
 			break;
 		}
 
-		local_irq_enable();
+		spin_unlock_irq(&dev_priv->uncore.lock);
 
 		timeout = schedule_timeout(timeout);
 
-		local_irq_disable();
+		spin_lock_irq(&dev_priv->uncore.lock);
 	}
 
 	finish_wait(wq, &wait);
 
-	drm_crtc_vblank_put(&crtc->base);
-
 	crtc->debug.scanline_start = scanline;
 	crtc->debug.start_vbl_time = ktime_get();
-	crtc->debug.start_vbl_count = intel_crtc_get_vblank_counter(crtc);
+	crtc->debug.start_vbl_count = __intel_crtc_get_vblank_counter(crtc);
 
 	trace_i915_pipe_update_vblank_evaded(crtc);
 }
@@ -158,8 +159,8 @@ void intel_pipe_update_start(struct intel_crtc *crtc)
 void intel_pipe_update_end(struct intel_crtc *crtc, struct intel_flip_work *work)
 {
 	enum pipe pipe = crtc->pipe;
-	int scanline_end = intel_get_crtc_scanline(crtc);
-	u32 end_vbl_count = intel_crtc_get_vblank_counter(crtc);
+	int scanline_end = __intel_crtc_get_scanline(crtc);
+	u32 end_vbl_count = __intel_crtc_get_vblank_counter(crtc);
 	ktime_t end_vbl_time = ktime_get();
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
@@ -170,6 +171,8 @@ void intel_pipe_update_end(struct intel_crtc *crtc, struct intel_flip_work *work
 	}
 
 	trace_i915_pipe_update_end(crtc, end_vbl_count, scanline_end);
+
+	spin_unlock(&dev_priv->uncore.lock);
 
 	/* We're still in the vblank-evade critical section, this can't race.
 	 * Would be slightly nice to just grab the vblank count and arm the
@@ -184,6 +187,8 @@ void intel_pipe_update_end(struct intel_crtc *crtc, struct intel_flip_work *work
 
 		crtc->base.state->event = NULL;
 	}
+
+	drm_crtc_vblank_put(&crtc->base);
 
 	local_irq_enable();
 
@@ -230,15 +235,12 @@ skl_update_plane(struct drm_plane *drm_plane,
 	uint32_t y = plane_state->main.y;
 	uint32_t src_w = drm_rect_width(&plane_state->base.src) >> 16;
 	uint32_t src_h = drm_rect_height(&plane_state->base.src) >> 16;
-	unsigned long irqflags;
 
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
 	crtc_w--;
 	crtc_h--;
-
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	if (IS_GEMINILAKE(dev_priv)) {
 		I915_WRITE_FW(PLANE_COLOR_CTL(pipe, plane_id),
@@ -280,8 +282,6 @@ skl_update_plane(struct drm_plane *drm_plane,
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + surf_addr);
 	POSTING_READ_FW(PLANE_SURF(pipe, plane_id));
-
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
 static void
@@ -292,16 +292,11 @@ skl_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	struct intel_plane *intel_plane = to_intel_plane(dplane);
 	enum plane_id plane_id = intel_plane->id;
 	enum pipe pipe = intel_plane->pipe;
-	unsigned long irqflags;
-
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), 0);
 
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
 	POSTING_READ_FW(PLANE_SURF(pipe, plane_id));
-
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
 static void
@@ -428,15 +423,12 @@ vlv_update_plane(struct drm_plane *dplane,
 	uint32_t crtc_h = drm_rect_height(&plane_state->base.dst);
 	uint32_t x = plane_state->main.x;
 	uint32_t y = plane_state->main.y;
-	unsigned long irqflags;
 
 	/* Sizes are 0 based */
 	crtc_w--;
 	crtc_h--;
 
 	linear_offset = intel_fb_xy_to_linear(x, y, plane_state, 0);
-
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	if (IS_CHERRYVIEW(dev_priv) && pipe == PIPE_B)
 		chv_update_csc(intel_plane, fb->format->format);
@@ -461,8 +453,6 @@ vlv_update_plane(struct drm_plane *dplane,
 	I915_WRITE_FW(SPSURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + sprsurf_offset);
 	POSTING_READ_FW(SPSURF(pipe, plane_id));
-
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
 static void
@@ -473,16 +463,11 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	struct intel_plane *intel_plane = to_intel_plane(dplane);
 	enum pipe pipe = intel_plane->pipe;
 	enum plane_id plane_id = intel_plane->id;
-	unsigned long irqflags;
-
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	I915_WRITE_FW(SPCNTR(pipe, plane_id), 0);
 
 	I915_WRITE_FW(SPSURF(pipe, plane_id), 0);
 	POSTING_READ_FW(SPSURF(pipe, plane_id));
-
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
 static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
@@ -563,7 +548,6 @@ ivb_update_plane(struct drm_plane *plane,
 	uint32_t y = plane_state->main.y;
 	uint32_t src_w = drm_rect_width(&plane_state->base.src) >> 16;
 	uint32_t src_h = drm_rect_height(&plane_state->base.src) >> 16;
-	unsigned long irqflags;
 
 	/* Sizes are 0 based */
 	src_w--;
@@ -575,8 +559,6 @@ ivb_update_plane(struct drm_plane *plane,
 		sprscale = SPRITE_SCALE_ENABLE | (src_w << 16) | src_h;
 
 	linear_offset = intel_fb_xy_to_linear(x, y, plane_state, 0);
-
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	if (key->flags) {
 		I915_WRITE_FW(SPRKEYVAL(pipe), key->min_value);
@@ -603,8 +585,6 @@ ivb_update_plane(struct drm_plane *plane,
 	I915_WRITE_FW(SPRSURF(pipe),
 		      intel_plane_ggtt_offset(plane_state) + sprsurf_offset);
 	POSTING_READ_FW(SPRSURF(pipe));
-
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
 static void
@@ -614,9 +594,6 @@ ivb_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	int pipe = intel_plane->pipe;
-	unsigned long irqflags;
-
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	I915_WRITE_FW(SPRCTL(pipe), 0);
 	/* Can't leave the scaler enabled... */
@@ -625,8 +602,6 @@ ivb_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 
 	I915_WRITE_FW(SPRSURF(pipe), 0);
 	POSTING_READ_FW(SPRSURF(pipe));
-
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
 static u32 ilk_sprite_ctl(const struct intel_crtc_state *crtc_state,
@@ -704,7 +679,6 @@ ilk_update_plane(struct drm_plane *plane,
 	uint32_t y = plane_state->main.y;
 	uint32_t src_w = drm_rect_width(&plane_state->base.src) >> 16;
 	uint32_t src_h = drm_rect_height(&plane_state->base.src) >> 16;
-	unsigned long irqflags;
 
 	/* Sizes are 0 based */
 	src_w--;
@@ -716,8 +690,6 @@ ilk_update_plane(struct drm_plane *plane,
 		dvsscale = DVS_SCALE_ENABLE | (src_w << 16) | src_h;
 
 	linear_offset = intel_fb_xy_to_linear(x, y, plane_state, 0);
-
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	if (key->flags) {
 		I915_WRITE_FW(DVSKEYVAL(pipe), key->min_value);
@@ -739,8 +711,6 @@ ilk_update_plane(struct drm_plane *plane,
 	I915_WRITE_FW(DVSSURF(pipe),
 		      intel_plane_ggtt_offset(plane_state) + dvssurf_offset);
 	POSTING_READ_FW(DVSSURF(pipe));
-
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
 static void
@@ -750,9 +720,6 @@ ilk_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	int pipe = intel_plane->pipe;
-	unsigned long irqflags;
-
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	I915_WRITE_FW(DVSCNTR(pipe), 0);
 	/* Disable the scaler */
@@ -760,8 +727,6 @@ ilk_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 
 	I915_WRITE_FW(DVSSURF(pipe), 0);
 	POSTING_READ_FW(DVSSURF(pipe));
-
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
 static int

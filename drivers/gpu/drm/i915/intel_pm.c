@@ -1390,7 +1390,6 @@ static void vlv_atomic_update_fifo(struct intel_atomic_state *state,
 	 * intel_pipe_update_start() has already disabled interrupts
 	 * for us, so a plain spin_lock() is sufficient here.
 	 */
-	spin_lock(&dev_priv->uncore.lock);
 
 	switch (crtc->pipe) {
 		uint32_t dsparb, dsparb2, dsparb3;
@@ -1450,8 +1449,6 @@ static void vlv_atomic_update_fifo(struct intel_atomic_state *state,
 	}
 
 	POSTING_READ_FW(DSPARB);
-
-	spin_unlock(&dev_priv->uncore.lock);
 }
 
 #undef VLV_FIFO
@@ -4036,9 +4033,9 @@ static void skl_ddb_entry_write(struct drm_i915_private *dev_priv,
 				const struct skl_ddb_entry *entry)
 {
 	if (entry->end)
-		I915_WRITE(reg, (entry->end - 1) << 16 | entry->start);
+		I915_WRITE_FW(reg, (entry->end - 1) << 16 | entry->start);
 	else
-		I915_WRITE(reg, 0);
+		I915_WRITE_FW(reg, 0);
 }
 
 static void skl_write_wm_level(struct drm_i915_private *dev_priv,
@@ -4053,7 +4050,7 @@ static void skl_write_wm_level(struct drm_i915_private *dev_priv,
 		val |= level->plane_res_l << PLANE_WM_LINES_SHIFT;
 	}
 
-	I915_WRITE(reg, val);
+	I915_WRITE_FW(reg, val);
 }
 
 static void skl_write_plane_wm(struct intel_crtc *intel_crtc,
@@ -4409,7 +4406,7 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 	if (!(state->wm_results.dirty_pipes & drm_crtc_mask(&crtc->base)))
 		return;
 
-	I915_WRITE(PIPE_WM_LINETIME(pipe), pipe_wm->linetime);
+	I915_WRITE_FW(PIPE_WM_LINETIME(pipe), pipe_wm->linetime);
 
 	for_each_plane_id_on_crtc(crtc, plane_id) {
 		if (plane_id != PLANE_CURSOR)

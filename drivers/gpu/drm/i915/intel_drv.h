@@ -1219,7 +1219,10 @@ static inline bool intel_irqs_enabled(struct drm_i915_private *dev_priv)
 	return dev_priv->pm.irqs_enabled;
 }
 
-int intel_get_crtc_scanline(struct intel_crtc *crtc);
+int __intel_crtc_get_scanline(struct intel_crtc *crtc);
+int intel_crtc_get_scanline(struct intel_crtc *crtc);
+u32 __intel_crtc_get_vblank_counter(struct intel_crtc *crtc);
+u32 intel_crtc_get_vblank_counter(struct intel_crtc *crtc);
 void gen8_irq_power_well_post_enable(struct drm_i915_private *dev_priv,
 				     unsigned int pipe_mask);
 void gen8_irq_power_well_pre_disable(struct drm_i915_private *dev_priv,
@@ -1355,8 +1358,6 @@ intel_wait_for_vblank_if_active(struct drm_i915_private *dev_priv, int pipe)
 	if (crtc->active)
 		intel_wait_for_vblank(dev_priv, pipe);
 }
-
-u32 intel_crtc_get_vblank_counter(struct intel_crtc *crtc);
 
 int ironlake_get_lanes_required(int target_clock, int link_bw, int bpp);
 void vlv_wait_port_ready(struct drm_i915_private *dev_priv,

@@ -715,15 +715,13 @@ static void i915_enable_asle_pipestat(struct drm_i915_private *dev_priv)
 /* Called from drm generic code, passed a 'crtc', which
  * we use as a pipe index
  */
-static u32 i915_get_vblank_counter(struct drm_device *dev, unsigned int pipe)
+static u32 __i915_get_vblank_counter(struct intel_crtc *crtc)
 {
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
 	i915_reg_t high_frame, low_frame;
 	u32 high1, high2, low, pixel, vbl_start, hsync_start, htotal;
-	struct intel_crtc *intel_crtc = intel_get_crtc_for_pipe(dev_priv,
-								pipe);
-	const struct drm_display_mode *mode = &intel_crtc->base.hwmode;
-	unsigned long irqflags;
+	const struct drm_display_mode *mode = &crtc->base.hwmode;
 
 	htotal = mode->crtc_htotal;
 	hsync_start = mode->crtc_hsync_start;
@@ -740,8 +738,6 @@ static u32 i915_get_vblank_counter(struct drm_device *dev, unsigned int pipe)
 	high_frame = PIPEFRAME(pipe);
 	low_frame = PIPEFRAMEPIXEL(pipe);
 
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
-
 	/*
 	 * High & low register fields aren't synchronized, so make sure
 	 * we get a low value that's stable across two reads of the high
@@ -752,8 +748,6 @@ static u32 i915_get_vblank_counter(struct drm_device *dev, unsigned int pipe)
 		low   = I915_READ_FW(low_frame);
 		high2 = I915_READ_FW(high_frame) & PIPE_FRAME_HIGH_MASK;
 	} while (high1 != high2);
-
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 
 	high1 >>= PIPE_FRAME_HIGH_SHIFT;
 	pixel = low & PIPE_PIXEL_MASK;
@@ -767,15 +761,57 @@ static u32 i915_get_vblank_counter(struct drm_device *dev, unsigned int pipe)
 	return (((high1 << 8) | low) + (pixel >= vbl_start)) & 0xffffff;
 }
 
+static u32 i915_get_vblank_counter(struct drm_device *dev, unsigned int pipe)
+{
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct intel_crtc *crtc = intel_get_crtc_for_pipe(dev_priv, pipe);
+	unsigned long irqflags;
+	u32 ret;
+
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+	ret = __i915_get_vblank_counter(crtc);
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+
+	return ret;
+}
+
+static u32 __g4x_get_vblank_counter(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+
+	return I915_READ_FW(PIPE_FRMCOUNT_G4X(pipe));
+}
+
 static u32 g4x_get_vblank_counter(struct drm_device *dev, unsigned int pipe)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct intel_crtc *crtc = intel_get_crtc_for_pipe(dev_priv, pipe);
+	unsigned long irqflags;
+	u32 ret;
 
-	return I915_READ(PIPE_FRMCOUNT_G4X(pipe));
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+	ret = __g4x_get_vblank_counter(crtc);
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+
+	return ret;
+}
+
+u32 __intel_crtc_get_vblank_counter(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+
+	if (IS_GEN2(dev_priv)) {
+		return 0;
+	} else if (IS_G4X(dev_priv) || INTEL_GEN(dev_priv) >= 5) {
+		return __g4x_get_vblank_counter(crtc);
+	} else {
+		return __i915_get_vblank_counter(crtc);
+	}
 }
 
 /* I915_READ_FW, only for fast reads of display block, no need for forcewake etc. */
-static int __intel_get_crtc_scanline(struct intel_crtc *crtc)
+int __intel_crtc_get_scanline(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
@@ -878,7 +914,7 @@ static int i915_get_crtc_scanoutpos(struct drm_device *dev, unsigned int pipe,
 		/* No obvious pixelcount register. Only query vertical
 		 * scanout position from Display scan line register.
 		 */
-		position = __intel_get_crtc_scanline(intel_crtc);
+		position = __intel_crtc_get_scanline(intel_crtc);
 	} else {
 		/* Have access to pixelcount since start of frame.
 		 * We can split this into vertical and horizontal
@@ -951,14 +987,14 @@ static int i915_get_crtc_scanoutpos(struct drm_device *dev, unsigned int pipe,
 	return ret;
 }
 
-int intel_get_crtc_scanline(struct intel_crtc *crtc)
+int intel_crtc_get_scanline(struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	unsigned long irqflags;
 	int position;
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
-	position = __intel_get_crtc_scanline(crtc);
+	position = __intel_crtc_get_scanline(crtc);
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 
 	return position;
