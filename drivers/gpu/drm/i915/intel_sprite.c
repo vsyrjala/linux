@@ -203,7 +203,7 @@ void intel_pipe_update_end(struct intel_crtc *crtc, struct intel_flip_work *work
 			  ktime_us_delta(end_vbl_time, crtc->debug.start_vbl_time),
 			  crtc->debug.min_vbl, crtc->debug.max_vbl,
 			  crtc->debug.scanline_start, scanline_end);
-	} else if (ktime_us_delta(end_vbl_time, crtc->debug.start_vbl_time) >
+	} else if (1||ktime_us_delta(end_vbl_time, crtc->debug.start_vbl_time) >
 		   VBLANK_EVASION_TIME_US)
 		DRM_WARN("Atomic update on pipe (%c) took %lld us, max time under evasion is %u us\n",
 			 pipe_name(pipe),
