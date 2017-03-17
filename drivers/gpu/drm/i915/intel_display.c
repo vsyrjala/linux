@@ -3125,7 +3125,6 @@ static void i9xx_update_primary_plane(struct drm_plane *primary,
 			      intel_plane_ggtt_offset(plane_state) +
 			      intel_crtc->dspaddr_offset);
 	}
-	POSTING_READ_FW(reg);
 }
 
 static void i9xx_disable_primary_plane(struct drm_plane *primary,
@@ -3141,7 +3140,6 @@ static void i9xx_disable_primary_plane(struct drm_plane *primary,
 		I915_WRITE_FW(DSPSURF(plane), 0);
 	else
 		I915_WRITE_FW(DSPADDR(plane), 0);
-	POSTING_READ_FW(DSPCNTR(plane));
 }
 
 static u32
@@ -3378,7 +3376,6 @@ static void skylake_update_primary_plane(struct drm_plane *plane,
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + surf_addr);
 
-	POSTING_READ_FW(PLANE_SURF(pipe, plane_id));
 }
 
 static void skylake_disable_primary_plane(struct drm_plane *primary,
@@ -3391,7 +3388,6 @@ static void skylake_disable_primary_plane(struct drm_plane *primary,
 
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), 0);
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
-	POSTING_READ_FW(PLANE_SURF(pipe, plane_id));
 }
 
 static void intel_complete_page_flips(struct drm_i915_private *dev_priv)
@@ -9198,7 +9194,6 @@ static void i845_update_cursor(struct drm_crtc *crtc, u32 base,
 		 * whilst the cursor is disabled.
 		 */
 		I915_WRITE_FW(CURCNTR(PIPE_A), 0);
-		POSTING_READ_FW(CURCNTR(PIPE_A));
 		intel_crtc->cursor_cntl = 0;
 	}
 
@@ -9214,7 +9209,6 @@ static void i845_update_cursor(struct drm_crtc *crtc, u32 base,
 
 	if (intel_crtc->cursor_cntl != cntl) {
 		I915_WRITE_FW(CURCNTR(PIPE_A), cntl);
-		POSTING_READ_FW(CURCNTR(PIPE_A));
 		intel_crtc->cursor_cntl = cntl;
 	}
 }
@@ -9270,13 +9264,11 @@ static void i9xx_update_cursor(struct drm_crtc *crtc, u32 base,
 
 	if (intel_crtc->cursor_cntl != cntl) {
 		I915_WRITE_FW(CURCNTR(pipe), cntl);
-		POSTING_READ_FW(CURCNTR(pipe));
 		intel_crtc->cursor_cntl = cntl;
 	}
 
 	/* and commit changes on next vblank */
 	I915_WRITE_FW(CURBASE(pipe), base);
-	POSTING_READ_FW(CURBASE(pipe));
 
 	intel_crtc->cursor_base = base;
 }

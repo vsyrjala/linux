@@ -281,7 +281,6 @@ skl_update_plane(struct drm_plane *drm_plane,
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl);
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + surf_addr);
-	POSTING_READ_FW(PLANE_SURF(pipe, plane_id));
 }
 
 static void
@@ -296,7 +295,6 @@ skl_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), 0);
 
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
-	POSTING_READ_FW(PLANE_SURF(pipe, plane_id));
 }
 
 static void
@@ -452,7 +450,6 @@ vlv_update_plane(struct drm_plane *dplane,
 	I915_WRITE_FW(SPCNTR(pipe, plane_id), sprctl);
 	I915_WRITE_FW(SPSURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + sprsurf_offset);
-	POSTING_READ_FW(SPSURF(pipe, plane_id));
 }
 
 static void
@@ -467,7 +464,6 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	I915_WRITE_FW(SPCNTR(pipe, plane_id), 0);
 
 	I915_WRITE_FW(SPSURF(pipe, plane_id), 0);
-	POSTING_READ_FW(SPSURF(pipe, plane_id));
 }
 
 static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
@@ -584,7 +580,6 @@ ivb_update_plane(struct drm_plane *plane,
 	I915_WRITE_FW(SPRCTL(pipe), sprctl);
 	I915_WRITE_FW(SPRSURF(pipe),
 		      intel_plane_ggtt_offset(plane_state) + sprsurf_offset);
-	POSTING_READ_FW(SPRSURF(pipe));
 }
 
 static void
@@ -601,7 +596,6 @@ ivb_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 		I915_WRITE_FW(SPRSCALE(pipe), 0);
 
 	I915_WRITE_FW(SPRSURF(pipe), 0);
-	POSTING_READ_FW(SPRSURF(pipe));
 }
 
 static u32 ilk_sprite_ctl(const struct intel_crtc_state *crtc_state,
@@ -710,7 +704,6 @@ ilk_update_plane(struct drm_plane *plane,
 	I915_WRITE_FW(DVSCNTR(pipe), dvscntr);
 	I915_WRITE_FW(DVSSURF(pipe),
 		      intel_plane_ggtt_offset(plane_state) + dvssurf_offset);
-	POSTING_READ_FW(DVSSURF(pipe));
 }
 
 static void
@@ -726,7 +719,6 @@ ilk_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 	I915_WRITE_FW(DVSSCALE(pipe), 0);
 
 	I915_WRITE_FW(DVSSURF(pipe), 0);
-	POSTING_READ_FW(DVSSURF(pipe));
 }
 
 static int
