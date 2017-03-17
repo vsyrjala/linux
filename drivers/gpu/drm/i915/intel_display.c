@@ -2962,28 +2962,27 @@ int skl_check_plane_surface(struct intel_plane_state *plane_state)
 	return 0;
 }
 
-static void i9xx_update_primary_plane(struct drm_plane *primary,
-				      const struct intel_crtc_state *crtc_state,
-				      const struct intel_plane_state *plane_state)
+static u32 i9xx_plane_ctl(const struct intel_crtc_state *crtc_state,
+			  const struct intel_plane_state *plane_state)
 {
-	struct drm_i915_private *dev_priv = to_i915(primary->dev);
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc_state->base.crtc);
-	struct drm_framebuffer *fb = plane_state->base.fb;
-	int plane = intel_crtc->plane;
-	u32 linear_offset;
-	u32 dspcntr;
-	i915_reg_t reg = DSPCNTR(plane);
+	struct drm_i915_private *dev_priv =
+		to_i915(plane_state->base.plane->dev);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	const struct drm_framebuffer *fb = plane_state->base.fb;
 	unsigned int rotation = plane_state->base.rotation;
-	int x = plane_state->base.src.x1 >> 16;
-	int y = plane_state->base.src.y1 >> 16;
-	unsigned long irqflags;
+	u32 dspcntr;
 
-	dspcntr = DISPPLANE_GAMMA_ENABLE;
+	dspcntr = DISPLAY_PLANE_ENABLE | DISPPLANE_GAMMA_ENABLE;
 
-	dspcntr |= DISPLAY_PLANE_ENABLE;
+	if (IS_G4X(dev_priv) || IS_GEN5(dev_priv) ||
+	    IS_GEN6(dev_priv) || IS_IVYBRIDGE(dev_priv))
+		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
+
+	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
+		dspcntr |= DISPPLANE_PIPE_CSC_ENABLE;
 
 	if (INTEL_GEN(dev_priv) < 4) {
-		if (intel_crtc->pipe == PIPE_B)
+		if (crtc->pipe == PIPE_B)
 			dspcntr |= DISPPLANE_SEL_PIPE_B;
 	}
 
@@ -3010,7 +3009,8 @@ static void i9xx_update_primary_plane(struct drm_plane *primary,
 		dspcntr |= DISPPLANE_RGBX101010;
 		break;
 	default:
-		BUG();
+		MISSING_CASE(fb->format->format);
+		return 0;
 	}
 
 	if (INTEL_GEN(dev_priv) >= 4 &&
@@ -3023,8 +3023,26 @@ static void i9xx_update_primary_plane(struct drm_plane *primary,
 	if (rotation & DRM_REFLECT_X)
 		dspcntr |= DISPPLANE_MIRROR;
 
-	if (IS_G4X(dev_priv))
-		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
+	return dspcntr;
+}
+
+static void i9xx_update_primary_plane(struct drm_plane *primary,
+				      const struct intel_crtc_state *crtc_state,
+				      const struct intel_plane_state *plane_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(primary->dev);
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_framebuffer *fb = plane_state->base.fb;
+	int plane = intel_crtc->plane;
+	u32 linear_offset;
+	u32 dspcntr;
+	i915_reg_t reg = DSPCNTR(plane);
+	unsigned int rotation = plane_state->base.rotation;
+	int x = plane_state->base.src.x1 >> 16;
+	int y = plane_state->base.src.y1 >> 16;
+	unsigned long irqflags;
+
+	dspcntr = i9xx_plane_ctl(crtc_state, plane_state);
 
 	intel_add_fb_offsets(&x, &y, plane_state, 0);
 
@@ -3122,43 +3140,7 @@ static void ironlake_update_primary_plane(struct drm_plane *primary,
 	int y = plane_state->base.src.y1 >> 16;
 	unsigned long irqflags;
 
-	dspcntr = DISPPLANE_GAMMA_ENABLE;
-	dspcntr |= DISPLAY_PLANE_ENABLE;
-
-	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
-		dspcntr |= DISPPLANE_PIPE_CSC_ENABLE;
-
-	switch (fb->format->format) {
-	case DRM_FORMAT_C8:
-		dspcntr |= DISPPLANE_8BPP;
-		break;
-	case DRM_FORMAT_RGB565:
-		dspcntr |= DISPPLANE_BGRX565;
-		break;
-	case DRM_FORMAT_XRGB8888:
-		dspcntr |= DISPPLANE_BGRX888;
-		break;
-	case DRM_FORMAT_XBGR8888:
-		dspcntr |= DISPPLANE_RGBX888;
-		break;
-	case DRM_FORMAT_XRGB2101010:
-		dspcntr |= DISPPLANE_BGRX101010;
-		break;
-	case DRM_FORMAT_XBGR2101010:
-		dspcntr |= DISPPLANE_RGBX101010;
-		break;
-	default:
-		BUG();
-	}
-
-	if (fb->modifier == I915_FORMAT_MOD_X_TILED)
-		dspcntr |= DISPPLANE_TILED;
-
-	if (rotation & DRM_ROTATE_180)
-		dspcntr |= DISPPLANE_ROTATE_180;
-
-	if (!IS_HASWELL(dev_priv) && !IS_BROADWELL(dev_priv))
-		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
+	dspcntr = i9xx_plane_ctl(crtc_state, plane_state);
 
 	intel_add_fb_offsets(&x, &y, plane_state, 0);
 
