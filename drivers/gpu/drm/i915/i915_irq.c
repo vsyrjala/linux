@@ -768,9 +768,9 @@ static u32 i915_get_vblank_counter(struct drm_device *dev, unsigned int pipe)
 	unsigned long irqflags;
 	u32 ret;
 
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+	spin_lock_irqsave(&dev_priv->uncore.de_lock, irqflags);
 	ret = __i915_get_vblank_counter(crtc);
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+	spin_unlock_irqrestore(&dev_priv->uncore.de_lock, irqflags);
 
 	return ret;
 }
@@ -790,9 +790,9 @@ static u32 g4x_get_vblank_counter(struct drm_device *dev, unsigned int pipe)
 	unsigned long irqflags;
 	u32 ret;
 
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+	spin_lock_irqsave(&dev_priv->uncore.de_lock, irqflags);
 	ret = __g4x_get_vblank_counter(crtc);
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+	spin_unlock_irqrestore(&dev_priv->uncore.de_lock, irqflags);
 
 	return ret;
 }
@@ -898,11 +898,11 @@ static int i915_get_crtc_scanoutpos(struct drm_device *dev, unsigned int pipe,
 	ret |= DRM_SCANOUTPOS_VALID | DRM_SCANOUTPOS_ACCURATE;
 
 	/*
-	 * Lock uncore.lock, as we will do multiple timing critical raw
+	 * Lock uncore.de_lock, as we will do multiple timing critical raw
 	 * register reads, potentially with preemption disabled, so the
 	 * following code must not block on uncore.lock.
 	 */
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+	spin_lock_irqsave(&dev_priv->uncore.de_lock, irqflags);
 
 	/* preempt_disable_rt() should go right here in PREEMPT_RT patchset. */
 
@@ -957,7 +957,7 @@ static int i915_get_crtc_scanoutpos(struct drm_device *dev, unsigned int pipe,
 
 	/* preempt_enable_rt() should go right here in PREEMPT_RT patchset. */
 
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+	spin_unlock_irqrestore(&dev_priv->uncore.de_lock, irqflags);
 
 	in_vbl = position >= vbl_start && position < vbl_end;
 
@@ -993,9 +993,9 @@ int intel_crtc_get_scanline(struct intel_crtc *crtc)
 	unsigned long irqflags;
 	int position;
 
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+	spin_lock_irqsave(&dev_priv->uncore.de_lock, irqflags);
 	position = __intel_crtc_get_scanline(crtc);
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+	spin_unlock_irqrestore(&dev_priv->uncore.de_lock, irqflags);
 
 	return position;
 }

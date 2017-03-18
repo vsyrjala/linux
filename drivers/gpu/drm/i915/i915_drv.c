@@ -822,6 +822,11 @@ static int i915_driver_init_early(struct drm_i915_private *dev_priv,
 	spin_lock_init(&dev_priv->gpu_error.lock);
 	mutex_init(&dev_priv->backlight_lock);
 	spin_lock_init(&dev_priv->uncore.lock);
+	spin_lock_init(&dev_priv->uncore.de_lock);
+
+	/* make sure we don't have false sharing */
+	BUILD_BUG_ON(((unsigned long)&dev_priv->uncore.lock & ~63) ==
+		     ((unsigned long)&dev_priv->uncore.de_lock & ~63));
 
 	spin_lock_init(&dev_priv->mm.object_stat_lock);
 	spin_lock_init(&dev_priv->mmio_flip_lock);

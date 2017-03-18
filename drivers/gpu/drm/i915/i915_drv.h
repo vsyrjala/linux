@@ -769,7 +769,11 @@ struct intel_uncore {
 		i915_reg_t reg_ack;
 	} fw_domain[FW_DOMAIN_ID_COUNT];
 
+	u8 _pad[64]; /* make sure gt vs. display don't share the same cacheline */
+
 	int unclaimed_mmio_check;
+
+	spinlock_t de_lock; /** lock is also taken in irq contexts. */
 };
 
 #define __mask_next_bit(mask) ({					\
@@ -3982,7 +3986,8 @@ __raw_write(64, q)
  *
  * Think twice, and think again, before using these.
  *
- * As an example, these accessors can possibly be used between:
+ * As an example, for non-display registers these accessors can possibly
+ * be used between:
  *
  * spin_lock_irq(&dev_priv->uncore.lock);
  * intel_uncore_forcewake_get__locked();
@@ -3992,6 +3997,14 @@ __raw_write(64, q)
  * intel_uncore_forcewake_put__locked();
  * spin_unlock_irq(&dev_priv->uncore.lock);
  *
+ * Or for display registers between:
+ *
+ * spin_lock_irq(&dev_priv->uncore.de_lock);
+ *
+ * and
+ *
+ * spin_unlock_irq(&dev_priv->uncore.de_lock);
+ *
  *
  * Note: some registers may not need forcewake held, so
  * intel_uncore_forcewake_{get,put} can be omitted, see
@@ -3999,8 +4012,9 @@ __raw_write(64, q)
  *
  * Certain architectures will die if the same cacheline is concurrently accessed
  * by different clients (e.g. on Ivybridge). Access to registers should
- * therefore generally be serialised, by either the dev_priv->uncore.lock or
- * a more localised lock guarding all access to that bank of registers.
+ * therefore generally be serialised, by either the dev_priv->uncore.lock,
+ * dev_priv->uncore,de_lock or a more localised lock guarding all access to
+ * that bank of registers.
  */
 #define I915_READ_FW(reg__) __raw_i915_read32(dev_priv, (reg__))
 #define I915_WRITE_FW(reg__, val__) __raw_i915_write32(dev_priv, (reg__), (val__))

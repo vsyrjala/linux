@@ -107,7 +107,7 @@ void intel_pipe_update_start(struct intel_crtc *crtc)
 	if (WARN_ON(drm_crtc_vblank_get(&crtc->base)))
 		return;
 
-	spin_lock(&dev_priv->uncore.lock);
+	spin_lock(&dev_priv->uncore.de_lock);
 
 	crtc->debug.min_vbl = min;
 	crtc->debug.max_vbl = max;
@@ -131,11 +131,11 @@ void intel_pipe_update_start(struct intel_crtc *crtc)
 			break;
 		}
 
-		spin_unlock_irq(&dev_priv->uncore.lock);
+		spin_unlock_irq(&dev_priv->uncore.de_lock);
 
 		timeout = schedule_timeout(timeout);
 
-		spin_lock_irq(&dev_priv->uncore.lock);
+		spin_lock_irq(&dev_priv->uncore.de_lock);
 	}
 
 	finish_wait(wq, &wait);
@@ -172,7 +172,7 @@ void intel_pipe_update_end(struct intel_crtc *crtc, struct intel_flip_work *work
 
 	trace_i915_pipe_update_end(crtc, end_vbl_count, scanline_end);
 
-	spin_unlock(&dev_priv->uncore.lock);
+	spin_unlock(&dev_priv->uncore.de_lock);
 
 	/* We're still in the vblank-evade critical section, this can't race.
 	 * Would be slightly nice to just grab the vblank count and arm the

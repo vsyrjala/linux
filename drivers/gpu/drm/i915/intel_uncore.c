@@ -998,12 +998,12 @@ __gen6_read(64)
 	unsigned long irqflags; \
 	u##x val = 0; \
 	assert_rpm_wakelock_held(dev_priv); \
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags); \
+	spin_lock_irqsave(&dev_priv->uncore.de_lock, irqflags); \
 	unclaimed_reg_debug(dev_priv, reg, true, true)
 
 #define GEN6_DE_READ_FOOTER \
 	unclaimed_reg_debug(dev_priv, reg, true, false); \
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags); \
+	spin_unlock_irqrestore(&dev_priv->uncore.de_lock, irqflags); \
 	trace_i915_reg_rw(false, reg, val, sizeof(val), trace); \
 	return val
 

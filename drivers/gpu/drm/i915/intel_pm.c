@@ -1382,7 +1382,7 @@ static void vlv_atomic_update_fifo(struct intel_atomic_state *state,
 	trace_vlv_fifo_size(crtc, sprite0_start, sprite1_start, fifo_size);
 
 	/*
-	 * uncore.lock serves a double purpose here. It allows us to
+	 * uncore.de_lock serves a double purpose here. It allows us to
 	 * use the less expensive I915_{READ,WRITE}_FW() functions, and
 	 * it protects the DSPARB registers from getting clobbered by
 	 * parallel updates from multiple pipes.
