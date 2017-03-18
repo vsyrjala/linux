@@ -910,17 +910,20 @@ __gen2_read(64)
 #undef GEN2_READ_FOOTER
 #undef GEN2_READ_HEADER
 
+#define IS_DISPLAY(offset) ((offset) >= 0x40000)
+#define LOCK(offset) (IS_DISPLAY(offset) ? &dev_priv->uncore.de_lock : &dev_priv->uncore.lock)
+
 #define GEN6_READ_HEADER(x) \
 	u32 offset = i915_mmio_reg_offset(reg); \
 	unsigned long irqflags; \
 	u##x val = 0; \
 	assert_rpm_wakelock_held(dev_priv); \
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags); \
-	unclaimed_reg_debug(dev_priv, reg, true, true)
+	spin_lock_irqsave(LOCK(offset), irqflags); \
+	if (IS_DISPLAY(offset)) unclaimed_reg_debug(dev_priv, reg, true, true)
 
 #define GEN6_READ_FOOTER \
-	unclaimed_reg_debug(dev_priv, reg, true, false); \
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags); \
+	if (IS_DISPLAY(offset)) unclaimed_reg_debug(dev_priv, reg, true, false); \
+	spin_unlock_irqrestore(LOCK(offset), irqflags); \
 	trace_i915_reg_rw(false, reg, val, sizeof(val), trace); \
 	return val
 
@@ -1041,10 +1044,10 @@ __gen2_write(32)
 	trace_i915_reg_rw(true, reg, val, sizeof(val), trace); \
 	assert_rpm_wakelock_held(dev_priv); \
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags); \
-	unclaimed_reg_debug(dev_priv, reg, false, true)
+	if (IS_DISPLAY(offset)) unclaimed_reg_debug(dev_priv, reg, false, true)
 
 #define GEN6_WRITE_FOOTER \
-	unclaimed_reg_debug(dev_priv, reg, false, false); \
+	if (IS_DISPLAY(offset)) unclaimed_reg_debug(dev_priv, reg, false, false); \
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags)
 
 #define __gen6_write(x) \
@@ -1654,9 +1657,13 @@ int intel_wait_for_register(struct drm_i915_private *dev_priv,
 		intel_uncore_forcewake_for_reg(dev_priv, reg, FW_REG_READ);
 	int ret;
 
-	intel_uncore_forcewake_get(dev_priv, fw);
-	ret = wait_for_us((I915_READ_FW(reg) & mask) == value, 2);
-	intel_uncore_forcewake_put(dev_priv, fw);
+	if (IS_DISPLAY(i915_mmio_reg_offset(reg))) {
+		ret = wait_for_us((I915_READ(reg) & mask) == value, 2);
+	} else {
+		intel_uncore_forcewake_get(dev_priv, fw);
+		ret = wait_for_us((I915_READ_FW(reg) & mask) == value, 2);
+		intel_uncore_forcewake_put(dev_priv, fw);
+	}
 	if (ret)
 		ret = wait_for((I915_READ_NOTRACE(reg) & mask) == value,
 			       timeout_ms);

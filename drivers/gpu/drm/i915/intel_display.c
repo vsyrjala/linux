@@ -2750,10 +2750,10 @@ intel_find_initial_plane_obj(struct intel_crtc *intel_crtc,
 				false);
 	intel_pre_disable_primary_noatomic(&intel_crtc->base);
 
-	spin_lock_irq(&dev_priv->uncore.lock);
+	spin_lock_irq(&dev_priv->uncore.de_lock);
 	trace_intel_disable_plane(primary, intel_crtc);
 	intel_plane->disable_plane(primary, &intel_crtc->base);
-	spin_unlock_irq(&dev_priv->uncore.lock);
+	spin_unlock_irq(&dev_priv->uncore.de_lock);
 
 	return;
 
@@ -3415,7 +3415,7 @@ static void intel_update_primary_planes(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct drm_crtc *crtc;
 
-	spin_lock_irq(&dev_priv->uncore.lock);
+	spin_lock_irq(&dev_priv->uncore.de_lock);
 
 	for_each_crtc(dev, crtc) {
 		struct intel_plane *plane = to_intel_plane(crtc->primary);
@@ -3432,7 +3432,7 @@ static void intel_update_primary_planes(struct drm_device *dev)
 		}
 	}
 
-	spin_unlock_irq(&dev_priv->uncore.lock);
+	spin_unlock_irq(&dev_priv->uncore.de_lock);
 }
 
 static int
@@ -5080,10 +5080,10 @@ static void intel_crtc_disable_planes(struct drm_crtc *crtc, unsigned plane_mask
 
 	intel_crtc_dpms_overlay_disable(intel_crtc);
 
-	spin_lock_irq(&dev_priv->uncore.lock);
+	spin_lock_irq(&dev_priv->uncore.de_lock);
 	drm_for_each_plane_mask(p, &dev_priv->drm, plane_mask)
 		to_intel_plane(p)->disable_plane(p, crtc);
-	spin_unlock_irq(&dev_priv->uncore.lock);
+	spin_unlock_irq(&dev_priv->uncore.de_lock);
 
 	/*
 	 * FIXME: Once we grow proper nuclear flip support out of this we need
@@ -13498,7 +13498,7 @@ intel_legacy_cursor_update(struct drm_plane *plane,
 	new_plane_state->fb = old_fb;
 	to_intel_plane_state(new_plane_state)->vma = old_vma;
 
-	spin_lock_irq(&dev_priv->uncore.lock);
+	spin_lock_irq(&dev_priv->uncore.de_lock);
 
 	if (plane->state->visible) {
 		trace_intel_update_plane(plane, to_intel_crtc(crtc));
@@ -13510,7 +13510,7 @@ intel_legacy_cursor_update(struct drm_plane *plane,
 		intel_plane->disable_plane(plane, crtc);
 	}
 
-	spin_unlock_irq(&dev_priv->uncore.lock);
+	spin_unlock_irq(&dev_priv->uncore.de_lock);
 
 	intel_cleanup_plane_fb(plane, new_plane_state);
 
@@ -15155,7 +15155,7 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc)
 
 		drm_crtc_vblank_on(&crtc->base);
 
-		spin_lock_irq(&dev_priv->uncore.lock);
+		spin_lock_irq(&dev_priv->uncore.de_lock);
 
 		/* Disable everything but the primary plane */
 		for_each_intel_plane_on_crtc(dev, crtc, plane) {
@@ -15166,7 +15166,7 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc)
 			plane->disable_plane(&plane->base, &crtc->base);
 		}
 
-		spin_unlock_irq(&dev_priv->uncore.lock);
+		spin_unlock_irq(&dev_priv->uncore.de_lock);
 	}
 
 	/* We need to sanitize the plane -> pipe mapping first because this will
