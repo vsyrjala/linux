@@ -920,6 +920,7 @@ static void
 gen6_seqno_barrier(struct intel_engine_cs *engine)
 {
 	struct drm_i915_private *dev_priv = engine->i915;
+	int loop;
 
 	/* Workaround to force correct ordering between irq and seqno writes on
 	 * ivb (and maybe also on snb) by reading from a CS register (like
@@ -937,7 +938,8 @@ gen6_seqno_barrier(struct intel_engine_cs *engine)
 	 * take the spinlock to guard against concurrent cacheline access.
 	 */
 	spin_lock_irq(&dev_priv->uncore.lock);
-	POSTING_READ_FW(RING_ACTHD(engine->mmio_base));
+	for (loop = 0; loop < 3; loop++)
+		POSTING_READ_FW(RING_ACTHD(engine->mmio_base));
 	spin_unlock_irq(&dev_priv->uncore.lock);
 }
 
