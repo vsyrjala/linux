@@ -10492,25 +10492,28 @@ compute_baseline_pipe_bpp(struct intel_crtc *crtc,
 	return bpp;
 }
 
-static void intel_dump_crtc_timings(const struct drm_display_mode *mode)
+static void intel_print_crtc_timings(struct drm_printer *p,
+				     const struct drm_display_mode *mode)
 {
-	DRM_DEBUG_KMS("crtc timings: %d %d %d %d %d %d %d %d %d, "
-			"type: 0x%x flags: 0x%x\n",
-		mode->crtc_clock,
-		mode->crtc_hdisplay, mode->crtc_hsync_start,
-		mode->crtc_hsync_end, mode->crtc_htotal,
-		mode->crtc_vdisplay, mode->crtc_vsync_start,
-		mode->crtc_vsync_end, mode->crtc_vtotal, mode->type, mode->flags);
+	drm_printf(p, "\tcrtc timings = %d %d %d %d %d %d %d %d %d, "
+		   "type: 0x%x flags: 0x%x\n",
+		   mode->crtc_clock,
+		   mode->crtc_hdisplay, mode->crtc_hsync_start,
+		   mode->crtc_hsync_end, mode->crtc_htotal,
+		   mode->crtc_vdisplay, mode->crtc_vsync_start,
+		   mode->crtc_vsync_end, mode->crtc_vtotal,
+		   mode->type, mode->flags);
 }
 
-static inline void
-intel_dump_m_n_config(struct intel_crtc_state *pipe_config, char *id,
-		      unsigned int lane_count, struct intel_link_m_n *m_n)
+static void
+intel_print_m_n(struct drm_printer *p,
+		const char *id, unsigned int lane_count,
+		const struct intel_link_m_n *m_n)
 {
-	DRM_DEBUG_KMS("%s: lanes: %i; gmch_m: %u, gmch_n: %u, link_m: %u, link_n: %u, tu: %u\n",
-		      id, lane_count,
-		      m_n->gmch_m, m_n->gmch_n,
-		      m_n->link_m, m_n->link_n, m_n->tu);
+	drm_printf(p, "\t%s = lanes: %i; gmch_m: %u, gmch_n: %u, link_m: %u, link_n: %u, tu: %u\n",
+		   id, lane_count,
+		   m_n->gmch_m, m_n->gmch_n,
+		   m_n->link_m, m_n->link_n, m_n->tu);
 }
 
 #define OUTPUT_TYPE(x) [INTEL_OUTPUT_ ## x] = #x
@@ -10559,111 +10562,105 @@ static void snprintf_output_types(char *buf, size_t len,
 	WARN_ON_ONCE(output_types != 0);
 }
 
+static void intel_crtc_print_state(struct drm_printer *p,
+				   const struct drm_crtc_state *_crtc_state)
+{
+	struct intel_crtc_state *crtc_state = to_intel_crtc_state(_crtc_state);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	char buf[64];
+
+	drm_atomic_crtc_print_base_state(p, &crtc_state->base);
+
+	snprintf_output_types(buf, sizeof(buf), crtc_state->output_types);
+	DRM_DEBUG_KMS("\toutput_types = %s (0x%x)\n",
+		      buf, crtc_state->output_types);
+
+	drm_printf(p, "\tcpu_transcoder = %s, pipe bpp = %i, dithering = %i\n",
+		   transcoder_name(crtc_state->cpu_transcoder),
+		   crtc_state->pipe_bpp, crtc_state->dither);
+
+	if (crtc_state->has_pch_encoder)
+		intel_print_m_n(p, "fdi",
+				crtc_state->fdi_lanes,
+				&crtc_state->fdi_m_n);
+
+	if (crtc_state->ycbcr420)
+		drm_printf(p, "\tYCbCr 4:2:0 output enabled\n");
+
+	if (intel_crtc_has_dp_encoder(crtc_state)) {
+		intel_print_m_n(p, "dp m_n",
+				crtc_state->lane_count,
+				&crtc_state->dp_m_n);
+		if (crtc_state->has_drrs)
+			intel_print_m_n(p, "dp m2_n2",
+					crtc_state->lane_count,
+					&crtc_state->dp_m2_n2);
+	}
+
+	drm_printf(p, "\taudio = %i, infoframes = %i\n",
+		   crtc_state->has_audio, crtc_state->has_infoframe);
+
+	intel_print_crtc_timings(p, &crtc_state->base.adjusted_mode);
+
+	drm_printf(p, "\tport clock = %d, pipe src size = %dx%d, pixel rate = %d\n",
+		   crtc_state->port_clock,
+		   crtc_state->pipe_src_w, crtc_state->pipe_src_h,
+		   crtc_state->pixel_rate);
+
+	if (INTEL_GEN(dev_priv) >= 9)
+		drm_printf(p, "\tscalers = num_scalers: %d, scaler_users: 0x%x, scaler_id: %d\n",
+			   crtc->num_scalers,
+			   crtc_state->scaler_state.scaler_users,
+			   crtc_state->scaler_state.scaler_id);
+
+	if (HAS_GMCH_DISPLAY(dev_priv))
+		drm_printf(p, "\tgmch pfit = control: 0x%08x, ratios: 0x%08x, lvds border: 0x%08x\n",
+			   crtc_state->gmch_pfit.control,
+			   crtc_state->gmch_pfit.pgm_ratios,
+			   crtc_state->gmch_pfit.lvds_border_bits);
+	else
+		drm_printf(p, "\tpch pfit = pos: 0x%08x, size: 0x%08x, %s\n",
+			   crtc_state->pch_pfit.pos,
+			   crtc_state->pch_pfit.size,
+			   enableddisabled(crtc_state->pch_pfit.enabled));
+
+	drm_printf(p, "\tips: %i, double wide: %i\n",
+		   crtc_state->ips_enabled, crtc_state->double_wide);
+
+	intel_dpll_print_hw_state(dev_priv, p, &crtc_state->dpll_hw_state);
+}
+
+static void intel_plane_print_state(struct drm_printer *p,
+				    const struct drm_plane_state *_plane_state)
+{
+	struct intel_plane_state *plane_state = to_intel_plane_state(_plane_state);
+	struct drm_i915_private *dev_priv = to_i915(plane_state->base.plane->dev);
+
+	drm_atomic_plane_print_base_state(p, &plane_state->base);
+
+	if (INTEL_GEN(dev_priv) >= 9)
+		drm_printf(p, "\tscaler_id = %d\n", plane_state->scaler_id);
+}
+
 static void intel_dump_pipe_config(struct intel_crtc *crtc,
 				   struct intel_crtc_state *pipe_config,
 				   const char *context)
 {
 	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct drm_plane *plane;
-	struct intel_plane *intel_plane;
-	struct intel_plane_state *state;
-	struct drm_framebuffer *fb;
-	char buf[64];
+	struct drm_printer p = drm_info_printer(dev->dev);
+	struct intel_plane *plane;
+
+	if (!(drm_debug & DRM_UT_KMS))
+		return;
 
 	DRM_DEBUG_KMS("[CRTC:%d:%s]%s\n",
 		      crtc->base.base.id, crtc->base.name, context);
 
-	snprintf_output_types(buf, sizeof(buf), pipe_config->output_types);
-	DRM_DEBUG_KMS("output_types: %s (0x%x)\n",
-		      buf, pipe_config->output_types);
+	intel_crtc_print_state(&p, &pipe_config->base);
 
-	DRM_DEBUG_KMS("cpu_transcoder: %s, pipe bpp: %i, dithering: %i\n",
-		      transcoder_name(pipe_config->cpu_transcoder),
-		      pipe_config->pipe_bpp, pipe_config->dither);
-
-	if (pipe_config->has_pch_encoder)
-		intel_dump_m_n_config(pipe_config, "fdi",
-				      pipe_config->fdi_lanes,
-				      &pipe_config->fdi_m_n);
-
-	if (pipe_config->ycbcr420)
-		DRM_DEBUG_KMS("YCbCr 4:2:0 output enabled\n");
-
-	if (intel_crtc_has_dp_encoder(pipe_config)) {
-		intel_dump_m_n_config(pipe_config, "dp m_n",
-				pipe_config->lane_count, &pipe_config->dp_m_n);
-		if (pipe_config->has_drrs)
-			intel_dump_m_n_config(pipe_config, "dp m2_n2",
-					      pipe_config->lane_count,
-					      &pipe_config->dp_m2_n2);
-	}
-
-	DRM_DEBUG_KMS("audio: %i, infoframes: %i\n",
-		      pipe_config->has_audio, pipe_config->has_infoframe);
-
-	DRM_DEBUG_KMS("requested mode:\n");
-	drm_mode_debug_printmodeline(&pipe_config->base.mode);
-	DRM_DEBUG_KMS("adjusted mode:\n");
-	drm_mode_debug_printmodeline(&pipe_config->base.adjusted_mode);
-	intel_dump_crtc_timings(&pipe_config->base.adjusted_mode);
-	DRM_DEBUG_KMS("port clock: %d, pipe src size: %dx%d, pixel rate %d\n",
-		      pipe_config->port_clock,
-		      pipe_config->pipe_src_w, pipe_config->pipe_src_h,
-		      pipe_config->pixel_rate);
-
-	if (INTEL_GEN(dev_priv) >= 9)
-		DRM_DEBUG_KMS("num_scalers: %d, scaler_users: 0x%x, scaler_id: %d\n",
-			      crtc->num_scalers,
-			      pipe_config->scaler_state.scaler_users,
-		              pipe_config->scaler_state.scaler_id);
-
-	if (HAS_GMCH_DISPLAY(dev_priv))
-		DRM_DEBUG_KMS("gmch pfit: control: 0x%08x, ratios: 0x%08x, lvds border: 0x%08x\n",
-			      pipe_config->gmch_pfit.control,
-			      pipe_config->gmch_pfit.pgm_ratios,
-			      pipe_config->gmch_pfit.lvds_border_bits);
-	else
-		DRM_DEBUG_KMS("pch pfit: pos: 0x%08x, size: 0x%08x, %s\n",
-			      pipe_config->pch_pfit.pos,
-			      pipe_config->pch_pfit.size,
-		              enableddisabled(pipe_config->pch_pfit.enabled));
-
-	DRM_DEBUG_KMS("ips: %i, double wide: %i\n",
-		      pipe_config->ips_enabled, pipe_config->double_wide);
-
-	intel_dpll_dump_hw_state(dev_priv, &pipe_config->dpll_hw_state);
-
-	DRM_DEBUG_KMS("planes on this crtc\n");
-	list_for_each_entry(plane, &dev->mode_config.plane_list, head) {
-		struct drm_format_name_buf format_name;
-		intel_plane = to_intel_plane(plane);
-		if (intel_plane->pipe != crtc->pipe)
-			continue;
-
-		state = to_intel_plane_state(plane->state);
-		fb = state->base.fb;
-		if (!fb) {
-			DRM_DEBUG_KMS("[PLANE:%d:%s] disabled, scaler_id = %d\n",
-				      plane->base.id, plane->name, state->scaler_id);
-			continue;
-		}
-
-		DRM_DEBUG_KMS("[PLANE:%d:%s] FB:%d, fb = %ux%u format = %s\n",
-			      plane->base.id, plane->name,
-			      fb->base.id, fb->width, fb->height,
-			      drm_get_format_name(fb->format->format, &format_name));
-		if (INTEL_GEN(dev_priv) >= 9)
-			DRM_DEBUG_KMS("\tscaler:%d src %dx%d+%d+%d dst %dx%d+%d+%d\n",
-				      state->scaler_id,
-				      state->base.src.x1 >> 16,
-				      state->base.src.y1 >> 16,
-				      drm_rect_width(&state->base.src) >> 16,
-				      drm_rect_height(&state->base.src) >> 16,
-				      state->base.dst.x1, state->base.dst.y1,
-				      drm_rect_width(&state->base.dst),
-				      drm_rect_height(&state->base.dst));
-	}
+	for_each_intel_plane_on_crtc(dev, crtc, plane)
+		intel_plane_print_state(&p, plane->base.state);
 }
 
 static bool check_digital_port_conflicts(struct drm_atomic_state *state)

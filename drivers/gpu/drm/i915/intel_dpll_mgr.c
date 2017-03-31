@@ -445,15 +445,14 @@ ibx_get_dpll(struct intel_crtc *crtc, struct intel_crtc_state *crtc_state,
 	return pll;
 }
 
-static void ibx_dump_hw_state(struct drm_i915_private *dev_priv,
-			      struct intel_dpll_hw_state *hw_state)
+static void ibx_print_hw_state(struct drm_printer *p,
+			       const struct intel_dpll_hw_state *hw_state)
 {
-	DRM_DEBUG_KMS("dpll_hw_state: dpll: 0x%x, dpll_md: 0x%x, "
-		      "fp0: 0x%x, fp1: 0x%x\n",
-		      hw_state->dpll,
-		      hw_state->dpll_md,
-		      hw_state->fp0,
-		      hw_state->fp1);
+	drm_printf(p, "\tdpll_hw_state = "
+		   "dpll: 0x%x, dpll_md: 0x%x, "
+		   "fp0: 0x%x, fp1: 0x%x\n",
+		   hw_state->dpll, hw_state->dpll_md,
+		   hw_state->fp0, hw_state->fp1);
 }
 
 static const struct intel_shared_dpll_funcs ibx_pch_dpll_funcs = {
@@ -838,8 +837,8 @@ hsw_get_dpll(struct intel_crtc *crtc, struct intel_crtc_state *crtc_state,
 	return pll;
 }
 
-static void hsw_dump_hw_state(struct drm_i915_private *dev_priv,
-			      struct intel_dpll_hw_state *hw_state)
+static void hsw_print_hw_state(struct drm_printer *p,
+			       const struct intel_dpll_hw_state *hw_state)
 {
 	DRM_DEBUG_KMS("dpll_hw_state: wrpll: 0x%x spll: 0x%x\n",
 		      hw_state->wrpll, hw_state->spll);
@@ -1398,14 +1397,14 @@ skl_get_dpll(struct intel_crtc *crtc, struct intel_crtc_state *crtc_state,
 	return pll;
 }
 
-static void skl_dump_hw_state(struct drm_i915_private *dev_priv,
-			      struct intel_dpll_hw_state *hw_state)
+static void skl_print_hw_state(struct drm_printer *p,
+			       const struct intel_dpll_hw_state *hw_state)
 {
-	DRM_DEBUG_KMS("dpll_hw_state: "
-		      "ctrl1: 0x%x, cfgcr1: 0x%x, cfgcr2: 0x%x\n",
-		      hw_state->ctrl1,
-		      hw_state->cfgcr1,
-		      hw_state->cfgcr2);
+	drm_printf(p, "\tdpll_hw_state = "
+		   "ctrl1: 0x%x, cfgcr1: 0x%x, cfgcr2: 0x%x\n",
+		   hw_state->ctrl1,
+		   hw_state->cfgcr1,
+		   hw_state->cfgcr2);
 }
 
 static const struct intel_shared_dpll_funcs skl_ddi_pll_funcs = {
@@ -1831,23 +1830,20 @@ bxt_get_dpll(struct intel_crtc *crtc,
 	return pll;
 }
 
-static void bxt_dump_hw_state(struct drm_i915_private *dev_priv,
-			      struct intel_dpll_hw_state *hw_state)
+static void bxt_print_hw_state(struct drm_printer *p,
+			       const struct intel_dpll_hw_state *hw_state)
 {
-	DRM_DEBUG_KMS("dpll_hw_state: ebb0: 0x%x, ebb4: 0x%x,"
-		      "pll0: 0x%x, pll1: 0x%x, pll2: 0x%x, pll3: 0x%x, "
-		      "pll6: 0x%x, pll8: 0x%x, pll9: 0x%x, pll10: 0x%x, pcsdw12: 0x%x\n",
-		      hw_state->ebb0,
-		      hw_state->ebb4,
-		      hw_state->pll0,
-		      hw_state->pll1,
-		      hw_state->pll2,
-		      hw_state->pll3,
-		      hw_state->pll6,
-		      hw_state->pll8,
-		      hw_state->pll9,
-		      hw_state->pll10,
-		      hw_state->pcsdw12);
+	drm_printf(p, "\tdpll_hw_state = "
+		   "ebb0: 0x%x, ebb4: 0x%x,"
+		   "pll0: 0x%x, pll1: 0x%x, pll2: 0x%x, pll3: 0x%x, "
+		   "pll6: 0x%x, pll8: 0x%x, pll9: 0x%x, pll10: 0x%x, "
+		   "pcsdw12: 0x%x\n",
+		   hw_state->ebb0, hw_state->ebb4,
+		   hw_state->pll0, hw_state->pll1,
+		   hw_state->pll2, hw_state->pll3,
+		   hw_state->pll6, hw_state->pll8,
+		   hw_state->pll9, hw_state->pll10,
+		   hw_state->pcsdw12);
 }
 
 static const struct intel_shared_dpll_funcs bxt_ddi_pll_funcs = {
@@ -1891,8 +1887,8 @@ struct intel_dpll_mgr {
 					      struct intel_crtc_state *crtc_state,
 					      struct intel_encoder *encoder);
 
-	void (*dump_hw_state)(struct drm_i915_private *dev_priv,
-			      struct intel_dpll_hw_state *hw_state);
+	void (*print_hw_state)(struct drm_printer *p,
+			       const struct intel_dpll_hw_state *hw_state);
 };
 
 static const struct dpll_info pch_plls[] = {
@@ -1904,7 +1900,7 @@ static const struct dpll_info pch_plls[] = {
 static const struct intel_dpll_mgr pch_pll_mgr = {
 	.dpll_info = pch_plls,
 	.get_dpll = ibx_get_dpll,
-	.dump_hw_state = ibx_dump_hw_state,
+	.print_hw_state = ibx_print_hw_state,
 };
 
 static const struct dpll_info hsw_plls[] = {
@@ -1920,7 +1916,7 @@ static const struct dpll_info hsw_plls[] = {
 static const struct intel_dpll_mgr hsw_pll_mgr = {
 	.dpll_info = hsw_plls,
 	.get_dpll = hsw_get_dpll,
-	.dump_hw_state = hsw_dump_hw_state,
+	.print_hw_state = hsw_print_hw_state,
 };
 
 static const struct dpll_info skl_plls[] = {
@@ -1934,7 +1930,7 @@ static const struct dpll_info skl_plls[] = {
 static const struct intel_dpll_mgr skl_pll_mgr = {
 	.dpll_info = skl_plls,
 	.get_dpll = skl_get_dpll,
-	.dump_hw_state = skl_dump_hw_state,
+	.print_hw_state = skl_print_hw_state,
 };
 
 static const struct dpll_info bxt_plls[] = {
@@ -1947,7 +1943,7 @@ static const struct dpll_info bxt_plls[] = {
 static const struct intel_dpll_mgr bxt_pll_mgr = {
 	.dpll_info = bxt_plls,
 	.get_dpll = bxt_get_dpll,
-	.dump_hw_state = bxt_dump_hw_state,
+	.print_hw_state = bxt_print_hw_state,
 };
 
 static void cnl_ddi_pll_enable(struct drm_i915_private *dev_priv,
@@ -2356,13 +2352,13 @@ cnl_get_dpll(struct intel_crtc *crtc, struct intel_crtc_state *crtc_state,
 	return pll;
 }
 
-static void cnl_dump_hw_state(struct drm_i915_private *dev_priv,
-			      struct intel_dpll_hw_state *hw_state)
+static void cnl_print_hw_state(struct drm_printer *p,
+			       const struct intel_dpll_hw_state *hw_state)
 {
-	DRM_DEBUG_KMS("dpll_hw_state: "
-		      "cfgcr0: 0x%x, cfgcr1: 0x%x\n",
-		      hw_state->cfgcr0,
-		      hw_state->cfgcr1);
+	drm_printf(p, "\tdpll_hw_state = "
+		   "cfgcr0: 0x%x, cfgcr1: 0x%x\n",
+		   hw_state->cfgcr0,
+		   hw_state->cfgcr1);
 }
 
 static const struct intel_shared_dpll_funcs cnl_ddi_pll_funcs = {
@@ -2381,7 +2377,7 @@ static const struct dpll_info cnl_plls[] = {
 static const struct intel_dpll_mgr cnl_pll_mgr = {
 	.dpll_info = cnl_plls,
 	.get_dpll = cnl_get_dpll,
-	.dump_hw_state = cnl_dump_hw_state,
+	.print_hw_state = cnl_print_hw_state,
 };
 
 /**
@@ -2485,26 +2481,27 @@ void intel_release_shared_dpll(struct intel_shared_dpll *dpll,
 }
 
 /**
- * intel_shared_dpll_dump_hw_state - write hw_state to dmesg
+ * intel_shared_dpll_print_hw_state - write hw_state to dmesg
+ * @p: drm printer instance
  * @dev_priv: i915 drm device
  * @hw_state: hw state to be written to the log
  *
  * Write the relevant values in @hw_state to dmesg using DRM_DEBUG_KMS.
  */
-void intel_dpll_dump_hw_state(struct drm_i915_private *dev_priv,
-			      struct intel_dpll_hw_state *hw_state)
+void intel_dpll_print_hw_state(struct drm_i915_private *dev_priv,
+			      struct drm_printer *p,
+			      const struct intel_dpll_hw_state *hw_state)
 {
 	if (dev_priv->dpll_mgr) {
-		dev_priv->dpll_mgr->dump_hw_state(dev_priv, hw_state);
+		dev_priv->dpll_mgr->print_hw_state(p, hw_state);
 	} else {
 		/* fallback for platforms that don't use the shared dpll
 		 * infrastructure
 		 */
-		DRM_DEBUG_KMS("dpll_hw_state: dpll: 0x%x, dpll_md: 0x%x, "
-			      "fp0: 0x%x, fp1: 0x%x\n",
-			      hw_state->dpll,
-			      hw_state->dpll_md,
-			      hw_state->fp0,
-			      hw_state->fp1);
+		drm_printf(p, "\tdpll_hw_state = "
+			   "dpll: 0x%x, dpll_md: 0x%x, "
+			   "fp0: 0x%x, fp1: 0x%x\n",
+			   hw_state->dpll, hw_state->dpll_md,
+			   hw_state->fp0, hw_state->fp1);
 	}
 }

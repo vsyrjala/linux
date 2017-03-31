@@ -283,7 +283,8 @@ void intel_disable_shared_dpll(struct intel_crtc *crtc);
 void intel_shared_dpll_swap_state(struct drm_atomic_state *state);
 void intel_shared_dpll_init(struct drm_device *dev);
 
-void intel_dpll_dump_hw_state(struct drm_i915_private *dev_priv,
-			      struct intel_dpll_hw_state *hw_state);
+void intel_dpll_print_hw_state(struct drm_i915_private *dev_priv,
+			       struct drm_printer *p,
+			       const struct intel_dpll_hw_state *hw_state);
 
 #endif /* _INTEL_DPLL_MGR_H_ */
