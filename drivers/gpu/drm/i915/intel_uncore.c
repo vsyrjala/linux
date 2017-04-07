@@ -237,7 +237,7 @@ intel_uncore_fw_release_timer(struct hrtimer *timer)
 		domain->wake_count++;
 
 	if (--domain->wake_count == 0)
-		dev_priv->uncore.funcs.force_wake_put(dev_priv, domain->mask);
+		dev_priv->uncore.funcs[0].force_wake_put(dev_priv, domain->mask);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 
@@ -291,13 +291,13 @@ static void intel_uncore_forcewake_reset(struct drm_i915_private *dev_priv,
 
 	fw = dev_priv->uncore.fw_domains_active;
 	if (fw)
-		dev_priv->uncore.funcs.force_wake_put(dev_priv, fw);
+		dev_priv->uncore.funcs[0].force_wake_put(dev_priv, fw);
 
 	fw_domains_reset(dev_priv, dev_priv->uncore.fw_domains);
 
 	if (restore) { /* If reset with a user forcewake, try to restore */
 		if (fw)
-			dev_priv->uncore.funcs.force_wake_get(dev_priv, fw);
+			dev_priv->uncore.funcs[0].force_wake_get(dev_priv, fw);
 
 		if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv))
 			dev_priv->uncore.fifo_count =
@@ -459,7 +459,7 @@ static void __intel_uncore_forcewake_get(struct drm_i915_private *dev_priv,
 			fw_domains &= ~domain->mask;
 
 	if (fw_domains)
-		dev_priv->uncore.funcs.force_wake_get(dev_priv, fw_domains);
+		dev_priv->uncore.funcs[0].force_wake_get(dev_priv, fw_domains);
 }
 
 /**
@@ -480,7 +480,7 @@ void intel_uncore_forcewake_get(struct drm_i915_private *dev_priv,
 {
 	unsigned long irqflags;
 
-	if (!dev_priv->uncore.funcs.force_wake_get)
+	if (!dev_priv->uncore.funcs[0].force_wake_get)
 		return;
 
 	assert_rpm_wakelock_held(dev_priv);
@@ -503,7 +503,7 @@ void intel_uncore_forcewake_get__locked(struct drm_i915_private *dev_priv,
 {
 	lockdep_assert_held(&dev_priv->uncore.lock);
 
-	if (!dev_priv->uncore.funcs.force_wake_get)
+	if (!dev_priv->uncore.funcs[0].force_wake_get)
 		return;
 
 	__intel_uncore_forcewake_get(dev_priv, fw_domains);
@@ -541,7 +541,7 @@ void intel_uncore_forcewake_put(struct drm_i915_private *dev_priv,
 {
 	unsigned long irqflags;
 
-	if (!dev_priv->uncore.funcs.force_wake_put)
+	if (!dev_priv->uncore.funcs[0].force_wake_put)
 		return;
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
@@ -562,7 +562,7 @@ void intel_uncore_forcewake_put__locked(struct drm_i915_private *dev_priv,
 {
 	lockdep_assert_held(&dev_priv->uncore.lock);
 
-	if (!dev_priv->uncore.funcs.force_wake_put)
+	if (!dev_priv->uncore.funcs[0].force_wake_put)
 		return;
 
 	__intel_uncore_forcewake_put(dev_priv, fw_domains);
@@ -570,7 +570,7 @@ void intel_uncore_forcewake_put__locked(struct drm_i915_private *dev_priv,
 
 void assert_forcewakes_inactive(struct drm_i915_private *dev_priv)
 {
-	if (!dev_priv->uncore.funcs.force_wake_get)
+	if (!dev_priv->uncore.funcs[0].force_wake_get)
 		return;
 
 	WARN_ON(dev_priv->uncore.fw_domains_active);
@@ -929,7 +929,7 @@ static noinline void ___force_wake_auto(struct drm_i915_private *dev_priv,
 	for_each_fw_domain_masked(domain, fw_domains, dev_priv, tmp)
 		fw_domain_arm_timer(domain);
 
-	dev_priv->uncore.funcs.force_wake_get(dev_priv, fw_domains);
+	dev_priv->uncore.funcs[0].force_wake_get(dev_priv, fw_domains);
 }
 
 static inline void __force_wake_auto(struct drm_i915_private *dev_priv,
@@ -1108,19 +1108,19 @@ __gen6_write(32)
 #undef GEN6_WRITE_FOOTER
 #undef GEN6_WRITE_HEADER
 
-#define ASSIGN_WRITE_MMIO_VFUNCS(x) \
+#define ASSIGN_WRITE_MMIO_VFUNCS(x, i) \
 do { \
-	dev_priv->uncore.funcs.mmio_writeb = x##_write8; \
-	dev_priv->uncore.funcs.mmio_writew = x##_write16; \
-	dev_priv->uncore.funcs.mmio_writel = x##_write32; \
+	dev_priv->uncore.funcs[(i)].mmio_writeb = x##_write8; \
+	dev_priv->uncore.funcs[(i)].mmio_writew = x##_write16; \
+	dev_priv->uncore.funcs[(i)].mmio_writel = x##_write32; \
 } while (0)
 
-#define ASSIGN_READ_MMIO_VFUNCS(x) \
+#define ASSIGN_READ_MMIO_VFUNCS(x, i) \
 do { \
-	dev_priv->uncore.funcs.mmio_readb = x##_read8; \
-	dev_priv->uncore.funcs.mmio_readw = x##_read16; \
-	dev_priv->uncore.funcs.mmio_readl = x##_read32; \
-	dev_priv->uncore.funcs.mmio_readq = x##_read64; \
+	dev_priv->uncore.funcs[(i)].mmio_readb = x##_read8; \
+	dev_priv->uncore.funcs[(i)].mmio_readw = x##_read16; \
+	dev_priv->uncore.funcs[(i)].mmio_readl = x##_read32; \
+	dev_priv->uncore.funcs[(i)].mmio_readq = x##_read64; \
 } while (0)
 
 
@@ -1178,8 +1178,8 @@ static void intel_uncore_fw_domains_init(struct drm_i915_private *dev_priv)
 	}
 
 	if (IS_GEN9(dev_priv)) {
-		dev_priv->uncore.funcs.force_wake_get = fw_domains_get;
-		dev_priv->uncore.funcs.force_wake_put = fw_domains_put;
+		dev_priv->uncore.funcs[0].force_wake_get = fw_domains_get;
+		dev_priv->uncore.funcs[0].force_wake_put = fw_domains_put;
 		fw_domain_init(dev_priv, FW_DOMAIN_ID_RENDER,
 			       FORCEWAKE_RENDER_GEN9,
 			       FORCEWAKE_ACK_RENDER_GEN9);
@@ -1189,24 +1189,24 @@ static void intel_uncore_fw_domains_init(struct drm_i915_private *dev_priv)
 		fw_domain_init(dev_priv, FW_DOMAIN_ID_MEDIA,
 			       FORCEWAKE_MEDIA_GEN9, FORCEWAKE_ACK_MEDIA_GEN9);
 	} else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
-		dev_priv->uncore.funcs.force_wake_get = fw_domains_get;
+		dev_priv->uncore.funcs[0].force_wake_get = fw_domains_get;
 		if (!IS_CHERRYVIEW(dev_priv))
-			dev_priv->uncore.funcs.force_wake_put =
+			dev_priv->uncore.funcs[0].force_wake_put =
 				fw_domains_put_with_fifo;
 		else
-			dev_priv->uncore.funcs.force_wake_put = fw_domains_put;
+			dev_priv->uncore.funcs[0].force_wake_put = fw_domains_put;
 		fw_domain_init(dev_priv, FW_DOMAIN_ID_RENDER,
 			       FORCEWAKE_VLV, FORCEWAKE_ACK_VLV);
 		fw_domain_init(dev_priv, FW_DOMAIN_ID_MEDIA,
 			       FORCEWAKE_MEDIA_VLV, FORCEWAKE_ACK_MEDIA_VLV);
 	} else if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
-		dev_priv->uncore.funcs.force_wake_get =
+		dev_priv->uncore.funcs[0].force_wake_get =
 			fw_domains_get_with_thread_status;
 		if (IS_HASWELL(dev_priv))
-			dev_priv->uncore.funcs.force_wake_put =
+			dev_priv->uncore.funcs[0].force_wake_put =
 				fw_domains_put_with_fifo;
 		else
-			dev_priv->uncore.funcs.force_wake_put = fw_domains_put;
+			dev_priv->uncore.funcs[0].force_wake_put = fw_domains_put;
 		fw_domain_init(dev_priv, FW_DOMAIN_ID_RENDER,
 			       FORCEWAKE_MT, FORCEWAKE_ACK_HSW);
 	} else if (IS_IVYBRIDGE(dev_priv)) {
@@ -1221,9 +1221,9 @@ static void intel_uncore_fw_domains_init(struct drm_i915_private *dev_priv)
 		 * (correctly) interpreted by the test below as MT
 		 * forcewake being disabled.
 		 */
-		dev_priv->uncore.funcs.force_wake_get =
+		dev_priv->uncore.funcs[0].force_wake_get =
 			fw_domains_get_with_thread_status;
-		dev_priv->uncore.funcs.force_wake_put =
+		dev_priv->uncore.funcs[0].force_wake_put =
 			fw_domains_put_with_fifo;
 
 		/* We need to init first for ECOBUS access and then
@@ -1252,9 +1252,9 @@ static void intel_uncore_fw_domains_init(struct drm_i915_private *dev_priv)
 				       FORCEWAKE, FORCEWAKE_ACK);
 		}
 	} else if (IS_GEN6(dev_priv)) {
-		dev_priv->uncore.funcs.force_wake_get =
+		dev_priv->uncore.funcs[0].force_wake_get =
 			fw_domains_get_with_thread_status;
-		dev_priv->uncore.funcs.force_wake_put =
+		dev_priv->uncore.funcs[0].force_wake_put =
 			fw_domains_put_with_fifo;
 		fw_domain_init(dev_priv, FW_DOMAIN_ID_RENDER,
 			       FORCEWAKE, FORCEWAKE_ACK);
@@ -1310,40 +1310,40 @@ void intel_uncore_init(struct drm_i915_private *dev_priv)
 		i915_pmic_bus_access_notifier;
 
 	if (IS_GEN(dev_priv, 2, 4) || intel_vgpu_active(dev_priv)) {
-		ASSIGN_WRITE_MMIO_VFUNCS(gen2);
-		ASSIGN_READ_MMIO_VFUNCS(gen2);
+		ASSIGN_WRITE_MMIO_VFUNCS(gen2, 0);
+		ASSIGN_READ_MMIO_VFUNCS(gen2, 0);
 	} else if (IS_GEN5(dev_priv)) {
-		ASSIGN_WRITE_MMIO_VFUNCS(gen5);
-		ASSIGN_READ_MMIO_VFUNCS(gen5);
+		ASSIGN_WRITE_MMIO_VFUNCS(gen5, 0);
+		ASSIGN_READ_MMIO_VFUNCS(gen5, 0);
 	} else if (IS_GEN(dev_priv, 6, 7)) {
-		ASSIGN_WRITE_MMIO_VFUNCS(gen6);
+		ASSIGN_WRITE_MMIO_VFUNCS(gen6, 0);
 
 		if (IS_VALLEYVIEW(dev_priv)) {
 			ASSIGN_FW_DOMAINS_TABLE(__vlv_fw_ranges);
-			ASSIGN_READ_MMIO_VFUNCS(fwtable);
+			ASSIGN_READ_MMIO_VFUNCS(fwtable, 0);
 		} else {
-			ASSIGN_READ_MMIO_VFUNCS(gen6);
+			ASSIGN_READ_MMIO_VFUNCS(gen6, 0);
 		}
 	} else if (IS_GEN8(dev_priv)) {
 		if (IS_CHERRYVIEW(dev_priv)) {
 			ASSIGN_FW_DOMAINS_TABLE(__chv_fw_ranges);
-			ASSIGN_WRITE_MMIO_VFUNCS(fwtable);
-			ASSIGN_READ_MMIO_VFUNCS(fwtable);
+			ASSIGN_WRITE_MMIO_VFUNCS(fwtable, 0);
+			ASSIGN_READ_MMIO_VFUNCS(fwtable, 0);
 
 		} else {
-			ASSIGN_WRITE_MMIO_VFUNCS(gen8);
-			ASSIGN_READ_MMIO_VFUNCS(gen6);
+			ASSIGN_WRITE_MMIO_VFUNCS(gen8, 0);
+			ASSIGN_READ_MMIO_VFUNCS(gen6, 0);
 		}
 	} else {
 		ASSIGN_FW_DOMAINS_TABLE(__gen9_fw_ranges);
-		ASSIGN_WRITE_MMIO_VFUNCS(fwtable);
-		ASSIGN_READ_MMIO_VFUNCS(fwtable);
+		ASSIGN_WRITE_MMIO_VFUNCS(fwtable, 0);
+		ASSIGN_READ_MMIO_VFUNCS(fwtable, 0);
 		if (HAS_DECOUPLED_MMIO(dev_priv)) {
-			dev_priv->uncore.funcs.mmio_readl =
+			dev_priv->uncore.funcs[0].mmio_readl =
 						gen9_decoupled_read32;
-			dev_priv->uncore.funcs.mmio_readq =
+			dev_priv->uncore.funcs[0].mmio_readq =
 						gen9_decoupled_read64;
-			dev_priv->uncore.funcs.mmio_writel =
+			dev_priv->uncore.funcs[0].mmio_writel =
 						gen9_decoupled_write32;
 		}
 	}

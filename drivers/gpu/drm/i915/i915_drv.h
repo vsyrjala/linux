@@ -749,7 +749,7 @@ struct intel_uncore {
 	unsigned int fw_domains_table_entries;
 
 	struct notifier_block pmic_bus_access_nb;
-	struct intel_uncore_funcs funcs;
+	struct intel_uncore_funcs funcs[2];
 
 	unsigned fifo_count;
 
@@ -3903,8 +3903,8 @@ int intel_freq_opcode(struct drm_i915_private *dev_priv, int val);
 u64 intel_rc6_residency_us(struct drm_i915_private *dev_priv,
 			   const i915_reg_t reg);
 
-#define _I915_READ(size, reg, trace)		dev_priv->uncore.funcs.mmio_read##size(dev_priv, (reg), (trace))
-#define _I915_WRITE(size, reg, val, trace)	dev_priv->uncore.funcs.mmio_write##size(dev_priv, (reg), (val), (trace))
+#define _I915_READ(size, reg, trace)		dev_priv->uncore.funcs[0].mmio_read##size(dev_priv, (reg), (trace))
+#define _I915_WRITE(size, reg, val, trace)	dev_priv->uncore.funcs[0].mmio_write##size(dev_priv, (reg), (val), (trace))
 
 #define I915_READ8(reg)		_I915_READ(b, (reg), true)
 #define I915_WRITE8(reg, val)	_I915_WRITE(b, (reg), (val), true)
