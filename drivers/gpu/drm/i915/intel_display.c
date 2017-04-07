@@ -10344,7 +10344,7 @@ static void skl_do_mmio_flip(struct intel_crtc *intel_crtc,
 	const enum pipe pipe = intel_crtc->pipe;
 	u32 ctl, stride = skl_plane_stride(fb, 0, rotation);
 
-	ctl = I915_READ(PLANE_CTL(pipe, 0));
+	ctl = I915_READ_FW(PLANE_CTL(pipe, 0));
 	ctl &= ~PLANE_CTL_TILED_MASK;
 	switch (fb->modifier) {
 	case DRM_FORMAT_MOD_LINEAR:
@@ -10366,11 +10366,11 @@ static void skl_do_mmio_flip(struct intel_crtc *intel_crtc,
 	 * Both PLANE_CTL and PLANE_STRIDE are not updated on vblank but on
 	 * PLANE_SURF updates, the update is then guaranteed to be atomic.
 	 */
-	I915_WRITE(PLANE_CTL(pipe, 0), ctl);
-	I915_WRITE(PLANE_STRIDE(pipe, 0), stride);
+	I915_WRITE_FW(PLANE_CTL(pipe, 0), ctl);
+	I915_WRITE_FW(PLANE_STRIDE(pipe, 0), stride);
 
-	I915_WRITE(PLANE_SURF(pipe, 0), work->gtt_offset);
-	POSTING_READ(PLANE_SURF(pipe, 0));
+	I915_WRITE_FW(PLANE_SURF(pipe, 0), work->gtt_offset);
+	POSTING_READ_FW(PLANE_SURF(pipe, 0));
 }
 
 static void ilk_do_mmio_flip(struct intel_crtc *intel_crtc,
@@ -10382,17 +10382,17 @@ static void ilk_do_mmio_flip(struct intel_crtc *intel_crtc,
 	i915_reg_t reg = DSPCNTR(intel_crtc->plane);
 	u32 dspcntr;
 
-	dspcntr = I915_READ(reg);
+	dspcntr = I915_READ_FW(reg);
 
 	if (fb->modifier == I915_FORMAT_MOD_X_TILED)
 		dspcntr |= DISPPLANE_TILED;
 	else
 		dspcntr &= ~DISPPLANE_TILED;
 
-	I915_WRITE(reg, dspcntr);
+	I915_WRITE_FW(reg, dspcntr);
 
-	I915_WRITE(DSPSURF(intel_crtc->plane), work->gtt_offset);
-	POSTING_READ(DSPSURF(intel_crtc->plane));
+	I915_WRITE_FW(DSPSURF(intel_crtc->plane), work->gtt_offset);
+	POSTING_READ_FW(DSPSURF(intel_crtc->plane));
 }
 
 static void intel_mmio_flip_work_func(struct work_struct *w)
@@ -10409,11 +10409,15 @@ static void intel_mmio_flip_work_func(struct work_struct *w)
 
 	intel_pipe_update_start(crtc);
 
+	spin_lock_irq(&dev_priv->uncore.lock);
+
 	if (INTEL_GEN(dev_priv) >= 9)
 		skl_do_mmio_flip(crtc, work->rotation, work);
 	else
 		/* use_mmio_flip() retricts MMIO flips to ilk+ */
 		ilk_do_mmio_flip(crtc, work);
+
+	spin_unlock_irq(&dev_priv->uncore.lock);
 
 	intel_pipe_update_end(crtc, work);
 }
