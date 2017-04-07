@@ -409,6 +409,8 @@ static void intel_ring_setup_status_page(struct intel_engine_cs *engine)
 		case VECS:
 			mmio = VEBOX_HWS_PGA_GEN7;
 			break;
+		default:
+			return;
 		}
 	} else if (IS_GEN6(dev_priv)) {
 		mmio = RING_HWS_PGA_GEN6(engine->mmio_base);
