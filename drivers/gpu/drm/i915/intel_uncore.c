@@ -909,11 +909,9 @@ __gen2_read(64)
 	unsigned long irqflags; \
 	u##x val = 0; \
 	assert_rpm_wakelock_held(dev_priv); \
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags); \
-	unclaimed_reg_debug(dev_priv, reg, true, true)
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags)
 
 #define GEN6_READ_FOOTER \
-	unclaimed_reg_debug(dev_priv, reg, true, false); \
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags); \
 	trace_i915_reg_rw(false, reg, val, sizeof(val), trace); \
 	return val
@@ -996,6 +994,36 @@ __gen6_read(64)
 #undef GEN6_READ_FOOTER
 #undef GEN6_READ_HEADER
 
+#define GEN6_DE_READ_HEADER(x) \
+	unsigned long irqflags; \
+	u##x val = 0; \
+	assert_rpm_wakelock_held(dev_priv); \
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags); \
+	unclaimed_reg_debug(dev_priv, reg, true, true)
+
+#define GEN6_DE_READ_FOOTER \
+	unclaimed_reg_debug(dev_priv, reg, true, false); \
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags); \
+	trace_i915_reg_rw(false, reg, val, sizeof(val), trace); \
+	return val
+
+#define __gen6_de_read(x) \
+static u##x \
+gen6_de_read##x(struct drm_i915_private *dev_priv, i915_reg_t reg, bool trace) { \
+	GEN6_DE_READ_HEADER(x); \
+	val = __raw_i915_read##x(dev_priv, reg); \
+	GEN6_DE_READ_FOOTER; \
+}
+
+__gen6_de_read(8)
+__gen6_de_read(16)
+__gen6_de_read(32)
+__gen6_de_read(64)
+
+#undef __gen6_de_read
+#undef GEN6_DE_READ_FOOTER
+#undef GEN6_DE_READ_HEADER
+
 #define GEN2_WRITE_HEADER \
 	trace_i915_reg_rw(true, reg, val, sizeof(val), trace); \
 	assert_rpm_wakelock_held(dev_priv); \
@@ -1037,11 +1065,9 @@ __gen2_write(32)
 	unsigned long irqflags; \
 	trace_i915_reg_rw(true, reg, val, sizeof(val), trace); \
 	assert_rpm_wakelock_held(dev_priv); \
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags); \
-	unclaimed_reg_debug(dev_priv, reg, false, true)
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags)
 
 #define GEN6_WRITE_FOOTER \
-	unclaimed_reg_debug(dev_priv, reg, false, false); \
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags)
 
 #define __gen6_write(x) \
@@ -1108,6 +1134,33 @@ __gen6_write(32)
 #undef GEN6_WRITE_FOOTER
 #undef GEN6_WRITE_HEADER
 
+#define GEN6_DE_WRITE_HEADER \
+	unsigned long irqflags; \
+	trace_i915_reg_rw(true, reg, val, sizeof(val), trace); \
+	assert_rpm_wakelock_held(dev_priv); \
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags); \
+	unclaimed_reg_debug(dev_priv, reg, false, true)
+
+#define GEN6_DE_WRITE_FOOTER \
+	unclaimed_reg_debug(dev_priv, reg, false, false); \
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags)
+
+#define __gen6_de_write(x) \
+static void \
+gen6_de_write##x(struct drm_i915_private *dev_priv, i915_reg_t reg, u##x val, bool trace) { \
+	GEN6_DE_WRITE_HEADER; \
+	__raw_i915_write##x(dev_priv, reg, val); \
+	GEN6_DE_WRITE_FOOTER; \
+}
+
+__gen6_de_write(8)
+__gen6_de_write(16)
+__gen6_de_write(32)
+
+#undef __gen6_de_write
+#undef GEN6_DE_WRITE_FOOTER
+#undef GEN6_DE_WRITE_HEADER
+
 #define ASSIGN_WRITE_MMIO_VFUNCS(x, i) \
 do { \
 	dev_priv->uncore.funcs[(i)].mmio_writeb = x##_write8; \
@@ -1122,7 +1175,6 @@ do { \
 	dev_priv->uncore.funcs[(i)].mmio_readl = x##_read32; \
 	dev_priv->uncore.funcs[(i)].mmio_readq = x##_read64; \
 } while (0)
-
 
 static void fw_domain_init(struct drm_i915_private *dev_priv,
 			   enum forcewake_domain_id domain_id,
@@ -1312,9 +1364,15 @@ void intel_uncore_init(struct drm_i915_private *dev_priv)
 	if (IS_GEN(dev_priv, 2, 4) || intel_vgpu_active(dev_priv)) {
 		ASSIGN_WRITE_MMIO_VFUNCS(gen2, 0);
 		ASSIGN_READ_MMIO_VFUNCS(gen2, 0);
+
+		ASSIGN_WRITE_MMIO_VFUNCS(gen2, 1);
+		ASSIGN_READ_MMIO_VFUNCS(gen2, 1);
 	} else if (IS_GEN5(dev_priv)) {
 		ASSIGN_WRITE_MMIO_VFUNCS(gen5, 0);
 		ASSIGN_READ_MMIO_VFUNCS(gen5, 0);
+
+		ASSIGN_WRITE_MMIO_VFUNCS(gen2, 1);
+		ASSIGN_READ_MMIO_VFUNCS(gen2, 1);
 	} else if (IS_GEN(dev_priv, 6, 7)) {
 		ASSIGN_WRITE_MMIO_VFUNCS(gen6, 0);
 
@@ -1324,16 +1382,21 @@ void intel_uncore_init(struct drm_i915_private *dev_priv)
 		} else {
 			ASSIGN_READ_MMIO_VFUNCS(gen6, 0);
 		}
+
+		ASSIGN_WRITE_MMIO_VFUNCS(gen6_de, 1);
+		ASSIGN_READ_MMIO_VFUNCS(gen6_de, 1);
 	} else if (IS_GEN8(dev_priv)) {
 		if (IS_CHERRYVIEW(dev_priv)) {
 			ASSIGN_FW_DOMAINS_TABLE(__chv_fw_ranges);
 			ASSIGN_WRITE_MMIO_VFUNCS(fwtable, 0);
 			ASSIGN_READ_MMIO_VFUNCS(fwtable, 0);
-
 		} else {
 			ASSIGN_WRITE_MMIO_VFUNCS(gen8, 0);
 			ASSIGN_READ_MMIO_VFUNCS(gen6, 0);
 		}
+
+		ASSIGN_WRITE_MMIO_VFUNCS(gen6_de, 1);
+		ASSIGN_READ_MMIO_VFUNCS(gen6_de, 1);
 	} else {
 		ASSIGN_FW_DOMAINS_TABLE(__gen9_fw_ranges);
 		ASSIGN_WRITE_MMIO_VFUNCS(fwtable, 0);
@@ -1346,6 +1409,9 @@ void intel_uncore_init(struct drm_i915_private *dev_priv)
 			dev_priv->uncore.funcs[0].mmio_writel =
 						gen9_decoupled_write32;
 		}
+
+		ASSIGN_WRITE_MMIO_VFUNCS(gen6_de, 1);
+		ASSIGN_READ_MMIO_VFUNCS(gen6_de, 1);
 	}
 
 	iosf_mbi_register_pmic_bus_access_notifier(
@@ -1665,9 +1731,13 @@ int intel_wait_for_register(struct drm_i915_private *dev_priv,
 		intel_uncore_forcewake_for_reg(dev_priv, reg, FW_REG_READ);
 	int ret;
 
-	intel_uncore_forcewake_get(dev_priv, fw);
-	ret = wait_for_us((I915_READ_FW(reg) & mask) == value, 2);
-	intel_uncore_forcewake_put(dev_priv, fw);
+	if (!NEEDS_FORCE_WAKE(i915_mmio_reg_offset(reg))) {
+		ret = wait_for_us((I915_READ(reg) & mask) == value, 2);
+	} else {
+		intel_uncore_forcewake_get(dev_priv, fw);
+		ret = wait_for_us((I915_READ_FW(reg) & mask) == value, 2);
+		intel_uncore_forcewake_put(dev_priv, fw);
+	}
 	if (ret)
 		ret = wait_for((I915_READ_NOTRACE(reg) & mask) == value,
 			       timeout_ms);
