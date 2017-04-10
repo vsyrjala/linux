@@ -318,7 +318,7 @@ static int i915_getparam(struct drm_device *dev, void *data,
 		break;
 	case I915_PARAM_HUC_STATUS:
 		intel_runtime_pm_get(dev_priv);
-		value = I915_READ(HUC_STATUS2) & HUC_FW_VERIFIED;
+		value = I915_GT_READ(HUC_STATUS2) & HUC_FW_VERIFIED;
 		intel_runtime_pm_put(dev_priv);
 		break;
 	case I915_PARAM_MMAP_GTT_VERSION:
@@ -1140,7 +1140,7 @@ static void i915_driver_register(struct drm_i915_private *dev_priv)
 	 * when running inside a VM.
 	 */
 	if (intel_vgpu_active(dev_priv))
-		I915_WRITE(vgtif_reg(display_ready), VGT_DRV_DISPLAY_READY);
+		I915_DE_WRITE(vgtif_reg(display_ready), VGT_DRV_DISPLAY_READY);
 
 	/* Reveal our presence to userspace */
 	if (drm_dev_register(dev, 0) == 0) {
@@ -2012,71 +2012,71 @@ static void vlv_save_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 	int i;
 
 	/* GAM 0x4000-0x4770 */
-	s->wr_watermark		= I915_READ(GEN7_WR_WATERMARK);
-	s->gfx_prio_ctrl	= I915_READ(GEN7_GFX_PRIO_CTRL);
-	s->arb_mode		= I915_READ(ARB_MODE);
-	s->gfx_pend_tlb0	= I915_READ(GEN7_GFX_PEND_TLB0);
-	s->gfx_pend_tlb1	= I915_READ(GEN7_GFX_PEND_TLB1);
+	s->wr_watermark		= I915_GT_READ(GEN7_WR_WATERMARK);
+	s->gfx_prio_ctrl	= I915_GT_READ(GEN7_GFX_PRIO_CTRL);
+	s->arb_mode		= I915_GT_READ(ARB_MODE);
+	s->gfx_pend_tlb0	= I915_GT_READ(GEN7_GFX_PEND_TLB0);
+	s->gfx_pend_tlb1	= I915_GT_READ(GEN7_GFX_PEND_TLB1);
 
 	for (i = 0; i < ARRAY_SIZE(s->lra_limits); i++)
-		s->lra_limits[i] = I915_READ(GEN7_LRA_LIMITS(i));
+		s->lra_limits[i] = I915_GT_READ(GEN7_LRA_LIMITS(i));
 
-	s->media_max_req_count	= I915_READ(GEN7_MEDIA_MAX_REQ_COUNT);
-	s->gfx_max_req_count	= I915_READ(GEN7_GFX_MAX_REQ_COUNT);
+	s->media_max_req_count	= I915_GT_READ(GEN7_MEDIA_MAX_REQ_COUNT);
+	s->gfx_max_req_count	= I915_GT_READ(GEN7_GFX_MAX_REQ_COUNT);
 
-	s->render_hwsp		= I915_READ(RENDER_HWS_PGA_GEN7);
-	s->ecochk		= I915_READ(GAM_ECOCHK);
-	s->bsd_hwsp		= I915_READ(BSD_HWS_PGA_GEN7);
-	s->blt_hwsp		= I915_READ(BLT_HWS_PGA_GEN7);
+	s->render_hwsp		= I915_GT_READ(RENDER_HWS_PGA_GEN7);
+	s->ecochk		= I915_GT_READ(GAM_ECOCHK);
+	s->bsd_hwsp		= I915_GT_READ(BSD_HWS_PGA_GEN7);
+	s->blt_hwsp		= I915_GT_READ(BLT_HWS_PGA_GEN7);
 
-	s->tlb_rd_addr		= I915_READ(GEN7_TLB_RD_ADDR);
+	s->tlb_rd_addr		= I915_GT_READ(GEN7_TLB_RD_ADDR);
 
 	/* MBC 0x9024-0x91D0, 0x8500 */
-	s->g3dctl		= I915_READ(VLV_G3DCTL);
-	s->gsckgctl		= I915_READ(VLV_GSCKGCTL);
-	s->mbctl		= I915_READ(GEN6_MBCTL);
+	s->g3dctl		= I915_GT_READ(VLV_G3DCTL);
+	s->gsckgctl		= I915_GT_READ(VLV_GSCKGCTL);
+	s->mbctl		= I915_GT_READ(GEN6_MBCTL);
 
 	/* GCP 0x9400-0x9424, 0x8100-0x810C */
-	s->ucgctl1		= I915_READ(GEN6_UCGCTL1);
-	s->ucgctl3		= I915_READ(GEN6_UCGCTL3);
-	s->rcgctl1		= I915_READ(GEN6_RCGCTL1);
-	s->rcgctl2		= I915_READ(GEN6_RCGCTL2);
-	s->rstctl		= I915_READ(GEN6_RSTCTL);
-	s->misccpctl		= I915_READ(GEN7_MISCCPCTL);
+	s->ucgctl1		= I915_GT_READ(GEN6_UCGCTL1);
+	s->ucgctl3		= I915_GT_READ(GEN6_UCGCTL3);
+	s->rcgctl1		= I915_GT_READ(GEN6_RCGCTL1);
+	s->rcgctl2		= I915_GT_READ(GEN6_RCGCTL2);
+	s->rstctl		= I915_GT_READ(GEN6_RSTCTL);
+	s->misccpctl		= I915_GT_READ(GEN7_MISCCPCTL);
 
 	/* GPM 0xA000-0xAA84, 0x8000-0x80FC */
-	s->gfxpause		= I915_READ(GEN6_GFXPAUSE);
-	s->rpdeuhwtc		= I915_READ(GEN6_RPDEUHWTC);
-	s->rpdeuc		= I915_READ(GEN6_RPDEUC);
-	s->ecobus		= I915_READ(ECOBUS);
-	s->pwrdwnupctl		= I915_READ(VLV_PWRDWNUPCTL);
-	s->rp_down_timeout	= I915_READ(GEN6_RP_DOWN_TIMEOUT);
-	s->rp_deucsw		= I915_READ(GEN6_RPDEUCSW);
-	s->rcubmabdtmr		= I915_READ(GEN6_RCUBMABDTMR);
-	s->rcedata		= I915_READ(VLV_RCEDATA);
-	s->spare2gh		= I915_READ(VLV_SPAREG2H);
+	s->gfxpause		= I915_GT_READ(GEN6_GFXPAUSE);
+	s->rpdeuhwtc		= I915_GT_READ(GEN6_RPDEUHWTC);
+	s->rpdeuc		= I915_GT_READ(GEN6_RPDEUC);
+	s->ecobus		= I915_GT_READ(ECOBUS);
+	s->pwrdwnupctl		= I915_GT_READ(VLV_PWRDWNUPCTL);
+	s->rp_down_timeout	= I915_GT_READ(GEN6_RP_DOWN_TIMEOUT);
+	s->rp_deucsw		= I915_GT_READ(GEN6_RPDEUCSW);
+	s->rcubmabdtmr		= I915_GT_READ(GEN6_RCUBMABDTMR);
+	s->rcedata		= I915_GT_READ(VLV_RCEDATA);
+	s->spare2gh		= I915_GT_READ(VLV_SPAREG2H);
 
 	/* Display CZ domain, 0x4400C-0x4402C, 0x4F000-0x4F11F */
-	s->gt_imr		= I915_READ(GTIMR);
-	s->gt_ier		= I915_READ(GTIER);
-	s->pm_imr		= I915_READ(GEN6_PMIMR);
-	s->pm_ier		= I915_READ(GEN6_PMIER);
+	s->gt_imr		= I915_DE_READ(GTIMR);
+	s->gt_ier		= I915_DE_READ(GTIER);
+	s->pm_imr		= I915_DE_READ(GEN6_PMIMR);
+	s->pm_ier		= I915_DE_READ(GEN6_PMIER);
 
 	for (i = 0; i < ARRAY_SIZE(s->gt_scratch); i++)
-		s->gt_scratch[i] = I915_READ(GEN7_GT_SCRATCH(i));
+		s->gt_scratch[i] = I915_DE_READ(GEN7_GT_SCRATCH(i));
 
 	/* GT SA CZ domain, 0x100000-0x138124 */
-	s->tilectl		= I915_READ(TILECTL);
-	s->gt_fifoctl		= I915_READ(GTFIFOCTL);
-	s->gtlc_wake_ctrl	= I915_READ(VLV_GTLC_WAKE_CTRL);
-	s->gtlc_survive		= I915_READ(VLV_GTLC_SURVIVABILITY_REG);
-	s->pmwgicz		= I915_READ(VLV_PMWGICZ);
+	s->tilectl		= I915_DE_READ(TILECTL);
+	s->gt_fifoctl		= I915_DE_READ(GTFIFOCTL);
+	s->gtlc_wake_ctrl	= I915_DE_READ(VLV_GTLC_WAKE_CTRL);
+	s->gtlc_survive		= I915_DE_READ(VLV_GTLC_SURVIVABILITY_REG);
+	s->pmwgicz		= I915_DE_READ(VLV_PMWGICZ);
 
 	/* Gunit-Display CZ domain, 0x182028-0x1821CF */
-	s->gu_ctl0		= I915_READ(VLV_GU_CTL0);
-	s->gu_ctl1		= I915_READ(VLV_GU_CTL1);
-	s->pcbr			= I915_READ(VLV_PCBR);
-	s->clock_gate_dis2	= I915_READ(VLV_GUNIT_CLOCK_GATE2);
+	s->gu_ctl0		= I915_DE_READ(VLV_GU_CTL0);
+	s->gu_ctl1		= I915_DE_READ(VLV_GU_CTL1);
+	s->pcbr			= I915_DE_READ(VLV_PCBR);
+	s->clock_gate_dis2	= I915_DE_READ(VLV_GUNIT_CLOCK_GATE2);
 
 	/*
 	 * Not saving any of:
@@ -2094,84 +2094,84 @@ static void vlv_restore_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 	int i;
 
 	/* GAM 0x4000-0x4770 */
-	I915_WRITE(GEN7_WR_WATERMARK,	s->wr_watermark);
-	I915_WRITE(GEN7_GFX_PRIO_CTRL,	s->gfx_prio_ctrl);
-	I915_WRITE(ARB_MODE,		s->arb_mode | (0xffff << 16));
-	I915_WRITE(GEN7_GFX_PEND_TLB0,	s->gfx_pend_tlb0);
-	I915_WRITE(GEN7_GFX_PEND_TLB1,	s->gfx_pend_tlb1);
+	I915_GT_WRITE(GEN7_WR_WATERMARK,	s->wr_watermark);
+	I915_GT_WRITE(GEN7_GFX_PRIO_CTRL,	s->gfx_prio_ctrl);
+	I915_GT_WRITE(ARB_MODE,		s->arb_mode | (0xffff << 16));
+	I915_GT_WRITE(GEN7_GFX_PEND_TLB0,	s->gfx_pend_tlb0);
+	I915_GT_WRITE(GEN7_GFX_PEND_TLB1,	s->gfx_pend_tlb1);
 
 	for (i = 0; i < ARRAY_SIZE(s->lra_limits); i++)
-		I915_WRITE(GEN7_LRA_LIMITS(i), s->lra_limits[i]);
+		I915_GT_WRITE(GEN7_LRA_LIMITS(i), s->lra_limits[i]);
 
-	I915_WRITE(GEN7_MEDIA_MAX_REQ_COUNT, s->media_max_req_count);
-	I915_WRITE(GEN7_GFX_MAX_REQ_COUNT, s->gfx_max_req_count);
+	I915_GT_WRITE(GEN7_MEDIA_MAX_REQ_COUNT, s->media_max_req_count);
+	I915_GT_WRITE(GEN7_GFX_MAX_REQ_COUNT, s->gfx_max_req_count);
 
-	I915_WRITE(RENDER_HWS_PGA_GEN7,	s->render_hwsp);
-	I915_WRITE(GAM_ECOCHK,		s->ecochk);
-	I915_WRITE(BSD_HWS_PGA_GEN7,	s->bsd_hwsp);
-	I915_WRITE(BLT_HWS_PGA_GEN7,	s->blt_hwsp);
+	I915_GT_WRITE(RENDER_HWS_PGA_GEN7,	s->render_hwsp);
+	I915_GT_WRITE(GAM_ECOCHK,		s->ecochk);
+	I915_GT_WRITE(BSD_HWS_PGA_GEN7,	s->bsd_hwsp);
+	I915_GT_WRITE(BLT_HWS_PGA_GEN7,	s->blt_hwsp);
 
-	I915_WRITE(GEN7_TLB_RD_ADDR,	s->tlb_rd_addr);
+	I915_GT_WRITE(GEN7_TLB_RD_ADDR,	s->tlb_rd_addr);
 
 	/* MBC 0x9024-0x91D0, 0x8500 */
-	I915_WRITE(VLV_G3DCTL,		s->g3dctl);
-	I915_WRITE(VLV_GSCKGCTL,	s->gsckgctl);
-	I915_WRITE(GEN6_MBCTL,		s->mbctl);
+	I915_GT_WRITE(VLV_G3DCTL,		s->g3dctl);
+	I915_GT_WRITE(VLV_GSCKGCTL,	s->gsckgctl);
+	I915_GT_WRITE(GEN6_MBCTL,		s->mbctl);
 
 	/* GCP 0x9400-0x9424, 0x8100-0x810C */
-	I915_WRITE(GEN6_UCGCTL1,	s->ucgctl1);
-	I915_WRITE(GEN6_UCGCTL3,	s->ucgctl3);
-	I915_WRITE(GEN6_RCGCTL1,	s->rcgctl1);
-	I915_WRITE(GEN6_RCGCTL2,	s->rcgctl2);
-	I915_WRITE(GEN6_RSTCTL,		s->rstctl);
-	I915_WRITE(GEN7_MISCCPCTL,	s->misccpctl);
+	I915_GT_WRITE(GEN6_UCGCTL1,	s->ucgctl1);
+	I915_GT_WRITE(GEN6_UCGCTL3,	s->ucgctl3);
+	I915_GT_WRITE(GEN6_RCGCTL1,	s->rcgctl1);
+	I915_GT_WRITE(GEN6_RCGCTL2,	s->rcgctl2);
+	I915_GT_WRITE(GEN6_RSTCTL,		s->rstctl);
+	I915_GT_WRITE(GEN7_MISCCPCTL,	s->misccpctl);
 
 	/* GPM 0xA000-0xAA84, 0x8000-0x80FC */
-	I915_WRITE(GEN6_GFXPAUSE,	s->gfxpause);
-	I915_WRITE(GEN6_RPDEUHWTC,	s->rpdeuhwtc);
-	I915_WRITE(GEN6_RPDEUC,		s->rpdeuc);
-	I915_WRITE(ECOBUS,		s->ecobus);
-	I915_WRITE(VLV_PWRDWNUPCTL,	s->pwrdwnupctl);
-	I915_WRITE(GEN6_RP_DOWN_TIMEOUT,s->rp_down_timeout);
-	I915_WRITE(GEN6_RPDEUCSW,	s->rp_deucsw);
-	I915_WRITE(GEN6_RCUBMABDTMR,	s->rcubmabdtmr);
-	I915_WRITE(VLV_RCEDATA,		s->rcedata);
-	I915_WRITE(VLV_SPAREG2H,	s->spare2gh);
+	I915_GT_WRITE(GEN6_GFXPAUSE,	s->gfxpause);
+	I915_GT_WRITE(GEN6_RPDEUHWTC,	s->rpdeuhwtc);
+	I915_GT_WRITE(GEN6_RPDEUC,		s->rpdeuc);
+	I915_GT_WRITE(ECOBUS,		s->ecobus);
+	I915_GT_WRITE(VLV_PWRDWNUPCTL,	s->pwrdwnupctl);
+	I915_GT_WRITE(GEN6_RP_DOWN_TIMEOUT,s->rp_down_timeout);
+	I915_GT_WRITE(GEN6_RPDEUCSW,	s->rp_deucsw);
+	I915_GT_WRITE(GEN6_RCUBMABDTMR,	s->rcubmabdtmr);
+	I915_GT_WRITE(VLV_RCEDATA,		s->rcedata);
+	I915_GT_WRITE(VLV_SPAREG2H,	s->spare2gh);
 
 	/* Display CZ domain, 0x4400C-0x4402C, 0x4F000-0x4F11F */
-	I915_WRITE(GTIMR,		s->gt_imr);
-	I915_WRITE(GTIER,		s->gt_ier);
-	I915_WRITE(GEN6_PMIMR,		s->pm_imr);
-	I915_WRITE(GEN6_PMIER,		s->pm_ier);
+	I915_DE_WRITE(GTIMR,		s->gt_imr);
+	I915_DE_WRITE(GTIER,		s->gt_ier);
+	I915_DE_WRITE(GEN6_PMIMR,		s->pm_imr);
+	I915_DE_WRITE(GEN6_PMIER,		s->pm_ier);
 
 	for (i = 0; i < ARRAY_SIZE(s->gt_scratch); i++)
-		I915_WRITE(GEN7_GT_SCRATCH(i), s->gt_scratch[i]);
+		I915_DE_WRITE(GEN7_GT_SCRATCH(i), s->gt_scratch[i]);
 
 	/* GT SA CZ domain, 0x100000-0x138124 */
-	I915_WRITE(TILECTL,			s->tilectl);
-	I915_WRITE(GTFIFOCTL,			s->gt_fifoctl);
+	I915_DE_WRITE(TILECTL,			s->tilectl);
+	I915_DE_WRITE(GTFIFOCTL,			s->gt_fifoctl);
 	/*
 	 * Preserve the GT allow wake and GFX force clock bit, they are not
 	 * be restored, as they are used to control the s0ix suspend/resume
 	 * sequence by the caller.
 	 */
-	val = I915_READ(VLV_GTLC_WAKE_CTRL);
+	val = I915_DE_READ(VLV_GTLC_WAKE_CTRL);
 	val &= VLV_GTLC_ALLOWWAKEREQ;
 	val |= s->gtlc_wake_ctrl & ~VLV_GTLC_ALLOWWAKEREQ;
-	I915_WRITE(VLV_GTLC_WAKE_CTRL, val);
+	I915_DE_WRITE(VLV_GTLC_WAKE_CTRL, val);
 
-	val = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
+	val = I915_DE_READ(VLV_GTLC_SURVIVABILITY_REG);
 	val &= VLV_GFX_CLK_FORCE_ON_BIT;
 	val |= s->gtlc_survive & ~VLV_GFX_CLK_FORCE_ON_BIT;
-	I915_WRITE(VLV_GTLC_SURVIVABILITY_REG, val);
+	I915_DE_WRITE(VLV_GTLC_SURVIVABILITY_REG, val);
 
-	I915_WRITE(VLV_PMWGICZ,			s->pmwgicz);
+	I915_DE_WRITE(VLV_PMWGICZ,			s->pmwgicz);
 
 	/* Gunit-Display CZ domain, 0x182028-0x1821CF */
-	I915_WRITE(VLV_GU_CTL0,			s->gu_ctl0);
-	I915_WRITE(VLV_GU_CTL1,			s->gu_ctl1);
-	I915_WRITE(VLV_PCBR,			s->pcbr);
-	I915_WRITE(VLV_GUNIT_CLOCK_GATE2,	s->clock_gate_dis2);
+	I915_DE_WRITE(VLV_GU_CTL0,			s->gu_ctl0);
+	I915_DE_WRITE(VLV_GU_CTL1,			s->gu_ctl1);
+	I915_DE_WRITE(VLV_PCBR,			s->pcbr);
+	I915_DE_WRITE(VLV_GUNIT_CLOCK_GATE2,	s->clock_gate_dis2);
 }
 
 int vlv_force_gfx_clock(struct drm_i915_private *dev_priv, bool force_on)
@@ -2179,23 +2179,23 @@ int vlv_force_gfx_clock(struct drm_i915_private *dev_priv, bool force_on)
 	u32 val;
 	int err;
 
-	val = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
+	val = I915_DE_READ(VLV_GTLC_SURVIVABILITY_REG);
 	val &= ~VLV_GFX_CLK_FORCE_ON_BIT;
 	if (force_on)
 		val |= VLV_GFX_CLK_FORCE_ON_BIT;
-	I915_WRITE(VLV_GTLC_SURVIVABILITY_REG, val);
+	I915_DE_WRITE(VLV_GTLC_SURVIVABILITY_REG, val);
 
 	if (!force_on)
 		return 0;
 
-	err = intel_wait_for_register(dev_priv,
-				      VLV_GTLC_SURVIVABILITY_REG,
-				      VLV_GFX_CLK_STATUS_BIT,
-				      VLV_GFX_CLK_STATUS_BIT,
-				      20);
+	err = intel_de_wait_for_register(dev_priv,
+					 VLV_GTLC_SURVIVABILITY_REG,
+					 VLV_GFX_CLK_STATUS_BIT,
+					 VLV_GFX_CLK_STATUS_BIT,
+					 20);
 	if (err)
 		DRM_ERROR("timeout waiting for GFX clock force-on (%08x)\n",
-			  I915_READ(VLV_GTLC_SURVIVABILITY_REG));
+			  I915_DE_READ(VLV_GTLC_SURVIVABILITY_REG));
 
 	return err;
 }
@@ -2205,18 +2205,18 @@ static int vlv_allow_gt_wake(struct drm_i915_private *dev_priv, bool allow)
 	u32 val;
 	int err = 0;
 
-	val = I915_READ(VLV_GTLC_WAKE_CTRL);
+	val = I915_DE_READ(VLV_GTLC_WAKE_CTRL);
 	val &= ~VLV_GTLC_ALLOWWAKEREQ;
 	if (allow)
 		val |= VLV_GTLC_ALLOWWAKEREQ;
-	I915_WRITE(VLV_GTLC_WAKE_CTRL, val);
-	POSTING_READ(VLV_GTLC_WAKE_CTRL);
+	I915_DE_WRITE(VLV_GTLC_WAKE_CTRL, val);
+	POSTING_DE_READ(VLV_GTLC_WAKE_CTRL);
 
-	err = intel_wait_for_register(dev_priv,
-				      VLV_GTLC_PW_STATUS,
-				      VLV_GTLC_ALLOWWAKEACK,
-				      allow,
-				      1);
+	err = intel_de_wait_for_register(dev_priv,
+					 VLV_GTLC_PW_STATUS,
+					 VLV_GTLC_ALLOWWAKEACK,
+					 allow,
+					 1);
 	if (err)
 		DRM_ERROR("timeout disabling GT waking\n");
 
@@ -2232,20 +2232,20 @@ static int vlv_wait_for_gt_wells(struct drm_i915_private *dev_priv,
 
 	mask = VLV_GTLC_PW_MEDIA_STATUS_MASK | VLV_GTLC_PW_RENDER_STATUS_MASK;
 	val = wait_for_on ? mask : 0;
-	if ((I915_READ(VLV_GTLC_PW_STATUS) & mask) == val)
+	if ((I915_DE_READ(VLV_GTLC_PW_STATUS) & mask) == val)
 		return 0;
 
 	DRM_DEBUG_KMS("waiting for GT wells to go %s (%08x)\n",
 		      onoff(wait_for_on),
-		      I915_READ(VLV_GTLC_PW_STATUS));
+		      I915_DE_READ(VLV_GTLC_PW_STATUS));
 
 	/*
 	 * RC6 transitioning can be delayed up to 2 msec (see
 	 * valleyview_enable_rps), use 3 msec for safety.
 	 */
-	err = intel_wait_for_register(dev_priv,
-				      VLV_GTLC_PW_STATUS, mask, val,
-				      3);
+	err = intel_de_wait_for_register(dev_priv,
+					 VLV_GTLC_PW_STATUS, mask, val,
+					 3);
 	if (err)
 		DRM_ERROR("timeout waiting for GT wells to go %s\n",
 			  onoff(wait_for_on));
@@ -2255,11 +2255,11 @@ static int vlv_wait_for_gt_wells(struct drm_i915_private *dev_priv,
 
 static void vlv_check_no_gt_access(struct drm_i915_private *dev_priv)
 {
-	if (!(I915_READ(VLV_GTLC_PW_STATUS) & VLV_GTLC_ALLOWWAKEERR))
+	if (!(I915_DE_READ(VLV_GTLC_PW_STATUS) & VLV_GTLC_ALLOWWAKEERR))
 		return;
 
 	DRM_DEBUG_DRIVER("GT register access while GT waking disabled\n");
-	I915_WRITE(VLV_GTLC_PW_STATUS, VLV_GTLC_ALLOWWAKEERR);
+	I915_DE_WRITE(VLV_GTLC_PW_STATUS, VLV_GTLC_ALLOWWAKEERR);
 }
 
 static int vlv_suspend_complete(struct drm_i915_private *dev_priv)
@@ -2274,7 +2274,7 @@ static int vlv_suspend_complete(struct drm_i915_private *dev_priv)
 	(void)vlv_wait_for_gt_wells(dev_priv, false);
 
 	mask = VLV_GTLC_RENDER_CTX_EXISTS | VLV_GTLC_MEDIA_CTX_EXISTS;
-	WARN_ON((I915_READ(VLV_GTLC_WAKE_CTRL) & mask) != mask);
+	WARN_ON((I915_DE_READ(VLV_GTLC_WAKE_CTRL) & mask) != mask);
 
 	vlv_check_no_gt_access(dev_priv);
 

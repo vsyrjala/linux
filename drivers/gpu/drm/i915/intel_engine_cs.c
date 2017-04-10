@@ -275,10 +275,10 @@ void intel_engine_init_global_seqno(struct intel_engine_cs *engine, u32 seqno)
 	 * future waits will complete instantly (causing rendering corruption).
 	 */
 	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv)) {
-		I915_WRITE(RING_SYNC_0(engine->mmio_base), 0);
-		I915_WRITE(RING_SYNC_1(engine->mmio_base), 0);
+		I915_GT_WRITE(RING_SYNC_0(engine->mmio_base), 0);
+		I915_GT_WRITE(RING_SYNC_1(engine->mmio_base), 0);
 		if (HAS_VEBOX(dev_priv))
-			I915_WRITE(RING_SYNC_2(engine->mmio_base), 0);
+			I915_GT_WRITE(RING_SYNC_2(engine->mmio_base), 0);
 	}
 	if (dev_priv->semaphore) {
 		struct page *page = i915_vma_first_page(dev_priv->semaphore);
@@ -442,12 +442,12 @@ u64 intel_engine_get_active_head(struct intel_engine_cs *engine)
 	u64 acthd;
 
 	if (INTEL_GEN(dev_priv) >= 8)
-		acthd = I915_READ64_2x32(RING_ACTHD(engine->mmio_base),
-					 RING_ACTHD_UDW(engine->mmio_base));
+		acthd = I915_GT_READ64_2x32(RING_ACTHD(engine->mmio_base),
+					    RING_ACTHD_UDW(engine->mmio_base));
 	else if (INTEL_GEN(dev_priv) >= 4)
-		acthd = I915_READ(RING_ACTHD(engine->mmio_base));
+		acthd = I915_GT_READ(RING_ACTHD(engine->mmio_base));
 	else
-		acthd = I915_READ(ACTHD);
+		acthd = I915_GT_READ(ACTHD);
 
 	return acthd;
 }
@@ -458,10 +458,10 @@ u64 intel_engine_get_last_batch_head(struct intel_engine_cs *engine)
 	u64 bbaddr;
 
 	if (INTEL_GEN(dev_priv) >= 8)
-		bbaddr = I915_READ64_2x32(RING_BBADDR(engine->mmio_base),
-					  RING_BBADDR_UDW(engine->mmio_base));
+		bbaddr = I915_GT_READ64_2x32(RING_BBADDR(engine->mmio_base),
+					     RING_BBADDR_UDW(engine->mmio_base));
 	else
-		bbaddr = I915_READ(RING_BBADDR(engine->mmio_base));
+		bbaddr = I915_GT_READ(RING_BBADDR(engine->mmio_base));
 
 	return bbaddr;
 }
@@ -494,7 +494,7 @@ read_subslice_reg(struct drm_i915_private *dev_priv, int slice,
 	spin_lock_irq(&dev_priv->uncore.lock);
 	intel_uncore_forcewake_get__locked(dev_priv, fw_domains);
 
-	mcr = I915_READ_FW(GEN8_MCR_SELECTOR);
+	mcr = I915_GT_READ_FW(GEN8_MCR_SELECTOR);
 	/*
 	 * The HW expects the slice and sublice selectors to be reset to 0
 	 * after reading out the registers.
@@ -502,12 +502,12 @@ read_subslice_reg(struct drm_i915_private *dev_priv, int slice,
 	WARN_ON_ONCE(mcr & (GEN8_MCR_SLICE_MASK | GEN8_MCR_SUBSLICE_MASK));
 	mcr &= ~(GEN8_MCR_SLICE_MASK | GEN8_MCR_SUBSLICE_MASK);
 	mcr |= GEN8_MCR_SLICE(slice) | GEN8_MCR_SUBSLICE(subslice);
-	I915_WRITE_FW(GEN8_MCR_SELECTOR, mcr);
+	I915_GT_WRITE_FW(GEN8_MCR_SELECTOR, mcr);
 
-	ret = I915_READ_FW(reg);
+	ret = I915_GT_READ_FW(reg);
 
 	mcr &= ~(GEN8_MCR_SLICE_MASK | GEN8_MCR_SUBSLICE_MASK);
-	I915_WRITE_FW(GEN8_MCR_SELECTOR, mcr);
+	I915_GT_WRITE_FW(GEN8_MCR_SELECTOR, mcr);
 
 	intel_uncore_forcewake_put__locked(dev_priv, fw_domains);
 	spin_unlock_irq(&dev_priv->uncore.lock);
@@ -528,12 +528,12 @@ void intel_engine_get_instdone(struct intel_engine_cs *engine,
 
 	switch (INTEL_GEN(dev_priv)) {
 	default:
-		instdone->instdone = I915_READ(RING_INSTDONE(mmio_base));
+		instdone->instdone = I915_GT_READ(RING_INSTDONE(mmio_base));
 
 		if (engine->id != RCS)
 			break;
 
-		instdone->slice_common = I915_READ(GEN7_SC_INSTDONE);
+		instdone->slice_common = I915_GT_READ(GEN7_SC_INSTDONE);
 		for_each_instdone_slice_subslice(dev_priv, slice, subslice) {
 			instdone->sampler[slice][subslice] =
 				read_subslice_reg(dev_priv, slice, subslice,
@@ -544,28 +544,28 @@ void intel_engine_get_instdone(struct intel_engine_cs *engine,
 		}
 		break;
 	case 7:
-		instdone->instdone = I915_READ(RING_INSTDONE(mmio_base));
+		instdone->instdone = I915_GT_READ(RING_INSTDONE(mmio_base));
 
 		if (engine->id != RCS)
 			break;
 
-		instdone->slice_common = I915_READ(GEN7_SC_INSTDONE);
-		instdone->sampler[0][0] = I915_READ(GEN7_SAMPLER_INSTDONE);
-		instdone->row[0][0] = I915_READ(GEN7_ROW_INSTDONE);
+		instdone->slice_common = I915_GT_READ(GEN7_SC_INSTDONE);
+		instdone->sampler[0][0] = I915_GT_READ(GEN7_SAMPLER_INSTDONE);
+		instdone->row[0][0] = I915_GT_READ(GEN7_ROW_INSTDONE);
 
 		break;
 	case 6:
 	case 5:
 	case 4:
-		instdone->instdone = I915_READ(RING_INSTDONE(mmio_base));
+		instdone->instdone = I915_GT_READ(RING_INSTDONE(mmio_base));
 
 		if (engine->id == RCS)
 			/* HACK: Using the wrong struct member */
-			instdone->slice_common = I915_READ(GEN4_INSTDONE1);
+			instdone->slice_common = I915_GT_READ(GEN4_INSTDONE1);
 		break;
 	case 3:
 	case 2:
-		instdone->instdone = I915_READ(GEN2_INSTDONE);
+		instdone->instdone = I915_GT_READ(GEN2_INSTDONE);
 		break;
 	}
 }
@@ -603,8 +603,8 @@ static int wa_add(struct drm_i915_private *dev_priv,
 #define WA_SET_FIELD_MASKED(addr, mask, value) \
 	WA_REG(addr, mask, _MASKED_FIELD(mask, value))
 
-#define WA_SET_BIT(addr, mask) WA_REG(addr, mask, I915_READ(addr) | (mask))
-#define WA_CLR_BIT(addr, mask) WA_REG(addr, mask, I915_READ(addr) & ~(mask))
+#define WA_SET_BIT(addr, mask) WA_REG(addr, mask, I915_GT_READ(addr) | (mask))
+#define WA_CLR_BIT(addr, mask) WA_REG(addr, mask, I915_GT_READ(addr) & ~(mask))
 
 #define WA_WRITE(addr, val) WA_REG(addr, 0xffffffff, val)
 
@@ -732,15 +732,15 @@ static int gen9_init_workarounds(struct intel_engine_cs *engine)
 	int ret;
 
 	/* WaConextSwitchWithConcurrentTLBInvalidate:skl,bxt,kbl,glk */
-	I915_WRITE(GEN9_CSFE_CHICKEN1_RCS, _MASKED_BIT_ENABLE(GEN9_PREEMPT_GPGPU_SYNC_SWITCH_DISABLE));
+	I915_GT_WRITE(GEN9_CSFE_CHICKEN1_RCS, _MASKED_BIT_ENABLE(GEN9_PREEMPT_GPGPU_SYNC_SWITCH_DISABLE));
 
 	/* WaEnableLbsSlaRetryTimerDecrement:skl,bxt,kbl,glk */
-	I915_WRITE(BDW_SCRATCH1, I915_READ(BDW_SCRATCH1) |
-		   GEN9_LBS_SLA_RETRY_TIMER_DECREMENT_ENABLE);
+	I915_GT_WRITE(BDW_SCRATCH1, I915_GT_READ(BDW_SCRATCH1) |
+		      GEN9_LBS_SLA_RETRY_TIMER_DECREMENT_ENABLE);
 
 	/* WaDisableKillLogic:bxt,skl,kbl */
-	I915_WRITE(GAM_ECOCHK, I915_READ(GAM_ECOCHK) |
-		   ECOCHK_DIS_TLB);
+	I915_GT_WRITE(GAM_ECOCHK, I915_GT_READ(GAM_ECOCHK) |
+		      ECOCHK_DIS_TLB);
 
 	/* WaClearFlowControlGpgpuContextSave:skl,bxt,kbl,glk */
 	/* WaDisablePartialInstShootdown:skl,bxt,kbl,glk */
@@ -809,8 +809,8 @@ static int gen9_init_workarounds(struct intel_engine_cs *engine)
 			  HDC_FORCE_NON_COHERENT);
 
 	/* WaDisableHDCInvalidation:skl,bxt,kbl */
-	I915_WRITE(GAM_ECOCHK, I915_READ(GAM_ECOCHK) |
-		   BDW_DISABLE_HDC_INVALIDATION);
+	I915_GT_WRITE(GAM_ECOCHK, I915_GT_READ(GAM_ECOCHK) |
+		      BDW_DISABLE_HDC_INVALIDATION);
 
 	/* WaDisableSamplerPowerBypassForSOPingPong:skl,bxt,kbl */
 	if (IS_SKYLAKE(dev_priv) ||
@@ -823,8 +823,8 @@ static int gen9_init_workarounds(struct intel_engine_cs *engine)
 	WA_SET_BIT_MASKED(HALF_SLICE_CHICKEN2, GEN8_ST_PO_DISABLE);
 
 	/* WaOCLCoherentLineFlush:skl,bxt,kbl */
-	I915_WRITE(GEN8_L3SQCREG4, (I915_READ(GEN8_L3SQCREG4) |
-				    GEN8_LQSC_FLUSH_COHERENT_LINES));
+	I915_GT_WRITE(GEN8_L3SQCREG4, I915_GT_READ(GEN8_L3SQCREG4) |
+		      GEN8_LQSC_FLUSH_COHERENT_LINES);
 
 	/* WaVFEStateAfterPipeControlwithMediaStateClear:skl,bxt,glk */
 	ret = wa_ring_whitelist_reg(engine, GEN9_CTX_PREEMPT_REG);
@@ -899,12 +899,12 @@ static int skl_init_workarounds(struct intel_engine_cs *engine)
 	 * until D0 which is the default case so this is equivalent to
 	 * !WaDisablePerCtxtPreemptionGranularityControl:skl
 	 */
-	I915_WRITE(GEN7_FF_SLICE_CS_CHICKEN1,
-		   _MASKED_BIT_ENABLE(GEN9_FFSC_PERCTX_PREEMPT_CTRL));
+	I915_GT_WRITE(GEN7_FF_SLICE_CS_CHICKEN1,
+		      _MASKED_BIT_ENABLE(GEN9_FFSC_PERCTX_PREEMPT_CTRL));
 
 	/* WaEnableGapsTsvCreditFix:skl */
-	I915_WRITE(GEN8_GARBCNTL, (I915_READ(GEN8_GARBCNTL) |
-				   GEN9_GAPS_TSV_CREDIT_DISABLE));
+	I915_GT_WRITE(GEN8_GARBCNTL, I915_GT_READ(GEN8_GARBCNTL) |
+		      GEN9_GAPS_TSV_CREDIT_DISABLE);
 
 	/* WaDisableGafsUnitClkGating:skl */
 	WA_SET_BIT(GEN7_UCGCTL4, GEN8_EU_GAUNIT_CLOCK_GATE_DISABLE);
@@ -934,12 +934,12 @@ static int bxt_init_workarounds(struct intel_engine_cs *engine)
 	/* WaStoreMultiplePTEenable:bxt */
 	/* This is a requirement according to Hardware specification */
 	if (IS_BXT_REVID(dev_priv, 0, BXT_REVID_A1))
-		I915_WRITE(TILECTL, I915_READ(TILECTL) | TILECTL_TLBPF);
+		I915_DE_WRITE(TILECTL, I915_DE_READ(TILECTL) | TILECTL_TLBPF);
 
 	/* WaSetClckGatingDisableMedia:bxt */
 	if (IS_BXT_REVID(dev_priv, 0, BXT_REVID_A1)) {
-		I915_WRITE(GEN7_MISCCPCTL, (I915_READ(GEN7_MISCCPCTL) &
-					    ~GEN8_DOP_CLOCK_GATE_MEDIA_ENABLE));
+		I915_GT_WRITE(GEN7_MISCCPCTL, I915_GT_READ(GEN7_MISCCPCTL) &
+			      ~GEN8_DOP_CLOCK_GATE_MEDIA_ENABLE);
 	}
 
 	/* WaDisableThreadStallDopClockGating:bxt */
@@ -975,8 +975,8 @@ static int bxt_init_workarounds(struct intel_engine_cs *engine)
 
 	/* WaProgramL3SqcReg1DefaultForPerf:bxt */
 	if (IS_BXT_REVID(dev_priv, BXT_REVID_B0, REVID_FOREVER))
-		I915_WRITE(GEN8_L3SQCREG1, L3_GENERAL_PRIO_CREDITS(62) |
-					   L3_HIGH_PRIO_CREDITS(2));
+		I915_GT_WRITE(GEN8_L3SQCREG1, L3_GENERAL_PRIO_CREDITS(62) |
+			      L3_HIGH_PRIO_CREDITS(2));
 
 	/* WaToEnableHwFixForPushConstHWBug:bxt */
 	if (IS_BXT_REVID(dev_priv, BXT_REVID_C0, REVID_FOREVER))
@@ -1001,8 +1001,8 @@ static int kbl_init_workarounds(struct intel_engine_cs *engine)
 		return ret;
 
 	/* WaEnableGapsTsvCreditFix:kbl */
-	I915_WRITE(GEN8_GARBCNTL, (I915_READ(GEN8_GARBCNTL) |
-				   GEN9_GAPS_TSV_CREDIT_DISABLE));
+	I915_GT_WRITE(GEN8_GARBCNTL, I915_GT_READ(GEN8_GARBCNTL) |
+		      GEN9_GAPS_TSV_CREDIT_DISABLE);
 
 	/* WaDisableDynamicCreditSharing:kbl */
 	if (IS_KBL_REVID(dev_priv, 0, KBL_REVID_B0))

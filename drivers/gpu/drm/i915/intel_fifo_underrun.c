@@ -88,15 +88,15 @@ static void i9xx_check_fifo_underruns(struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	i915_reg_t reg = PIPESTAT(crtc->pipe);
-	u32 pipestat = I915_READ(reg) & 0xffff0000;
+	u32 pipestat = I915_DE_READ(reg) & 0xffff0000;
 
 	lockdep_assert_held(&dev_priv->irq_lock);
 
 	if ((pipestat & PIPE_FIFO_UNDERRUN_STATUS) == 0)
 		return;
 
-	I915_WRITE(reg, pipestat | PIPE_FIFO_UNDERRUN_STATUS);
-	POSTING_READ(reg);
+	I915_DE_WRITE(reg, pipestat | PIPE_FIFO_UNDERRUN_STATUS);
+	POSTING_DE_READ(reg);
 
 	trace_intel_cpu_fifo_underrun(dev_priv, crtc->pipe);
 	DRM_ERROR("pipe %c underrun\n", pipe_name(crtc->pipe));
@@ -108,13 +108,13 @@ static void i9xx_set_fifo_underrun_reporting(struct drm_device *dev,
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	i915_reg_t reg = PIPESTAT(pipe);
-	u32 pipestat = I915_READ(reg) & 0xffff0000;
+	u32 pipestat = I915_DE_READ(reg) & 0xffff0000;
 
 	lockdep_assert_held(&dev_priv->irq_lock);
 
 	if (enable) {
-		I915_WRITE(reg, pipestat | PIPE_FIFO_UNDERRUN_STATUS);
-		POSTING_READ(reg);
+		I915_DE_WRITE(reg, pipestat | PIPE_FIFO_UNDERRUN_STATUS);
+		POSTING_DE_READ(reg);
 	} else {
 		if (old && pipestat & PIPE_FIFO_UNDERRUN_STATUS)
 			DRM_ERROR("pipe %c underrun\n", pipe_name(pipe));
@@ -138,15 +138,15 @@ static void ivybridge_check_fifo_underruns(struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum pipe pipe = crtc->pipe;
-	uint32_t err_int = I915_READ(GEN7_ERR_INT);
+	uint32_t err_int = I915_DE_READ(GEN7_ERR_INT);
 
 	lockdep_assert_held(&dev_priv->irq_lock);
 
 	if ((err_int & ERR_INT_FIFO_UNDERRUN(pipe)) == 0)
 		return;
 
-	I915_WRITE(GEN7_ERR_INT, ERR_INT_FIFO_UNDERRUN(pipe));
-	POSTING_READ(GEN7_ERR_INT);
+	I915_DE_WRITE(GEN7_ERR_INT, ERR_INT_FIFO_UNDERRUN(pipe));
+	POSTING_DE_READ(GEN7_ERR_INT);
 
 	trace_intel_cpu_fifo_underrun(dev_priv, pipe);
 	DRM_ERROR("fifo underrun on pipe %c\n", pipe_name(pipe));
@@ -158,7 +158,7 @@ static void ivybridge_set_fifo_underrun_reporting(struct drm_device *dev,
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	if (enable) {
-		I915_WRITE(GEN7_ERR_INT, ERR_INT_FIFO_UNDERRUN(pipe));
+		I915_DE_WRITE(GEN7_ERR_INT, ERR_INT_FIFO_UNDERRUN(pipe));
 
 		if (!ivb_can_enable_err_int(dev))
 			return;
@@ -168,7 +168,7 @@ static void ivybridge_set_fifo_underrun_reporting(struct drm_device *dev,
 		ilk_disable_display_irq(dev_priv, DE_ERR_INT_IVB);
 
 		if (old &&
-		    I915_READ(GEN7_ERR_INT) & ERR_INT_FIFO_UNDERRUN(pipe)) {
+		    I915_DE_READ(GEN7_ERR_INT) & ERR_INT_FIFO_UNDERRUN(pipe)) {
 			DRM_ERROR("uncleared fifo underrun on pipe %c\n",
 				  pipe_name(pipe));
 		}
@@ -204,15 +204,15 @@ static void cpt_check_pch_fifo_underruns(struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum transcoder pch_transcoder = (enum transcoder) crtc->pipe;
-	uint32_t serr_int = I915_READ(SERR_INT);
+	uint32_t serr_int = I915_DE_READ(SERR_INT);
 
 	lockdep_assert_held(&dev_priv->irq_lock);
 
 	if ((serr_int & SERR_INT_TRANS_FIFO_UNDERRUN(pch_transcoder)) == 0)
 		return;
 
-	I915_WRITE(SERR_INT, SERR_INT_TRANS_FIFO_UNDERRUN(pch_transcoder));
-	POSTING_READ(SERR_INT);
+	I915_DE_WRITE(SERR_INT, SERR_INT_TRANS_FIFO_UNDERRUN(pch_transcoder));
+	POSTING_DE_READ(SERR_INT);
 
 	trace_intel_pch_fifo_underrun(dev_priv, pch_transcoder);
 	DRM_ERROR("pch fifo underrun on pch transcoder %s\n",
@@ -226,8 +226,8 @@ static void cpt_set_fifo_underrun_reporting(struct drm_device *dev,
 	struct drm_i915_private *dev_priv = to_i915(dev);
 
 	if (enable) {
-		I915_WRITE(SERR_INT,
-			   SERR_INT_TRANS_FIFO_UNDERRUN(pch_transcoder));
+		I915_DE_WRITE(SERR_INT,
+			      SERR_INT_TRANS_FIFO_UNDERRUN(pch_transcoder));
 
 		if (!cpt_can_enable_serr_int(dev))
 			return;
@@ -236,7 +236,7 @@ static void cpt_set_fifo_underrun_reporting(struct drm_device *dev,
 	} else {
 		ibx_disable_display_interrupt(dev_priv, SDE_ERROR_CPT);
 
-		if (old && I915_READ(SERR_INT) &
+		if (old && I915_DE_READ(SERR_INT) &
 		    SERR_INT_TRANS_FIFO_UNDERRUN(pch_transcoder)) {
 			DRM_ERROR("uncleared pch fifo underrun on pch transcoder %s\n",
 				  transcoder_name(pch_transcoder));

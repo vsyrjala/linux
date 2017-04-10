@@ -217,7 +217,7 @@ static int __destroy_doorbell(struct i915_guc_client *client)
 	/* Doorbell release flow requires that we wait for GEN8_DRB_VALID bit
 	 * to go to zero after updating db_status before we call the GuC to
 	 * release the doorbell */
-	if (wait_for_us(!(I915_READ(GEN8_DRBREGL(db_id)) & GEN8_DRB_VALID), 10))
+	if (wait_for_us(!(I915_GT_READ(GEN8_DRBREGL(db_id)) & GEN8_DRB_VALID), 10))
 		WARN_ONCE(true, "Doorbell never became invalid after disable\n");
 
 	return __guc_deallocate_doorbell(client->guc, client->stage_id);
@@ -608,7 +608,7 @@ static void __i915_guc_submit(struct drm_i915_gem_request *rq)
 
 	/* WA to flush out the pending GMADR writes to ring buffer. */
 	if (i915_vma_is_map_and_fenceable(rq->ring->vma))
-		POSTING_READ_FW(GUC_STATUS);
+		POSTING_GT_READ_FW(GUC_STATUS);
 
 	spin_lock_irqsave(&client->wq_lock, flags);
 
@@ -777,7 +777,7 @@ static bool doorbell_ok(struct intel_guc *guc, u16 db_id)
 
 	GEM_BUG_ON(db_id >= GUC_DOORBELL_INVALID);
 
-	drbregl = I915_READ(GEN8_DRBREGL(db_id));
+	drbregl = I915_GT_READ(GEN8_DRBREGL(db_id));
 	valid = drbregl & GEN8_DRB_VALID;
 
 	if (test_bit(db_id, guc->doorbell_bitmap) == valid)
@@ -1142,15 +1142,15 @@ static void guc_interrupts_capture(struct drm_i915_private *dev_priv)
 	/* tell all command streamers to forward interrupts (but not vblank) to GuC */
 	irqs = _MASKED_BIT_ENABLE(GFX_INTERRUPT_STEERING);
 	for_each_engine(engine, dev_priv, id)
-		I915_WRITE(RING_MODE_GEN7(engine), irqs);
+		I915_GT_WRITE(RING_MODE_GEN7(engine), irqs);
 
 	/* route USER_INTERRUPT to Host, all others are sent to GuC. */
 	irqs = GT_RENDER_USER_INTERRUPT << GEN8_RCS_IRQ_SHIFT |
 	       GT_RENDER_USER_INTERRUPT << GEN8_BCS_IRQ_SHIFT;
 	/* These three registers have the same bit definitions */
-	I915_WRITE(GUC_BCS_RCS_IER, ~irqs);
-	I915_WRITE(GUC_VCS2_VCS1_IER, ~irqs);
-	I915_WRITE(GUC_WD_VECS_IER, ~irqs);
+	I915_GT_WRITE(GUC_BCS_RCS_IER, ~irqs);
+	I915_GT_WRITE(GUC_VCS2_VCS1_IER, ~irqs);
+	I915_GT_WRITE(GUC_WD_VECS_IER, ~irqs);
 
 	/*
 	 * The REDIRECT_TO_GUC bit of the PMINTRMSK register directs all
@@ -1188,12 +1188,12 @@ static void guc_interrupts_release(struct drm_i915_private *dev_priv)
 	irqs = _MASKED_FIELD(GFX_FORWARD_VBLANK_MASK, GFX_FORWARD_VBLANK_NEVER);
 	irqs |= _MASKED_BIT_DISABLE(GFX_INTERRUPT_STEERING);
 	for_each_engine(engine, dev_priv, id)
-		I915_WRITE(RING_MODE_GEN7(engine), irqs);
+		I915_GT_WRITE(RING_MODE_GEN7(engine), irqs);
 
 	/* route all GT interrupts to the host */
-	I915_WRITE(GUC_BCS_RCS_IER, 0);
-	I915_WRITE(GUC_VCS2_VCS1_IER, 0);
-	I915_WRITE(GUC_WD_VECS_IER, 0);
+	I915_GT_WRITE(GUC_BCS_RCS_IER, 0);
+	I915_GT_WRITE(GUC_VCS2_VCS1_IER, 0);
+	I915_GT_WRITE(GUC_WD_VECS_IER, 0);
 
 	dev_priv->rps.pm_intrmsk_mbz |= GEN8_PMINTR_DISABLE_REDIRECT_TO_GUC;
 	dev_priv->rps.pm_intrmsk_mbz &= ~ARAT_EXPIRED_INTRMSK;

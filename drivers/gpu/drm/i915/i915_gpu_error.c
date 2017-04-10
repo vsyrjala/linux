@@ -1025,13 +1025,13 @@ static void i915_gem_record_fences(struct drm_i915_private *dev_priv,
 
 	if (INTEL_GEN(dev_priv) >= 6) {
 		for (i = 0; i < dev_priv->num_fence_regs; i++)
-			error->fence[i] = I915_READ64(FENCE_REG_GEN6_LO(i));
+			error->fence[i] = I915_DE_READ64(FENCE_REG_GEN6_LO(i));
 	} else if (INTEL_GEN(dev_priv) >= 4) {
 		for (i = 0; i < dev_priv->num_fence_regs; i++)
-			error->fence[i] = I915_READ64(FENCE_REG_965_LO(i));
+			error->fence[i] = I915_GT_READ64(FENCE_REG_965_LO(i));
 	} else {
 		for (i = 0; i < dev_priv->num_fence_regs; i++)
-			error->fence[i] = I915_READ(FENCE_REG(i));
+			error->fence[i] = I915_GT_READ(FENCE_REG(i));
 	}
 	error->nfence = i;
 }
@@ -1090,11 +1090,11 @@ static void gen6_record_semaphore_state(struct intel_engine_cs *engine,
 {
 	struct drm_i915_private *dev_priv = engine->i915;
 
-	ee->semaphore_mboxes[0] = I915_READ(RING_SYNC_0(engine->mmio_base));
-	ee->semaphore_mboxes[1] = I915_READ(RING_SYNC_1(engine->mmio_base));
+	ee->semaphore_mboxes[0] = I915_GT_READ(RING_SYNC_0(engine->mmio_base));
+	ee->semaphore_mboxes[1] = I915_GT_READ(RING_SYNC_1(engine->mmio_base));
 	if (HAS_VEBOX(dev_priv))
 		ee->semaphore_mboxes[2] =
-			I915_READ(RING_SYNC_2(engine->mmio_base));
+			I915_GT_READ(RING_SYNC_2(engine->mmio_base));
 }
 
 static void error_record_engine_waiters(struct intel_engine_cs *engine,
@@ -1157,8 +1157,8 @@ static void error_record_engine_registers(struct i915_gpu_state *error,
 	struct drm_i915_private *dev_priv = engine->i915;
 
 	if (INTEL_GEN(dev_priv) >= 6) {
-		ee->rc_psmi = I915_READ(RING_PSMI_CTL(engine->mmio_base));
-		ee->fault_reg = I915_READ(RING_FAULT_REG(engine));
+		ee->rc_psmi = I915_GT_READ(RING_PSMI_CTL(engine->mmio_base));
+		ee->fault_reg = I915_GT_READ(RING_FAULT_REG(engine));
 		if (INTEL_GEN(dev_priv) >= 8)
 			gen8_record_semaphore_state(error, engine, ee);
 		else
@@ -1166,26 +1166,26 @@ static void error_record_engine_registers(struct i915_gpu_state *error,
 	}
 
 	if (INTEL_GEN(dev_priv) >= 4) {
-		ee->faddr = I915_READ(RING_DMA_FADD(engine->mmio_base));
-		ee->ipeir = I915_READ(RING_IPEIR(engine->mmio_base));
-		ee->ipehr = I915_READ(RING_IPEHR(engine->mmio_base));
-		ee->instps = I915_READ(RING_INSTPS(engine->mmio_base));
-		ee->bbaddr = I915_READ(RING_BBADDR(engine->mmio_base));
+		ee->faddr = I915_GT_READ(RING_DMA_FADD(engine->mmio_base));
+		ee->ipeir = I915_GT_READ(RING_IPEIR(engine->mmio_base));
+		ee->ipehr = I915_GT_READ(RING_IPEHR(engine->mmio_base));
+		ee->instps = I915_GT_READ(RING_INSTPS(engine->mmio_base));
+		ee->bbaddr = I915_GT_READ(RING_BBADDR(engine->mmio_base));
 		if (INTEL_GEN(dev_priv) >= 8) {
-			ee->faddr |= (u64) I915_READ(RING_DMA_FADD_UDW(engine->mmio_base)) << 32;
-			ee->bbaddr |= (u64) I915_READ(RING_BBADDR_UDW(engine->mmio_base)) << 32;
+			ee->faddr |= (u64) I915_GT_READ(RING_DMA_FADD_UDW(engine->mmio_base)) << 32;
+			ee->bbaddr |= (u64) I915_GT_READ(RING_BBADDR_UDW(engine->mmio_base)) << 32;
 		}
-		ee->bbstate = I915_READ(RING_BBSTATE(engine->mmio_base));
+		ee->bbstate = I915_GT_READ(RING_BBSTATE(engine->mmio_base));
 	} else {
-		ee->faddr = I915_READ(DMA_FADD_I8XX);
-		ee->ipeir = I915_READ(IPEIR);
-		ee->ipehr = I915_READ(IPEHR);
+		ee->faddr = I915_GT_READ(DMA_FADD_I8XX);
+		ee->ipeir = I915_GT_READ(IPEIR);
+		ee->ipehr = I915_GT_READ(IPEHR);
 	}
 
 	intel_engine_get_instdone(engine, &ee->instdone);
 
 	ee->waiting = intel_engine_has_waiter(engine);
-	ee->instpm = I915_READ(RING_INSTPM(engine->mmio_base));
+	ee->instpm = I915_GT_READ(RING_INSTPM(engine->mmio_base));
 	ee->acthd = intel_engine_get_active_head(engine);
 	ee->seqno = intel_engine_get_seqno(engine);
 	ee->last_seqno = intel_engine_last_submit(engine);
@@ -1222,7 +1222,7 @@ static void error_record_engine_registers(struct i915_gpu_state *error,
 			mmio = RING_HWS_PGA(engine->mmio_base);
 		}
 
-		ee->hws = I915_READ(mmio);
+		ee->hws = I915_GT_READ(mmio);
 	}
 
 	ee->hangcheck_timestamp = engine->hangcheck.action_timestamp;
@@ -1232,21 +1232,21 @@ static void error_record_engine_registers(struct i915_gpu_state *error,
 	if (USES_PPGTT(dev_priv)) {
 		int i;
 
-		ee->vm_info.gfx_mode = I915_READ(RING_MODE_GEN7(engine));
+		ee->vm_info.gfx_mode = I915_GT_READ(RING_MODE_GEN7(engine));
 
 		if (IS_GEN6(dev_priv))
 			ee->vm_info.pp_dir_base =
-				I915_READ(RING_PP_DIR_BASE_READ(engine));
+				I915_GT_READ(RING_PP_DIR_BASE_READ(engine));
 		else if (IS_GEN7(dev_priv))
 			ee->vm_info.pp_dir_base =
-				I915_READ(RING_PP_DIR_BASE(engine));
+				I915_GT_READ(RING_PP_DIR_BASE(engine));
 		else if (INTEL_GEN(dev_priv) >= 8)
 			for (i = 0; i < 4; i++) {
 				ee->vm_info.pdp[i] =
-					I915_READ(GEN8_RING_PDP_UDW(engine, i));
+					I915_GT_READ(GEN8_RING_PDP_UDW(engine, i));
 				ee->vm_info.pdp[i] <<= 32;
 				ee->vm_info.pdp[i] |=
-					I915_READ(GEN8_RING_PDP_LDW(engine, i));
+					I915_GT_READ(GEN8_RING_PDP_LDW(engine, i));
 			}
 	}
 }
@@ -1531,61 +1531,61 @@ static void i915_capture_reg_state(struct drm_i915_private *dev_priv,
 
 	/* 1: Registers specific to a single generation */
 	if (IS_VALLEYVIEW(dev_priv)) {
-		error->gtier[0] = I915_READ(GTIER);
-		error->ier = I915_READ(VLV_IER);
-		error->forcewake = I915_READ_FW(FORCEWAKE_VLV);
+		error->gtier[0] = I915_DE_READ(GTIER);
+		error->ier = I915_DE_READ(VLV_IER);
+		error->forcewake = I915_DE_READ_FW(FORCEWAKE_VLV);
 	}
 
 	if (IS_GEN7(dev_priv))
-		error->err_int = I915_READ(GEN7_ERR_INT);
+		error->err_int = I915_DE_READ(GEN7_ERR_INT);
 
 	if (INTEL_GEN(dev_priv) >= 8) {
-		error->fault_data0 = I915_READ(GEN8_FAULT_TLB_DATA0);
-		error->fault_data1 = I915_READ(GEN8_FAULT_TLB_DATA1);
+		error->fault_data0 = I915_GT_READ(GEN8_FAULT_TLB_DATA0);
+		error->fault_data1 = I915_GT_READ(GEN8_FAULT_TLB_DATA1);
 	}
 
 	if (IS_GEN6(dev_priv)) {
-		error->forcewake = I915_READ_FW(FORCEWAKE);
-		error->gab_ctl = I915_READ(GAB_CTL);
-		error->gfx_mode = I915_READ(GFX_MODE);
+		error->forcewake = I915_GT_READ_FW(FORCEWAKE);
+		error->gab_ctl = I915_GT_READ(GAB_CTL);
+		error->gfx_mode = I915_GT_READ(GFX_MODE);
 	}
 
 	/* 2: Registers which belong to multiple generations */
 	if (INTEL_GEN(dev_priv) >= 7)
-		error->forcewake = I915_READ_FW(FORCEWAKE_MT);
+		error->forcewake = I915_GT_READ_FW(FORCEWAKE_MT);
 
 	if (INTEL_GEN(dev_priv) >= 6) {
-		error->derrmr = I915_READ(DERRMR);
-		error->error = I915_READ(ERROR_GEN6);
-		error->done_reg = I915_READ(DONE_REG);
+		error->derrmr = I915_DE_READ(DERRMR);
+		error->error = I915_GT_READ(ERROR_GEN6);
+		error->done_reg = I915_GT_READ(DONE_REG);
 	}
 
 	/* 3: Feature specific registers */
 	if (IS_GEN6(dev_priv) || IS_GEN7(dev_priv)) {
-		error->gam_ecochk = I915_READ(GAM_ECOCHK);
-		error->gac_eco = I915_READ(GAC_ECO_BITS);
+		error->gam_ecochk = I915_GT_READ(GAM_ECOCHK);
+		error->gac_eco = I915_GT_READ(GAC_ECO_BITS);
 	}
 
 	/* 4: Everything else */
 	if (HAS_HW_CONTEXTS(dev_priv))
-		error->ccid = I915_READ(CCID);
+		error->ccid = I915_GT_READ(CCID);
 
 	if (INTEL_GEN(dev_priv) >= 8) {
-		error->ier = I915_READ(GEN8_DE_MISC_IER);
+		error->ier = I915_DE_READ(GEN8_DE_MISC_IER);
 		for (i = 0; i < 4; i++)
-			error->gtier[i] = I915_READ(GEN8_GT_IER(i));
+			error->gtier[i] = I915_DE_READ(GEN8_GT_IER(i));
 		error->ngtier = 4;
 	} else if (HAS_PCH_SPLIT(dev_priv)) {
-		error->ier = I915_READ(DEIER);
-		error->gtier[0] = I915_READ(GTIER);
+		error->ier = I915_DE_READ(DEIER);
+		error->gtier[0] = I915_DE_READ(GTIER);
 		error->ngtier = 1;
 	} else if (IS_GEN2(dev_priv)) {
-		error->ier = I915_READ16(IER);
+		error->ier = I915_GT_READ16(IER);
 	} else if (!IS_VALLEYVIEW(dev_priv)) {
-		error->ier = I915_READ(IER);
+		error->ier = I915_GT_READ(IER);
 	}
-	error->eir = I915_READ(EIR);
-	error->pgtbl_er = I915_READ(PGTBL_ER);
+	error->eir = I915_GT_READ(EIR);
+	error->pgtbl_er = I915_GT_READ(PGTBL_ER);
 }
 
 static void i915_error_capture_msg(struct drm_i915_private *dev_priv,

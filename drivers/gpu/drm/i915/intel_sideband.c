@@ -51,28 +51,26 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 
 	WARN_ON(!mutex_is_locked(&dev_priv->sb_lock));
 
-	if (intel_wait_for_register(dev_priv,
-				    VLV_IOSF_DOORBELL_REQ, IOSF_SB_BUSY, 0,
-				    5)) {
+	if (intel_de_wait_for_register(dev_priv, VLV_IOSF_DOORBELL_REQ,
+				       IOSF_SB_BUSY, 0, 5)) {
 		DRM_DEBUG_DRIVER("IOSF sideband idle wait (%s) timed out\n",
 				 is_read ? "read" : "write");
 		return -EAGAIN;
 	}
 
-	I915_WRITE(VLV_IOSF_ADDR, addr);
-	I915_WRITE(VLV_IOSF_DATA, is_read ? 0 : *val);
-	I915_WRITE(VLV_IOSF_DOORBELL_REQ, cmd);
+	I915_DE_WRITE(VLV_IOSF_ADDR, addr);
+	I915_DE_WRITE(VLV_IOSF_DATA, is_read ? 0 : *val);
+	I915_DE_WRITE(VLV_IOSF_DOORBELL_REQ, cmd);
 
-	if (intel_wait_for_register(dev_priv,
-				    VLV_IOSF_DOORBELL_REQ, IOSF_SB_BUSY, 0,
-				    5)) {
+	if (intel_de_wait_for_register(dev_priv, VLV_IOSF_DOORBELL_REQ,
+				       IOSF_SB_BUSY, 0, 5)) {
 		DRM_DEBUG_DRIVER("IOSF sideband finish wait (%s) timed out\n",
 				 is_read ? "read" : "write");
 		return -ETIMEDOUT;
 	}
 
 	if (is_read)
-		*val = I915_READ(VLV_IOSF_DATA);
+		*val = I915_DE_READ(VLV_IOSF_DATA);
 
 	return 0;
 }
@@ -208,37 +206,33 @@ u32 intel_sbi_read(struct drm_i915_private *dev_priv, u16 reg,
 	u32 value = 0;
 	WARN_ON(!mutex_is_locked(&dev_priv->sb_lock));
 
-	if (intel_wait_for_register(dev_priv,
-				    SBI_CTL_STAT, SBI_BUSY, 0,
-				    100)) {
+	if (intel_de_wait_for_register(dev_priv, SBI_CTL_STAT,
+				       SBI_BUSY, 0, 100)) {
 		DRM_ERROR("timeout waiting for SBI to become ready\n");
 		return 0;
 	}
 
-	I915_WRITE(SBI_ADDR, (reg << 16));
-	I915_WRITE(SBI_DATA, 0);
+	I915_DE_WRITE(SBI_ADDR, (reg << 16));
+	I915_DE_WRITE(SBI_DATA, 0);
 
 	if (destination == SBI_ICLK)
 		value = SBI_CTL_DEST_ICLK | SBI_CTL_OP_CRRD;
 	else
 		value = SBI_CTL_DEST_MPHY | SBI_CTL_OP_IORD;
-	I915_WRITE(SBI_CTL_STAT, value | SBI_BUSY);
+	I915_DE_WRITE(SBI_CTL_STAT, value | SBI_BUSY);
 
-	if (intel_wait_for_register(dev_priv,
-				    SBI_CTL_STAT,
-				    SBI_BUSY,
-				    0,
-				    100)) {
+	if (intel_de_wait_for_register(dev_priv, SBI_CTL_STAT,
+				       SBI_BUSY, 0, 100)) {
 		DRM_ERROR("timeout waiting for SBI to complete read\n");
 		return 0;
 	}
 
-	if (I915_READ(SBI_CTL_STAT) & SBI_RESPONSE_FAIL) {
+	if (I915_DE_READ(SBI_CTL_STAT) & SBI_RESPONSE_FAIL) {
 		DRM_ERROR("error during SBI read of reg %x\n", reg);
 		return 0;
 	}
 
-	return I915_READ(SBI_DATA);
+	return I915_DE_READ(SBI_DATA);
 }
 
 void intel_sbi_write(struct drm_i915_private *dev_priv, u16 reg, u32 value,
@@ -248,32 +242,28 @@ void intel_sbi_write(struct drm_i915_private *dev_priv, u16 reg, u32 value,
 
 	WARN_ON(!mutex_is_locked(&dev_priv->sb_lock));
 
-	if (intel_wait_for_register(dev_priv,
-				    SBI_CTL_STAT, SBI_BUSY, 0,
-				    100)) {
+	if (intel_de_wait_for_register(dev_priv, SBI_CTL_STAT,
+				       SBI_BUSY, 0, 100)) {
 		DRM_ERROR("timeout waiting for SBI to become ready\n");
 		return;
 	}
 
-	I915_WRITE(SBI_ADDR, (reg << 16));
-	I915_WRITE(SBI_DATA, value);
+	I915_DE_WRITE(SBI_ADDR, (reg << 16));
+	I915_DE_WRITE(SBI_DATA, value);
 
 	if (destination == SBI_ICLK)
 		tmp = SBI_CTL_DEST_ICLK | SBI_CTL_OP_CRWR;
 	else
 		tmp = SBI_CTL_DEST_MPHY | SBI_CTL_OP_IOWR;
-	I915_WRITE(SBI_CTL_STAT, SBI_BUSY | tmp);
+	I915_DE_WRITE(SBI_CTL_STAT, SBI_BUSY | tmp);
 
-	if (intel_wait_for_register(dev_priv,
-				    SBI_CTL_STAT,
-				    SBI_BUSY,
-				    0,
-				    100)) {
+	if (intel_de_wait_for_register(dev_priv, SBI_CTL_STAT,
+				       SBI_BUSY, 0, 100)) {
 		DRM_ERROR("timeout waiting for SBI to complete write\n");
 		return;
 	}
 
-	if (I915_READ(SBI_CTL_STAT) & SBI_RESPONSE_FAIL) {
+	if (I915_DE_READ(SBI_CTL_STAT) & SBI_RESPONSE_FAIL) {
 		DRM_ERROR("error during SBI write of %x to reg %x\n",
 			  value, reg);
 		return;

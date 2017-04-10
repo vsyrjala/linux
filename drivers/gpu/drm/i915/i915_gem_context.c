@@ -99,11 +99,11 @@ static int get_context_size(struct drm_i915_private *dev_priv)
 
 	switch (INTEL_GEN(dev_priv)) {
 	case 6:
-		reg = I915_READ(CXT_SIZE);
+		reg = I915_GT_READ(CXT_SIZE);
 		ret = GEN6_CXT_TOTAL_SIZE(reg) * 64;
 		break;
 	case 7:
-		reg = I915_READ(GEN7_CXT_SIZE);
+		reg = I915_GT_READ(GEN7_CXT_SIZE);
 		if (IS_HASWELL(dev_priv))
 			ret = HSW_CXT_TOTAL_SIZE;
 		else

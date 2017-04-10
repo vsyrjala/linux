@@ -322,8 +322,8 @@ struct perf_open_properties {
 static bool gen7_oa_buffer_is_empty_fop_unlocked(struct drm_i915_private *dev_priv)
 {
 	int report_size = dev_priv->perf.oa.oa_buffer.format_size;
-	u32 oastatus2 = I915_READ(GEN7_OASTATUS2);
-	u32 oastatus1 = I915_READ(GEN7_OASTATUS1);
+	u32 oastatus2 = I915_GT_READ(GEN7_OASTATUS2);
+	u32 oastatus1 = I915_GT_READ(GEN7_OASTATUS1);
 	u32 head = oastatus2 & GEN7_OASTATUS2_HEAD_MASK;
 	u32 tail = oastatus1 & GEN7_OASTATUS1_TAIL_MASK;
 
@@ -470,7 +470,7 @@ static int gen7_append_oa_reports(struct i915_perf_stream *stream,
 			  head, tail);
 		dev_priv->perf.oa.ops.oa_disable(dev_priv);
 		dev_priv->perf.oa.ops.oa_enable(dev_priv);
-		*head_ptr = I915_READ(GEN7_OASTATUS2) &
+		*head_ptr = I915_GT_READ(GEN7_OASTATUS2) &
 			GEN7_OASTATUS2_HEAD_MASK;
 		return -EIO;
 	}
@@ -572,8 +572,8 @@ static int gen7_oa_read(struct i915_perf_stream *stream,
 	if (WARN_ON(!dev_priv->perf.oa.oa_buffer.vaddr))
 		return -EIO;
 
-	oastatus2 = I915_READ(GEN7_OASTATUS2);
-	oastatus1 = I915_READ(GEN7_OASTATUS1);
+	oastatus2 = I915_GT_READ(GEN7_OASTATUS2);
+	oastatus1 = I915_GT_READ(GEN7_OASTATUS1);
 
 	head = oastatus2 & GEN7_OASTATUS2_HEAD_MASK;
 	tail = oastatus1 & GEN7_OASTATUS1_TAIL_MASK;
@@ -616,8 +616,8 @@ static int gen7_oa_read(struct i915_perf_stream *stream,
 		dev_priv->perf.oa.ops.oa_disable(dev_priv);
 		dev_priv->perf.oa.ops.oa_enable(dev_priv);
 
-		oastatus2 = I915_READ(GEN7_OASTATUS2);
-		oastatus1 = I915_READ(GEN7_OASTATUS1);
+		oastatus2 = I915_GT_READ(GEN7_OASTATUS2);
+		oastatus1 = I915_GT_READ(GEN7_OASTATUS1);
 
 		head = oastatus2 & GEN7_OASTATUS2_HEAD_MASK;
 		tail = oastatus1 & GEN7_OASTATUS1_TAIL_MASK;
@@ -650,9 +650,9 @@ static int gen7_oa_read(struct i915_perf_stream *stream,
 	 * was returned since the error may represent a short read
 	 * where some some reports were successfully copied.
 	 */
-	I915_WRITE(GEN7_OASTATUS2,
-		   ((head & GEN7_OASTATUS2_HEAD_MASK) |
-		    OA_MEM_SELECT_GGTT));
+	I915_GT_WRITE(GEN7_OASTATUS2,
+		      ((head & GEN7_OASTATUS2_HEAD_MASK) |
+		       OA_MEM_SELECT_GGTT));
 
 	return ret;
 }
@@ -833,9 +833,9 @@ static void gen7_init_oa_buffer(struct drm_i915_private *dev_priv)
 	/* Pre-DevBDW: OABUFFER must be set with counters off,
 	 * before OASTATUS1, but after OASTATUS2
 	 */
-	I915_WRITE(GEN7_OASTATUS2, gtt_offset | OA_MEM_SELECT_GGTT); /* head */
-	I915_WRITE(GEN7_OABUFFER, gtt_offset);
-	I915_WRITE(GEN7_OASTATUS1, gtt_offset | OABUFFER_SIZE_16M); /* tail */
+	I915_GT_WRITE(GEN7_OASTATUS2, gtt_offset | OA_MEM_SELECT_GGTT); /* head */
+	I915_GT_WRITE(GEN7_OABUFFER, gtt_offset);
+	I915_GT_WRITE(GEN7_OASTATUS1, gtt_offset | OABUFFER_SIZE_16M); /* tail */
 
 	/* On Haswell we have to track which OASTATUS1 flags we've
 	 * already seen since they can't be cleared while periodic
@@ -935,7 +935,7 @@ static void config_oa_regs(struct drm_i915_private *dev_priv,
 	for (i = 0; i < n_regs; i++) {
 		const struct i915_oa_reg *reg = regs + i;
 
-		I915_WRITE(reg->addr, reg->value);
+		I915_GT_WRITE(reg->addr, reg->value);
 	}
 }
 
@@ -946,7 +946,7 @@ static int hsw_enable_metric_set(struct drm_i915_private *dev_priv)
 	if (ret)
 		return ret;
 
-	I915_WRITE(GDT_CHICKEN_BITS, (I915_READ(GDT_CHICKEN_BITS) |
+	I915_GT_WRITE(GDT_CHICKEN_BITS, (I915_GT_READ(GDT_CHICKEN_BITS) |
 				      GT_NOA_ENABLE));
 
 	/* PRM:
@@ -958,10 +958,10 @@ static int hsw_enable_metric_set(struct drm_i915_private *dev_priv)
 	 * count the events from non-render domain. Unit level clock
 	 * gating for RCS should also be disabled.
 	 */
-	I915_WRITE(GEN7_MISCCPCTL, (I915_READ(GEN7_MISCCPCTL) &
-				    ~GEN7_DOP_CLOCK_GATE_ENABLE));
-	I915_WRITE(GEN6_UCGCTL1, (I915_READ(GEN6_UCGCTL1) |
-				  GEN6_CSUNIT_CLOCK_GATE_DISABLE));
+	I915_GT_WRITE(GEN7_MISCCPCTL, I915_GT_READ(GEN7_MISCCPCTL) &
+		      ~GEN7_DOP_CLOCK_GATE_ENABLE);
+	I915_GT_WRITE(GEN6_UCGCTL1, I915_GT_READ(GEN6_UCGCTL1) |
+		      GEN6_CSUNIT_CLOCK_GATE_DISABLE);
 
 	config_oa_regs(dev_priv, dev_priv->perf.oa.mux_regs,
 		       dev_priv->perf.oa.mux_regs_len);
@@ -997,13 +997,13 @@ static int hsw_enable_metric_set(struct drm_i915_private *dev_priv)
 
 static void hsw_disable_metric_set(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(GEN6_UCGCTL1, (I915_READ(GEN6_UCGCTL1) &
-				  ~GEN6_CSUNIT_CLOCK_GATE_DISABLE));
-	I915_WRITE(GEN7_MISCCPCTL, (I915_READ(GEN7_MISCCPCTL) |
-				    GEN7_DOP_CLOCK_GATE_ENABLE));
+	I915_GT_WRITE(GEN6_UCGCTL1, I915_GT_READ(GEN6_UCGCTL1) &
+		      ~GEN6_CSUNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN7_MISCCPCTL, I915_GT_READ(GEN7_MISCCPCTL) |
+		      GEN7_DOP_CLOCK_GATE_ENABLE);
 
-	I915_WRITE(GDT_CHICKEN_BITS, (I915_READ(GDT_CHICKEN_BITS) &
-				      ~GT_NOA_ENABLE));
+	I915_GT_WRITE(GDT_CHICKEN_BITS, I915_GT_READ(GDT_CHICKEN_BITS) &
+		      ~GT_NOA_ENABLE);
 }
 
 static void gen7_update_oacontrol_locked(struct drm_i915_private *dev_priv)
@@ -1019,16 +1019,17 @@ static void gen7_update_oacontrol_locked(struct drm_i915_private *dev_priv)
 		u32 period_exponent = dev_priv->perf.oa.period_exponent;
 		u32 report_format = dev_priv->perf.oa.oa_buffer.format;
 
-		I915_WRITE(GEN7_OACONTROL,
-			   (ctx_id & GEN7_OACONTROL_CTX_MASK) |
-			   (period_exponent <<
-			    GEN7_OACONTROL_TIMER_PERIOD_SHIFT) |
-			   (periodic ? GEN7_OACONTROL_TIMER_ENABLE : 0) |
-			   (report_format << GEN7_OACONTROL_FORMAT_SHIFT) |
-			   (ctx ? GEN7_OACONTROL_PER_CTX_ENABLE : 0) |
-			   GEN7_OACONTROL_ENABLE);
-	} else
-		I915_WRITE(GEN7_OACONTROL, 0);
+		I915_GT_WRITE(GEN7_OACONTROL,
+			      (ctx_id & GEN7_OACONTROL_CTX_MASK) |
+			      (period_exponent <<
+			       GEN7_OACONTROL_TIMER_PERIOD_SHIFT) |
+			      (periodic ? GEN7_OACONTROL_TIMER_ENABLE : 0) |
+			      (report_format << GEN7_OACONTROL_FORMAT_SHIFT) |
+			      (ctx ? GEN7_OACONTROL_PER_CTX_ENABLE : 0) |
+			      GEN7_OACONTROL_ENABLE);
+	} else {
+		I915_GT_WRITE(GEN7_OACONTROL, 0);
+	}
 }
 
 static void gen7_oa_enable(struct drm_i915_private *dev_priv)
@@ -1073,7 +1074,7 @@ static void i915_oa_stream_enable(struct i915_perf_stream *stream)
 
 static void gen7_oa_disable(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(GEN7_OACONTROL, 0);
+	I915_GT_WRITE(GEN7_OACONTROL, 0);
 }
 
 /**

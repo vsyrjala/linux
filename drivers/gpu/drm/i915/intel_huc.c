@@ -107,34 +107,34 @@ static int huc_ucode_xfer(struct drm_i915_private *dev_priv)
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
 	/* init WOPCM */
-	I915_WRITE(GUC_WOPCM_SIZE, intel_guc_wopcm_size(dev_priv));
-	I915_WRITE(DMA_GUC_WOPCM_OFFSET, GUC_WOPCM_OFFSET_VALUE |
-			HUC_LOADING_AGENT_GUC);
+	I915_GT_WRITE(GUC_WOPCM_SIZE, intel_guc_wopcm_size(dev_priv));
+	I915_GT_WRITE(DMA_GUC_WOPCM_OFFSET, GUC_WOPCM_OFFSET_VALUE |
+		      HUC_LOADING_AGENT_GUC);
 
 	/* Set the source address for the uCode */
 	offset = guc_ggtt_offset(vma) + huc_fw->header_offset;
-	I915_WRITE(DMA_ADDR_0_LOW, lower_32_bits(offset));
-	I915_WRITE(DMA_ADDR_0_HIGH, upper_32_bits(offset) & 0xFFFF);
+	I915_GT_WRITE(DMA_ADDR_0_LOW, lower_32_bits(offset));
+	I915_GT_WRITE(DMA_ADDR_0_HIGH, upper_32_bits(offset) & 0xFFFF);
 
 	/* Hardware doesn't look at destination address for HuC. Set it to 0,
 	 * but still program the correct address space.
 	 */
-	I915_WRITE(DMA_ADDR_1_LOW, 0);
-	I915_WRITE(DMA_ADDR_1_HIGH, DMA_ADDRESS_SPACE_WOPCM);
+	I915_GT_WRITE(DMA_ADDR_1_LOW, 0);
+	I915_GT_WRITE(DMA_ADDR_1_HIGH, DMA_ADDRESS_SPACE_WOPCM);
 
 	size = huc_fw->header_size + huc_fw->ucode_size;
-	I915_WRITE(DMA_COPY_SIZE, size);
+	I915_GT_WRITE(DMA_COPY_SIZE, size);
 
 	/* Start the DMA */
-	I915_WRITE(DMA_CTRL, _MASKED_BIT_ENABLE(HUC_UKERNEL | START_DMA));
+	I915_GT_WRITE(DMA_CTRL, _MASKED_BIT_ENABLE(HUC_UKERNEL | START_DMA));
 
 	/* Wait for DMA to finish */
-	ret = wait_for((I915_READ(DMA_CTRL) & START_DMA) == 0, 100);
+	ret = wait_for((I915_GT_READ(DMA_CTRL) & START_DMA) == 0, 100);
 
 	DRM_DEBUG_DRIVER("HuC DMA transfer wait over with ret %d\n", ret);
 
 	/* Disable the bits once DMA is over */
-	I915_WRITE(DMA_CTRL, _MASKED_BIT_DISABLE(HUC_UKERNEL));
+	I915_GT_WRITE(DMA_CTRL, _MASKED_BIT_DISABLE(HUC_UKERNEL));
 
 	intel_uncore_forcewake_put(dev_priv, FORCEWAKE_ALL);
 
@@ -266,7 +266,7 @@ void intel_guc_auth_huc(struct drm_i915_private *dev_priv)
 	}
 
 	/* Check authentication status, it should be done by now */
-	ret = intel_wait_for_register(dev_priv,
+	ret = intel_gt_wait_for_register(dev_priv,
 				HUC_STATUS2,
 				HUC_FW_VERIFIED,
 				HUC_FW_VERIFIED,

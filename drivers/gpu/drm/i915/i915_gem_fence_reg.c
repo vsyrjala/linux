@@ -57,40 +57,41 @@
 
 #define pipelined 0
 
-static void i965_write_fence_reg(struct drm_i915_fence_reg *fence,
+static u64 i965_fence_val(struct drm_i915_fence_reg *fence,
+			  struct i915_vma *vma,
+			  int fence_pitch_shift)
+{
+	unsigned int stride;
+	u64 val;
+
+	stride = i915_gem_object_get_stride(vma->obj);
+
+	GEM_BUG_ON(!i915_vma_is_map_and_fenceable(vma));
+	GEM_BUG_ON(!IS_ALIGNED(vma->node.start, I965_FENCE_PAGE));
+	GEM_BUG_ON(!IS_ALIGNED(vma->fence_size, I965_FENCE_PAGE));
+	GEM_BUG_ON(!IS_ALIGNED(stride, 128));
+
+	val = (vma->node.start + vma->fence_size - I965_FENCE_PAGE) << 32;
+	val |= vma->node.start;
+	val |= (u64)((stride / 128) - 1) << fence_pitch_shift;
+	if (i915_gem_object_get_tiling(vma->obj) == I915_TILING_Y)
+		val |= BIT(I965_FENCE_TILING_Y_SHIFT);
+	val |= I965_FENCE_REG_VALID;
+
+	return val;
+}
+
+static void gen6_write_fence_reg(struct drm_i915_fence_reg *fence,
 				 struct i915_vma *vma)
 {
 	i915_reg_t fence_reg_lo, fence_reg_hi;
-	int fence_pitch_shift;
-	u64 val;
+	u64 val = 0;
 
-	if (INTEL_INFO(fence->i915)->gen >= 6) {
-		fence_reg_lo = FENCE_REG_GEN6_LO(fence->id);
-		fence_reg_hi = FENCE_REG_GEN6_HI(fence->id);
-		fence_pitch_shift = GEN6_FENCE_PITCH_SHIFT;
+	fence_reg_lo = FENCE_REG_GEN6_LO(fence->id);
+	fence_reg_hi = FENCE_REG_GEN6_HI(fence->id);
 
-	} else {
-		fence_reg_lo = FENCE_REG_965_LO(fence->id);
-		fence_reg_hi = FENCE_REG_965_HI(fence->id);
-		fence_pitch_shift = I965_FENCE_PITCH_SHIFT;
-	}
-
-	val = 0;
-	if (vma) {
-		unsigned int stride = i915_gem_object_get_stride(vma->obj);
-
-		GEM_BUG_ON(!i915_vma_is_map_and_fenceable(vma));
-		GEM_BUG_ON(!IS_ALIGNED(vma->node.start, I965_FENCE_PAGE));
-		GEM_BUG_ON(!IS_ALIGNED(vma->fence_size, I965_FENCE_PAGE));
-		GEM_BUG_ON(!IS_ALIGNED(stride, 128));
-
-		val = (vma->node.start + vma->fence_size - I965_FENCE_PAGE) << 32;
-		val |= vma->node.start;
-		val |= (u64)((stride / 128) - 1) << fence_pitch_shift;
-		if (i915_gem_object_get_tiling(vma->obj) == I915_TILING_Y)
-			val |= BIT(I965_FENCE_TILING_Y_SHIFT);
-		val |= I965_FENCE_REG_VALID;
-	}
+	if (vma)
+		val = i965_fence_val(fence, vma, GEN6_FENCE_PITCH_SHIFT);
 
 	if (!pipelined) {
 		struct drm_i915_private *dev_priv = fence->i915;
@@ -104,12 +105,45 @@ static void i965_write_fence_reg(struct drm_i915_fence_reg *fence,
 		 * For extra levels of paranoia, we make sure each step lands
 		 * before applying the next step.
 		 */
-		I915_WRITE(fence_reg_lo, 0);
-		POSTING_READ(fence_reg_lo);
+		I915_DE_WRITE(fence_reg_lo, 0);
+		POSTING_DE_READ(fence_reg_lo);
 
-		I915_WRITE(fence_reg_hi, upper_32_bits(val));
-		I915_WRITE(fence_reg_lo, lower_32_bits(val));
-		POSTING_READ(fence_reg_lo);
+		I915_DE_WRITE(fence_reg_hi, upper_32_bits(val));
+		I915_DE_WRITE(fence_reg_lo, lower_32_bits(val));
+		POSTING_DE_READ(fence_reg_lo);
+	}
+}
+
+static void i965_write_fence_reg(struct drm_i915_fence_reg *fence,
+				 struct i915_vma *vma)
+{
+	i915_reg_t fence_reg_lo, fence_reg_hi;
+	u64 val = 0;
+
+	fence_reg_lo = FENCE_REG_965_LO(fence->id);
+	fence_reg_hi = FENCE_REG_965_HI(fence->id);
+
+	if (vma)
+		val = i965_fence_val(fence, vma, I965_FENCE_PITCH_SHIFT);
+
+	if (!pipelined) {
+		struct drm_i915_private *dev_priv = fence->i915;
+
+		/* To w/a incoherency with non-atomic 64-bit register updates,
+		 * we split the 64-bit update into two 32-bit writes. In order
+		 * for a partial fence not to be evaluated between writes, we
+		 * precede the update with write to turn off the fence register,
+		 * and only enable the fence as the last step.
+		 *
+		 * For extra levels of paranoia, we make sure each step lands
+		 * before applying the next step.
+		 */
+		I915_GT_WRITE(fence_reg_lo, 0);
+		POSTING_GT_READ(fence_reg_lo);
+
+		I915_GT_WRITE(fence_reg_hi, upper_32_bits(val));
+		I915_GT_WRITE(fence_reg_lo, lower_32_bits(val));
+		POSTING_GT_READ(fence_reg_lo);
 	}
 }
 
@@ -148,8 +182,8 @@ static void i915_write_fence_reg(struct drm_i915_fence_reg *fence,
 		struct drm_i915_private *dev_priv = fence->i915;
 		i915_reg_t reg = FENCE_REG(fence->id);
 
-		I915_WRITE(reg, val);
-		POSTING_READ(reg);
+		I915_GT_WRITE(reg, val);
+		POSTING_GT_READ(reg);
 	}
 }
 
@@ -180,8 +214,8 @@ static void i830_write_fence_reg(struct drm_i915_fence_reg *fence,
 		struct drm_i915_private *dev_priv = fence->i915;
 		i915_reg_t reg = FENCE_REG(fence->id);
 
-		I915_WRITE(reg, val);
-		POSTING_READ(reg);
+		I915_GT_WRITE(reg, val);
+		POSTING_GT_READ(reg);
 	}
 }
 
@@ -197,6 +231,8 @@ static void fence_write(struct drm_i915_fence_reg *fence,
 		i830_write_fence_reg(fence, vma);
 	else if (IS_GEN3(fence->i915))
 		i915_write_fence_reg(fence, vma);
+	else if (INTEL_GEN(fence->i915) >= 6)
+		gen6_write_fence_reg(fence, vma);
 	else
 		i965_write_fence_reg(fence, vma);
 
@@ -490,7 +526,7 @@ i915_gem_detect_bit_6_swizzle(struct drm_i915_private *dev_priv)
 		swizzle_y = I915_BIT_6_SWIZZLE_NONE;
 	} else if (INTEL_GEN(dev_priv) >= 6) {
 		if (dev_priv->preserve_bios_swizzle) {
-			if (I915_READ(DISP_ARB_CTL) &
+			if (I915_DE_READ(DISP_ARB_CTL) &
 			    DISP_TILE_SURFACE_SWIZZLING) {
 				swizzle_x = I915_BIT_6_SWIZZLE_9_10;
 				swizzle_y = I915_BIT_6_SWIZZLE_9;
@@ -500,8 +536,8 @@ i915_gem_detect_bit_6_swizzle(struct drm_i915_private *dev_priv)
 			}
 		} else {
 			uint32_t dimm_c0, dimm_c1;
-			dimm_c0 = I915_READ(MAD_DIMM_C0);
-			dimm_c1 = I915_READ(MAD_DIMM_C1);
+			dimm_c0 = I915_DE_READ(MAD_DIMM_C0);
+			dimm_c1 = I915_DE_READ(MAD_DIMM_C1);
 			dimm_c0 &= MAD_DIMM_A_SIZE_MASK | MAD_DIMM_B_SIZE_MASK;
 			dimm_c1 &= MAD_DIMM_A_SIZE_MASK | MAD_DIMM_B_SIZE_MASK;
 			/* Enable swizzling when the channels are populated
@@ -541,7 +577,7 @@ i915_gem_detect_bit_6_swizzle(struct drm_i915_private *dev_priv)
 		 * can be based on either bit 11 (haven't seen this yet) or
 		 * bit 17 (common).
 		 */
-		dcc = I915_READ(DCC);
+		dcc = I915_GT_READ(DCC);
 		switch (dcc & DCC_ADDRESSING_MODE_MASK) {
 		case DCC_ADDRESSING_MODE_SINGLE_CHANNEL:
 		case DCC_ADDRESSING_MODE_DUAL_CHANNEL_ASYMMETRIC:
@@ -569,7 +605,7 @@ i915_gem_detect_bit_6_swizzle(struct drm_i915_private *dev_priv)
 
 		/* check for L-shaped memory aka modified enhanced addressing */
 		if (IS_GEN4(dev_priv) &&
-		    !(I915_READ(DCC2) & DCC2_MODIFIED_ENHANCED_DISABLE)) {
+		    !(I915_GT_READ(DCC2) & DCC2_MODIFIED_ENHANCED_DISABLE)) {
 			swizzle_x = I915_BIT_6_SWIZZLE_UNKNOWN;
 			swizzle_y = I915_BIT_6_SWIZZLE_UNKNOWN;
 		}
@@ -607,7 +643,7 @@ i915_gem_detect_bit_6_swizzle(struct drm_i915_private *dev_priv)
 		 * banks of memory are paired and unswizzled on the
 		 * uneven portion, so leave that as unknown.
 		 */
-		if (I915_READ16(C0DRB3) == I915_READ16(C1DRB3)) {
+		if (I915_GT_READ16(C0DRB3) == I915_GT_READ16(C1DRB3)) {
 			swizzle_x = I915_BIT_6_SWIZZLE_9_10;
 			swizzle_y = I915_BIT_6_SWIZZLE_9;
 		}

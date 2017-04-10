@@ -188,10 +188,10 @@ int intel_vgt_balloon(struct drm_i915_private *dev_priv)
 	if (!intel_vgpu_active(dev_priv))
 		return 0;
 
-	mappable_base = I915_READ(vgtif_reg(avail_rs.mappable_gmadr.base));
-	mappable_size = I915_READ(vgtif_reg(avail_rs.mappable_gmadr.size));
-	unmappable_base = I915_READ(vgtif_reg(avail_rs.nonmappable_gmadr.base));
-	unmappable_size = I915_READ(vgtif_reg(avail_rs.nonmappable_gmadr.size));
+	mappable_base = I915_GT_READ(vgtif_reg(avail_rs.mappable_gmadr.base));
+	mappable_size = I915_GT_READ(vgtif_reg(avail_rs.mappable_gmadr.size));
+	unmappable_base = I915_GT_READ(vgtif_reg(avail_rs.nonmappable_gmadr.base));
+	unmappable_size = I915_GT_READ(vgtif_reg(avail_rs.nonmappable_gmadr.size));
 
 	mappable_end = mappable_base + mappable_size;
 	unmappable_end = unmappable_base + unmappable_size;

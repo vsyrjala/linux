@@ -3348,7 +3348,7 @@ i915_gem_object_flush_gtt_write_domain(struct drm_i915_gem_object *obj)
 	if (INTEL_GEN(dev_priv) >= 6 && !HAS_LLC(dev_priv)) {
 		if (intel_runtime_pm_get_if_in_use(dev_priv)) {
 			spin_lock_irq(&dev_priv->uncore.lock);
-			POSTING_READ_FW(RING_ACTHD(dev_priv->engine[RCS]->mmio_base));
+			POSTING_GT_READ_FW(RING_ACTHD(dev_priv->engine[RCS]->mmio_base));
 			spin_unlock_irq(&dev_priv->uncore.lock);
 			intel_runtime_pm_put(dev_priv);
 		}
@@ -4533,29 +4533,29 @@ void i915_gem_init_swizzling(struct drm_i915_private *dev_priv)
 	    dev_priv->mm.bit_6_swizzle_x == I915_BIT_6_SWIZZLE_NONE)
 		return;
 
-	I915_WRITE(DISP_ARB_CTL, I915_READ(DISP_ARB_CTL) |
-				 DISP_TILE_SURFACE_SWIZZLING);
+	I915_DE_WRITE(DISP_ARB_CTL, I915_DE_READ(DISP_ARB_CTL) |
+		      DISP_TILE_SURFACE_SWIZZLING);
 
 	if (IS_GEN5(dev_priv))
 		return;
 
-	I915_WRITE(TILECTL, I915_READ(TILECTL) | TILECTL_SWZCTL);
+	I915_DE_WRITE(TILECTL, I915_DE_READ(TILECTL) | TILECTL_SWZCTL);
 	if (IS_GEN6(dev_priv))
-		I915_WRITE(ARB_MODE, _MASKED_BIT_ENABLE(ARB_MODE_SWIZZLE_SNB));
+		I915_GT_WRITE(ARB_MODE, _MASKED_BIT_ENABLE(ARB_MODE_SWIZZLE_SNB));
 	else if (IS_GEN7(dev_priv))
-		I915_WRITE(ARB_MODE, _MASKED_BIT_ENABLE(ARB_MODE_SWIZZLE_IVB));
+		I915_GT_WRITE(ARB_MODE, _MASKED_BIT_ENABLE(ARB_MODE_SWIZZLE_IVB));
 	else if (IS_GEN8(dev_priv))
-		I915_WRITE(GAMTARBMODE, _MASKED_BIT_ENABLE(ARB_MODE_SWIZZLE_BDW));
+		I915_GT_WRITE(GAMTARBMODE, _MASKED_BIT_ENABLE(ARB_MODE_SWIZZLE_BDW));
 	else
 		BUG();
 }
 
 static void init_unused_ring(struct drm_i915_private *dev_priv, u32 base)
 {
-	I915_WRITE(RING_CTL(base), 0);
-	I915_WRITE(RING_HEAD(base), 0);
-	I915_WRITE(RING_TAIL(base), 0);
-	I915_WRITE(RING_START(base), 0);
+	I915_GT_WRITE(RING_CTL(base), 0);
+	I915_GT_WRITE(RING_HEAD(base), 0);
+	I915_GT_WRITE(RING_TAIL(base), 0);
+	I915_GT_WRITE(RING_START(base), 0);
 }
 
 static void init_unused_rings(struct drm_i915_private *dev_priv)
@@ -4601,21 +4601,21 @@ int i915_gem_init_hw(struct drm_i915_private *dev_priv)
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
 	if (HAS_EDRAM(dev_priv) && INTEL_GEN(dev_priv) < 9)
-		I915_WRITE(HSW_IDICR, I915_READ(HSW_IDICR) | IDIHASHMSK(0xf));
+		I915_GT_WRITE(HSW_IDICR, I915_GT_READ(HSW_IDICR) | IDIHASHMSK(0xf));
 
 	if (IS_HASWELL(dev_priv))
-		I915_WRITE(MI_PREDICATE_RESULT_2, IS_HSW_GT3(dev_priv) ?
+		I915_GT_WRITE(MI_PREDICATE_RESULT_2, IS_HSW_GT3(dev_priv) ?
 			   LOWER_SLICE_ENABLED : LOWER_SLICE_DISABLED);
 
 	if (HAS_PCH_NOP(dev_priv)) {
 		if (IS_IVYBRIDGE(dev_priv)) {
-			u32 temp = I915_READ(GEN7_MSG_CTL);
+			u32 temp = I915_DE_READ(GEN7_MSG_CTL);
 			temp &= ~(WAIT_FOR_PCH_FLR_ACK | WAIT_FOR_PCH_RESET_ACK);
-			I915_WRITE(GEN7_MSG_CTL, temp);
+			I915_DE_WRITE(GEN7_MSG_CTL, temp);
 		} else if (INTEL_GEN(dev_priv) >= 7) {
-			u32 temp = I915_READ(HSW_NDE_RSTWRN_OPT);
+			u32 temp = I915_DE_READ(HSW_NDE_RSTWRN_OPT);
 			temp &= ~RESET_PCH_HANDSHAKE_ENABLE;
-			I915_WRITE(HSW_NDE_RSTWRN_OPT, temp);
+			I915_DE_WRITE(HSW_NDE_RSTWRN_OPT, temp);
 		}
 	}
 
@@ -4763,7 +4763,7 @@ i915_gem_load_init_fences(struct drm_i915_private *dev_priv)
 
 	if (intel_vgpu_active(dev_priv))
 		dev_priv->num_fence_regs =
-				I915_READ(vgtif_reg(avail_rs.fence_num));
+				I915_DE_READ(vgtif_reg(avail_rs.fence_num));
 
 	/* Initialize fence registers to zero */
 	for (i = 0; i < dev_priv->num_fence_regs; i++) {

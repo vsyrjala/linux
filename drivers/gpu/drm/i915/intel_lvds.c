@@ -100,7 +100,7 @@ static bool intel_lvds_get_hw_state(struct intel_encoder *encoder,
 
 	ret = false;
 
-	tmp = I915_READ(lvds_encoder->reg);
+	tmp = I915_DE_READ(lvds_encoder->reg);
 
 	if (!(tmp & LVDS_PORT_EN))
 		goto out;
@@ -125,7 +125,7 @@ static void intel_lvds_get_config(struct intel_encoder *encoder,
 	struct intel_lvds_encoder *lvds_encoder = to_lvds_encoder(&encoder->base);
 	u32 tmp, flags = 0;
 
-	tmp = I915_READ(lvds_encoder->reg);
+	tmp = I915_DE_READ(lvds_encoder->reg);
 	if (tmp & LVDS_HSYNC_POLARITY)
 		flags |= DRM_MODE_FLAG_NHSYNC;
 	else
@@ -143,7 +143,7 @@ static void intel_lvds_get_config(struct intel_encoder *encoder,
 
 	/* gen2/3 store dither state in pfit control, needs to match */
 	if (INTEL_GEN(dev_priv) < 4) {
-		tmp = I915_READ(PFIT_CONTROL);
+		tmp = I915_DE_READ(PFIT_CONTROL);
 
 		pipe_config->gmch_pfit.control |= tmp & PANEL_8TO6_DITHER_ENABLE;
 	}
@@ -156,9 +156,9 @@ static void intel_lvds_pps_get_hw_state(struct drm_i915_private *dev_priv,
 {
 	u32 val;
 
-	pps->powerdown_on_reset = I915_READ(PP_CONTROL(0)) & PANEL_POWER_RESET;
+	pps->powerdown_on_reset = I915_DE_READ(PP_CONTROL(0)) & PANEL_POWER_RESET;
 
-	val = I915_READ(PP_ON_DELAYS(0));
+	val = I915_DE_READ(PP_ON_DELAYS(0));
 	pps->port = (val & PANEL_PORT_SELECT_MASK) >>
 		    PANEL_PORT_SELECT_SHIFT;
 	pps->t1_t2 = (val & PANEL_POWER_UP_DELAY_MASK) >>
@@ -166,13 +166,13 @@ static void intel_lvds_pps_get_hw_state(struct drm_i915_private *dev_priv,
 	pps->t5 = (val & PANEL_LIGHT_ON_DELAY_MASK) >>
 		  PANEL_LIGHT_ON_DELAY_SHIFT;
 
-	val = I915_READ(PP_OFF_DELAYS(0));
+	val = I915_DE_READ(PP_OFF_DELAYS(0));
 	pps->t3 = (val & PANEL_POWER_DOWN_DELAY_MASK) >>
 		  PANEL_POWER_DOWN_DELAY_SHIFT;
 	pps->tx = (val & PANEL_LIGHT_OFF_DELAY_MASK) >>
 		  PANEL_LIGHT_OFF_DELAY_SHIFT;
 
-	val = I915_READ(PP_DIVISOR(0));
+	val = I915_DE_READ(PP_DIVISOR(0));
 	pps->divider = (val & PP_REFERENCE_DIVIDER_MASK) >>
 		       PP_REFERENCE_DIVIDER_SHIFT;
 	val = (val & PANEL_POWER_CYCLE_DELAY_MASK) >>
@@ -210,22 +210,22 @@ static void intel_lvds_pps_init_hw(struct drm_i915_private *dev_priv,
 {
 	u32 val;
 
-	val = I915_READ(PP_CONTROL(0));
+	val = I915_DE_READ(PP_CONTROL(0));
 	WARN_ON((val & PANEL_UNLOCK_MASK) != PANEL_UNLOCK_REGS);
 	if (pps->powerdown_on_reset)
 		val |= PANEL_POWER_RESET;
-	I915_WRITE(PP_CONTROL(0), val);
+	I915_DE_WRITE(PP_CONTROL(0), val);
 
-	I915_WRITE(PP_ON_DELAYS(0), (pps->port << PANEL_PORT_SELECT_SHIFT) |
+	I915_DE_WRITE(PP_ON_DELAYS(0), (pps->port << PANEL_PORT_SELECT_SHIFT) |
 				    (pps->t1_t2 << PANEL_POWER_UP_DELAY_SHIFT) |
 				    (pps->t5 << PANEL_LIGHT_ON_DELAY_SHIFT));
-	I915_WRITE(PP_OFF_DELAYS(0), (pps->t3 << PANEL_POWER_DOWN_DELAY_SHIFT) |
+	I915_DE_WRITE(PP_OFF_DELAYS(0), (pps->t3 << PANEL_POWER_DOWN_DELAY_SHIFT) |
 				     (pps->tx << PANEL_LIGHT_OFF_DELAY_SHIFT));
 
 	val = pps->divider << PP_REFERENCE_DIVIDER_SHIFT;
 	val |= (DIV_ROUND_UP(pps->t4, 1000) + 1) <<
 	       PANEL_POWER_CYCLE_DELAY_SHIFT;
-	I915_WRITE(PP_DIVISOR(0), val);
+	I915_DE_WRITE(PP_DIVISOR(0), val);
 }
 
 static void intel_pre_enable_lvds(struct intel_encoder *encoder,
@@ -299,7 +299,7 @@ static void intel_pre_enable_lvds(struct intel_encoder *encoder,
 	if (adjusted_mode->flags & DRM_MODE_FLAG_NVSYNC)
 		temp |= LVDS_VSYNC_POLARITY;
 
-	I915_WRITE(lvds_encoder->reg, temp);
+	I915_DE_WRITE(lvds_encoder->reg, temp);
 }
 
 /**
@@ -315,11 +315,11 @@ static void intel_enable_lvds(struct intel_encoder *encoder,
 		&lvds_encoder->attached_connector->base;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 
-	I915_WRITE(lvds_encoder->reg, I915_READ(lvds_encoder->reg) | LVDS_PORT_EN);
+	I915_DE_WRITE(lvds_encoder->reg, I915_DE_READ(lvds_encoder->reg) | LVDS_PORT_EN);
 
-	I915_WRITE(PP_CONTROL(0), I915_READ(PP_CONTROL(0)) | PANEL_POWER_ON);
-	POSTING_READ(lvds_encoder->reg);
-	if (intel_wait_for_register(dev_priv, PP_STATUS(0), PP_ON, PP_ON, 1000))
+	I915_DE_WRITE(PP_CONTROL(0), I915_DE_READ(PP_CONTROL(0)) | PANEL_POWER_ON);
+	POSTING_DE_READ(lvds_encoder->reg);
+	if (intel_de_wait_for_register(dev_priv, PP_STATUS(0), PP_ON, PP_ON, 1000))
 		DRM_ERROR("timed out waiting for panel to power on\n");
 
 	intel_panel_enable_backlight(intel_connector);
@@ -332,12 +332,12 @@ static void intel_disable_lvds(struct intel_encoder *encoder,
 	struct intel_lvds_encoder *lvds_encoder = to_lvds_encoder(&encoder->base);
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 
-	I915_WRITE(PP_CONTROL(0), I915_READ(PP_CONTROL(0)) & ~PANEL_POWER_ON);
-	if (intel_wait_for_register(dev_priv, PP_STATUS(0), PP_ON, 0, 1000))
+	I915_DE_WRITE(PP_CONTROL(0), I915_DE_READ(PP_CONTROL(0)) & ~PANEL_POWER_ON);
+	if (intel_de_wait_for_register(dev_priv, PP_STATUS(0), PP_ON, 0, 1000))
 		DRM_ERROR("timed out waiting for panel to power off\n");
 
-	I915_WRITE(lvds_encoder->reg, I915_READ(lvds_encoder->reg) & ~LVDS_PORT_EN);
-	POSTING_READ(lvds_encoder->reg);
+	I915_DE_WRITE(lvds_encoder->reg, I915_DE_READ(lvds_encoder->reg) & ~LVDS_PORT_EN);
+	POSTING_DE_READ(lvds_encoder->reg);
 }
 
 static void gmch_disable_lvds(struct intel_encoder *encoder,
@@ -940,7 +940,7 @@ static bool compute_is_dual_link_lvds(struct intel_lvds_encoder *lvds_encoder)
 	 * we need to check "the value to be set" in VBT when LVDS
 	 * register is uninitialized.
 	 */
-	val = I915_READ(lvds_encoder->reg);
+	val = I915_DE_READ(lvds_encoder->reg);
 	if (!(val & ~(LVDS_PIPE_MASK | LVDS_DETECTED)))
 		val = dev_priv->vbt.bios_lvds_val;
 
@@ -1001,7 +1001,7 @@ void intel_lvds_init(struct drm_i915_private *dev_priv)
 	else
 		lvds_reg = LVDS;
 
-	lvds = I915_READ(lvds_reg);
+	lvds = I915_DE_READ(lvds_reg);
 
 	if (HAS_PCH_SPLIT(dev_priv)) {
 		if ((lvds & LVDS_DETECTED) == 0)

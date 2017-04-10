@@ -148,10 +148,10 @@ static void lpe_audio_irq_unmask(struct irq_data *d)
 	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 
 	dev_priv->irq_mask &= ~val;
-	I915_WRITE(VLV_IIR, val);
-	I915_WRITE(VLV_IIR, val);
-	I915_WRITE(VLV_IMR, dev_priv->irq_mask);
-	POSTING_READ(VLV_IMR);
+	I915_DE_WRITE(VLV_IIR, val);
+	I915_DE_WRITE(VLV_IIR, val);
+	I915_DE_WRITE(VLV_IMR, dev_priv->irq_mask);
+	POSTING_DE_READ(VLV_IMR);
 
 	spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
 }
@@ -169,10 +169,10 @@ static void lpe_audio_irq_mask(struct irq_data *d)
 	spin_lock_irqsave(&dev_priv->irq_lock, irqflags);
 
 	dev_priv->irq_mask |= val;
-	I915_WRITE(VLV_IMR, dev_priv->irq_mask);
-	I915_WRITE(VLV_IIR, val);
-	I915_WRITE(VLV_IIR, val);
-	POSTING_READ(VLV_IIR);
+	I915_DE_WRITE(VLV_IMR, dev_priv->irq_mask);
+	I915_DE_WRITE(VLV_IIR, val);
+	I915_DE_WRITE(VLV_IIR, val);
+	POSTING_DE_READ(VLV_IIR);
 
 	spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
 }
@@ -251,7 +251,7 @@ static int lpe_audio_setup(struct drm_i915_private *dev_priv)
 	/* enable chicken bit; at least this is required for Dell Wyse 3040
 	 * with DP outputs (but only sometimes by some reason!)
 	 */
-	I915_WRITE(VLV_AUD_CHICKEN_BIT_REG, VLV_CHICKEN_BIT_DBG_ENABLE);
+	I915_DE_WRITE(VLV_AUD_CHICKEN_BIT_REG, VLV_CHICKEN_BIT_DBG_ENABLE);
 
 	return 0;
 err_free_irq:
@@ -353,7 +353,7 @@ void intel_lpe_audio_notify(struct drm_i915_private *dev_priv,
 
 	spin_lock_irqsave(&pdata->lpe_audio_slock, irq_flags);
 
-	audio_enable = I915_READ(VLV_AUD_PORT_EN_DBG(port));
+	audio_enable = I915_DE_READ(VLV_AUD_PORT_EN_DBG(port));
 
 	if (eld != NULL) {
 		memcpy(pdata->eld.eld_data, eld,
@@ -369,8 +369,8 @@ void intel_lpe_audio_notify(struct drm_i915_private *dev_priv,
 			pdata->link_rate = link_rate;
 
 		/* Unmute the amp for both DP and HDMI */
-		I915_WRITE(VLV_AUD_PORT_EN_DBG(port),
-			   audio_enable & ~VLV_AMP_MUTE);
+		I915_DE_WRITE(VLV_AUD_PORT_EN_DBG(port),
+			      audio_enable & ~VLV_AMP_MUTE);
 
 	} else {
 		memset(pdata->eld.eld_data, 0,
@@ -379,8 +379,8 @@ void intel_lpe_audio_notify(struct drm_i915_private *dev_priv,
 		pdata->dp_output = false;
 
 		/* Mute the amp for both DP and HDMI */
-		I915_WRITE(VLV_AUD_PORT_EN_DBG(port),
-			   audio_enable | VLV_AMP_MUTE);
+		I915_DE_WRITE(VLV_AUD_PORT_EN_DBG(port),
+			      audio_enable | VLV_AMP_MUTE);
 	}
 
 	if (pdata->notify_audio_lpe)

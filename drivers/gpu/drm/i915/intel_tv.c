@@ -837,7 +837,7 @@ intel_tv_get_hw_state(struct intel_encoder *encoder, enum pipe *pipe)
 {
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	u32 tmp = I915_READ(TV_CTL);
+	u32 tmp = I915_DE_READ(TV_CTL);
 
 	if (!(tmp & TV_ENC_ENABLE))
 		return false;
@@ -859,7 +859,7 @@ intel_enable_tv(struct intel_encoder *encoder,
 	intel_wait_for_vblank(dev_priv,
 			      to_intel_crtc(encoder->base.crtc)->pipe);
 
-	I915_WRITE(TV_CTL, I915_READ(TV_CTL) | TV_ENC_ENABLE);
+	I915_DE_WRITE(TV_CTL, I915_DE_READ(TV_CTL) | TV_ENC_ENABLE);
 }
 
 static void
@@ -870,7 +870,7 @@ intel_disable_tv(struct intel_encoder *encoder,
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 
-	I915_WRITE(TV_CTL, I915_READ(TV_CTL) & ~TV_ENC_ENABLE);
+	I915_DE_WRITE(TV_CTL, I915_DE_READ(TV_CTL) & ~TV_ENC_ENABLE);
 }
 
 static const struct tv_mode *
@@ -993,16 +993,16 @@ set_tv_mode_timings(struct drm_i915_private *dev_priv,
 	vctl7 = (tv_mode->vburst_start_f4 << TV_VBURST_START_F4_SHIFT) |
 		(tv_mode->vburst_end_f4 << TV_VBURST_END_F4_SHIFT);
 
-	I915_WRITE(TV_H_CTL_1, hctl1);
-	I915_WRITE(TV_H_CTL_2, hctl2);
-	I915_WRITE(TV_H_CTL_3, hctl3);
-	I915_WRITE(TV_V_CTL_1, vctl1);
-	I915_WRITE(TV_V_CTL_2, vctl2);
-	I915_WRITE(TV_V_CTL_3, vctl3);
-	I915_WRITE(TV_V_CTL_4, vctl4);
-	I915_WRITE(TV_V_CTL_5, vctl5);
-	I915_WRITE(TV_V_CTL_6, vctl6);
-	I915_WRITE(TV_V_CTL_7, vctl7);
+	I915_DE_WRITE(TV_H_CTL_1, hctl1);
+	I915_DE_WRITE(TV_H_CTL_2, hctl2);
+	I915_DE_WRITE(TV_H_CTL_3, hctl3);
+	I915_DE_WRITE(TV_V_CTL_1, vctl1);
+	I915_DE_WRITE(TV_V_CTL_2, vctl2);
+	I915_DE_WRITE(TV_V_CTL_3, vctl3);
+	I915_DE_WRITE(TV_V_CTL_4, vctl4);
+	I915_DE_WRITE(TV_V_CTL_5, vctl5);
+	I915_DE_WRITE(TV_V_CTL_6, vctl6);
+	I915_DE_WRITE(TV_V_CTL_7, vctl7);
 }
 
 static void set_color_conversion(struct drm_i915_private *dev_priv,
@@ -1011,17 +1011,17 @@ static void set_color_conversion(struct drm_i915_private *dev_priv,
 	if (!color_conversion)
 		return;
 
-	I915_WRITE(TV_CSC_Y, (color_conversion->ry << 16) |
+	I915_DE_WRITE(TV_CSC_Y, (color_conversion->ry << 16) |
 		   color_conversion->gy);
-	I915_WRITE(TV_CSC_Y2, (color_conversion->by << 16) |
+	I915_DE_WRITE(TV_CSC_Y2, (color_conversion->by << 16) |
 		   color_conversion->ay);
-	I915_WRITE(TV_CSC_U, (color_conversion->ru << 16) |
+	I915_DE_WRITE(TV_CSC_U, (color_conversion->ru << 16) |
 		   color_conversion->gu);
-	I915_WRITE(TV_CSC_U2, (color_conversion->bu << 16) |
+	I915_DE_WRITE(TV_CSC_U2, (color_conversion->bu << 16) |
 		   color_conversion->au);
-	I915_WRITE(TV_CSC_V, (color_conversion->rv << 16) |
+	I915_DE_WRITE(TV_CSC_V, (color_conversion->rv << 16) |
 		   color_conversion->gv);
-	I915_WRITE(TV_CSC_V2, (color_conversion->bv << 16) |
+	I915_DE_WRITE(TV_CSC_V2, (color_conversion->bv << 16) |
 		   color_conversion->av);
 }
 
@@ -1045,7 +1045,7 @@ static void intel_tv_pre_enable(struct intel_encoder *encoder,
 	if (!tv_mode)
 		return;	/* can't happen (mode_prepare prevents this) */
 
-	tv_ctl = I915_READ(TV_CTL);
+	tv_ctl = I915_DE_READ(TV_CTL);
 	tv_ctl &= TV_CTL_SAVE;
 
 	switch (intel_tv->type) {
@@ -1109,26 +1109,26 @@ static void intel_tv_pre_enable(struct intel_encoder *encoder,
 
 	set_tv_mode_timings(dev_priv, tv_mode, burst_ena);
 
-	I915_WRITE(TV_SC_CTL_1, scctl1);
-	I915_WRITE(TV_SC_CTL_2, scctl2);
-	I915_WRITE(TV_SC_CTL_3, scctl3);
+	I915_DE_WRITE(TV_SC_CTL_1, scctl1);
+	I915_DE_WRITE(TV_SC_CTL_2, scctl2);
+	I915_DE_WRITE(TV_SC_CTL_3, scctl3);
 
 	set_color_conversion(dev_priv, color_conversion);
 
 	if (INTEL_GEN(dev_priv) >= 4)
-		I915_WRITE(TV_CLR_KNOBS, 0x00404000);
+		I915_DE_WRITE(TV_CLR_KNOBS, 0x00404000);
 	else
-		I915_WRITE(TV_CLR_KNOBS, 0x00606000);
+		I915_DE_WRITE(TV_CLR_KNOBS, 0x00606000);
 
 	if (video_levels)
-		I915_WRITE(TV_CLR_LEVEL,
+		I915_DE_WRITE(TV_CLR_LEVEL,
 			   ((video_levels->black << TV_BLACK_LEVEL_SHIFT) |
 			    (video_levels->blank << TV_BLANK_LEVEL_SHIFT)));
 
 	assert_pipe_disabled(dev_priv, intel_crtc->pipe);
 
 	/* Filter ctl must be set before TV_WIN_SIZE */
-	I915_WRITE(TV_FILTER_CTL_1, TV_AUTO_SCALE);
+	I915_DE_WRITE(TV_FILTER_CTL_1, TV_AUTO_SCALE);
 	xsize = tv_mode->hblank_start - tv_mode->hblank_end;
 	if (tv_mode->progressive)
 		ysize = tv_mode->nbr_end + 1;
@@ -1141,20 +1141,20 @@ static void intel_tv_pre_enable(struct intel_encoder *encoder,
 		  intel_tv->margin[TV_MARGIN_RIGHT]);
 	ysize -= (intel_tv->margin[TV_MARGIN_TOP] +
 		  intel_tv->margin[TV_MARGIN_BOTTOM]);
-	I915_WRITE(TV_WIN_POS, (xpos<<16)|ypos);
-	I915_WRITE(TV_WIN_SIZE, (xsize<<16)|ysize);
+	I915_DE_WRITE(TV_WIN_POS, (xpos<<16)|ypos);
+	I915_DE_WRITE(TV_WIN_SIZE, (xsize<<16)|ysize);
 
 	j = 0;
 	for (i = 0; i < 60; i++)
-		I915_WRITE(TV_H_LUMA(i), tv_mode->filter_table[j++]);
+		I915_DE_WRITE(TV_H_LUMA(i), tv_mode->filter_table[j++]);
 	for (i = 0; i < 60; i++)
-		I915_WRITE(TV_H_CHROMA(i), tv_mode->filter_table[j++]);
+		I915_DE_WRITE(TV_H_CHROMA(i), tv_mode->filter_table[j++]);
 	for (i = 0; i < 43; i++)
-		I915_WRITE(TV_V_LUMA(i), tv_mode->filter_table[j++]);
+		I915_DE_WRITE(TV_V_LUMA(i), tv_mode->filter_table[j++]);
 	for (i = 0; i < 43; i++)
-		I915_WRITE(TV_V_CHROMA(i), tv_mode->filter_table[j++]);
-	I915_WRITE(TV_DAC, I915_READ(TV_DAC) & TV_DAC_SAVE);
-	I915_WRITE(TV_CTL, tv_ctl);
+		I915_DE_WRITE(TV_V_CHROMA(i), tv_mode->filter_table[j++]);
+	I915_DE_WRITE(TV_DAC, I915_DE_READ(TV_DAC) & TV_DAC_SAVE);
+	I915_DE_WRITE(TV_CTL, tv_ctl);
 }
 
 static const struct drm_display_mode reported_modes[] = {
@@ -1203,8 +1203,8 @@ intel_tv_detect_type(struct intel_tv *intel_tv,
 		spin_unlock_irq(&dev_priv->irq_lock);
 	}
 
-	save_tv_dac = tv_dac = I915_READ(TV_DAC);
-	save_tv_ctl = tv_ctl = I915_READ(TV_CTL);
+	save_tv_dac = tv_dac = I915_DE_READ(TV_DAC);
+	save_tv_ctl = tv_ctl = I915_DE_READ(TV_CTL);
 
 	/* Poll for TV detection */
 	tv_ctl &= ~(TV_ENC_ENABLE | TV_TEST_MODE_MASK);
@@ -1233,14 +1233,14 @@ intel_tv_detect_type(struct intel_tv *intel_tv,
 		tv_dac &= ~(TVDAC_STATE_CHG_EN | TVDAC_A_SENSE_CTL |
 			    TVDAC_B_SENSE_CTL | TVDAC_C_SENSE_CTL);
 
-	I915_WRITE(TV_CTL, tv_ctl);
-	I915_WRITE(TV_DAC, tv_dac);
-	POSTING_READ(TV_DAC);
+	I915_DE_WRITE(TV_CTL, tv_ctl);
+	I915_DE_WRITE(TV_DAC, tv_dac);
+	POSTING_DE_READ(TV_DAC);
 
 	intel_wait_for_vblank(dev_priv, intel_crtc->pipe);
 
 	type = -1;
-	tv_dac = I915_READ(TV_DAC);
+	tv_dac = I915_DE_READ(TV_DAC);
 	DRM_DEBUG_KMS("TV detected: %x, %x\n", tv_ctl, tv_dac);
 	/*
 	 *  A B C
@@ -1262,9 +1262,9 @@ intel_tv_detect_type(struct intel_tv *intel_tv,
 		type = -1;
 	}
 
-	I915_WRITE(TV_DAC, save_tv_dac & ~TVDAC_STATE_CHG_EN);
-	I915_WRITE(TV_CTL, save_tv_ctl);
-	POSTING_READ(TV_CTL);
+	I915_DE_WRITE(TV_DAC, save_tv_dac & ~TVDAC_STATE_CHG_EN);
+	I915_DE_WRITE(TV_CTL, save_tv_ctl);
+	POSTING_DE_READ(TV_CTL);
 
 	/* For unknown reasons the hw barfs if we don't do this vblank wait. */
 	intel_wait_for_vblank(dev_priv, intel_crtc->pipe);
@@ -1549,7 +1549,7 @@ intel_tv_init(struct drm_i915_private *dev_priv)
 	const char *tv_format_names[ARRAY_SIZE(tv_modes)];
 	int i, initial_mode = 0;
 
-	if ((I915_READ(TV_CTL) & TV_FUSE_STATE_MASK) == TV_FUSE_STATE_DISABLED)
+	if ((I915_DE_READ(TV_CTL) & TV_FUSE_STATE_MASK) == TV_FUSE_STATE_DISABLED)
 		return;
 
 	if (!intel_bios_is_tv_present(dev_priv)) {
@@ -1561,15 +1561,15 @@ intel_tv_init(struct drm_i915_private *dev_priv)
 	 * Sanity check the TV output by checking to see if the
 	 * DAC register holds a value
 	 */
-	save_tv_dac = I915_READ(TV_DAC);
+	save_tv_dac = I915_DE_READ(TV_DAC);
 
-	I915_WRITE(TV_DAC, save_tv_dac | TVDAC_STATE_CHG_EN);
-	tv_dac_on = I915_READ(TV_DAC);
+	I915_DE_WRITE(TV_DAC, save_tv_dac | TVDAC_STATE_CHG_EN);
+	tv_dac_on = I915_DE_READ(TV_DAC);
 
-	I915_WRITE(TV_DAC, save_tv_dac & ~TVDAC_STATE_CHG_EN);
-	tv_dac_off = I915_READ(TV_DAC);
+	I915_DE_WRITE(TV_DAC, save_tv_dac & ~TVDAC_STATE_CHG_EN);
+	tv_dac_off = I915_DE_READ(TV_DAC);
 
-	I915_WRITE(TV_DAC, save_tv_dac);
+	I915_DE_WRITE(TV_DAC, save_tv_dac);
 
 	/*
 	 * If the register does not hold the state change enable

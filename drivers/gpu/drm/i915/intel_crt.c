@@ -78,7 +78,7 @@ static bool intel_crt_get_hw_state(struct intel_encoder *encoder,
 
 	ret = false;
 
-	tmp = I915_READ(crt->adpa_reg);
+	tmp = I915_DE_READ(crt->adpa_reg);
 
 	if (!(tmp & ADPA_DAC_ENABLE))
 		goto out;
@@ -101,7 +101,7 @@ static unsigned int intel_crt_get_flags(struct intel_encoder *encoder)
 	struct intel_crt *crt = intel_encoder_to_crt(encoder);
 	u32 tmp, flags = 0;
 
-	tmp = I915_READ(crt->adpa_reg);
+	tmp = I915_DE_READ(crt->adpa_reg);
 
 	if (tmp & ADPA_HSYNC_ACTIVE_HIGH)
 		flags |= DRM_MODE_FLAG_PHSYNC;
@@ -173,7 +173,7 @@ static void intel_crt_set_dpms(struct intel_encoder *encoder,
 		adpa |= ADPA_PIPE_B_SELECT;
 
 	if (!HAS_PCH_SPLIT(dev_priv))
-		I915_WRITE(BCLRPAT(crtc->pipe), 0);
+		I915_DE_WRITE(BCLRPAT(crtc->pipe), 0);
 
 	switch (mode) {
 	case DRM_MODE_DPMS_ON:
@@ -190,7 +190,7 @@ static void intel_crt_set_dpms(struct intel_encoder *encoder,
 		break;
 	}
 
-	I915_WRITE(crt->adpa_reg, adpa);
+	I915_DE_WRITE(crt->adpa_reg, adpa);
 }
 
 static void intel_disable_crt(struct intel_encoder *encoder,
@@ -316,29 +316,28 @@ static bool intel_ironlake_crt_detect_hotplug(struct drm_connector *connector)
 
 		crt->force_hotplug_required = 0;
 
-		save_adpa = adpa = I915_READ(crt->adpa_reg);
+		save_adpa = adpa = I915_DE_READ(crt->adpa_reg);
 		DRM_DEBUG_KMS("trigger hotplug detect cycle: adpa=0x%x\n", adpa);
 
 		adpa |= ADPA_CRT_HOTPLUG_FORCE_TRIGGER;
 		if (turn_off_dac)
 			adpa &= ~ADPA_DAC_ENABLE;
 
-		I915_WRITE(crt->adpa_reg, adpa);
+		I915_DE_WRITE(crt->adpa_reg, adpa);
 
-		if (intel_wait_for_register(dev_priv,
-					    crt->adpa_reg,
-					    ADPA_CRT_HOTPLUG_FORCE_TRIGGER, 0,
-					    1000))
+		if (intel_de_wait_for_register(dev_priv, crt->adpa_reg,
+					       ADPA_CRT_HOTPLUG_FORCE_TRIGGER, 0,
+					       1000))
 			DRM_DEBUG_KMS("timed out waiting for FORCE_TRIGGER");
 
 		if (turn_off_dac) {
-			I915_WRITE(crt->adpa_reg, save_adpa);
-			POSTING_READ(crt->adpa_reg);
+			I915_DE_WRITE(crt->adpa_reg, save_adpa);
+			POSTING_DE_READ(crt->adpa_reg);
 		}
 	}
 
 	/* Check the status to see if both blue and green are on now */
-	adpa = I915_READ(crt->adpa_reg);
+	adpa = I915_DE_READ(crt->adpa_reg);
 	if ((adpa & ADPA_CRT_HOTPLUG_MONITOR_MASK) != 0)
 		ret = true;
 	else
@@ -372,23 +371,22 @@ static bool valleyview_crt_detect_hotplug(struct drm_connector *connector)
 	 */
 	reenable_hpd = intel_hpd_disable(dev_priv, crt->base.hpd_pin);
 
-	save_adpa = adpa = I915_READ(crt->adpa_reg);
+	save_adpa = adpa = I915_DE_READ(crt->adpa_reg);
 	DRM_DEBUG_KMS("trigger hotplug detect cycle: adpa=0x%x\n", adpa);
 
 	adpa |= ADPA_CRT_HOTPLUG_FORCE_TRIGGER;
 
-	I915_WRITE(crt->adpa_reg, adpa);
+	I915_DE_WRITE(crt->adpa_reg, adpa);
 
-	if (intel_wait_for_register(dev_priv,
-				    crt->adpa_reg,
-				    ADPA_CRT_HOTPLUG_FORCE_TRIGGER, 0,
-				    1000)) {
+	if (intel_de_wait_for_register(dev_priv, crt->adpa_reg,
+				       ADPA_CRT_HOTPLUG_FORCE_TRIGGER, 0,
+				       1000)) {
 		DRM_DEBUG_KMS("timed out waiting for FORCE_TRIGGER");
-		I915_WRITE(crt->adpa_reg, save_adpa);
+		I915_DE_WRITE(crt->adpa_reg, save_adpa);
 	}
 
 	/* Check the status to see if both blue and green are on now */
-	adpa = I915_READ(crt->adpa_reg);
+	adpa = I915_DE_READ(crt->adpa_reg);
 	if ((adpa & ADPA_CRT_HOTPLUG_MONITOR_MASK) != 0)
 		ret = true;
 	else
@@ -440,18 +438,18 @@ static bool intel_crt_detect_hotplug(struct drm_connector *connector)
 					      CRT_HOTPLUG_FORCE_DETECT,
 					      CRT_HOTPLUG_FORCE_DETECT);
 		/* wait for FORCE_DETECT to go off */
-		if (intel_wait_for_register(dev_priv, PORT_HOTPLUG_EN,
-					    CRT_HOTPLUG_FORCE_DETECT, 0,
-					    1000))
+		if (intel_de_wait_for_register(dev_priv, PORT_HOTPLUG_EN,
+					       CRT_HOTPLUG_FORCE_DETECT, 0,
+					       1000))
 			DRM_DEBUG_KMS("timed out waiting for FORCE_DETECT to go off");
 	}
 
-	stat = I915_READ(PORT_HOTPLUG_STAT);
+	stat = I915_DE_READ(PORT_HOTPLUG_STAT);
 	if ((stat & CRT_HOTPLUG_MONITOR_MASK) != CRT_HOTPLUG_MONITOR_NONE)
 		ret = true;
 
 	/* clear the interrupt we just generated, if any */
-	I915_WRITE(PORT_HOTPLUG_STAT, CRT_HOTPLUG_INT_STATUS);
+	I915_DE_WRITE(PORT_HOTPLUG_STAT, CRT_HOTPLUG_INT_STATUS);
 
 	i915_hotplug_interrupt_update(dev_priv, CRT_HOTPLUG_FORCE_DETECT, 0);
 
@@ -553,9 +551,9 @@ intel_crt_load_detect(struct intel_crt *crt, uint32_t pipe)
 	pipeconf_reg = PIPECONF(pipe);
 	pipe_dsl_reg = PIPEDSL(pipe);
 
-	save_bclrpat = I915_READ(bclrpat_reg);
-	save_vtotal = I915_READ(vtotal_reg);
-	vblank = I915_READ(vblank_reg);
+	save_bclrpat = I915_DE_READ(bclrpat_reg);
+	save_vtotal = I915_DE_READ(vtotal_reg);
+	vblank = I915_DE_READ(vblank_reg);
 
 	vtotal = ((save_vtotal >> 16) & 0xfff) + 1;
 	vactive = (save_vtotal & 0x7ff) + 1;
@@ -564,21 +562,21 @@ intel_crt_load_detect(struct intel_crt *crt, uint32_t pipe)
 	vblank_end = ((vblank >> 16) & 0xfff) + 1;
 
 	/* Set the border color to purple. */
-	I915_WRITE(bclrpat_reg, 0x500050);
+	I915_DE_WRITE(bclrpat_reg, 0x500050);
 
 	if (!IS_GEN2(dev_priv)) {
-		uint32_t pipeconf = I915_READ(pipeconf_reg);
-		I915_WRITE(pipeconf_reg, pipeconf | PIPECONF_FORCE_BORDER);
-		POSTING_READ(pipeconf_reg);
+		uint32_t pipeconf = I915_DE_READ(pipeconf_reg);
+		I915_DE_WRITE(pipeconf_reg, pipeconf | PIPECONF_FORCE_BORDER);
+		POSTING_DE_READ(pipeconf_reg);
 		/* Wait for next Vblank to substitue
 		 * border color for Color info */
 		intel_wait_for_vblank(dev_priv, pipe);
-		st00 = I915_READ8(_VGA_MSR_WRITE);
+		st00 = I915_DE_READ8(_VGA_MSR_WRITE);
 		status = ((st00 & (1 << 4)) != 0) ?
 			connector_status_connected :
 			connector_status_disconnected;
 
-		I915_WRITE(pipeconf_reg, pipeconf);
+		I915_DE_WRITE(pipeconf_reg, pipeconf);
 	} else {
 		bool restore_vblank = false;
 		int count, detect;
@@ -588,11 +586,11 @@ intel_crt_load_detect(struct intel_crt *crt, uint32_t pipe)
 		* Yes, this will flicker
 		*/
 		if (vblank_start <= vactive && vblank_end >= vtotal) {
-			uint32_t vsync = I915_READ(vsync_reg);
+			uint32_t vsync = I915_DE_READ(vsync_reg);
 			uint32_t vsync_start = (vsync & 0xffff) + 1;
 
 			vblank_start = vsync_start;
-			I915_WRITE(vblank_reg,
+			I915_DE_WRITE(vblank_reg,
 				   (vblank_start - 1) |
 				   ((vblank_end - 1) << 16));
 			restore_vblank = true;
@@ -606,9 +604,9 @@ intel_crt_load_detect(struct intel_crt *crt, uint32_t pipe)
 		/*
 		 * Wait for the border to be displayed
 		 */
-		while (I915_READ(pipe_dsl_reg) >= vactive)
+		while (I915_DE_READ(pipe_dsl_reg) >= vactive)
 			;
-		while ((dsl = I915_READ(pipe_dsl_reg)) <= vsample)
+		while ((dsl = I915_DE_READ(pipe_dsl_reg)) <= vsample)
 			;
 		/*
 		 * Watch ST00 for an entire scanline
@@ -618,14 +616,14 @@ intel_crt_load_detect(struct intel_crt *crt, uint32_t pipe)
 		do {
 			count++;
 			/* Read the ST00 VGA status register */
-			st00 = I915_READ8(_VGA_MSR_WRITE);
+			st00 = I915_DE_READ8(_VGA_MSR_WRITE);
 			if (st00 & (1 << 4))
 				detect++;
-		} while ((I915_READ(pipe_dsl_reg) == dsl));
+		} while ((I915_DE_READ(pipe_dsl_reg) == dsl));
 
 		/* restore vblank if necessary */
 		if (restore_vblank)
-			I915_WRITE(vblank_reg, vblank);
+			I915_DE_WRITE(vblank_reg, vblank);
 		/*
 		 * If more than 3/4 of the scanline detected a monitor,
 		 * then it is assumed to be present. This works even on i830,
@@ -638,7 +636,7 @@ intel_crt_load_detect(struct intel_crt *crt, uint32_t pipe)
 	}
 
 	/* Restore previous settings */
-	I915_WRITE(bclrpat_reg, save_bclrpat);
+	I915_DE_WRITE(bclrpat_reg, save_bclrpat);
 
 	return status;
 }
@@ -792,11 +790,11 @@ void intel_crt_reset(struct drm_encoder *encoder)
 	if (INTEL_GEN(dev_priv) >= 5) {
 		u32 adpa;
 
-		adpa = I915_READ(crt->adpa_reg);
+		adpa = I915_DE_READ(crt->adpa_reg);
 		adpa &= ~ADPA_CRT_HOTPLUG_MASK;
 		adpa |= ADPA_HOTPLUG_BITS;
-		I915_WRITE(crt->adpa_reg, adpa);
-		POSTING_READ(crt->adpa_reg);
+		I915_DE_WRITE(crt->adpa_reg, adpa);
+		POSTING_DE_READ(crt->adpa_reg);
 
 		DRM_DEBUG_KMS("crt adpa set to 0x%x\n", adpa);
 		crt->force_hotplug_required = 1;
@@ -846,7 +844,7 @@ void intel_crt_init(struct drm_i915_private *dev_priv)
 	else
 		adpa_reg = ADPA;
 
-	adpa = I915_READ(adpa_reg);
+	adpa = I915_DE_READ(adpa_reg);
 	if ((adpa & ADPA_DAC_ENABLE) == 0) {
 		/*
 		 * On some machines (some IVB at least) CRT can be
@@ -856,11 +854,11 @@ void intel_crt_init(struct drm_i915_private *dev_priv)
 		 * take. So the only way to tell is attempt to enable
 		 * it and see what happens.
 		 */
-		I915_WRITE(adpa_reg, adpa | ADPA_DAC_ENABLE |
+		I915_DE_WRITE(adpa_reg, adpa | ADPA_DAC_ENABLE |
 			   ADPA_HSYNC_CNTL_DISABLE | ADPA_VSYNC_CNTL_DISABLE);
-		if ((I915_READ(adpa_reg) & ADPA_DAC_ENABLE) == 0)
+		if ((I915_DE_READ(adpa_reg) & ADPA_DAC_ENABLE) == 0)
 			return;
-		I915_WRITE(adpa_reg, adpa);
+		I915_DE_WRITE(adpa_reg, adpa);
 	}
 
 	crt = kzalloc(sizeof(struct intel_crt), GFP_KERNEL);
@@ -942,7 +940,7 @@ void intel_crt_init(struct drm_i915_private *dev_priv)
 		u32 fdi_config = FDI_RX_POLARITY_REVERSED_LPT |
 				 FDI_RX_LINK_REVERSAL_OVERRIDE;
 
-		dev_priv->fdi_rx_config = I915_READ(FDI_RX_CTL(PIPE_A)) & fdi_config;
+		dev_priv->fdi_rx_config = I915_DE_READ(FDI_RX_CTL(PIPE_A)) & fdi_config;
 	}
 
 	intel_crt_reset(&crt->base.base);

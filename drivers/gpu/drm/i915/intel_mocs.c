@@ -245,8 +245,8 @@ int intel_mocs_init_engine(struct intel_engine_cs *engine)
 		return -ENODEV;
 
 	for (index = 0; index < table.size; index++)
-		I915_WRITE(mocs_register(engine->id, index),
-			   table.table[index].control_value);
+		I915_GT_WRITE(mocs_register(engine->id, index),
+			      table.table[index].control_value);
 
 	/*
 	 * Ok, now set the unused entries to uncached. These entries
@@ -257,8 +257,8 @@ int intel_mocs_init_engine(struct intel_engine_cs *engine)
 	 * that value to all the used entries.
 	 */
 	for (; index < GEN9_NUM_MOCS_ENTRIES; index++)
-		I915_WRITE(mocs_register(engine->id, index),
-			   table.table[0].control_value);
+		I915_GT_WRITE(mocs_register(engine->id, index),
+			      table.table[0].control_value);
 
 	return 0;
 }
@@ -398,11 +398,11 @@ void intel_mocs_init_l3cc_table(struct drm_i915_private *dev_priv)
 		return;
 
 	for (i = 0; i < table.size/2; i++)
-		I915_WRITE(GEN9_LNCFCMOCS(i), l3cc_combine(&table, 2*i, 2*i+1));
+		I915_GT_WRITE(GEN9_LNCFCMOCS(i), l3cc_combine(&table, 2*i, 2*i+1));
 
 	/* Odd table size - 1 left over */
 	if (table.size & 0x01) {
-		I915_WRITE(GEN9_LNCFCMOCS(i), l3cc_combine(&table, 2*i, 0));
+		I915_GT_WRITE(GEN9_LNCFCMOCS(i), l3cc_combine(&table, 2*i, 0));
 		i++;
 	}
 
@@ -412,7 +412,7 @@ void intel_mocs_init_l3cc_table(struct drm_i915_private *dev_priv)
 	 * they are reserved by the hardware.
 	 */
 	for (; i < (GEN9_NUM_MOCS_ENTRIES / 2); i++)
-		I915_WRITE(GEN9_LNCFCMOCS(i), l3cc_combine(&table, 0, 0));
+		I915_GT_WRITE(GEN9_LNCFCMOCS(i), l3cc_combine(&table, 0, 0));
 }
 
 /**

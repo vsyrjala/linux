@@ -379,7 +379,7 @@ static void ring_setup_phys_status_page(struct intel_engine_cs *engine)
 	addr = dev_priv->status_page_dmah->busaddr;
 	if (INTEL_GEN(dev_priv) >= 4)
 		addr |= (dev_priv->status_page_dmah->busaddr >> 28) & 0xf0;
-	I915_WRITE(HWS_PGA, addr);
+	I915_GT_WRITE(HWS_PGA, addr);
 }
 
 static void intel_ring_setup_status_page(struct intel_engine_cs *engine)
@@ -409,6 +409,8 @@ static void intel_ring_setup_status_page(struct intel_engine_cs *engine)
 		case VECS:
 			mmio = VEBOX_HWS_PGA_GEN7;
 			break;
+		default:
+			return;
 		}
 	} else if (IS_GEN6(dev_priv)) {
 		mmio = RING_HWS_PGA_GEN6(engine->mmio_base);
@@ -417,8 +419,8 @@ static void intel_ring_setup_status_page(struct intel_engine_cs *engine)
 		mmio = RING_HWS_PGA(engine->mmio_base);
 	}
 
-	I915_WRITE(mmio, engine->status_page.ggtt_offset);
-	POSTING_READ(mmio);
+	I915_GT_WRITE(mmio, engine->status_page.ggtt_offset);
+	POSTING_GT_READ(mmio);
 
 	/*
 	 * Flush the TLB for this page
@@ -433,12 +435,12 @@ static void intel_ring_setup_status_page(struct intel_engine_cs *engine)
 		/* ring should be idle before issuing a sync flush*/
 		WARN_ON((I915_READ_MODE(engine) & MODE_IDLE) == 0);
 
-		I915_WRITE(reg,
-			   _MASKED_BIT_ENABLE(INSTPM_TLB_INVALIDATE |
-					      INSTPM_SYNC_FLUSH));
-		if (intel_wait_for_register(dev_priv,
-					    reg, INSTPM_SYNC_FLUSH, 0,
-					    1000))
+		I915_GT_WRITE(reg,
+			      _MASKED_BIT_ENABLE(INSTPM_TLB_INVALIDATE |
+						 INSTPM_SYNC_FLUSH));
+		if (intel_gt_wait_for_register(dev_priv,
+					       reg, INSTPM_SYNC_FLUSH, 0,
+					       1000))
 			DRM_ERROR("%s: wait for SyncFlush to complete for TLB invalidation timed out\n",
 				  engine->name);
 	}
@@ -450,11 +452,11 @@ static bool stop_ring(struct intel_engine_cs *engine)
 
 	if (INTEL_GEN(dev_priv) > 2) {
 		I915_WRITE_MODE(engine, _MASKED_BIT_ENABLE(STOP_RING));
-		if (intel_wait_for_register(dev_priv,
-					    RING_MI_MODE(engine->mmio_base),
-					    MODE_IDLE,
-					    MODE_IDLE,
-					    1000)) {
+		if (intel_gt_wait_for_register(dev_priv,
+					       RING_MI_MODE(engine->mmio_base),
+					       MODE_IDLE,
+					       MODE_IDLE,
+					       1000)) {
 			DRM_ERROR("%s : timed out trying to stop ring\n",
 				  engine->name);
 			/* Sometimes we observe that the idle flag is not
@@ -538,9 +540,9 @@ static int init_ring_common(struct intel_engine_cs *engine)
 	I915_WRITE_CTL(engine, RING_CTL_SIZE(ring->size) | RING_VALID);
 
 	/* If the head is still not zero, the ring is dead */
-	if (intel_wait_for_register(dev_priv, RING_CTL(engine->mmio_base),
-				    RING_VALID, RING_VALID,
-				    50)) {
+	if (intel_gt_wait_for_register(dev_priv, RING_CTL(engine->mmio_base),
+				       RING_VALID, RING_VALID,
+				       50)) {
 		DRM_ERROR("%s initialization failed "
 			  "ctl %08x (valid? %d) head %08x [%08x] tail %08x [%08x] start %08x [expected %08x]\n",
 			  engine->name,
@@ -586,26 +588,26 @@ static void reset_ring_common(struct intel_engine_cs *engine,
 		/* FIXME consider gen8 reset */
 
 		if (ce->state) {
-			I915_WRITE(CCID,
-				   i915_ggtt_offset(ce->state) |
-				   BIT(8) /* must be set! */ |
-				   CCID_EXTENDED_STATE_SAVE |
-				   CCID_EXTENDED_STATE_RESTORE |
-				   CCID_EN);
+			I915_GT_WRITE(CCID,
+				      i915_ggtt_offset(ce->state) |
+				      BIT(8) /* must be set! */ |
+				      CCID_EXTENDED_STATE_SAVE |
+				      CCID_EXTENDED_STATE_RESTORE |
+				      CCID_EN);
 		}
 
 		ppgtt = request->ctx->ppgtt ?: engine->i915->mm.aliasing_ppgtt;
 		if (ppgtt) {
 			u32 pd_offset = ppgtt->pd.base.ggtt_offset << 10;
 
-			I915_WRITE(RING_PP_DIR_DCLV(engine), PP_DIR_DCLV_2G);
-			I915_WRITE(RING_PP_DIR_BASE(engine), pd_offset);
+			I915_GT_WRITE(RING_PP_DIR_DCLV(engine), PP_DIR_DCLV_2G);
+			I915_GT_WRITE(RING_PP_DIR_BASE(engine), pd_offset);
 
 			/* Wait for the PD reload to complete */
-			if (intel_wait_for_register(dev_priv,
-						    RING_PP_DIR_BASE(engine),
-						    BIT(0), 0,
-						    10))
+			if (intel_gt_wait_for_register(dev_priv,
+						       RING_PP_DIR_BASE(engine),
+						       BIT(0), 0,
+						       10))
 				DRM_ERROR("Wait for reload of ppgtt page-directory timed out\n");
 
 			ppgtt->pd_dirty_rings &= ~intel_engine_flag(engine);
@@ -643,7 +645,7 @@ static int init_render_ring(struct intel_engine_cs *engine)
 
 	/* WaTimedSingleVertexDispatch:cl,bw,ctg,elk,ilk,snb */
 	if (IS_GEN(dev_priv, 4, 6))
-		I915_WRITE(MI_MODE, _MASKED_BIT_ENABLE(VS_TIMER_DISPATCH));
+		I915_GT_WRITE(MI_MODE, _MASKED_BIT_ENABLE(VS_TIMER_DISPATCH));
 
 	/* We need to disable the AsyncFlip performance optimisations in order
 	 * to use MI_WAIT_FOR_EVENT within the CS. It should already be
@@ -652,19 +654,19 @@ static int init_render_ring(struct intel_engine_cs *engine)
 	 * WaDisableAsyncFlipPerfMode:snb,ivb,hsw,vlv
 	 */
 	if (IS_GEN(dev_priv, 6, 7))
-		I915_WRITE(MI_MODE, _MASKED_BIT_ENABLE(ASYNC_FLIP_PERF_DISABLE));
+		I915_GT_WRITE(MI_MODE, _MASKED_BIT_ENABLE(ASYNC_FLIP_PERF_DISABLE));
 
 	/* Required for the hardware to program scanline values for waiting */
 	/* WaEnableFlushTlbInvalidationMode:snb */
 	if (IS_GEN6(dev_priv))
-		I915_WRITE(GFX_MODE,
-			   _MASKED_BIT_ENABLE(GFX_TLB_INVALIDATE_EXPLICIT));
+		I915_GT_WRITE(GFX_MODE,
+			      _MASKED_BIT_ENABLE(GFX_TLB_INVALIDATE_EXPLICIT));
 
 	/* WaBCSVCSTlbInvalidationMode:ivb,vlv,hsw */
 	if (IS_GEN7(dev_priv))
-		I915_WRITE(GFX_MODE_GEN7,
-			   _MASKED_BIT_ENABLE(GFX_TLB_INVALIDATE_EXPLICIT) |
-			   _MASKED_BIT_ENABLE(GFX_REPLAY_MODE));
+		I915_GT_WRITE(GFX_MODE_GEN7,
+			      _MASKED_BIT_ENABLE(GFX_TLB_INVALIDATE_EXPLICIT) |
+			      _MASKED_BIT_ENABLE(GFX_REPLAY_MODE));
 
 	if (IS_GEN6(dev_priv)) {
 		/* From the Sandybridge PRM, volume 1 part 3, page 24:
@@ -672,12 +674,12 @@ static int init_render_ring(struct intel_engine_cs *engine)
 		 *  policy. [...] This bit must be reset.  LRA replacement
 		 *  policy is not supported."
 		 */
-		I915_WRITE(CACHE_MODE_0,
-			   _MASKED_BIT_DISABLE(CM0_STC_EVICT_DISABLE_LRA_SNB));
+		I915_GT_WRITE(CACHE_MODE_0,
+			      _MASKED_BIT_DISABLE(CM0_STC_EVICT_DISABLE_LRA_SNB));
 	}
 
 	if (IS_GEN(dev_priv, 6, 7))
-		I915_WRITE(INSTPM, _MASKED_BIT_ENABLE(INSTPM_FORCE_ORDERING));
+		I915_GT_WRITE(INSTPM, _MASKED_BIT_ENABLE(INSTPM_FORCE_ORDERING));
 
 	if (INTEL_INFO(dev_priv)->gen >= 6)
 		I915_WRITE_IMR(engine, ~engine->irq_keep_mask);
@@ -937,7 +939,7 @@ gen6_seqno_barrier(struct intel_engine_cs *engine)
 	 * take the spinlock to guard against concurrent cacheline access.
 	 */
 	spin_lock_irq(&dev_priv->uncore.lock);
-	POSTING_READ_FW(RING_ACTHD(engine->mmio_base));
+	POSTING_GT_READ_FW(RING_ACTHD(engine->mmio_base));
 	spin_unlock_irq(&dev_priv->uncore.lock);
 }
 
@@ -959,8 +961,8 @@ i9xx_irq_enable(struct intel_engine_cs *engine)
 	struct drm_i915_private *dev_priv = engine->i915;
 
 	dev_priv->irq_mask &= ~engine->irq_enable_mask;
-	I915_WRITE(IMR, dev_priv->irq_mask);
-	POSTING_READ_FW(RING_IMR(engine->mmio_base));
+	I915_GT_WRITE(IMR, dev_priv->irq_mask);
+	POSTING_GT_READ_FW(RING_IMR(engine->mmio_base));
 }
 
 static void
@@ -969,7 +971,7 @@ i9xx_irq_disable(struct intel_engine_cs *engine)
 	struct drm_i915_private *dev_priv = engine->i915;
 
 	dev_priv->irq_mask |= engine->irq_enable_mask;
-	I915_WRITE(IMR, dev_priv->irq_mask);
+	I915_GT_WRITE(IMR, dev_priv->irq_mask);
 }
 
 static void
@@ -978,8 +980,8 @@ i8xx_irq_enable(struct intel_engine_cs *engine)
 	struct drm_i915_private *dev_priv = engine->i915;
 
 	dev_priv->irq_mask &= ~engine->irq_enable_mask;
-	I915_WRITE16(IMR, dev_priv->irq_mask);
-	POSTING_READ16(RING_IMR(engine->mmio_base));
+	I915_GT_WRITE16(IMR, dev_priv->irq_mask);
+	POSTING_GT_READ16(RING_IMR(engine->mmio_base));
 }
 
 static void
@@ -988,7 +990,7 @@ i8xx_irq_disable(struct intel_engine_cs *engine)
 	struct drm_i915_private *dev_priv = engine->i915;
 
 	dev_priv->irq_mask |= engine->irq_enable_mask;
-	I915_WRITE16(IMR, dev_priv->irq_mask);
+	I915_GT_WRITE16(IMR, dev_priv->irq_mask);
 }
 
 static int
@@ -1052,7 +1054,7 @@ gen8_irq_enable(struct intel_engine_cs *engine)
 	I915_WRITE_IMR(engine,
 		       ~(engine->irq_enable_mask |
 			 engine->irq_keep_mask));
-	POSTING_READ_FW(RING_IMR(engine->mmio_base));
+	POSTING_GT_READ_FW(RING_IMR(engine->mmio_base));
 }
 
 static void
@@ -1722,18 +1724,18 @@ static void gen6_bsd_submit_request(struct drm_i915_gem_request *request)
 	/* Disable notification that the ring is IDLE. The GT
 	 * will then assume that it is busy and bring it out of rc6.
 	 */
-	I915_WRITE_FW(GEN6_BSD_SLEEP_PSMI_CONTROL,
-		      _MASKED_BIT_ENABLE(GEN6_BSD_SLEEP_MSG_DISABLE));
+	I915_GT_WRITE_FW(GEN6_BSD_SLEEP_PSMI_CONTROL,
+			 _MASKED_BIT_ENABLE(GEN6_BSD_SLEEP_MSG_DISABLE));
 
 	/* Clear the context id. Here be magic! */
-	I915_WRITE64_FW(GEN6_BSD_RNCID, 0x0);
+	I915_GT_WRITE64_FW(GEN6_BSD_RNCID, 0x0);
 
 	/* Wait for the ring not to be idle, i.e. for it to wake up. */
-	if (__intel_wait_for_register_fw(dev_priv,
-					 GEN6_BSD_SLEEP_PSMI_CONTROL,
-					 GEN6_BSD_SLEEP_INDICATOR,
-					 0,
-					 1000, 0, NULL))
+	if (__intel_gt_wait_for_register_fw(dev_priv,
+					    GEN6_BSD_SLEEP_PSMI_CONTROL,
+					    GEN6_BSD_SLEEP_INDICATOR,
+					    0,
+					    1000, 0, NULL))
 		DRM_ERROR("timed out waiting for the BSD ring to wake up\n");
 
 	/* Now that the ring is fully powered up, update the tail */
@@ -1742,8 +1744,8 @@ static void gen6_bsd_submit_request(struct drm_i915_gem_request *request)
 	/* Let the ring send IDLE messages to the GT again,
 	 * and so let it sleep to conserve power when idle.
 	 */
-	I915_WRITE_FW(GEN6_BSD_SLEEP_PSMI_CONTROL,
-		      _MASKED_BIT_DISABLE(GEN6_BSD_SLEEP_MSG_DISABLE));
+	I915_GT_WRITE_FW(GEN6_BSD_SLEEP_PSMI_CONTROL,
+			 _MASKED_BIT_DISABLE(GEN6_BSD_SLEEP_MSG_DISABLE));
 
 	intel_uncore_forcewake_put(dev_priv, FORCEWAKE_ALL);
 }

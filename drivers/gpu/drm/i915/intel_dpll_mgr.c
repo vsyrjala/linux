@@ -346,10 +346,10 @@ static bool ibx_pch_dpll_get_hw_state(struct drm_i915_private *dev_priv,
 	if (!intel_display_power_get_if_enabled(dev_priv, POWER_DOMAIN_PLLS))
 		return false;
 
-	val = I915_READ(PCH_DPLL(pll->id));
+	val = I915_DE_READ(PCH_DPLL(pll->id));
 	hw_state->dpll = val;
-	hw_state->fp0 = I915_READ(PCH_FP0(pll->id));
-	hw_state->fp1 = I915_READ(PCH_FP1(pll->id));
+	hw_state->fp0 = I915_DE_READ(PCH_FP0(pll->id));
+	hw_state->fp1 = I915_DE_READ(PCH_FP1(pll->id));
 
 	intel_display_power_put(dev_priv, POWER_DOMAIN_PLLS);
 
@@ -359,8 +359,8 @@ static bool ibx_pch_dpll_get_hw_state(struct drm_i915_private *dev_priv,
 static void ibx_pch_dpll_prepare(struct drm_i915_private *dev_priv,
 				 struct intel_shared_dpll *pll)
 {
-	I915_WRITE(PCH_FP0(pll->id), pll->state.hw_state.fp0);
-	I915_WRITE(PCH_FP1(pll->id), pll->state.hw_state.fp1);
+	I915_DE_WRITE(PCH_FP0(pll->id), pll->state.hw_state.fp0);
+	I915_DE_WRITE(PCH_FP1(pll->id), pll->state.hw_state.fp1);
 }
 
 static void ibx_assert_pch_refclk_enabled(struct drm_i915_private *dev_priv)
@@ -370,7 +370,7 @@ static void ibx_assert_pch_refclk_enabled(struct drm_i915_private *dev_priv)
 
 	I915_STATE_WARN_ON(!(HAS_PCH_IBX(dev_priv) || HAS_PCH_CPT(dev_priv)));
 
-	val = I915_READ(PCH_DREF_CONTROL);
+	val = I915_DE_READ(PCH_DREF_CONTROL);
 	enabled = !!(val & (DREF_SSC_SOURCE_MASK | DREF_NONSPREAD_SOURCE_MASK |
 			    DREF_SUPERSPREAD_SOURCE_MASK));
 	I915_STATE_WARN(!enabled, "PCH refclk assertion failure, should be active but is disabled\n");
@@ -382,10 +382,10 @@ static void ibx_pch_dpll_enable(struct drm_i915_private *dev_priv,
 	/* PCH refclock must be enabled first */
 	ibx_assert_pch_refclk_enabled(dev_priv);
 
-	I915_WRITE(PCH_DPLL(pll->id), pll->state.hw_state.dpll);
+	I915_DE_WRITE(PCH_DPLL(pll->id), pll->state.hw_state.dpll);
 
 	/* Wait for the clocks to stabilize. */
-	POSTING_READ(PCH_DPLL(pll->id));
+	POSTING_DE_READ(PCH_DPLL(pll->id));
 	udelay(150);
 
 	/* The pixel multiplier can only be updated once the
@@ -393,8 +393,8 @@ static void ibx_pch_dpll_enable(struct drm_i915_private *dev_priv,
 	 *
 	 * So write it again.
 	 */
-	I915_WRITE(PCH_DPLL(pll->id), pll->state.hw_state.dpll);
-	POSTING_READ(PCH_DPLL(pll->id));
+	I915_DE_WRITE(PCH_DPLL(pll->id), pll->state.hw_state.dpll);
+	POSTING_DE_READ(PCH_DPLL(pll->id));
 	udelay(200);
 }
 
@@ -410,8 +410,8 @@ static void ibx_pch_dpll_disable(struct drm_i915_private *dev_priv,
 			assert_pch_transcoder_disabled(dev_priv, crtc->pipe);
 	}
 
-	I915_WRITE(PCH_DPLL(pll->id), 0);
-	POSTING_READ(PCH_DPLL(pll->id));
+	I915_DE_WRITE(PCH_DPLL(pll->id), 0);
+	POSTING_DE_READ(PCH_DPLL(pll->id));
 	udelay(200);
 }
 
@@ -466,16 +466,16 @@ static const struct intel_shared_dpll_funcs ibx_pch_dpll_funcs = {
 static void hsw_ddi_wrpll_enable(struct drm_i915_private *dev_priv,
 			       struct intel_shared_dpll *pll)
 {
-	I915_WRITE(WRPLL_CTL(pll->id), pll->state.hw_state.wrpll);
-	POSTING_READ(WRPLL_CTL(pll->id));
+	I915_DE_WRITE(WRPLL_CTL(pll->id), pll->state.hw_state.wrpll);
+	POSTING_DE_READ(WRPLL_CTL(pll->id));
 	udelay(20);
 }
 
 static void hsw_ddi_spll_enable(struct drm_i915_private *dev_priv,
 				struct intel_shared_dpll *pll)
 {
-	I915_WRITE(SPLL_CTL, pll->state.hw_state.spll);
-	POSTING_READ(SPLL_CTL);
+	I915_DE_WRITE(SPLL_CTL, pll->state.hw_state.spll);
+	POSTING_DE_READ(SPLL_CTL);
 	udelay(20);
 }
 
@@ -484,9 +484,9 @@ static void hsw_ddi_wrpll_disable(struct drm_i915_private *dev_priv,
 {
 	uint32_t val;
 
-	val = I915_READ(WRPLL_CTL(pll->id));
-	I915_WRITE(WRPLL_CTL(pll->id), val & ~WRPLL_PLL_ENABLE);
-	POSTING_READ(WRPLL_CTL(pll->id));
+	val = I915_DE_READ(WRPLL_CTL(pll->id));
+	I915_DE_WRITE(WRPLL_CTL(pll->id), val & ~WRPLL_PLL_ENABLE);
+	POSTING_DE_READ(WRPLL_CTL(pll->id));
 }
 
 static void hsw_ddi_spll_disable(struct drm_i915_private *dev_priv,
@@ -494,9 +494,9 @@ static void hsw_ddi_spll_disable(struct drm_i915_private *dev_priv,
 {
 	uint32_t val;
 
-	val = I915_READ(SPLL_CTL);
-	I915_WRITE(SPLL_CTL, val & ~SPLL_PLL_ENABLE);
-	POSTING_READ(SPLL_CTL);
+	val = I915_DE_READ(SPLL_CTL);
+	I915_DE_WRITE(SPLL_CTL, val & ~SPLL_PLL_ENABLE);
+	POSTING_DE_READ(SPLL_CTL);
 }
 
 static bool hsw_ddi_wrpll_get_hw_state(struct drm_i915_private *dev_priv,
@@ -508,7 +508,7 @@ static bool hsw_ddi_wrpll_get_hw_state(struct drm_i915_private *dev_priv,
 	if (!intel_display_power_get_if_enabled(dev_priv, POWER_DOMAIN_PLLS))
 		return false;
 
-	val = I915_READ(WRPLL_CTL(pll->id));
+	val = I915_DE_READ(WRPLL_CTL(pll->id));
 	hw_state->wrpll = val;
 
 	intel_display_power_put(dev_priv, POWER_DOMAIN_PLLS);
@@ -525,7 +525,7 @@ static bool hsw_ddi_spll_get_hw_state(struct drm_i915_private *dev_priv,
 	if (!intel_display_power_get_if_enabled(dev_priv, POWER_DOMAIN_PLLS))
 		return false;
 
-	val = I915_READ(SPLL_CTL);
+	val = I915_DE_READ(SPLL_CTL);
 	hw_state->spll = val;
 
 	intel_display_power_put(dev_priv, POWER_DOMAIN_PLLS);
@@ -920,14 +920,14 @@ static void skl_ddi_pll_write_ctrl1(struct drm_i915_private *dev_priv,
 {
 	uint32_t val;
 
-	val = I915_READ(DPLL_CTRL1);
+	val = I915_DE_READ(DPLL_CTRL1);
 
 	val &= ~(DPLL_CTRL1_HDMI_MODE(pll->id) | DPLL_CTRL1_SSC(pll->id) |
 		 DPLL_CTRL1_LINK_RATE_MASK(pll->id));
 	val |= pll->state.hw_state.ctrl1 << (pll->id * 6);
 
-	I915_WRITE(DPLL_CTRL1, val);
-	POSTING_READ(DPLL_CTRL1);
+	I915_DE_WRITE(DPLL_CTRL1, val);
+	POSTING_DE_READ(DPLL_CTRL1);
 }
 
 static void skl_ddi_pll_enable(struct drm_i915_private *dev_priv,
@@ -937,20 +937,20 @@ static void skl_ddi_pll_enable(struct drm_i915_private *dev_priv,
 
 	skl_ddi_pll_write_ctrl1(dev_priv, pll);
 
-	I915_WRITE(regs[pll->id].cfgcr1, pll->state.hw_state.cfgcr1);
-	I915_WRITE(regs[pll->id].cfgcr2, pll->state.hw_state.cfgcr2);
-	POSTING_READ(regs[pll->id].cfgcr1);
-	POSTING_READ(regs[pll->id].cfgcr2);
+	I915_DE_WRITE(regs[pll->id].cfgcr1, pll->state.hw_state.cfgcr1);
+	I915_DE_WRITE(regs[pll->id].cfgcr2, pll->state.hw_state.cfgcr2);
+	POSTING_DE_READ(regs[pll->id].cfgcr1);
+	POSTING_DE_READ(regs[pll->id].cfgcr2);
 
 	/* the enable bit is always bit 31 */
-	I915_WRITE(regs[pll->id].ctl,
-		   I915_READ(regs[pll->id].ctl) | LCPLL_PLL_ENABLE);
+	I915_DE_WRITE(regs[pll->id].ctl,
+		   I915_DE_READ(regs[pll->id].ctl) | LCPLL_PLL_ENABLE);
 
-	if (intel_wait_for_register(dev_priv,
-				    DPLL_STATUS,
-				    DPLL_LOCK(pll->id),
-				    DPLL_LOCK(pll->id),
-				    5))
+	if (intel_de_wait_for_register(dev_priv,
+				       DPLL_STATUS,
+				       DPLL_LOCK(pll->id),
+				       DPLL_LOCK(pll->id),
+				       5))
 		DRM_ERROR("DPLL %d not locked\n", pll->id);
 }
 
@@ -966,9 +966,9 @@ static void skl_ddi_pll_disable(struct drm_i915_private *dev_priv,
 	const struct skl_dpll_regs *regs = skl_dpll_regs;
 
 	/* the enable bit is always bit 31 */
-	I915_WRITE(regs[pll->id].ctl,
-		   I915_READ(regs[pll->id].ctl) & ~LCPLL_PLL_ENABLE);
-	POSTING_READ(regs[pll->id].ctl);
+	I915_DE_WRITE(regs[pll->id].ctl,
+		   I915_DE_READ(regs[pll->id].ctl) & ~LCPLL_PLL_ENABLE);
+	POSTING_DE_READ(regs[pll->id].ctl);
 }
 
 static void skl_ddi_dpll0_disable(struct drm_i915_private *dev_priv,
@@ -989,17 +989,17 @@ static bool skl_ddi_pll_get_hw_state(struct drm_i915_private *dev_priv,
 
 	ret = false;
 
-	val = I915_READ(regs[pll->id].ctl);
+	val = I915_DE_READ(regs[pll->id].ctl);
 	if (!(val & LCPLL_PLL_ENABLE))
 		goto out;
 
-	val = I915_READ(DPLL_CTRL1);
+	val = I915_DE_READ(DPLL_CTRL1);
 	hw_state->ctrl1 = (val >> (pll->id * 6)) & 0x3f;
 
 	/* avoid reading back stale values if HDMI mode is not enabled */
 	if (val & DPLL_CTRL1_HDMI_MODE(pll->id)) {
-		hw_state->cfgcr1 = I915_READ(regs[pll->id].cfgcr1);
-		hw_state->cfgcr2 = I915_READ(regs[pll->id].cfgcr2);
+		hw_state->cfgcr1 = I915_DE_READ(regs[pll->id].cfgcr1);
+		hw_state->cfgcr2 = I915_DE_READ(regs[pll->id].cfgcr2);
 	}
 	ret = true;
 
@@ -1023,11 +1023,11 @@ static bool skl_ddi_dpll0_get_hw_state(struct drm_i915_private *dev_priv,
 	ret = false;
 
 	/* DPLL0 is always enabled since it drives CDCLK */
-	val = I915_READ(regs[pll->id].ctl);
+	val = I915_DE_READ(regs[pll->id].ctl);
 	if (WARN_ON(!(val & LCPLL_PLL_ENABLE)))
 		goto out;
 
-	val = I915_READ(DPLL_CTRL1);
+	val = I915_DE_READ(DPLL_CTRL1);
 	hw_state->ctrl1 = (val >> (pll->id * 6)) & 0x3f;
 
 	ret = true;
@@ -1438,113 +1438,113 @@ static void bxt_ddi_pll_enable(struct drm_i915_private *dev_priv,
 	bxt_port_to_phy_channel(dev_priv, port, &phy, &ch);
 
 	/* Non-SSC reference */
-	temp = I915_READ(BXT_PORT_PLL_ENABLE(port));
+	temp = I915_DE_READ(BXT_PORT_PLL_ENABLE(port));
 	temp |= PORT_PLL_REF_SEL;
-	I915_WRITE(BXT_PORT_PLL_ENABLE(port), temp);
+	I915_DE_WRITE(BXT_PORT_PLL_ENABLE(port), temp);
 
 	if (IS_GEMINILAKE(dev_priv)) {
-		temp = I915_READ(BXT_PORT_PLL_ENABLE(port));
+		temp = I915_DE_READ(BXT_PORT_PLL_ENABLE(port));
 		temp |= PORT_PLL_POWER_ENABLE;
-		I915_WRITE(BXT_PORT_PLL_ENABLE(port), temp);
+		I915_DE_WRITE(BXT_PORT_PLL_ENABLE(port), temp);
 
-		if (wait_for_us((I915_READ(BXT_PORT_PLL_ENABLE(port)) &
+		if (wait_for_us((I915_DE_READ(BXT_PORT_PLL_ENABLE(port)) &
 				 PORT_PLL_POWER_STATE), 200))
 			DRM_ERROR("Power state not set for PLL:%d\n", port);
 	}
 
 	/* Disable 10 bit clock */
-	temp = I915_READ(BXT_PORT_PLL_EBB_4(phy, ch));
+	temp = I915_DE_READ(BXT_PORT_PLL_EBB_4(phy, ch));
 	temp &= ~PORT_PLL_10BIT_CLK_ENABLE;
-	I915_WRITE(BXT_PORT_PLL_EBB_4(phy, ch), temp);
+	I915_DE_WRITE(BXT_PORT_PLL_EBB_4(phy, ch), temp);
 
 	/* Write P1 & P2 */
-	temp = I915_READ(BXT_PORT_PLL_EBB_0(phy, ch));
+	temp = I915_DE_READ(BXT_PORT_PLL_EBB_0(phy, ch));
 	temp &= ~(PORT_PLL_P1_MASK | PORT_PLL_P2_MASK);
 	temp |= pll->state.hw_state.ebb0;
-	I915_WRITE(BXT_PORT_PLL_EBB_0(phy, ch), temp);
+	I915_DE_WRITE(BXT_PORT_PLL_EBB_0(phy, ch), temp);
 
 	/* Write M2 integer */
-	temp = I915_READ(BXT_PORT_PLL(phy, ch, 0));
+	temp = I915_DE_READ(BXT_PORT_PLL(phy, ch, 0));
 	temp &= ~PORT_PLL_M2_MASK;
 	temp |= pll->state.hw_state.pll0;
-	I915_WRITE(BXT_PORT_PLL(phy, ch, 0), temp);
+	I915_DE_WRITE(BXT_PORT_PLL(phy, ch, 0), temp);
 
 	/* Write N */
-	temp = I915_READ(BXT_PORT_PLL(phy, ch, 1));
+	temp = I915_DE_READ(BXT_PORT_PLL(phy, ch, 1));
 	temp &= ~PORT_PLL_N_MASK;
 	temp |= pll->state.hw_state.pll1;
-	I915_WRITE(BXT_PORT_PLL(phy, ch, 1), temp);
+	I915_DE_WRITE(BXT_PORT_PLL(phy, ch, 1), temp);
 
 	/* Write M2 fraction */
-	temp = I915_READ(BXT_PORT_PLL(phy, ch, 2));
+	temp = I915_DE_READ(BXT_PORT_PLL(phy, ch, 2));
 	temp &= ~PORT_PLL_M2_FRAC_MASK;
 	temp |= pll->state.hw_state.pll2;
-	I915_WRITE(BXT_PORT_PLL(phy, ch, 2), temp);
+	I915_DE_WRITE(BXT_PORT_PLL(phy, ch, 2), temp);
 
 	/* Write M2 fraction enable */
-	temp = I915_READ(BXT_PORT_PLL(phy, ch, 3));
+	temp = I915_DE_READ(BXT_PORT_PLL(phy, ch, 3));
 	temp &= ~PORT_PLL_M2_FRAC_ENABLE;
 	temp |= pll->state.hw_state.pll3;
-	I915_WRITE(BXT_PORT_PLL(phy, ch, 3), temp);
+	I915_DE_WRITE(BXT_PORT_PLL(phy, ch, 3), temp);
 
 	/* Write coeff */
-	temp = I915_READ(BXT_PORT_PLL(phy, ch, 6));
+	temp = I915_DE_READ(BXT_PORT_PLL(phy, ch, 6));
 	temp &= ~PORT_PLL_PROP_COEFF_MASK;
 	temp &= ~PORT_PLL_INT_COEFF_MASK;
 	temp &= ~PORT_PLL_GAIN_CTL_MASK;
 	temp |= pll->state.hw_state.pll6;
-	I915_WRITE(BXT_PORT_PLL(phy, ch, 6), temp);
+	I915_DE_WRITE(BXT_PORT_PLL(phy, ch, 6), temp);
 
 	/* Write calibration val */
-	temp = I915_READ(BXT_PORT_PLL(phy, ch, 8));
+	temp = I915_DE_READ(BXT_PORT_PLL(phy, ch, 8));
 	temp &= ~PORT_PLL_TARGET_CNT_MASK;
 	temp |= pll->state.hw_state.pll8;
-	I915_WRITE(BXT_PORT_PLL(phy, ch, 8), temp);
+	I915_DE_WRITE(BXT_PORT_PLL(phy, ch, 8), temp);
 
-	temp = I915_READ(BXT_PORT_PLL(phy, ch, 9));
+	temp = I915_DE_READ(BXT_PORT_PLL(phy, ch, 9));
 	temp &= ~PORT_PLL_LOCK_THRESHOLD_MASK;
 	temp |= pll->state.hw_state.pll9;
-	I915_WRITE(BXT_PORT_PLL(phy, ch, 9), temp);
+	I915_DE_WRITE(BXT_PORT_PLL(phy, ch, 9), temp);
 
-	temp = I915_READ(BXT_PORT_PLL(phy, ch, 10));
+	temp = I915_DE_READ(BXT_PORT_PLL(phy, ch, 10));
 	temp &= ~PORT_PLL_DCO_AMP_OVR_EN_H;
 	temp &= ~PORT_PLL_DCO_AMP_MASK;
 	temp |= pll->state.hw_state.pll10;
-	I915_WRITE(BXT_PORT_PLL(phy, ch, 10), temp);
+	I915_DE_WRITE(BXT_PORT_PLL(phy, ch, 10), temp);
 
 	/* Recalibrate with new settings */
-	temp = I915_READ(BXT_PORT_PLL_EBB_4(phy, ch));
+	temp = I915_DE_READ(BXT_PORT_PLL_EBB_4(phy, ch));
 	temp |= PORT_PLL_RECALIBRATE;
-	I915_WRITE(BXT_PORT_PLL_EBB_4(phy, ch), temp);
+	I915_DE_WRITE(BXT_PORT_PLL_EBB_4(phy, ch), temp);
 	temp &= ~PORT_PLL_10BIT_CLK_ENABLE;
 	temp |= pll->state.hw_state.ebb4;
-	I915_WRITE(BXT_PORT_PLL_EBB_4(phy, ch), temp);
+	I915_DE_WRITE(BXT_PORT_PLL_EBB_4(phy, ch), temp);
 
 	/* Enable PLL */
-	temp = I915_READ(BXT_PORT_PLL_ENABLE(port));
+	temp = I915_DE_READ(BXT_PORT_PLL_ENABLE(port));
 	temp |= PORT_PLL_ENABLE;
-	I915_WRITE(BXT_PORT_PLL_ENABLE(port), temp);
-	POSTING_READ(BXT_PORT_PLL_ENABLE(port));
+	I915_DE_WRITE(BXT_PORT_PLL_ENABLE(port), temp);
+	POSTING_DE_READ(BXT_PORT_PLL_ENABLE(port));
 
-	if (wait_for_us((I915_READ(BXT_PORT_PLL_ENABLE(port)) & PORT_PLL_LOCK),
+	if (wait_for_us((I915_DE_READ(BXT_PORT_PLL_ENABLE(port)) & PORT_PLL_LOCK),
 			200))
 		DRM_ERROR("PLL %d not locked\n", port);
 
 	if (IS_GEMINILAKE(dev_priv)) {
-		temp = I915_READ(BXT_PORT_TX_DW5_LN0(phy, ch));
+		temp = I915_DE_READ(BXT_PORT_TX_DW5_LN0(phy, ch));
 		temp |= DCC_DELAY_RANGE_2;
-		I915_WRITE(BXT_PORT_TX_DW5_GRP(phy, ch), temp);
+		I915_DE_WRITE(BXT_PORT_TX_DW5_GRP(phy, ch), temp);
 	}
 
 	/*
 	 * While we write to the group register to program all lanes at once we
 	 * can read only lane registers and we pick lanes 0/1 for that.
 	 */
-	temp = I915_READ(BXT_PORT_PCS_DW12_LN01(phy, ch));
+	temp = I915_DE_READ(BXT_PORT_PCS_DW12_LN01(phy, ch));
 	temp &= ~LANE_STAGGER_MASK;
 	temp &= ~LANESTAGGER_STRAP_OVRD;
 	temp |= pll->state.hw_state.pcsdw12;
-	I915_WRITE(BXT_PORT_PCS_DW12_GRP(phy, ch), temp);
+	I915_DE_WRITE(BXT_PORT_PCS_DW12_GRP(phy, ch), temp);
 }
 
 static void bxt_ddi_pll_disable(struct drm_i915_private *dev_priv,
@@ -1553,17 +1553,17 @@ static void bxt_ddi_pll_disable(struct drm_i915_private *dev_priv,
 	enum port port = (enum port)pll->id;	/* 1:1 port->PLL mapping */
 	uint32_t temp;
 
-	temp = I915_READ(BXT_PORT_PLL_ENABLE(port));
+	temp = I915_DE_READ(BXT_PORT_PLL_ENABLE(port));
 	temp &= ~PORT_PLL_ENABLE;
-	I915_WRITE(BXT_PORT_PLL_ENABLE(port), temp);
-	POSTING_READ(BXT_PORT_PLL_ENABLE(port));
+	I915_DE_WRITE(BXT_PORT_PLL_ENABLE(port), temp);
+	POSTING_DE_READ(BXT_PORT_PLL_ENABLE(port));
 
 	if (IS_GEMINILAKE(dev_priv)) {
-		temp = I915_READ(BXT_PORT_PLL_ENABLE(port));
+		temp = I915_DE_READ(BXT_PORT_PLL_ENABLE(port));
 		temp &= ~PORT_PLL_POWER_ENABLE;
-		I915_WRITE(BXT_PORT_PLL_ENABLE(port), temp);
+		I915_DE_WRITE(BXT_PORT_PLL_ENABLE(port), temp);
 
-		if (wait_for_us(!(I915_READ(BXT_PORT_PLL_ENABLE(port)) &
+		if (wait_for_us(!(I915_DE_READ(BXT_PORT_PLL_ENABLE(port)) &
 				PORT_PLL_POWER_STATE), 200))
 			DRM_ERROR("Power state not reset for PLL:%d\n", port);
 	}
@@ -1586,40 +1586,40 @@ static bool bxt_ddi_pll_get_hw_state(struct drm_i915_private *dev_priv,
 
 	ret = false;
 
-	val = I915_READ(BXT_PORT_PLL_ENABLE(port));
+	val = I915_DE_READ(BXT_PORT_PLL_ENABLE(port));
 	if (!(val & PORT_PLL_ENABLE))
 		goto out;
 
-	hw_state->ebb0 = I915_READ(BXT_PORT_PLL_EBB_0(phy, ch));
+	hw_state->ebb0 = I915_DE_READ(BXT_PORT_PLL_EBB_0(phy, ch));
 	hw_state->ebb0 &= PORT_PLL_P1_MASK | PORT_PLL_P2_MASK;
 
-	hw_state->ebb4 = I915_READ(BXT_PORT_PLL_EBB_4(phy, ch));
+	hw_state->ebb4 = I915_DE_READ(BXT_PORT_PLL_EBB_4(phy, ch));
 	hw_state->ebb4 &= PORT_PLL_10BIT_CLK_ENABLE;
 
-	hw_state->pll0 = I915_READ(BXT_PORT_PLL(phy, ch, 0));
+	hw_state->pll0 = I915_DE_READ(BXT_PORT_PLL(phy, ch, 0));
 	hw_state->pll0 &= PORT_PLL_M2_MASK;
 
-	hw_state->pll1 = I915_READ(BXT_PORT_PLL(phy, ch, 1));
+	hw_state->pll1 = I915_DE_READ(BXT_PORT_PLL(phy, ch, 1));
 	hw_state->pll1 &= PORT_PLL_N_MASK;
 
-	hw_state->pll2 = I915_READ(BXT_PORT_PLL(phy, ch, 2));
+	hw_state->pll2 = I915_DE_READ(BXT_PORT_PLL(phy, ch, 2));
 	hw_state->pll2 &= PORT_PLL_M2_FRAC_MASK;
 
-	hw_state->pll3 = I915_READ(BXT_PORT_PLL(phy, ch, 3));
+	hw_state->pll3 = I915_DE_READ(BXT_PORT_PLL(phy, ch, 3));
 	hw_state->pll3 &= PORT_PLL_M2_FRAC_ENABLE;
 
-	hw_state->pll6 = I915_READ(BXT_PORT_PLL(phy, ch, 6));
+	hw_state->pll6 = I915_DE_READ(BXT_PORT_PLL(phy, ch, 6));
 	hw_state->pll6 &= PORT_PLL_PROP_COEFF_MASK |
 			  PORT_PLL_INT_COEFF_MASK |
 			  PORT_PLL_GAIN_CTL_MASK;
 
-	hw_state->pll8 = I915_READ(BXT_PORT_PLL(phy, ch, 8));
+	hw_state->pll8 = I915_DE_READ(BXT_PORT_PLL(phy, ch, 8));
 	hw_state->pll8 &= PORT_PLL_TARGET_CNT_MASK;
 
-	hw_state->pll9 = I915_READ(BXT_PORT_PLL(phy, ch, 9));
+	hw_state->pll9 = I915_DE_READ(BXT_PORT_PLL(phy, ch, 9));
 	hw_state->pll9 &= PORT_PLL_LOCK_THRESHOLD_MASK;
 
-	hw_state->pll10 = I915_READ(BXT_PORT_PLL(phy, ch, 10));
+	hw_state->pll10 = I915_DE_READ(BXT_PORT_PLL(phy, ch, 10));
 	hw_state->pll10 &= PORT_PLL_DCO_AMP_OVR_EN_H |
 			   PORT_PLL_DCO_AMP_MASK;
 
@@ -1628,11 +1628,11 @@ static bool bxt_ddi_pll_get_hw_state(struct drm_i915_private *dev_priv,
 	 * can read only lane registers. We configure all lanes the same way, so
 	 * here just read out lanes 0/1 and output a note if lanes 2/3 differ.
 	 */
-	hw_state->pcsdw12 = I915_READ(BXT_PORT_PCS_DW12_LN01(phy, ch));
-	if (I915_READ(BXT_PORT_PCS_DW12_LN23(phy, ch)) != hw_state->pcsdw12)
+	hw_state->pcsdw12 = I915_DE_READ(BXT_PORT_PCS_DW12_LN01(phy, ch));
+	if (I915_DE_READ(BXT_PORT_PCS_DW12_LN23(phy, ch)) != hw_state->pcsdw12)
 		DRM_DEBUG_DRIVER("lane stagger config different for lane 01 (%08x) and 23 (%08x)\n",
 				 hw_state->pcsdw12,
-				 I915_READ(BXT_PORT_PCS_DW12_LN23(phy, ch)));
+				 I915_DE_READ(BXT_PORT_PCS_DW12_LN23(phy, ch)));
 	hw_state->pcsdw12 &= LANE_STAGGER_MASK | LANESTAGGER_STRAP_OVRD;
 
 	ret = true;
@@ -1878,7 +1878,7 @@ static void intel_ddi_pll_init(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = to_i915(dev);
 
 	if (INTEL_GEN(dev_priv) < 9) {
-		uint32_t val = I915_READ(LCPLL_CTL);
+		uint32_t val = I915_DE_READ(LCPLL_CTL);
 
 		/*
 		 * The LCPLL register should be turned on by the BIOS. For now

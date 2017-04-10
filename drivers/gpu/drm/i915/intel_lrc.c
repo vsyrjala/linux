@@ -1156,12 +1156,12 @@ static int gen8_init_common_ring(struct intel_engine_cs *engine)
 	intel_engine_reset_breadcrumbs(engine);
 	intel_engine_init_hangcheck(engine);
 
-	I915_WRITE(RING_HWSTAM(engine->mmio_base), 0xffffffff);
-	I915_WRITE(RING_MODE_GEN7(engine),
-		   _MASKED_BIT_ENABLE(GFX_RUN_LIST_ENABLE));
-	I915_WRITE(RING_HWS_PGA(engine->mmio_base),
-		   engine->status_page.ggtt_offset);
-	POSTING_READ(RING_HWS_PGA(engine->mmio_base));
+	I915_GT_WRITE(RING_HWSTAM(engine->mmio_base), 0xffffffff);
+	I915_GT_WRITE(RING_MODE_GEN7(engine),
+		      _MASKED_BIT_ENABLE(GFX_RUN_LIST_ENABLE));
+	I915_GT_WRITE(RING_HWS_PGA(engine->mmio_base),
+		      engine->status_page.ggtt_offset);
+	POSTING_GT_READ(RING_HWS_PGA(engine->mmio_base));
 
 	DRM_DEBUG_DRIVER("Execlists enabled for %s\n", engine->name);
 
@@ -1195,9 +1195,9 @@ static int gen8_init_render_ring(struct intel_engine_cs *engine)
 	 *
 	 * WaDisableAsyncFlipPerfMode:snb,ivb,hsw,vlv,bdw,chv
 	 */
-	I915_WRITE(MI_MODE, _MASKED_BIT_ENABLE(ASYNC_FLIP_PERF_DISABLE));
+	I915_GT_WRITE(MI_MODE, _MASKED_BIT_ENABLE(ASYNC_FLIP_PERF_DISABLE));
 
-	I915_WRITE(INSTPM, _MASKED_BIT_ENABLE(INSTPM_FORCE_ORDERING));
+	I915_GT_WRITE(INSTPM, _MASKED_BIT_ENABLE(INSTPM_FORCE_ORDERING));
 
 	return init_workarounds_ring(engine);
 }
@@ -1340,7 +1340,7 @@ static void gen8_logical_ring_enable_irq(struct intel_engine_cs *engine)
 	struct drm_i915_private *dev_priv = engine->i915;
 	I915_WRITE_IMR(engine,
 		       ~(engine->irq_enable_mask | engine->irq_keep_mask));
-	POSTING_READ_FW(RING_IMR(engine->mmio_base));
+	POSTING_GT_READ_FW(RING_IMR(engine->mmio_base));
 }
 
 static void gen8_logical_ring_disable_irq(struct intel_engine_cs *engine)

@@ -99,7 +99,7 @@ semaphore_waits_for(struct intel_engine_cs *engine, u32 *seqno)
 	if (engine->buffer == NULL)
 		return NULL;
 
-	ipehr = I915_READ(RING_IPEHR(engine->mmio_base));
+	ipehr = I915_GT_READ(RING_IPEHR(engine->mmio_base));
 	if (!ipehr_is_semaphore_wait(engine, ipehr))
 		return NULL;
 

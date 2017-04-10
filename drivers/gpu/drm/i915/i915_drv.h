@@ -3083,27 +3083,50 @@ u64 intel_uncore_edram_size(struct drm_i915_private *dev_priv);
 
 void assert_forcewakes_inactive(struct drm_i915_private *dev_priv);
 
-int intel_wait_for_register(struct drm_i915_private *dev_priv,
+int intel_gt_wait_for_register(struct drm_i915_private *dev_priv,
+			       i915_reg_t reg,
+			       u32 mask,
+			       u32 value,
+			       unsigned int timeout_ms);
+int intel_de_wait_for_register(struct drm_i915_private *dev_priv,
 			    i915_reg_t reg,
 			    u32 mask,
 			    u32 value,
 			    unsigned int timeout_ms);
-int __intel_wait_for_register_fw(struct drm_i915_private *dev_priv,
-				 i915_reg_t reg,
-				 u32 mask,
-				 u32 value,
-				 unsigned int fast_timeout_us,
-				 unsigned int slow_timeout_ms,
-				 u32 *out_value);
+int __intel_gt_wait_for_register_fw(struct drm_i915_private *dev_priv,
+				    i915_reg_t reg,
+				    u32 mask,
+				    u32 value,
+				    unsigned int fast_timeout_us,
+				    unsigned int slow_timeout_ms,
+				    u32 *out_value);
+int __intel_de_wait_for_register_fw(struct drm_i915_private *dev_priv,
+				    i915_reg_t reg,
+				    u32 mask,
+				    u32 value,
+				    unsigned int fast_timeout_us,
+				    unsigned int slow_timeout_ms,
+				    u32 *out_value);
 static inline
-int intel_wait_for_register_fw(struct drm_i915_private *dev_priv,
-			       i915_reg_t reg,
-			       u32 mask,
-			       u32 value,
-			       unsigned int timeout_ms)
+int intel_gt_wait_for_register_fw(struct drm_i915_private *dev_priv,
+				  i915_reg_t reg,
+				  u32 mask,
+				  u32 value,
+				  unsigned int timeout_ms)
 {
-	return __intel_wait_for_register_fw(dev_priv, reg, mask, value,
-					    2, timeout_ms, NULL);
+	return __intel_gt_wait_for_register_fw(dev_priv, reg, mask, value,
+					       2, timeout_ms, NULL);
+}
+
+static inline
+int intel_de_wait_for_register_fw(struct drm_i915_private *dev_priv,
+				  i915_reg_t reg,
+				  u32 mask,
+				  u32 value,
+				  unsigned int timeout_ms)
+{
+	return __intel_de_wait_for_register_fw(dev_priv, reg, mask, value,
+					       2, timeout_ms, NULL);
 }
 
 static inline bool intel_gvt_active(struct drm_i915_private *dev_priv)
@@ -3903,18 +3926,62 @@ int intel_freq_opcode(struct drm_i915_private *dev_priv, int val);
 u64 intel_rc6_residency_us(struct drm_i915_private *dev_priv,
 			   const i915_reg_t reg);
 
-#define I915_READ8(reg)		dev_priv->uncore.funcs.mmio_readb(dev_priv, (reg), true)
-#define I915_WRITE8(reg, val)	dev_priv->uncore.funcs.mmio_writeb(dev_priv, (reg), (val), true)
+static inline void assert_register(struct drm_i915_private *dev_priv,
+				   i915_reg_t reg, bool want_de_register)
+{
+	u32 offset = i915_mmio_reg_offset(reg);
+	bool is_de_register;
 
-#define I915_READ16(reg)	dev_priv->uncore.funcs.mmio_readw(dev_priv, (reg), true)
-#define I915_WRITE16(reg, val)	dev_priv->uncore.funcs.mmio_writew(dev_priv, (reg), (val), true)
-#define I915_READ16_NOTRACE(reg)	dev_priv->uncore.funcs.mmio_readw(dev_priv, (reg), false)
-#define I915_WRITE16_NOTRACE(reg, val)	dev_priv->uncore.funcs.mmio_writew(dev_priv, (reg), (val), false)
+	if (INTEL_GEN(dev_priv) >= 5) {
+		is_de_register = offset >= 0x40000;
+	} else {
+		is_de_register =
+			(offset >= 0x5000 && offset <= 0x5fff) ||
+			(offset >= 0x6000 && offset <= 0x6fff) ||
+			(offset >= 0xa000 && offset <= 0xafff) ||
+			offset >= 0x30000;
+	}
 
-#define I915_READ(reg)		dev_priv->uncore.funcs.mmio_readl(dev_priv, (reg), true)
-#define I915_WRITE(reg, val)	dev_priv->uncore.funcs.mmio_writel(dev_priv, (reg), (val), true)
-#define I915_READ_NOTRACE(reg)		dev_priv->uncore.funcs.mmio_readl(dev_priv, (reg), false)
-#define I915_WRITE_NOTRACE(reg, val)	dev_priv->uncore.funcs.mmio_writel(dev_priv, (reg), (val), false)
+	WARN_ONCE(is_de_register != want_de_register,
+		  "Incorrect READ/WRITE function used for %s register 0x%08x\n",
+		  is_de_register ? "DE" : "GT", offset);
+}
+
+#define _I915_READ(size, reg, want_de, trace) ({ \
+	assert_register(dev_priv, reg, want_de); \
+	dev_priv->uncore.funcs.mmio_read##size(dev_priv, (reg), (trace)); \
+})
+
+#define _I915_WRITE(size, reg, val, want_de, trace) ({ \
+	assert_register(dev_priv, reg, want_de); \
+	dev_priv->uncore.funcs.mmio_write##size(dev_priv, (reg), (val), (trace)); \
+})
+
+#define I915_GT_READ8(reg)		_I915_READ(b, (reg), false, true)
+#define I915_GT_WRITE8(reg, val)	_I915_WRITE(b, (reg), (val), false, true)
+
+#define I915_GT_READ16(reg)	_I915_READ(w, (reg), false, true)
+#define I915_GT_WRITE16(reg, val)	_I915_WRITE(w, (reg), (val), false, true)
+#define I915_GT_READ16_NOTRACE(reg)	_I915_READ(w, (reg), false, false)
+#define I915_GT_WRITE16_NOTRACE(reg, val)	_I915_WRITE(w, (reg), (val), false, false)
+
+#define I915_GT_READ(reg)		_I915_READ(l, (reg), false, true)
+#define I915_GT_WRITE(reg, val)	_I915_WRITE(l, (reg), (val), false, true)
+#define I915_GT_READ_NOTRACE(reg)		_I915_READ(l, (reg), false, false)
+#define I915_GT_WRITE_NOTRACE(reg, val)	_I915_WRITE(l, (reg), (val), false, false)
+
+#define I915_DE_READ8(reg)		_I915_READ(b, (reg), true, true)
+#define I915_DE_WRITE8(reg, val)	_I915_WRITE(b, (reg), (val), true, true)
+
+#define I915_DE_READ16(reg)	_I915_READ(w, (reg), true, true)
+#define I915_DE_WRITE16(reg, val)	_I915_WRITE(w, (reg), (val), true, true)
+#define I915_DE_READ16_NOTRACE(reg)	_I915_READ(w, (reg), true, false)
+#define I915_DE_WRITE16_NOTRACE(reg, val)	_I915_WRITE(w, (reg), (val), true, false)
+
+#define I915_DE_READ(reg)		_I915_READ(l, (reg), true, true)
+#define I915_DE_WRITE(reg, val)	_I915_WRITE(l, (reg), (val), true, true)
+#define I915_DE_READ_NOTRACE(reg)		_I915_READ(l, (reg), true, false)
+#define I915_DE_WRITE_NOTRACE(reg, val)	_I915_WRITE(l, (reg), (val), true, false)
 
 /* Be very careful with read/write 64-bit values. On 32-bit machines, they
  * will be implemented using 2 32-bit writes in an arbitrary order with
@@ -3930,20 +3997,24 @@ u64 intel_rc6_residency_us(struct drm_i915_private *dev_priv,
  *
  * You have been warned.
  */
-#define I915_READ64(reg)	dev_priv->uncore.funcs.mmio_readq(dev_priv, (reg), true)
+#define I915_GT_READ64(reg)	_I915_READ(q, (reg), false, true)
+#define I915_DE_READ64(reg)	_I915_READ(q, (reg), true, true)
 
-#define I915_READ64_2x32(lower_reg, upper_reg) ({			\
+#define I915_GT_READ64_2x32(lower_reg, upper_reg) ({			\
 	u32 upper, lower, old_upper, loop = 0;				\
-	upper = I915_READ(upper_reg);					\
+	upper = I915_GT_READ(upper_reg);				\
 	do {								\
 		old_upper = upper;					\
-		lower = I915_READ(lower_reg);				\
-		upper = I915_READ(upper_reg);				\
+		lower = I915_GT_READ(lower_reg);			\
+		upper = I915_GT_READ(upper_reg); 			\
 	} while (upper != old_upper && loop++ < 2);			\
 	(u64)upper << 32 | lower; })
 
-#define POSTING_READ(reg)	(void)I915_READ_NOTRACE(reg)
-#define POSTING_READ16(reg)	(void)I915_READ16_NOTRACE(reg)
+#define POSTING_GT_READ(reg)	(void)I915_GT_READ_NOTRACE(reg)
+#define POSTING_GT_READ16(reg)	(void)I915_GT_READ16_NOTRACE(reg)
+
+#define POSTING_DE_READ(reg)	(void)I915_DE_READ_NOTRACE(reg)
+#define POSTING_DE_READ16(reg)	(void)I915_DE_READ16_NOTRACE(reg)
 
 #define __raw_read(x, s) \
 static inline uint##x##_t __raw_i915_read##x(const struct drm_i915_private *dev_priv, \
@@ -3997,10 +4068,25 @@ __raw_write(64, q)
  * therefore generally be serialised, by either the dev_priv->uncore.lock or
  * a more localised lock guarding all access to that bank of registers.
  */
-#define I915_READ_FW(reg__) __raw_i915_read32(dev_priv, (reg__))
-#define I915_WRITE_FW(reg__, val__) __raw_i915_write32(dev_priv, (reg__), (val__))
-#define I915_WRITE64_FW(reg__, val__) __raw_i915_write64(dev_priv, (reg__), (val__))
-#define POSTING_READ_FW(reg__) (void)I915_READ_FW(reg__)
+#define _I915_READ_FW(size, reg, want_de) ({ \
+	assert_register(dev_priv, (reg), (want_de)); \
+	__raw_i915_read##size(dev_priv, (reg)); \
+})
+
+#define _I915_WRITE_FW(size, reg, val, want_de) ({ \
+	assert_register(dev_priv, (reg), (want_de)); \
+	__raw_i915_write##size(dev_priv, (reg), (val));	\
+})
+
+#define I915_GT_READ_FW(reg__) _I915_READ_FW(32, (reg__), false)
+#define I915_GT_WRITE_FW(reg__, val__) _I915_WRITE_FW(32, (reg__), (val__), false)
+#define I915_GT_WRITE64_FW(reg__, val__) _I915_WRITE_FW(64, (reg__), (val__), false)
+#define POSTING_GT_READ_FW(reg__) (void)I915_GT_READ_FW(reg__)
+
+#define I915_DE_READ_FW(reg__) _I915_READ_FW(32, (reg__), true)
+#define I915_DE_WRITE_FW(reg__, val__) _I915_WRITE_FW(32, (reg__), (val__), true)
+#define I915_DE_WRITE64_FW(reg__, val__) _I915_WRITE_FW(64, (reg__), (val__), true)
+#define POSTING_DE_READ_FW(reg__) (void)I915_DE_READ_FW(reg__)
 
 /* "Broadcast RGB" property */
 #define INTEL_BROADCAST_RGB_AUTO 0

@@ -85,7 +85,7 @@ static void cherryview_sseu_info_init(struct drm_i915_private *dev_priv)
 	struct sseu_dev_info *sseu = &mkwrite_device_info(dev_priv)->sseu;
 	u32 fuse, eu_dis;
 
-	fuse = I915_READ(CHV_FUSE_GT);
+	fuse = I915_DE_READ(CHV_FUSE_GT);
 
 	sseu->slice_mask = BIT(0);
 
@@ -129,7 +129,7 @@ static void gen9_sseu_info_init(struct drm_i915_private *dev_priv)
 	u32 fuse2, eu_disable;
 	u8 eu_mask = 0xff;
 
-	fuse2 = I915_READ(GEN8_FUSE2);
+	fuse2 = I915_GT_READ(GEN8_FUSE2);
 	sseu->slice_mask = (fuse2 & GEN8_F2_S_ENA_MASK) >> GEN8_F2_S_ENA_SHIFT;
 
 	/*
@@ -149,7 +149,7 @@ static void gen9_sseu_info_init(struct drm_i915_private *dev_priv)
 			/* skip disabled slice */
 			continue;
 
-		eu_disable = I915_READ(GEN9_EU_DISABLE(s));
+		eu_disable = I915_GT_READ(GEN9_EU_DISABLE(s));
 		for (ss = 0; ss < ss_max; ss++) {
 			int eu_per_ss;
 
@@ -231,7 +231,7 @@ static void broadwell_sseu_info_init(struct drm_i915_private *dev_priv)
 	int s, ss;
 	u32 fuse2, eu_disable[3]; /* s_max */
 
-	fuse2 = I915_READ(GEN8_FUSE2);
+	fuse2 = I915_GT_READ(GEN8_FUSE2);
 	sseu->slice_mask = (fuse2 & GEN8_F2_S_ENA_MASK) >> GEN8_F2_S_ENA_SHIFT;
 	/*
 	 * The subslice disable field is global, i.e. it applies
@@ -241,12 +241,12 @@ static void broadwell_sseu_info_init(struct drm_i915_private *dev_priv)
 	sseu->subslice_mask &= ~((fuse2 & GEN8_F2_SS_DIS_MASK) >>
 				 GEN8_F2_SS_DIS_SHIFT);
 
-	eu_disable[0] = I915_READ(GEN8_EU_DISABLE0) & GEN8_EU_DIS0_S0_MASK;
-	eu_disable[1] = (I915_READ(GEN8_EU_DISABLE0) >> GEN8_EU_DIS0_S1_SHIFT) |
-			((I915_READ(GEN8_EU_DISABLE1) & GEN8_EU_DIS1_S1_MASK) <<
+	eu_disable[0] = I915_GT_READ(GEN8_EU_DISABLE0) & GEN8_EU_DIS0_S0_MASK;
+	eu_disable[1] = (I915_GT_READ(GEN8_EU_DISABLE0) >> GEN8_EU_DIS0_S1_SHIFT) |
+			((I915_GT_READ(GEN8_EU_DISABLE1) & GEN8_EU_DIS1_S1_MASK) <<
 			 (32 - GEN8_EU_DIS0_S1_SHIFT));
-	eu_disable[2] = (I915_READ(GEN8_EU_DISABLE1) >> GEN8_EU_DIS1_S2_SHIFT) |
-			((I915_READ(GEN8_EU_DISABLE2) & GEN8_EU_DIS2_S2_MASK) <<
+	eu_disable[2] = (I915_GT_READ(GEN8_EU_DISABLE1) >> GEN8_EU_DIS1_S2_SHIFT) |
+			((I915_GT_READ(GEN8_EU_DISABLE2) & GEN8_EU_DIS2_S2_MASK) <<
 			 (32 - GEN8_EU_DIS1_S2_SHIFT));
 
 	/*
@@ -348,8 +348,8 @@ void intel_device_info_runtime_init(struct drm_i915_private *dev_priv)
 	} else if (info->num_pipes > 0 &&
 		   (IS_GEN7(dev_priv) || IS_GEN8(dev_priv)) &&
 		   HAS_PCH_SPLIT(dev_priv)) {
-		u32 fuse_strap = I915_READ(FUSE_STRAP);
-		u32 sfuse_strap = I915_READ(SFUSE_STRAP);
+		u32 fuse_strap = I915_DE_READ(FUSE_STRAP);
+		u32 sfuse_strap = I915_DE_READ(SFUSE_STRAP);
 
 		/*
 		 * SFUSE_STRAP is supposed to have a bit signalling the display
@@ -371,7 +371,7 @@ void intel_device_info_runtime_init(struct drm_i915_private *dev_priv)
 			info->num_pipes -= 1;
 		}
 	} else if (info->num_pipes > 0 && IS_GEN9(dev_priv)) {
-		u32 dfsm = I915_READ(SKL_DFSM);
+		u32 dfsm = I915_DE_READ(SKL_DFSM);
 		u8 disabled_mask = 0;
 		bool invalid;
 		int num_bits;

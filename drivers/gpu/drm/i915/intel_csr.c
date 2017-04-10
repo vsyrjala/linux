@@ -217,11 +217,11 @@ static void gen9_set_dc_state_debugmask(struct drm_i915_private *dev_priv)
 		mask |= DC_STATE_DEBUG_MASK_CORES;
 
 	/* The below bit doesn't need to be cleared ever afterwards */
-	val = I915_READ(DC_STATE_DEBUG);
+	val = I915_DE_READ(DC_STATE_DEBUG);
 	if ((val & mask) != mask) {
 		val |= mask;
-		I915_WRITE(DC_STATE_DEBUG, val);
-		POSTING_READ(DC_STATE_DEBUG);
+		I915_DE_WRITE(DC_STATE_DEBUG, val);
+		POSTING_DE_READ(DC_STATE_DEBUG);
 	}
 }
 
@@ -250,11 +250,15 @@ void intel_csr_load_program(struct drm_i915_private *dev_priv)
 
 	fw_size = dev_priv->csr.dmc_fw_size;
 	for (i = 0; i < fw_size; i++)
-		I915_WRITE(CSR_PROGRAM(i), payload[i]);
+		I915_DE_WRITE(CSR_PROGRAM(i), payload[i]);
 
 	for (i = 0; i < dev_priv->csr.mmio_count; i++) {
-		I915_WRITE(dev_priv->csr.mmioaddr[i],
-			   dev_priv->csr.mmiodata[i]);
+		if (i915_mmio_reg_offset(dev_priv->csr.mmioaddr[i]) >= 0x40000)
+			I915_DE_WRITE(dev_priv->csr.mmioaddr[i],
+				      dev_priv->csr.mmiodata[i]);
+		else
+			I915_GT_WRITE(dev_priv->csr.mmioaddr[i],
+				      dev_priv->csr.mmiodata[i]);
 	}
 
 	dev_priv->csr.dc_state = 0;

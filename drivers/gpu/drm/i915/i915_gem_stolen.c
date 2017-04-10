@@ -203,7 +203,7 @@ static dma_addr_t i915_stolen_to_dma(struct drm_i915_private *dev_priv)
 		};
 		u64 ggtt_start, ggtt_end;
 
-		ggtt_start = I915_READ(PGTBL_CTL);
+		ggtt_start = I915_GT_READ(PGTBL_CTL);
 		if (IS_GEN4(dev_priv))
 			ggtt_start = (ggtt_start & PGTBL_ADDRESS_LO_MASK) |
 				     (ggtt_start & PGTBL_ADDRESS_HI_MASK) << 28;
@@ -288,9 +288,9 @@ static void g4x_get_stolen_reserved(struct drm_i915_private *dev_priv,
 				    dma_addr_t *base, u32 *size)
 {
 	struct i915_ggtt *ggtt = &dev_priv->ggtt;
-	uint32_t reg_val = I915_READ(IS_GM45(dev_priv) ?
-				     CTG_STOLEN_RESERVED :
-				     ELK_STOLEN_RESERVED);
+	uint32_t reg_val = I915_GT_READ(IS_GM45(dev_priv) ?
+					CTG_STOLEN_RESERVED :
+					ELK_STOLEN_RESERVED);
 	dma_addr_t stolen_top = dev_priv->mm.stolen_base + ggtt->stolen_size;
 
 	*base = (reg_val & G4X_STOLEN_RESERVED_ADDR2_MASK) << 16;
@@ -310,7 +310,7 @@ static void g4x_get_stolen_reserved(struct drm_i915_private *dev_priv,
 static void gen6_get_stolen_reserved(struct drm_i915_private *dev_priv,
 				     dma_addr_t *base, u32 *size)
 {
-	uint32_t reg_val = I915_READ(GEN6_STOLEN_RESERVED);
+	uint32_t reg_val = I915_DE_READ(GEN6_STOLEN_RESERVED);
 
 	*base = reg_val & GEN6_STOLEN_RESERVED_ADDR_MASK;
 
@@ -336,7 +336,7 @@ static void gen6_get_stolen_reserved(struct drm_i915_private *dev_priv,
 static void gen7_get_stolen_reserved(struct drm_i915_private *dev_priv,
 				     dma_addr_t *base, u32 *size)
 {
-	uint32_t reg_val = I915_READ(GEN6_STOLEN_RESERVED);
+	uint32_t reg_val = I915_DE_READ(GEN6_STOLEN_RESERVED);
 
 	*base = reg_val & GEN7_STOLEN_RESERVED_ADDR_MASK;
 
@@ -356,7 +356,7 @@ static void gen7_get_stolen_reserved(struct drm_i915_private *dev_priv,
 static void chv_get_stolen_reserved(struct drm_i915_private *dev_priv,
 				    dma_addr_t *base, u32 *size)
 {
-	uint32_t reg_val = I915_READ(GEN6_STOLEN_RESERVED);
+	uint32_t reg_val = I915_DE_READ(GEN6_STOLEN_RESERVED);
 
 	*base = reg_val & GEN6_STOLEN_RESERVED_ADDR_MASK;
 
@@ -383,7 +383,7 @@ static void bdw_get_stolen_reserved(struct drm_i915_private *dev_priv,
 				    dma_addr_t *base, u32 *size)
 {
 	struct i915_ggtt *ggtt = &dev_priv->ggtt;
-	uint32_t reg_val = I915_READ(GEN6_STOLEN_RESERVED);
+	uint32_t reg_val = I915_DE_READ(GEN6_STOLEN_RESERVED);
 	dma_addr_t stolen_top;
 
 	stolen_top = dev_priv->mm.stolen_base + ggtt->stolen_size;

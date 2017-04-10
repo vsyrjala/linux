@@ -166,18 +166,18 @@ static void i9xx_load_csc_matrix(struct drm_crtc_state *crtc_state)
 		}
 	}
 
-	I915_WRITE(PIPE_CSC_COEFF_RY_GY(pipe), coeffs[0] << 16 | coeffs[1]);
-	I915_WRITE(PIPE_CSC_COEFF_BY(pipe), coeffs[2] << 16);
+	I915_DE_WRITE(PIPE_CSC_COEFF_RY_GY(pipe), coeffs[0] << 16 | coeffs[1]);
+	I915_DE_WRITE(PIPE_CSC_COEFF_BY(pipe), coeffs[2] << 16);
 
-	I915_WRITE(PIPE_CSC_COEFF_RU_GU(pipe), coeffs[3] << 16 | coeffs[4]);
-	I915_WRITE(PIPE_CSC_COEFF_BU(pipe), coeffs[5] << 16);
+	I915_DE_WRITE(PIPE_CSC_COEFF_RU_GU(pipe), coeffs[3] << 16 | coeffs[4]);
+	I915_DE_WRITE(PIPE_CSC_COEFF_BU(pipe), coeffs[5] << 16);
 
-	I915_WRITE(PIPE_CSC_COEFF_RV_GV(pipe), coeffs[6] << 16 | coeffs[7]);
-	I915_WRITE(PIPE_CSC_COEFF_BV(pipe), coeffs[8] << 16);
+	I915_DE_WRITE(PIPE_CSC_COEFF_RV_GV(pipe), coeffs[6] << 16 | coeffs[7]);
+	I915_DE_WRITE(PIPE_CSC_COEFF_BV(pipe), coeffs[8] << 16);
 
-	I915_WRITE(PIPE_CSC_PREOFF_HI(pipe), 0);
-	I915_WRITE(PIPE_CSC_PREOFF_ME(pipe), 0);
-	I915_WRITE(PIPE_CSC_PREOFF_LO(pipe), 0);
+	I915_DE_WRITE(PIPE_CSC_PREOFF_HI(pipe), 0);
+	I915_DE_WRITE(PIPE_CSC_PREOFF_ME(pipe), 0);
+	I915_DE_WRITE(PIPE_CSC_PREOFF_LO(pipe), 0);
 
 	if (INTEL_GEN(dev_priv) > 6) {
 		uint16_t postoff = 0;
@@ -185,18 +185,18 @@ static void i9xx_load_csc_matrix(struct drm_crtc_state *crtc_state)
 		if (intel_crtc_state->limited_color_range)
 			postoff = (16 * (1 << 12) / 255) & 0x1fff;
 
-		I915_WRITE(PIPE_CSC_POSTOFF_HI(pipe), postoff);
-		I915_WRITE(PIPE_CSC_POSTOFF_ME(pipe), postoff);
-		I915_WRITE(PIPE_CSC_POSTOFF_LO(pipe), postoff);
+		I915_DE_WRITE(PIPE_CSC_POSTOFF_HI(pipe), postoff);
+		I915_DE_WRITE(PIPE_CSC_POSTOFF_ME(pipe), postoff);
+		I915_DE_WRITE(PIPE_CSC_POSTOFF_LO(pipe), postoff);
 
-		I915_WRITE(PIPE_CSC_MODE(pipe), 0);
+		I915_DE_WRITE(PIPE_CSC_MODE(pipe), 0);
 	} else {
 		uint32_t mode = CSC_MODE_YUV_TO_RGB;
 
 		if (intel_crtc_state->limited_color_range)
 			mode |= CSC_BLACK_SCREEN_OFFSET;
 
-		I915_WRITE(PIPE_CSC_MODE(pipe), mode);
+		I915_DE_WRITE(PIPE_CSC_MODE(pipe), mode);
 	}
 }
 
@@ -233,15 +233,15 @@ static void cherryview_load_csc_matrix(struct drm_crtc_state *state)
 			coeffs[i] |= (abs_coeff >> 20) & 0xfff;
 		}
 
-		I915_WRITE(CGM_PIPE_CSC_COEFF01(pipe),
-			   coeffs[1] << 16 | coeffs[0]);
-		I915_WRITE(CGM_PIPE_CSC_COEFF23(pipe),
-			   coeffs[3] << 16 | coeffs[2]);
-		I915_WRITE(CGM_PIPE_CSC_COEFF45(pipe),
-			   coeffs[5] << 16 | coeffs[4]);
-		I915_WRITE(CGM_PIPE_CSC_COEFF67(pipe),
-			   coeffs[7] << 16 | coeffs[6]);
-		I915_WRITE(CGM_PIPE_CSC_COEFF8(pipe), coeffs[8]);
+		I915_DE_WRITE(CGM_PIPE_CSC_COEFF01(pipe),
+			      coeffs[1] << 16 | coeffs[0]);
+		I915_DE_WRITE(CGM_PIPE_CSC_COEFF23(pipe),
+			      coeffs[3] << 16 | coeffs[2]);
+		I915_DE_WRITE(CGM_PIPE_CSC_COEFF45(pipe),
+			      coeffs[5] << 16 | coeffs[4]);
+		I915_DE_WRITE(CGM_PIPE_CSC_COEFF67(pipe),
+			      coeffs[7] << 16 | coeffs[6]);
+		I915_DE_WRITE(CGM_PIPE_CSC_COEFF8(pipe), coeffs[8]);
 	}
 
 	mode = (state->ctm ? CGM_PIPE_MODE_CSC : 0);
@@ -249,7 +249,7 @@ static void cherryview_load_csc_matrix(struct drm_crtc_state *state)
 		mode |= (state->degamma_lut ? CGM_PIPE_MODE_DEGAMMA : 0) |
 			(state->gamma_lut ? CGM_PIPE_MODE_GAMMA : 0);
 	}
-	I915_WRITE(CGM_PIPE_MODE(pipe), mode);
+	I915_DE_WRITE(CGM_PIPE_MODE(pipe), mode);
 }
 
 void intel_color_set_csc(struct drm_crtc_state *crtc_state)
@@ -288,18 +288,18 @@ static void i9xx_load_luts_internal(struct drm_crtc *crtc,
 				drm_color_lut_extract(lut[i].blue, 8);
 
 			if (HAS_GMCH_DISPLAY(dev_priv))
-				I915_WRITE(PALETTE(pipe, i), word);
+				I915_DE_WRITE(PALETTE(pipe, i), word);
 			else
-				I915_WRITE(LGC_PALETTE(pipe, i), word);
+				I915_DE_WRITE(LGC_PALETTE(pipe, i), word);
 		}
 	} else {
 		for (i = 0; i < 256; i++) {
 			uint32_t word = (i << 16) | (i << 8) | i;
 
 			if (HAS_GMCH_DISPLAY(dev_priv))
-				I915_WRITE(PALETTE(pipe, i), word);
+				I915_DE_WRITE(PALETTE(pipe, i), word);
 			else
-				I915_WRITE(LGC_PALETTE(pipe, i), word);
+				I915_DE_WRITE(LGC_PALETTE(pipe, i), word);
 		}
 	}
 }
@@ -332,7 +332,7 @@ static void haswell_load_luts(struct drm_crtc_state *crtc_state)
 	}
 
 	intel_crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
-	I915_WRITE(GAMMA_MODE(intel_crtc->pipe), GAMMA_MODE_MODE_8BIT);
+	I915_DE_WRITE(GAMMA_MODE(intel_crtc->pipe), GAMMA_MODE_MODE_8BIT);
 
 	i9xx_load_luts(crtc_state);
 
@@ -346,8 +346,8 @@ static void bdw_load_degamma_lut(struct drm_crtc_state *state)
 	enum pipe pipe = to_intel_crtc(state->crtc)->pipe;
 	uint32_t i, lut_size = INTEL_INFO(dev_priv)->color.degamma_lut_size;
 
-	I915_WRITE(PREC_PAL_INDEX(pipe),
-		   PAL_PREC_SPLIT_MODE | PAL_PREC_AUTO_INCREMENT);
+	I915_DE_WRITE(PREC_PAL_INDEX(pipe),
+		      PAL_PREC_SPLIT_MODE | PAL_PREC_AUTO_INCREMENT);
 
 	if (state->degamma_lut) {
 		struct drm_color_lut *lut =
@@ -359,14 +359,14 @@ static void bdw_load_degamma_lut(struct drm_crtc_state *state)
 			drm_color_lut_extract(lut[i].green, 10) << 10 |
 			drm_color_lut_extract(lut[i].blue, 10);
 
-			I915_WRITE(PREC_PAL_DATA(pipe), word);
+			I915_DE_WRITE(PREC_PAL_DATA(pipe), word);
 		}
 	} else {
 		for (i = 0; i < lut_size; i++) {
 			uint32_t v = (i * ((1 << 10) - 1)) / (lut_size - 1);
 
-			I915_WRITE(PREC_PAL_DATA(pipe),
-				   (v << 20) | (v << 10) | v);
+			I915_DE_WRITE(PREC_PAL_DATA(pipe),
+				      (v << 20) | (v << 10) | v);
 		}
 	}
 }
@@ -379,10 +379,10 @@ static void bdw_load_gamma_lut(struct drm_crtc_state *state, u32 offset)
 
 	WARN_ON(offset & ~PAL_PREC_INDEX_VALUE_MASK);
 
-	I915_WRITE(PREC_PAL_INDEX(pipe),
-		   (offset ? PAL_PREC_SPLIT_MODE : 0) |
-		   PAL_PREC_AUTO_INCREMENT |
-		   offset);
+	I915_DE_WRITE(PREC_PAL_INDEX(pipe),
+		      (offset ? PAL_PREC_SPLIT_MODE : 0) |
+		      PAL_PREC_AUTO_INCREMENT |
+		      offset);
 
 	if (state->gamma_lut) {
 		struct drm_color_lut *lut =
@@ -394,27 +394,27 @@ static void bdw_load_gamma_lut(struct drm_crtc_state *state, u32 offset)
 			(drm_color_lut_extract(lut[i].green, 10) << 10) |
 			drm_color_lut_extract(lut[i].blue, 10);
 
-			I915_WRITE(PREC_PAL_DATA(pipe), word);
+			I915_DE_WRITE(PREC_PAL_DATA(pipe), word);
 		}
 
 		/* Program the max register to clamp values > 1.0. */
-		I915_WRITE(PREC_PAL_GC_MAX(pipe, 0),
-			   drm_color_lut_extract(lut[i].red, 16));
-		I915_WRITE(PREC_PAL_GC_MAX(pipe, 1),
-			   drm_color_lut_extract(lut[i].green, 16));
-		I915_WRITE(PREC_PAL_GC_MAX(pipe, 2),
-			   drm_color_lut_extract(lut[i].blue, 16));
+		I915_DE_WRITE(PREC_PAL_GC_MAX(pipe, 0),
+			      drm_color_lut_extract(lut[i].red, 16));
+		I915_DE_WRITE(PREC_PAL_GC_MAX(pipe, 1),
+			      drm_color_lut_extract(lut[i].green, 16));
+		I915_DE_WRITE(PREC_PAL_GC_MAX(pipe, 2),
+			      drm_color_lut_extract(lut[i].blue, 16));
 	} else {
 		for (i = 0; i < lut_size; i++) {
 			uint32_t v = (i * ((1 << 10) - 1)) / (lut_size - 1);
 
-			I915_WRITE(PREC_PAL_DATA(pipe),
-				   (v << 20) | (v << 10) | v);
+			I915_DE_WRITE(PREC_PAL_DATA(pipe),
+				      (v << 20) | (v << 10) | v);
 		}
 
-		I915_WRITE(PREC_PAL_GC_MAX(pipe, 0), (1 << 16) - 1);
-		I915_WRITE(PREC_PAL_GC_MAX(pipe, 1), (1 << 16) - 1);
-		I915_WRITE(PREC_PAL_GC_MAX(pipe, 2), (1 << 16) - 1);
+		I915_DE_WRITE(PREC_PAL_GC_MAX(pipe, 0), (1 << 16) - 1);
+		I915_DE_WRITE(PREC_PAL_GC_MAX(pipe, 1), (1 << 16) - 1);
+		I915_DE_WRITE(PREC_PAL_GC_MAX(pipe, 2), (1 << 16) - 1);
 	}
 }
 
@@ -435,14 +435,14 @@ static void broadwell_load_luts(struct drm_crtc_state *state)
 			   INTEL_INFO(dev_priv)->color.degamma_lut_size);
 
 	intel_state->gamma_mode = GAMMA_MODE_MODE_SPLIT;
-	I915_WRITE(GAMMA_MODE(pipe), GAMMA_MODE_MODE_SPLIT);
-	POSTING_READ(GAMMA_MODE(pipe));
+	I915_DE_WRITE(GAMMA_MODE(pipe), GAMMA_MODE_MODE_SPLIT);
+	POSTING_DE_READ(GAMMA_MODE(pipe));
 
 	/*
 	 * Reset the index, otherwise it prevents the legacy palette to be
 	 * written properly.
 	 */
-	I915_WRITE(PREC_PAL_INDEX(pipe), 0);
+	I915_DE_WRITE(PREC_PAL_INDEX(pipe), 0);
 }
 
 static void glk_load_degamma_lut(struct drm_crtc_state *state)
@@ -457,8 +457,8 @@ static void glk_load_degamma_lut(struct drm_crtc_state *state)
 	 * ignore the index bits, so we need to reset it to index 0
 	 * separately.
 	 */
-	I915_WRITE(PRE_CSC_GAMC_INDEX(pipe), 0);
-	I915_WRITE(PRE_CSC_GAMC_INDEX(pipe), PRE_CSC_GAMC_AUTO_INCREMENT);
+	I915_DE_WRITE(PRE_CSC_GAMC_INDEX(pipe), 0);
+	I915_DE_WRITE(PRE_CSC_GAMC_INDEX(pipe), PRE_CSC_GAMC_AUTO_INCREMENT);
 
 	/*
 	 *  FIXME: The pipe degamma table in geminilake doesn't support
@@ -467,12 +467,12 @@ static void glk_load_degamma_lut(struct drm_crtc_state *state)
 	for (i = 0; i < lut_size; i++) {
 		uint32_t v = (i * (1 << 16)) / (lut_size - 1);
 
-		I915_WRITE(PRE_CSC_GAMC_DATA(pipe), v);
+		I915_DE_WRITE(PRE_CSC_GAMC_DATA(pipe), v);
 	}
 
 	/* Clamp values > 1.0. */
 	while (i++ < 35)
-		I915_WRITE(PRE_CSC_GAMC_DATA(pipe), (1 << 16));
+		I915_DE_WRITE(PRE_CSC_GAMC_DATA(pipe), (1 << 16));
 }
 
 static void glk_load_luts(struct drm_crtc_state *state)
@@ -493,8 +493,8 @@ static void glk_load_luts(struct drm_crtc_state *state)
 	bdw_load_gamma_lut(state, 0);
 
 	intel_state->gamma_mode = GAMMA_MODE_MODE_10BIT;
-	I915_WRITE(GAMMA_MODE(pipe), GAMMA_MODE_MODE_10BIT);
-	POSTING_READ(GAMMA_MODE(pipe));
+	I915_DE_WRITE(GAMMA_MODE(pipe), GAMMA_MODE_MODE_10BIT);
+	POSTING_DE_READ(GAMMA_MODE(pipe));
 }
 
 /* Loads the palette/gamma unit for the CRTC on CherryView. */
@@ -509,8 +509,8 @@ static void cherryview_load_luts(struct drm_crtc_state *state)
 
 	if (crtc_state_is_legacy(state)) {
 		/* Turn off degamma/gamma on CGM block. */
-		I915_WRITE(CGM_PIPE_MODE(pipe),
-			   (state->ctm ? CGM_PIPE_MODE_CSC : 0));
+		I915_DE_WRITE(CGM_PIPE_MODE(pipe),
+			      (state->ctm ? CGM_PIPE_MODE_CSC : 0));
 		i9xx_load_luts_internal(crtc, state->gamma_lut,
 					to_intel_crtc_state(state));
 		return;
@@ -526,8 +526,8 @@ static void cherryview_load_luts(struct drm_crtc_state *state)
 			drm_color_lut_extract(lut[i].blue, 14);
 			word1 = drm_color_lut_extract(lut[i].red, 14);
 
-			I915_WRITE(CGM_PIPE_DEGAMMA(pipe, i, 0), word0);
-			I915_WRITE(CGM_PIPE_DEGAMMA(pipe, i, 1), word1);
+			I915_DE_WRITE(CGM_PIPE_DEGAMMA(pipe, i, 0), word0);
+			I915_DE_WRITE(CGM_PIPE_DEGAMMA(pipe, i, 1), word1);
 		}
 	}
 
@@ -541,15 +541,15 @@ static void cherryview_load_luts(struct drm_crtc_state *state)
 			drm_color_lut_extract(lut[i].blue, 10);
 			word1 = drm_color_lut_extract(lut[i].red, 10);
 
-			I915_WRITE(CGM_PIPE_GAMMA(pipe, i, 0), word0);
-			I915_WRITE(CGM_PIPE_GAMMA(pipe, i, 1), word1);
+			I915_DE_WRITE(CGM_PIPE_GAMMA(pipe, i, 0), word0);
+			I915_DE_WRITE(CGM_PIPE_GAMMA(pipe, i, 1), word1);
 		}
 	}
 
-	I915_WRITE(CGM_PIPE_MODE(pipe),
-		   (state->ctm ? CGM_PIPE_MODE_CSC : 0) |
-		   (state->degamma_lut ? CGM_PIPE_MODE_DEGAMMA : 0) |
-		   (state->gamma_lut ? CGM_PIPE_MODE_GAMMA : 0));
+	I915_DE_WRITE(CGM_PIPE_MODE(pipe),
+		      (state->ctm ? CGM_PIPE_MODE_CSC : 0) |
+		      (state->degamma_lut ? CGM_PIPE_MODE_DEGAMMA : 0) |
+		      (state->gamma_lut ? CGM_PIPE_MODE_GAMMA : 0));
 
 	/*
 	 * Also program a linear LUT in the legacy block (behind the

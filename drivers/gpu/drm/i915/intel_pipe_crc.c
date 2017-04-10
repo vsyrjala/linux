@@ -342,7 +342,7 @@ static int vlv_pipe_crc_ctl_reg(struct drm_i915_private *dev_priv,
 	 *   - DisplayPort scrambling: used for EMI reduction
 	 */
 	if (need_stable_symbols) {
-		uint32_t tmp = I915_READ(PORT_DFT2_G4X);
+		uint32_t tmp = I915_DE_READ(PORT_DFT2_G4X);
 
 		tmp |= DC_BALANCE_RESET_VLV;
 		switch (pipe) {
@@ -358,7 +358,7 @@ static int vlv_pipe_crc_ctl_reg(struct drm_i915_private *dev_priv,
 		default:
 			return -EINVAL;
 		}
-		I915_WRITE(PORT_DFT2_G4X, tmp);
+		I915_DE_WRITE(PORT_DFT2_G4X, tmp);
 	}
 
 	return 0;
@@ -421,19 +421,19 @@ static int i9xx_pipe_crc_ctl_reg(struct drm_i915_private *dev_priv,
 	 *   - DisplayPort scrambling: used for EMI reduction
 	 */
 	if (need_stable_symbols) {
-		uint32_t tmp = I915_READ(PORT_DFT2_G4X);
+		uint32_t tmp = I915_DE_READ(PORT_DFT2_G4X);
 
 		WARN_ON(!IS_G4X(dev_priv));
 
-		I915_WRITE(PORT_DFT_I9XX,
-			   I915_READ(PORT_DFT_I9XX) | DC_BALANCE_RESET);
+		I915_DE_WRITE(PORT_DFT_I9XX,
+			      I915_DE_READ(PORT_DFT_I9XX) | DC_BALANCE_RESET);
 
 		if (pipe == PIPE_A)
 			tmp |= PIPE_A_SCRAMBLE_RESET;
 		else
 			tmp |= PIPE_B_SCRAMBLE_RESET;
 
-		I915_WRITE(PORT_DFT2_G4X, tmp);
+		I915_DE_WRITE(PORT_DFT2_G4X, tmp);
 	}
 
 	return 0;
@@ -442,7 +442,7 @@ static int i9xx_pipe_crc_ctl_reg(struct drm_i915_private *dev_priv,
 static void vlv_undo_pipe_scramble_reset(struct drm_i915_private *dev_priv,
 					 enum pipe pipe)
 {
-	uint32_t tmp = I915_READ(PORT_DFT2_G4X);
+	uint32_t tmp = I915_DE_READ(PORT_DFT2_G4X);
 
 	switch (pipe) {
 	case PIPE_A:
@@ -459,24 +459,24 @@ static void vlv_undo_pipe_scramble_reset(struct drm_i915_private *dev_priv,
 	}
 	if (!(tmp & PIPE_SCRAMBLE_RESET_MASK))
 		tmp &= ~DC_BALANCE_RESET_VLV;
-	I915_WRITE(PORT_DFT2_G4X, tmp);
+	I915_DE_WRITE(PORT_DFT2_G4X, tmp);
 
 }
 
 static void g4x_undo_pipe_scramble_reset(struct drm_i915_private *dev_priv,
 					 enum pipe pipe)
 {
-	uint32_t tmp = I915_READ(PORT_DFT2_G4X);
+	uint32_t tmp = I915_DE_READ(PORT_DFT2_G4X);
 
 	if (pipe == PIPE_A)
 		tmp &= ~PIPE_A_SCRAMBLE_RESET;
 	else
 		tmp &= ~PIPE_B_SCRAMBLE_RESET;
-	I915_WRITE(PORT_DFT2_G4X, tmp);
+	I915_DE_WRITE(PORT_DFT2_G4X, tmp);
 
 	if (!(tmp & PIPE_SCRAMBLE_RESET_MASK)) {
-		I915_WRITE(PORT_DFT_I9XX,
-			   I915_READ(PORT_DFT_I9XX) & ~DC_BALANCE_RESET);
+		I915_DE_WRITE(PORT_DFT_I9XX,
+			      I915_DE_READ(PORT_DFT_I9XX) & ~DC_BALANCE_RESET);
 	}
 }
 
@@ -650,8 +650,8 @@ static int pipe_crc_set_source(struct drm_i915_private *dev_priv,
 
 	pipe_crc->source = source;
 
-	I915_WRITE(PIPE_CRC_CTL(pipe), val);
-	POSTING_READ(PIPE_CRC_CTL(pipe));
+	I915_DE_WRITE(PIPE_CRC_CTL(pipe), val);
+	POSTING_DE_READ(PIPE_CRC_CTL(pipe));
 
 	/* real source -> none transition */
 	if (!source) {
@@ -941,8 +941,8 @@ int intel_crtc_set_crc_source(struct drm_crtc *crtc, const char *source_name,
 		hsw_disable_ips(intel_crtc);
 	}
 
-	I915_WRITE(PIPE_CRC_CTL(crtc->index), val);
-	POSTING_READ(PIPE_CRC_CTL(crtc->index));
+	I915_DE_WRITE(PIPE_CRC_CTL(crtc->index), val);
+	POSTING_DE_READ(PIPE_CRC_CTL(crtc->index));
 
 	if (!source) {
 		if (IS_G4X(dev_priv))

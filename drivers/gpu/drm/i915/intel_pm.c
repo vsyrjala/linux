@@ -59,25 +59,25 @@
 static void gen9_init_clock_gating(struct drm_i915_private *dev_priv)
 {
 	/* See Bspec note for PSR2_CTL bit 31, Wa#828:skl,bxt,kbl */
-	I915_WRITE(CHICKEN_PAR1_1,
-		   I915_READ(CHICKEN_PAR1_1) | SKL_EDP_PSR_FIX_RDWRAP);
+	I915_DE_WRITE(CHICKEN_PAR1_1,
+		      I915_DE_READ(CHICKEN_PAR1_1) | SKL_EDP_PSR_FIX_RDWRAP);
 
-	I915_WRITE(GEN8_CONFIG0,
-		   I915_READ(GEN8_CONFIG0) | GEN9_DEFAULT_FIXES);
+	I915_GT_WRITE(GEN8_CONFIG0,
+		      I915_GT_READ(GEN8_CONFIG0) | GEN9_DEFAULT_FIXES);
 
 	/* WaEnableChickenDCPR:skl,bxt,kbl,glk */
-	I915_WRITE(GEN8_CHICKEN_DCPR_1,
-		   I915_READ(GEN8_CHICKEN_DCPR_1) | MASK_WAKEMEM);
+	I915_DE_WRITE(GEN8_CHICKEN_DCPR_1,
+		      I915_DE_READ(GEN8_CHICKEN_DCPR_1) | MASK_WAKEMEM);
 
 	/* WaFbcTurnOffFbcWatermark:skl,bxt,kbl */
 	/* WaFbcWakeMemOn:skl,bxt,kbl,glk */
-	I915_WRITE(DISP_ARB_CTL, I915_READ(DISP_ARB_CTL) |
-		   DISP_FBC_WM_DIS |
-		   DISP_FBC_MEMORY_WAKE);
+	I915_DE_WRITE(DISP_ARB_CTL, I915_DE_READ(DISP_ARB_CTL) |
+		      DISP_FBC_WM_DIS |
+		      DISP_FBC_MEMORY_WAKE);
 
 	/* WaFbcHighMemBwCorruptionAvoidance:skl,bxt,kbl */
-	I915_WRITE(ILK_DPFC_CHICKEN, I915_READ(ILK_DPFC_CHICKEN) |
-		   ILK_DPFC_DISABLE_DUMMY0);
+	I915_DE_WRITE(ILK_DPFC_CHICKEN, I915_DE_READ(ILK_DPFC_CHICKEN) |
+		      ILK_DPFC_DISABLE_DUMMY0);
 }
 
 static void bxt_init_clock_gating(struct drm_i915_private *dev_priv)
@@ -85,22 +85,22 @@ static void bxt_init_clock_gating(struct drm_i915_private *dev_priv)
 	gen9_init_clock_gating(dev_priv);
 
 	/* WaDisableSDEUnitClockGating:bxt */
-	I915_WRITE(GEN8_UCGCTL6, I915_READ(GEN8_UCGCTL6) |
-		   GEN8_SDEUNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN8_UCGCTL6, I915_GT_READ(GEN8_UCGCTL6) |
+		      GEN8_SDEUNIT_CLOCK_GATE_DISABLE);
 
 	/*
 	 * FIXME:
 	 * GEN8_HDCUNIT_CLOCK_GATE_DISABLE_HDCREQ applies on 3x6 GT SKUs only.
 	 */
-	I915_WRITE(GEN8_UCGCTL6, I915_READ(GEN8_UCGCTL6) |
-		   GEN8_HDCUNIT_CLOCK_GATE_DISABLE_HDCREQ);
+	I915_GT_WRITE(GEN8_UCGCTL6, I915_GT_READ(GEN8_UCGCTL6) |
+		      GEN8_HDCUNIT_CLOCK_GATE_DISABLE_HDCREQ);
 
 	/*
 	 * Wa: Backlight PWM may stop in the asserted state, causing backlight
 	 * to stay fully on.
 	 */
-	I915_WRITE(GEN9_CLKGATE_DIS_0, I915_READ(GEN9_CLKGATE_DIS_0) |
-		   PWM1_GATING_DIS | PWM2_GATING_DIS);
+	I915_DE_WRITE(GEN9_CLKGATE_DIS_0, I915_DE_READ(GEN9_CLKGATE_DIS_0) |
+		      PWM1_GATING_DIS | PWM2_GATING_DIS);
 }
 
 static void glk_init_clock_gating(struct drm_i915_private *dev_priv)
@@ -112,16 +112,16 @@ static void glk_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * Backlight PWM may stop in the asserted state, causing backlight
 	 * to stay fully on.
 	 */
-	I915_WRITE(GEN9_CLKGATE_DIS_0, I915_READ(GEN9_CLKGATE_DIS_0) |
-		   PWM1_GATING_DIS | PWM2_GATING_DIS);
+	I915_DE_WRITE(GEN9_CLKGATE_DIS_0, I915_DE_READ(GEN9_CLKGATE_DIS_0) |
+		      PWM1_GATING_DIS | PWM2_GATING_DIS);
 
 	/* WaDDIIOTimeout:glk */
 	if (IS_GLK_REVID(dev_priv, 0, GLK_REVID_A1)) {
-		u32 val = I915_READ(CHICKEN_MISC_2);
+		u32 val = I915_DE_READ(CHICKEN_MISC_2);
 		val &= ~(GLK_CL0_PWR_DOWN |
 			 GLK_CL1_PWR_DOWN |
 			 GLK_CL2_PWR_DOWN);
-		I915_WRITE(CHICKEN_MISC_2, val);
+		I915_DE_WRITE(CHICKEN_MISC_2, val);
 	}
 
 }
@@ -130,7 +130,7 @@ static void i915_pineview_get_mem_freq(struct drm_i915_private *dev_priv)
 {
 	u32 tmp;
 
-	tmp = I915_READ(CLKCFG);
+	tmp = I915_GT_READ(CLKCFG);
 
 	switch (tmp & CLKCFG_FSB_MASK) {
 	case CLKCFG_FSB_533:
@@ -160,7 +160,7 @@ static void i915_pineview_get_mem_freq(struct drm_i915_private *dev_priv)
 	}
 
 	/* detect pineview DDR3 setting */
-	tmp = I915_READ(CSHRDDR3CTL);
+	tmp = I915_GT_READ(CSHRDDR3CTL);
 	dev_priv->is_ddr3 = (tmp & CSHRDDR3CTL_DDR3) ? 1 : 0;
 }
 
@@ -168,8 +168,8 @@ static void i915_ironlake_get_mem_freq(struct drm_i915_private *dev_priv)
 {
 	u16 ddrpll, csipll;
 
-	ddrpll = I915_READ16(DDRMPLL1);
-	csipll = I915_READ16(CSIPLL0);
+	ddrpll = I915_GT_READ16(DDRMPLL1);
+	csipll = I915_GT_READ16(CSIPLL0);
 
 	switch (ddrpll & 0xff) {
 	case 0xc:
@@ -340,39 +340,39 @@ static bool _intel_set_memory_cxsr(struct drm_i915_private *dev_priv, bool enabl
 	u32 val;
 
 	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
-		was_enabled = I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN;
-		I915_WRITE(FW_BLC_SELF_VLV, enable ? FW_CSPWRDWNEN : 0);
-		POSTING_READ(FW_BLC_SELF_VLV);
+		was_enabled = I915_DE_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN;
+		I915_DE_WRITE(FW_BLC_SELF_VLV, enable ? FW_CSPWRDWNEN : 0);
+		POSTING_DE_READ(FW_BLC_SELF_VLV);
 	} else if (IS_G4X(dev_priv) || IS_I965GM(dev_priv)) {
-		was_enabled = I915_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
-		I915_WRITE(FW_BLC_SELF, enable ? FW_BLC_SELF_EN : 0);
-		POSTING_READ(FW_BLC_SELF);
+		was_enabled = I915_GT_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
+		I915_GT_WRITE(FW_BLC_SELF, enable ? FW_BLC_SELF_EN : 0);
+		POSTING_GT_READ(FW_BLC_SELF);
 	} else if (IS_PINEVIEW(dev_priv)) {
-		val = I915_READ(DSPFW3);
+		val = I915_DE_READ(DSPFW3);
 		was_enabled = val & PINEVIEW_SELF_REFRESH_EN;
 		if (enable)
 			val |= PINEVIEW_SELF_REFRESH_EN;
 		else
 			val &= ~PINEVIEW_SELF_REFRESH_EN;
-		I915_WRITE(DSPFW3, val);
-		POSTING_READ(DSPFW3);
+		I915_DE_WRITE(DSPFW3, val);
+		POSTING_DE_READ(DSPFW3);
 	} else if (IS_I945G(dev_priv) || IS_I945GM(dev_priv)) {
-		was_enabled = I915_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
+		was_enabled = I915_GT_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
 		val = enable ? _MASKED_BIT_ENABLE(FW_BLC_SELF_EN) :
 			       _MASKED_BIT_DISABLE(FW_BLC_SELF_EN);
-		I915_WRITE(FW_BLC_SELF, val);
-		POSTING_READ(FW_BLC_SELF);
+		I915_GT_WRITE(FW_BLC_SELF, val);
+		POSTING_GT_READ(FW_BLC_SELF);
 	} else if (IS_I915GM(dev_priv)) {
 		/*
 		 * FIXME can't find a bit like this for 915G, and
 		 * and yet it does have the related watermark in
 		 * FW_BLC_SELF. What's going on?
 		 */
-		was_enabled = I915_READ(INSTPM) & INSTPM_SELF_EN;
+		was_enabled = I915_GT_READ(INSTPM) & INSTPM_SELF_EN;
 		val = enable ? _MASKED_BIT_ENABLE(INSTPM_SELF_EN) :
 			       _MASKED_BIT_DISABLE(INSTPM_SELF_EN);
-		I915_WRITE(INSTPM, val);
-		POSTING_READ(INSTPM);
+		I915_GT_WRITE(INSTPM, val);
+		POSTING_GT_READ(INSTPM);
 	} else {
 		return false;
 	}
@@ -428,20 +428,20 @@ static void vlv_get_fifo_size(struct intel_crtc_state *crtc_state)
 	switch (pipe) {
 		uint32_t dsparb, dsparb2, dsparb3;
 	case PIPE_A:
-		dsparb = I915_READ(DSPARB);
-		dsparb2 = I915_READ(DSPARB2);
+		dsparb = I915_DE_READ(DSPARB);
+		dsparb2 = I915_DE_READ(DSPARB2);
 		sprite0_start = VLV_FIFO_START(dsparb, dsparb2, 0, 0);
 		sprite1_start = VLV_FIFO_START(dsparb, dsparb2, 8, 4);
 		break;
 	case PIPE_B:
-		dsparb = I915_READ(DSPARB);
-		dsparb2 = I915_READ(DSPARB2);
+		dsparb = I915_DE_READ(DSPARB);
+		dsparb2 = I915_DE_READ(DSPARB2);
 		sprite0_start = VLV_FIFO_START(dsparb, dsparb2, 16, 8);
 		sprite1_start = VLV_FIFO_START(dsparb, dsparb2, 24, 12);
 		break;
 	case PIPE_C:
-		dsparb2 = I915_READ(DSPARB2);
-		dsparb3 = I915_READ(DSPARB3);
+		dsparb2 = I915_DE_READ(DSPARB2);
+		dsparb3 = I915_DE_READ(DSPARB3);
 		sprite0_start = VLV_FIFO_START(dsparb3, dsparb2, 0, 16);
 		sprite1_start = VLV_FIFO_START(dsparb3, dsparb2, 8, 20);
 		break;
@@ -465,7 +465,7 @@ static void vlv_get_fifo_size(struct intel_crtc_state *crtc_state)
 
 static int i9xx_get_fifo_size(struct drm_i915_private *dev_priv, int plane)
 {
-	uint32_t dsparb = I915_READ(DSPARB);
+	uint32_t dsparb = I915_DE_READ(DSPARB);
 	int size;
 
 	size = dsparb & 0x7f;
@@ -480,7 +480,7 @@ static int i9xx_get_fifo_size(struct drm_i915_private *dev_priv, int plane)
 
 static int i830_get_fifo_size(struct drm_i915_private *dev_priv, int plane)
 {
-	uint32_t dsparb = I915_READ(DSPARB);
+	uint32_t dsparb = I915_DE_READ(DSPARB);
 	int size;
 
 	size = dsparb & 0x1ff;
@@ -496,7 +496,7 @@ static int i830_get_fifo_size(struct drm_i915_private *dev_priv, int plane)
 
 static int i845_get_fifo_size(struct drm_i915_private *dev_priv, int plane)
 {
-	uint32_t dsparb = I915_READ(DSPARB);
+	uint32_t dsparb = I915_DE_READ(DSPARB);
 	int size;
 
 	size = dsparb & 0x7f;
@@ -724,38 +724,38 @@ static void pineview_update_wm(struct intel_crtc *unused_crtc)
 		wm = intel_calculate_wm(clock, &pineview_display_wm,
 					pineview_display_wm.fifo_size,
 					cpp, latency->display_sr);
-		reg = I915_READ(DSPFW1);
+		reg = I915_DE_READ(DSPFW1);
 		reg &= ~DSPFW_SR_MASK;
 		reg |= FW_WM(wm, SR);
-		I915_WRITE(DSPFW1, reg);
+		I915_DE_WRITE(DSPFW1, reg);
 		DRM_DEBUG_KMS("DSPFW1 register is %x\n", reg);
 
 		/* cursor SR */
 		wm = intel_calculate_wm(clock, &pineview_cursor_wm,
 					pineview_display_wm.fifo_size,
 					cpp, latency->cursor_sr);
-		reg = I915_READ(DSPFW3);
+		reg = I915_DE_READ(DSPFW3);
 		reg &= ~DSPFW_CURSOR_SR_MASK;
 		reg |= FW_WM(wm, CURSOR_SR);
-		I915_WRITE(DSPFW3, reg);
+		I915_DE_WRITE(DSPFW3, reg);
 
 		/* Display HPLL off SR */
 		wm = intel_calculate_wm(clock, &pineview_display_hplloff_wm,
 					pineview_display_hplloff_wm.fifo_size,
 					cpp, latency->display_hpll_disable);
-		reg = I915_READ(DSPFW3);
+		reg = I915_DE_READ(DSPFW3);
 		reg &= ~DSPFW_HPLL_SR_MASK;
 		reg |= FW_WM(wm, HPLL_SR);
-		I915_WRITE(DSPFW3, reg);
+		I915_DE_WRITE(DSPFW3, reg);
 
 		/* cursor HPLL off SR */
 		wm = intel_calculate_wm(clock, &pineview_cursor_hplloff_wm,
 					pineview_display_hplloff_wm.fifo_size,
 					cpp, latency->cursor_hpll_disable);
-		reg = I915_READ(DSPFW3);
+		reg = I915_DE_READ(DSPFW3);
 		reg &= ~DSPFW_HPLL_CURSOR_MASK;
 		reg |= FW_WM(wm, HPLL_CURSOR);
-		I915_WRITE(DSPFW3, reg);
+		I915_DE_WRITE(DSPFW3, reg);
 		DRM_DEBUG_KMS("DSPFW3 register is %x\n", reg);
 
 		intel_set_memory_cxsr(dev_priv, true);
@@ -915,11 +915,11 @@ static void vlv_write_wm_values(struct drm_i915_private *dev_priv,
 	for_each_pipe(dev_priv, pipe) {
 		trace_vlv_wm(intel_get_crtc_for_pipe(dev_priv, pipe), wm);
 
-		I915_WRITE(VLV_DDL(pipe),
-			   (wm->ddl[pipe].plane[PLANE_CURSOR] << DDL_CURSOR_SHIFT) |
-			   (wm->ddl[pipe].plane[PLANE_SPRITE1] << DDL_SPRITE_SHIFT(1)) |
-			   (wm->ddl[pipe].plane[PLANE_SPRITE0] << DDL_SPRITE_SHIFT(0)) |
-			   (wm->ddl[pipe].plane[PLANE_PRIMARY] << DDL_PLANE_SHIFT));
+		I915_DE_WRITE(VLV_DDL(pipe),
+			      (wm->ddl[pipe].plane[PLANE_CURSOR] << DDL_CURSOR_SHIFT) |
+			      (wm->ddl[pipe].plane[PLANE_SPRITE1] << DDL_SPRITE_SHIFT(1)) |
+			      (wm->ddl[pipe].plane[PLANE_SPRITE0] << DDL_SPRITE_SHIFT(0)) |
+			      (wm->ddl[pipe].plane[PLANE_PRIMARY] << DDL_PLANE_SHIFT));
 	}
 
 	/*
@@ -927,60 +927,60 @@ static void vlv_write_wm_values(struct drm_i915_private *dev_priv,
 	 * high order bits so that there are no out of bounds values
 	 * present in the registers during the reprogramming.
 	 */
-	I915_WRITE(DSPHOWM, 0);
-	I915_WRITE(DSPHOWM1, 0);
-	I915_WRITE(DSPFW4, 0);
-	I915_WRITE(DSPFW5, 0);
-	I915_WRITE(DSPFW6, 0);
+	I915_DE_WRITE(DSPHOWM, 0);
+	I915_DE_WRITE(DSPHOWM1, 0);
+	I915_DE_WRITE(DSPFW4, 0);
+	I915_DE_WRITE(DSPFW5, 0);
+	I915_DE_WRITE(DSPFW6, 0);
 
-	I915_WRITE(DSPFW1,
-		   FW_WM(wm->sr.plane, SR) |
-		   FW_WM(wm->pipe[PIPE_B].plane[PLANE_CURSOR], CURSORB) |
-		   FW_WM_VLV(wm->pipe[PIPE_B].plane[PLANE_PRIMARY], PLANEB) |
-		   FW_WM_VLV(wm->pipe[PIPE_A].plane[PLANE_PRIMARY], PLANEA));
-	I915_WRITE(DSPFW2,
-		   FW_WM_VLV(wm->pipe[PIPE_A].plane[PLANE_SPRITE1], SPRITEB) |
-		   FW_WM(wm->pipe[PIPE_A].plane[PLANE_CURSOR], CURSORA) |
-		   FW_WM_VLV(wm->pipe[PIPE_A].plane[PLANE_SPRITE0], SPRITEA));
-	I915_WRITE(DSPFW3,
-		   FW_WM(wm->sr.cursor, CURSOR_SR));
+	I915_DE_WRITE(DSPFW1,
+		      FW_WM(wm->sr.plane, SR) |
+		      FW_WM(wm->pipe[PIPE_B].plane[PLANE_CURSOR], CURSORB) |
+		      FW_WM_VLV(wm->pipe[PIPE_B].plane[PLANE_PRIMARY], PLANEB) |
+		      FW_WM_VLV(wm->pipe[PIPE_A].plane[PLANE_PRIMARY], PLANEA));
+	I915_DE_WRITE(DSPFW2,
+		      FW_WM_VLV(wm->pipe[PIPE_A].plane[PLANE_SPRITE1], SPRITEB) |
+		      FW_WM(wm->pipe[PIPE_A].plane[PLANE_CURSOR], CURSORA) |
+		      FW_WM_VLV(wm->pipe[PIPE_A].plane[PLANE_SPRITE0], SPRITEA));
+	I915_DE_WRITE(DSPFW3,
+		      FW_WM(wm->sr.cursor, CURSOR_SR));
 
 	if (IS_CHERRYVIEW(dev_priv)) {
-		I915_WRITE(DSPFW7_CHV,
-			   FW_WM_VLV(wm->pipe[PIPE_B].plane[PLANE_SPRITE1], SPRITED) |
-			   FW_WM_VLV(wm->pipe[PIPE_B].plane[PLANE_SPRITE0], SPRITEC));
-		I915_WRITE(DSPFW8_CHV,
-			   FW_WM_VLV(wm->pipe[PIPE_C].plane[PLANE_SPRITE1], SPRITEF) |
-			   FW_WM_VLV(wm->pipe[PIPE_C].plane[PLANE_SPRITE0], SPRITEE));
-		I915_WRITE(DSPFW9_CHV,
-			   FW_WM_VLV(wm->pipe[PIPE_C].plane[PLANE_PRIMARY], PLANEC) |
-			   FW_WM(wm->pipe[PIPE_C].plane[PLANE_CURSOR], CURSORC));
-		I915_WRITE(DSPHOWM,
-			   FW_WM(wm->sr.plane >> 9, SR_HI) |
-			   FW_WM(wm->pipe[PIPE_C].plane[PLANE_SPRITE1] >> 8, SPRITEF_HI) |
-			   FW_WM(wm->pipe[PIPE_C].plane[PLANE_SPRITE0] >> 8, SPRITEE_HI) |
-			   FW_WM(wm->pipe[PIPE_C].plane[PLANE_PRIMARY] >> 8, PLANEC_HI) |
-			   FW_WM(wm->pipe[PIPE_B].plane[PLANE_SPRITE1] >> 8, SPRITED_HI) |
-			   FW_WM(wm->pipe[PIPE_B].plane[PLANE_SPRITE0] >> 8, SPRITEC_HI) |
-			   FW_WM(wm->pipe[PIPE_B].plane[PLANE_PRIMARY] >> 8, PLANEB_HI) |
-			   FW_WM(wm->pipe[PIPE_A].plane[PLANE_SPRITE1] >> 8, SPRITEB_HI) |
-			   FW_WM(wm->pipe[PIPE_A].plane[PLANE_SPRITE0] >> 8, SPRITEA_HI) |
-			   FW_WM(wm->pipe[PIPE_A].plane[PLANE_PRIMARY] >> 8, PLANEA_HI));
+		I915_DE_WRITE(DSPFW7_CHV,
+			      FW_WM_VLV(wm->pipe[PIPE_B].plane[PLANE_SPRITE1], SPRITED) |
+			      FW_WM_VLV(wm->pipe[PIPE_B].plane[PLANE_SPRITE0], SPRITEC));
+		I915_DE_WRITE(DSPFW8_CHV,
+			      FW_WM_VLV(wm->pipe[PIPE_C].plane[PLANE_SPRITE1], SPRITEF) |
+			      FW_WM_VLV(wm->pipe[PIPE_C].plane[PLANE_SPRITE0], SPRITEE));
+		I915_DE_WRITE(DSPFW9_CHV,
+			      FW_WM_VLV(wm->pipe[PIPE_C].plane[PLANE_PRIMARY], PLANEC) |
+			      FW_WM(wm->pipe[PIPE_C].plane[PLANE_CURSOR], CURSORC));
+		I915_DE_WRITE(DSPHOWM,
+			      FW_WM(wm->sr.plane >> 9, SR_HI) |
+			      FW_WM(wm->pipe[PIPE_C].plane[PLANE_SPRITE1] >> 8, SPRITEF_HI) |
+			      FW_WM(wm->pipe[PIPE_C].plane[PLANE_SPRITE0] >> 8, SPRITEE_HI) |
+			      FW_WM(wm->pipe[PIPE_C].plane[PLANE_PRIMARY] >> 8, PLANEC_HI) |
+			      FW_WM(wm->pipe[PIPE_B].plane[PLANE_SPRITE1] >> 8, SPRITED_HI) |
+			      FW_WM(wm->pipe[PIPE_B].plane[PLANE_SPRITE0] >> 8, SPRITEC_HI) |
+			      FW_WM(wm->pipe[PIPE_B].plane[PLANE_PRIMARY] >> 8, PLANEB_HI) |
+			      FW_WM(wm->pipe[PIPE_A].plane[PLANE_SPRITE1] >> 8, SPRITEB_HI) |
+			      FW_WM(wm->pipe[PIPE_A].plane[PLANE_SPRITE0] >> 8, SPRITEA_HI) |
+			      FW_WM(wm->pipe[PIPE_A].plane[PLANE_PRIMARY] >> 8, PLANEA_HI));
 	} else {
-		I915_WRITE(DSPFW7,
-			   FW_WM_VLV(wm->pipe[PIPE_B].plane[PLANE_SPRITE1], SPRITED) |
-			   FW_WM_VLV(wm->pipe[PIPE_B].plane[PLANE_SPRITE0], SPRITEC));
-		I915_WRITE(DSPHOWM,
-			   FW_WM(wm->sr.plane >> 9, SR_HI) |
-			   FW_WM(wm->pipe[PIPE_B].plane[PLANE_SPRITE1] >> 8, SPRITED_HI) |
-			   FW_WM(wm->pipe[PIPE_B].plane[PLANE_SPRITE0] >> 8, SPRITEC_HI) |
-			   FW_WM(wm->pipe[PIPE_B].plane[PLANE_PRIMARY] >> 8, PLANEB_HI) |
-			   FW_WM(wm->pipe[PIPE_A].plane[PLANE_SPRITE1] >> 8, SPRITEB_HI) |
-			   FW_WM(wm->pipe[PIPE_A].plane[PLANE_SPRITE0] >> 8, SPRITEA_HI) |
-			   FW_WM(wm->pipe[PIPE_A].plane[PLANE_PRIMARY] >> 8, PLANEA_HI));
+		I915_DE_WRITE(DSPFW7,
+			      FW_WM_VLV(wm->pipe[PIPE_B].plane[PLANE_SPRITE1], SPRITED) |
+			      FW_WM_VLV(wm->pipe[PIPE_B].plane[PLANE_SPRITE0], SPRITEC));
+		I915_DE_WRITE(DSPHOWM,
+			      FW_WM(wm->sr.plane >> 9, SR_HI) |
+			      FW_WM(wm->pipe[PIPE_B].plane[PLANE_SPRITE1] >> 8, SPRITED_HI) |
+			      FW_WM(wm->pipe[PIPE_B].plane[PLANE_SPRITE0] >> 8, SPRITEC_HI) |
+			      FW_WM(wm->pipe[PIPE_B].plane[PLANE_PRIMARY] >> 8, PLANEB_HI) |
+			      FW_WM(wm->pipe[PIPE_A].plane[PLANE_SPRITE1] >> 8, SPRITEB_HI) |
+			      FW_WM(wm->pipe[PIPE_A].plane[PLANE_SPRITE0] >> 8, SPRITEA_HI) |
+			      FW_WM(wm->pipe[PIPE_A].plane[PLANE_PRIMARY] >> 8, PLANEA_HI));
 	}
 
-	POSTING_READ(DSPFW1);
+	POSTING_DE_READ(DSPFW1);
 }
 
 #undef FW_WM_VLV
@@ -1395,8 +1395,8 @@ static void vlv_atomic_update_fifo(struct intel_atomic_state *state,
 	switch (crtc->pipe) {
 		uint32_t dsparb, dsparb2, dsparb3;
 	case PIPE_A:
-		dsparb = I915_READ_FW(DSPARB);
-		dsparb2 = I915_READ_FW(DSPARB2);
+		dsparb = I915_DE_READ_FW(DSPARB);
+		dsparb2 = I915_DE_READ_FW(DSPARB2);
 
 		dsparb &= ~(VLV_FIFO(SPRITEA, 0xff) |
 			    VLV_FIFO(SPRITEB, 0xff));
@@ -1408,12 +1408,12 @@ static void vlv_atomic_update_fifo(struct intel_atomic_state *state,
 		dsparb2 |= (VLV_FIFO(SPRITEA_HI, sprite0_start >> 8) |
 			   VLV_FIFO(SPRITEB_HI, sprite1_start >> 8));
 
-		I915_WRITE_FW(DSPARB, dsparb);
-		I915_WRITE_FW(DSPARB2, dsparb2);
+		I915_DE_WRITE_FW(DSPARB, dsparb);
+		I915_DE_WRITE_FW(DSPARB2, dsparb2);
 		break;
 	case PIPE_B:
-		dsparb = I915_READ_FW(DSPARB);
-		dsparb2 = I915_READ_FW(DSPARB2);
+		dsparb = I915_DE_READ_FW(DSPARB);
+		dsparb2 = I915_DE_READ_FW(DSPARB2);
 
 		dsparb &= ~(VLV_FIFO(SPRITEC, 0xff) |
 			    VLV_FIFO(SPRITED, 0xff));
@@ -1425,12 +1425,12 @@ static void vlv_atomic_update_fifo(struct intel_atomic_state *state,
 		dsparb2 |= (VLV_FIFO(SPRITEC_HI, sprite0_start >> 8) |
 			   VLV_FIFO(SPRITED_HI, sprite1_start >> 8));
 
-		I915_WRITE_FW(DSPARB, dsparb);
-		I915_WRITE_FW(DSPARB2, dsparb2);
+		I915_DE_WRITE_FW(DSPARB, dsparb);
+		I915_DE_WRITE_FW(DSPARB2, dsparb2);
 		break;
 	case PIPE_C:
-		dsparb3 = I915_READ_FW(DSPARB3);
-		dsparb2 = I915_READ_FW(DSPARB2);
+		dsparb3 = I915_DE_READ_FW(DSPARB3);
+		dsparb2 = I915_DE_READ_FW(DSPARB2);
 
 		dsparb3 &= ~(VLV_FIFO(SPRITEE, 0xff) |
 			     VLV_FIFO(SPRITEF, 0xff));
@@ -1442,14 +1442,14 @@ static void vlv_atomic_update_fifo(struct intel_atomic_state *state,
 		dsparb2 |= (VLV_FIFO(SPRITEE_HI, sprite0_start >> 8) |
 			   VLV_FIFO(SPRITEF_HI, sprite1_start >> 8));
 
-		I915_WRITE_FW(DSPARB3, dsparb3);
-		I915_WRITE_FW(DSPARB2, dsparb2);
+		I915_DE_WRITE_FW(DSPARB3, dsparb3);
+		I915_DE_WRITE_FW(DSPARB2, dsparb2);
 		break;
 	default:
 		break;
 	}
 
-	POSTING_READ_FW(DSPARB);
+	POSTING_DE_READ_FW(DSPARB);
 
 	spin_unlock(&dev_priv->uncore.lock);
 }
@@ -1651,18 +1651,18 @@ static void g4x_update_wm(struct intel_crtc *crtc)
 		      planeb_wm, cursorb_wm,
 		      plane_sr, cursor_sr);
 
-	I915_WRITE(DSPFW1,
-		   FW_WM(plane_sr, SR) |
-		   FW_WM(cursorb_wm, CURSORB) |
-		   FW_WM(planeb_wm, PLANEB) |
-		   FW_WM(planea_wm, PLANEA));
-	I915_WRITE(DSPFW2,
-		   (I915_READ(DSPFW2) & ~DSPFW_CURSORA_MASK) |
-		   FW_WM(cursora_wm, CURSORA));
+	I915_DE_WRITE(DSPFW1,
+		      FW_WM(plane_sr, SR) |
+		      FW_WM(cursorb_wm, CURSORB) |
+		      FW_WM(planeb_wm, PLANEB) |
+		      FW_WM(planea_wm, PLANEA));
+	I915_DE_WRITE(DSPFW2,
+		      (I915_DE_READ(DSPFW2) & ~DSPFW_CURSORA_MASK) |
+		      FW_WM(cursora_wm, CURSORA));
 	/* HPLL off in SR has some issues on G4x... disable it */
-	I915_WRITE(DSPFW3,
-		   (I915_READ(DSPFW3) & ~(DSPFW_HPLL_SR_EN | DSPFW_CURSOR_SR_MASK)) |
-		   FW_WM(cursor_sr, CURSOR_SR));
+	I915_DE_WRITE(DSPFW3,
+		      (I915_DE_READ(DSPFW3) & ~(DSPFW_HPLL_SR_EN | DSPFW_CURSOR_SR_MASK)) |
+		      FW_WM(cursor_sr, CURSOR_SR));
 
 	if (cxsr_enabled)
 		intel_set_memory_cxsr(dev_priv, true);
@@ -1729,14 +1729,14 @@ static void i965_update_wm(struct intel_crtc *unused_crtc)
 		      srwm);
 
 	/* 965 has limitations... */
-	I915_WRITE(DSPFW1, FW_WM(srwm, SR) |
-		   FW_WM(8, CURSORB) |
-		   FW_WM(8, PLANEB) |
-		   FW_WM(8, PLANEA));
-	I915_WRITE(DSPFW2, FW_WM(8, CURSORA) |
-		   FW_WM(8, PLANEC_OLD));
+	I915_DE_WRITE(DSPFW1, FW_WM(srwm, SR) |
+		      FW_WM(8, CURSORB) |
+		      FW_WM(8, PLANEB) |
+		      FW_WM(8, PLANEA));
+	I915_DE_WRITE(DSPFW2, FW_WM(8, CURSORA) |
+		      FW_WM(8, PLANEC_OLD));
 	/* update cursor SR watermark */
-	I915_WRITE(DSPFW3, FW_WM(cursor_sr, CURSOR_SR));
+	I915_DE_WRITE(DSPFW3, FW_WM(cursor_sr, CURSOR_SR));
 
 	if (cxsr_enabled)
 		intel_set_memory_cxsr(dev_priv, true);
@@ -1868,10 +1868,10 @@ static void i9xx_update_wm(struct intel_crtc *unused_crtc)
 			srwm = 1;
 
 		if (IS_I945G(dev_priv) || IS_I945GM(dev_priv))
-			I915_WRITE(FW_BLC_SELF,
-				   FW_BLC_SELF_FIFO_MASK | (srwm & 0xff));
+			I915_GT_WRITE(FW_BLC_SELF,
+				      FW_BLC_SELF_FIFO_MASK | (srwm & 0xff));
 		else
-			I915_WRITE(FW_BLC_SELF, srwm & 0x3f);
+			I915_GT_WRITE(FW_BLC_SELF, srwm & 0x3f);
 	}
 
 	DRM_DEBUG_KMS("Setting FIFO watermarks - A: %d, B: %d, C: %d, SR %d\n",
@@ -1884,8 +1884,8 @@ static void i9xx_update_wm(struct intel_crtc *unused_crtc)
 	fwater_lo = fwater_lo | (1 << 24) | (1 << 8);
 	fwater_hi = fwater_hi | (1 << 8);
 
-	I915_WRITE(FW_BLC, fwater_lo);
-	I915_WRITE(FW_BLC2, fwater_hi);
+	I915_GT_WRITE(FW_BLC, fwater_lo);
+	I915_GT_WRITE(FW_BLC2, fwater_hi);
 
 	if (enabled)
 		intel_set_memory_cxsr(dev_priv, true);
@@ -1908,12 +1908,12 @@ static void i845_update_wm(struct intel_crtc *unused_crtc)
 				       &i845_wm_info,
 				       dev_priv->display.get_fifo_size(dev_priv, 0),
 				       4, pessimal_latency_ns);
-	fwater_lo = I915_READ(FW_BLC) & ~0xfff;
+	fwater_lo = I915_GT_READ(FW_BLC) & ~0xfff;
 	fwater_lo |= (3<<8) | planea_wm;
 
 	DRM_DEBUG_KMS("Setting FIFO watermarks - A: %d\n", planea_wm);
 
-	I915_WRITE(FW_BLC, fwater_lo);
+	I915_GT_WRITE(FW_BLC, fwater_lo);
 }
 
 /* latency must be in 0.1us units. */
@@ -2367,7 +2367,7 @@ static void intel_read_wm_latency(struct drm_i915_private *dev_priv,
 		}
 
 	} else if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
-		uint64_t sskpd = I915_READ64(MCH_SSKPD);
+		uint64_t sskpd = I915_DE_READ64(MCH_SSKPD);
 
 		wm[0] = (sskpd >> 56) & 0xFF;
 		if (wm[0] == 0)
@@ -2377,14 +2377,14 @@ static void intel_read_wm_latency(struct drm_i915_private *dev_priv,
 		wm[3] = (sskpd >> 20) & 0x1FF;
 		wm[4] = (sskpd >> 32) & 0x1FF;
 	} else if (INTEL_GEN(dev_priv) >= 6) {
-		uint32_t sskpd = I915_READ(MCH_SSKPD);
+		uint32_t sskpd = I915_DE_READ(MCH_SSKPD);
 
 		wm[0] = (sskpd >> SSKPD_WM0_SHIFT) & SSKPD_WM_MASK;
 		wm[1] = (sskpd >> SSKPD_WM1_SHIFT) & SSKPD_WM_MASK;
 		wm[2] = (sskpd >> SSKPD_WM2_SHIFT) & SSKPD_WM_MASK;
 		wm[3] = (sskpd >> SSKPD_WM3_SHIFT) & SSKPD_WM_MASK;
 	} else if (INTEL_GEN(dev_priv) >= 5) {
-		uint32_t mltr = I915_READ(MLTR_ILK);
+		uint32_t mltr = I915_GT_READ(MLTR_ILK);
 
 		/* ILK primary LP0 latency is 700 ns */
 		wm[0] = 7;
@@ -2955,17 +2955,17 @@ static bool _ilk_disable_lp_wm(struct drm_i915_private *dev_priv,
 
 	if (dirty & WM_DIRTY_LP(3) && previous->wm_lp[2] & WM1_LP_SR_EN) {
 		previous->wm_lp[2] &= ~WM1_LP_SR_EN;
-		I915_WRITE(WM3_LP_ILK, previous->wm_lp[2]);
+		I915_DE_WRITE(WM3_LP_ILK, previous->wm_lp[2]);
 		changed = true;
 	}
 	if (dirty & WM_DIRTY_LP(2) && previous->wm_lp[1] & WM1_LP_SR_EN) {
 		previous->wm_lp[1] &= ~WM1_LP_SR_EN;
-		I915_WRITE(WM2_LP_ILK, previous->wm_lp[1]);
+		I915_DE_WRITE(WM2_LP_ILK, previous->wm_lp[1]);
 		changed = true;
 	}
 	if (dirty & WM_DIRTY_LP(1) && previous->wm_lp[0] & WM1_LP_SR_EN) {
 		previous->wm_lp[0] &= ~WM1_LP_SR_EN;
-		I915_WRITE(WM1_LP_ILK, previous->wm_lp[0]);
+		I915_DE_WRITE(WM1_LP_ILK, previous->wm_lp[0]);
 		changed = true;
 	}
 
@@ -2995,63 +2995,63 @@ static void ilk_write_wm_values(struct drm_i915_private *dev_priv,
 	_ilk_disable_lp_wm(dev_priv, dirty);
 
 	if (dirty & WM_DIRTY_PIPE(PIPE_A))
-		I915_WRITE(WM0_PIPEA_ILK, results->wm_pipe[0]);
+		I915_DE_WRITE(WM0_PIPEA_ILK, results->wm_pipe[0]);
 	if (dirty & WM_DIRTY_PIPE(PIPE_B))
-		I915_WRITE(WM0_PIPEB_ILK, results->wm_pipe[1]);
+		I915_DE_WRITE(WM0_PIPEB_ILK, results->wm_pipe[1]);
 	if (dirty & WM_DIRTY_PIPE(PIPE_C))
-		I915_WRITE(WM0_PIPEC_IVB, results->wm_pipe[2]);
+		I915_DE_WRITE(WM0_PIPEC_IVB, results->wm_pipe[2]);
 
 	if (dirty & WM_DIRTY_LINETIME(PIPE_A))
-		I915_WRITE(PIPE_WM_LINETIME(PIPE_A), results->wm_linetime[0]);
+		I915_DE_WRITE(PIPE_WM_LINETIME(PIPE_A), results->wm_linetime[0]);
 	if (dirty & WM_DIRTY_LINETIME(PIPE_B))
-		I915_WRITE(PIPE_WM_LINETIME(PIPE_B), results->wm_linetime[1]);
+		I915_DE_WRITE(PIPE_WM_LINETIME(PIPE_B), results->wm_linetime[1]);
 	if (dirty & WM_DIRTY_LINETIME(PIPE_C))
-		I915_WRITE(PIPE_WM_LINETIME(PIPE_C), results->wm_linetime[2]);
+		I915_DE_WRITE(PIPE_WM_LINETIME(PIPE_C), results->wm_linetime[2]);
 
 	if (dirty & WM_DIRTY_DDB) {
 		if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
-			val = I915_READ(WM_MISC);
+			val = I915_DE_READ(WM_MISC);
 			if (results->partitioning == INTEL_DDB_PART_1_2)
 				val &= ~WM_MISC_DATA_PARTITION_5_6;
 			else
 				val |= WM_MISC_DATA_PARTITION_5_6;
-			I915_WRITE(WM_MISC, val);
+			I915_DE_WRITE(WM_MISC, val);
 		} else {
-			val = I915_READ(DISP_ARB_CTL2);
+			val = I915_DE_READ(DISP_ARB_CTL2);
 			if (results->partitioning == INTEL_DDB_PART_1_2)
 				val &= ~DISP_DATA_PARTITION_5_6;
 			else
 				val |= DISP_DATA_PARTITION_5_6;
-			I915_WRITE(DISP_ARB_CTL2, val);
+			I915_DE_WRITE(DISP_ARB_CTL2, val);
 		}
 	}
 
 	if (dirty & WM_DIRTY_FBC) {
-		val = I915_READ(DISP_ARB_CTL);
+		val = I915_DE_READ(DISP_ARB_CTL);
 		if (results->enable_fbc_wm)
 			val &= ~DISP_FBC_WM_DIS;
 		else
 			val |= DISP_FBC_WM_DIS;
-		I915_WRITE(DISP_ARB_CTL, val);
+		I915_DE_WRITE(DISP_ARB_CTL, val);
 	}
 
 	if (dirty & WM_DIRTY_LP(1) &&
 	    previous->wm_lp_spr[0] != results->wm_lp_spr[0])
-		I915_WRITE(WM1S_LP_ILK, results->wm_lp_spr[0]);
+		I915_DE_WRITE(WM1S_LP_ILK, results->wm_lp_spr[0]);
 
 	if (INTEL_GEN(dev_priv) >= 7) {
 		if (dirty & WM_DIRTY_LP(2) && previous->wm_lp_spr[1] != results->wm_lp_spr[1])
-			I915_WRITE(WM2S_LP_IVB, results->wm_lp_spr[1]);
+			I915_DE_WRITE(WM2S_LP_IVB, results->wm_lp_spr[1]);
 		if (dirty & WM_DIRTY_LP(3) && previous->wm_lp_spr[2] != results->wm_lp_spr[2])
-			I915_WRITE(WM3S_LP_IVB, results->wm_lp_spr[2]);
+			I915_DE_WRITE(WM3S_LP_IVB, results->wm_lp_spr[2]);
 	}
 
 	if (dirty & WM_DIRTY_LP(1) && previous->wm_lp[0] != results->wm_lp[0])
-		I915_WRITE(WM1_LP_ILK, results->wm_lp[0]);
+		I915_DE_WRITE(WM1_LP_ILK, results->wm_lp[0]);
 	if (dirty & WM_DIRTY_LP(2) && previous->wm_lp[1] != results->wm_lp[1])
-		I915_WRITE(WM2_LP_ILK, results->wm_lp[1]);
+		I915_DE_WRITE(WM2_LP_ILK, results->wm_lp[1]);
 	if (dirty & WM_DIRTY_LP(3) && previous->wm_lp[2] != results->wm_lp[2])
-		I915_WRITE(WM3_LP_ILK, results->wm_lp[2]);
+		I915_DE_WRITE(WM3_LP_ILK, results->wm_lp[2]);
 
 	dev_priv->wm.hw = *results;
 }
@@ -3333,9 +3333,9 @@ void skl_ddb_get_hw_state(struct drm_i915_private *dev_priv,
 			u32 val;
 
 			if (plane_id != PLANE_CURSOR)
-				val = I915_READ(PLANE_BUF_CFG(pipe, plane_id));
+				val = I915_DE_READ(PLANE_BUF_CFG(pipe, plane_id));
 			else
-				val = I915_READ(CUR_BUF_CFG(pipe));
+				val = I915_DE_READ(CUR_BUF_CFG(pipe));
 
 			skl_ddb_entry_init_from_hw(&ddb->plane[pipe][plane_id], val);
 		}
@@ -4036,9 +4036,9 @@ static void skl_ddb_entry_write(struct drm_i915_private *dev_priv,
 				const struct skl_ddb_entry *entry)
 {
 	if (entry->end)
-		I915_WRITE(reg, (entry->end - 1) << 16 | entry->start);
+		I915_DE_WRITE(reg, (entry->end - 1) << 16 | entry->start);
 	else
-		I915_WRITE(reg, 0);
+		I915_DE_WRITE(reg, 0);
 }
 
 static void skl_write_wm_level(struct drm_i915_private *dev_priv,
@@ -4053,7 +4053,7 @@ static void skl_write_wm_level(struct drm_i915_private *dev_priv,
 		val |= level->plane_res_l << PLANE_WM_LINES_SHIFT;
 	}
 
-	I915_WRITE(reg, val);
+	I915_DE_WRITE(reg, val);
 }
 
 static void skl_write_plane_wm(struct intel_crtc *intel_crtc,
@@ -4409,7 +4409,7 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 	if (!(state->wm_results.dirty_pipes & drm_crtc_mask(&crtc->base)))
 		return;
 
-	I915_WRITE(PIPE_WM_LINETIME(pipe), pipe_wm->linetime);
+	I915_DE_WRITE(PIPE_WM_LINETIME(pipe), pipe_wm->linetime);
 
 	for_each_plane_id_on_crtc(crtc, plane_id) {
 		if (plane_id != PLANE_CURSOR)
@@ -4547,17 +4547,17 @@ void skl_pipe_wm_get_hw_state(struct drm_crtc *crtc,
 
 		for (level = 0; level <= max_level; level++) {
 			if (plane_id != PLANE_CURSOR)
-				val = I915_READ(PLANE_WM(pipe, plane_id, level));
+				val = I915_DE_READ(PLANE_WM(pipe, plane_id, level));
 			else
-				val = I915_READ(CUR_WM(pipe, level));
+				val = I915_DE_READ(CUR_WM(pipe, level));
 
 			skl_wm_level_from_reg_val(val, &wm->wm[level]);
 		}
 
 		if (plane_id != PLANE_CURSOR)
-			val = I915_READ(PLANE_WM_TRANS(pipe, plane_id));
+			val = I915_DE_READ(PLANE_WM_TRANS(pipe, plane_id));
 		else
-			val = I915_READ(CUR_WM_TRANS(pipe));
+			val = I915_DE_READ(CUR_WM_TRANS(pipe));
 
 		skl_wm_level_from_reg_val(val, &wm->trans_wm);
 	}
@@ -4565,7 +4565,7 @@ void skl_pipe_wm_get_hw_state(struct drm_crtc *crtc,
 	if (!intel_crtc->active)
 		return;
 
-	out->linetime = I915_READ(PIPE_WM_LINETIME(pipe));
+	out->linetime = I915_DE_READ(PIPE_WM_LINETIME(pipe));
 }
 
 void skl_wm_get_hw_state(struct drm_device *dev)
@@ -4612,9 +4612,9 @@ static void ilk_pipe_wm_get_hw_state(struct drm_crtc *crtc)
 		[PIPE_C] = WM0_PIPEC_IVB,
 	};
 
-	hw->wm_pipe[pipe] = I915_READ(wm0_pipe_reg[pipe]);
+	hw->wm_pipe[pipe] = I915_DE_READ(wm0_pipe_reg[pipe]);
 	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
-		hw->wm_linetime[pipe] = I915_READ(PIPE_WM_LINETIME(pipe));
+		hw->wm_linetime[pipe] = I915_DE_READ(PIPE_WM_LINETIME(pipe));
 
 	memset(active, 0, sizeof(*active));
 
@@ -4661,7 +4661,7 @@ static void vlv_read_wm_values(struct drm_i915_private *dev_priv,
 	uint32_t tmp;
 
 	for_each_pipe(dev_priv, pipe) {
-		tmp = I915_READ(VLV_DDL(pipe));
+		tmp = I915_DE_READ(VLV_DDL(pipe));
 
 		wm->ddl[pipe].plane[PLANE_PRIMARY] =
 			(tmp >> DDL_PLANE_SHIFT) & (DDL_PRECISION_HIGH | DRAIN_LATENCY_MASK);
@@ -4673,34 +4673,34 @@ static void vlv_read_wm_values(struct drm_i915_private *dev_priv,
 			(tmp >> DDL_SPRITE_SHIFT(1)) & (DDL_PRECISION_HIGH | DRAIN_LATENCY_MASK);
 	}
 
-	tmp = I915_READ(DSPFW1);
+	tmp = I915_DE_READ(DSPFW1);
 	wm->sr.plane = _FW_WM(tmp, SR);
 	wm->pipe[PIPE_B].plane[PLANE_CURSOR] = _FW_WM(tmp, CURSORB);
 	wm->pipe[PIPE_B].plane[PLANE_PRIMARY] = _FW_WM_VLV(tmp, PLANEB);
 	wm->pipe[PIPE_A].plane[PLANE_PRIMARY] = _FW_WM_VLV(tmp, PLANEA);
 
-	tmp = I915_READ(DSPFW2);
+	tmp = I915_DE_READ(DSPFW2);
 	wm->pipe[PIPE_A].plane[PLANE_SPRITE1] = _FW_WM_VLV(tmp, SPRITEB);
 	wm->pipe[PIPE_A].plane[PLANE_CURSOR] = _FW_WM(tmp, CURSORA);
 	wm->pipe[PIPE_A].plane[PLANE_SPRITE0] = _FW_WM_VLV(tmp, SPRITEA);
 
-	tmp = I915_READ(DSPFW3);
+	tmp = I915_DE_READ(DSPFW3);
 	wm->sr.cursor = _FW_WM(tmp, CURSOR_SR);
 
 	if (IS_CHERRYVIEW(dev_priv)) {
-		tmp = I915_READ(DSPFW7_CHV);
+		tmp = I915_DE_READ(DSPFW7_CHV);
 		wm->pipe[PIPE_B].plane[PLANE_SPRITE1] = _FW_WM_VLV(tmp, SPRITED);
 		wm->pipe[PIPE_B].plane[PLANE_SPRITE0] = _FW_WM_VLV(tmp, SPRITEC);
 
-		tmp = I915_READ(DSPFW8_CHV);
+		tmp = I915_DE_READ(DSPFW8_CHV);
 		wm->pipe[PIPE_C].plane[PLANE_SPRITE1] = _FW_WM_VLV(tmp, SPRITEF);
 		wm->pipe[PIPE_C].plane[PLANE_SPRITE0] = _FW_WM_VLV(tmp, SPRITEE);
 
-		tmp = I915_READ(DSPFW9_CHV);
+		tmp = I915_DE_READ(DSPFW9_CHV);
 		wm->pipe[PIPE_C].plane[PLANE_PRIMARY] = _FW_WM_VLV(tmp, PLANEC);
 		wm->pipe[PIPE_C].plane[PLANE_CURSOR] = _FW_WM(tmp, CURSORC);
 
-		tmp = I915_READ(DSPHOWM);
+		tmp = I915_DE_READ(DSPHOWM);
 		wm->sr.plane |= _FW_WM(tmp, SR_HI) << 9;
 		wm->pipe[PIPE_C].plane[PLANE_SPRITE1] |= _FW_WM(tmp, SPRITEF_HI) << 8;
 		wm->pipe[PIPE_C].plane[PLANE_SPRITE0] |= _FW_WM(tmp, SPRITEE_HI) << 8;
@@ -4712,11 +4712,11 @@ static void vlv_read_wm_values(struct drm_i915_private *dev_priv,
 		wm->pipe[PIPE_A].plane[PLANE_SPRITE0] |= _FW_WM(tmp, SPRITEA_HI) << 8;
 		wm->pipe[PIPE_A].plane[PLANE_PRIMARY] |= _FW_WM(tmp, PLANEA_HI) << 8;
 	} else {
-		tmp = I915_READ(DSPFW7);
+		tmp = I915_DE_READ(DSPFW7);
 		wm->pipe[PIPE_B].plane[PLANE_SPRITE1] = _FW_WM_VLV(tmp, SPRITED);
 		wm->pipe[PIPE_B].plane[PLANE_SPRITE0] = _FW_WM_VLV(tmp, SPRITEC);
 
-		tmp = I915_READ(DSPHOWM);
+		tmp = I915_DE_READ(DSPHOWM);
 		wm->sr.plane |= _FW_WM(tmp, SR_HI) << 9;
 		wm->pipe[PIPE_B].plane[PLANE_SPRITE1] |= _FW_WM(tmp, SPRITED_HI) << 8;
 		wm->pipe[PIPE_B].plane[PLANE_SPRITE0] |= _FW_WM(tmp, SPRITEC_HI) << 8;
@@ -4739,7 +4739,7 @@ void vlv_wm_get_hw_state(struct drm_device *dev)
 
 	vlv_read_wm_values(dev_priv, wm);
 
-	wm->cxsr = I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN;
+	wm->cxsr = I915_DE_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN;
 	wm->level = VLV_WM_LEVEL_PM2;
 
 	if (IS_CHERRYVIEW(dev_priv)) {
@@ -4886,25 +4886,25 @@ void ilk_wm_get_hw_state(struct drm_device *dev)
 	for_each_crtc(dev, crtc)
 		ilk_pipe_wm_get_hw_state(crtc);
 
-	hw->wm_lp[0] = I915_READ(WM1_LP_ILK);
-	hw->wm_lp[1] = I915_READ(WM2_LP_ILK);
-	hw->wm_lp[2] = I915_READ(WM3_LP_ILK);
+	hw->wm_lp[0] = I915_DE_READ(WM1_LP_ILK);
+	hw->wm_lp[1] = I915_DE_READ(WM2_LP_ILK);
+	hw->wm_lp[2] = I915_DE_READ(WM3_LP_ILK);
 
-	hw->wm_lp_spr[0] = I915_READ(WM1S_LP_ILK);
+	hw->wm_lp_spr[0] = I915_DE_READ(WM1S_LP_ILK);
 	if (INTEL_GEN(dev_priv) >= 7) {
-		hw->wm_lp_spr[1] = I915_READ(WM2S_LP_IVB);
-		hw->wm_lp_spr[2] = I915_READ(WM3S_LP_IVB);
+		hw->wm_lp_spr[1] = I915_DE_READ(WM2S_LP_IVB);
+		hw->wm_lp_spr[2] = I915_DE_READ(WM3S_LP_IVB);
 	}
 
 	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
-		hw->partitioning = (I915_READ(WM_MISC) & WM_MISC_DATA_PARTITION_5_6) ?
+		hw->partitioning = (I915_DE_READ(WM_MISC) & WM_MISC_DATA_PARTITION_5_6) ?
 			INTEL_DDB_PART_5_6 : INTEL_DDB_PART_1_2;
 	else if (IS_IVYBRIDGE(dev_priv))
-		hw->partitioning = (I915_READ(DISP_ARB_CTL2) & DISP_DATA_PARTITION_5_6) ?
+		hw->partitioning = (I915_DE_READ(DISP_ARB_CTL2) & DISP_DATA_PARTITION_5_6) ?
 			INTEL_DDB_PART_5_6 : INTEL_DDB_PART_1_2;
 
 	hw->enable_fbc_wm =
-		!(I915_READ(DISP_ARB_CTL) & DISP_FBC_WM_DIS);
+		!(I915_DE_READ(DISP_ARB_CTL) & DISP_FBC_WM_DIS);
 }
 
 /**
@@ -4962,7 +4962,7 @@ bool ironlake_set_drps(struct drm_i915_private *dev_priv, u8 val)
 
 	lockdep_assert_held(&mchdev_lock);
 
-	rgvswctl = I915_READ16(MEMSWCTL);
+	rgvswctl = I915_GT_READ16(MEMSWCTL);
 	if (rgvswctl & MEMCTL_CMD_STS) {
 		DRM_DEBUG("gpu busy, RCS change rejected\n");
 		return false; /* still busy with another command */
@@ -4970,11 +4970,11 @@ bool ironlake_set_drps(struct drm_i915_private *dev_priv, u8 val)
 
 	rgvswctl = (MEMCTL_CMD_CHFREQ << MEMCTL_CMD_SHIFT) |
 		(val << MEMCTL_FREQ_SHIFT) | MEMCTL_SFCAVM;
-	I915_WRITE16(MEMSWCTL, rgvswctl);
-	POSTING_READ16(MEMSWCTL);
+	I915_GT_WRITE16(MEMSWCTL, rgvswctl);
+	POSTING_GT_READ16(MEMSWCTL);
 
 	rgvswctl |= MEMCTL_CMD_STS;
-	I915_WRITE16(MEMSWCTL, rgvswctl);
+	I915_GT_WRITE16(MEMSWCTL, rgvswctl);
 
 	return true;
 }
@@ -4986,21 +4986,21 @@ static void ironlake_enable_drps(struct drm_i915_private *dev_priv)
 
 	spin_lock_irq(&mchdev_lock);
 
-	rgvmodectl = I915_READ(MEMMODECTL);
+	rgvmodectl = I915_GT_READ(MEMMODECTL);
 
 	/* Enable temp reporting */
-	I915_WRITE16(PMMISC, I915_READ(PMMISC) | MCPPCE_EN);
-	I915_WRITE16(TSC1, I915_READ(TSC1) | TSE);
+	I915_GT_WRITE16(PMMISC, I915_GT_READ(PMMISC) | MCPPCE_EN);
+	I915_GT_WRITE16(TSC1, I915_GT_READ(TSC1) | TSE);
 
 	/* 100ms RC evaluation intervals */
-	I915_WRITE(RCUPEI, 100000);
-	I915_WRITE(RCDNEI, 100000);
+	I915_GT_WRITE(RCUPEI, 100000);
+	I915_GT_WRITE(RCDNEI, 100000);
 
 	/* Set max/min thresholds to 90ms and 80ms respectively */
-	I915_WRITE(RCBMAXAVG, 90000);
-	I915_WRITE(RCBMINAVG, 80000);
+	I915_GT_WRITE(RCBMAXAVG, 90000);
+	I915_GT_WRITE(RCBMINAVG, 80000);
 
-	I915_WRITE(MEMIHYST, 1);
+	I915_GT_WRITE(MEMIHYST, 1);
 
 	/* Set up min, max, and cur for interrupt handling */
 	fmax = (rgvmodectl & MEMMODE_FMAX_MASK) >> MEMMODE_FMAX_SHIFT;
@@ -5008,7 +5008,7 @@ static void ironlake_enable_drps(struct drm_i915_private *dev_priv)
 	fstart = (rgvmodectl & MEMMODE_FSTART_MASK) >>
 		MEMMODE_FSTART_SHIFT;
 
-	vstart = (I915_READ(PXVFREQ(fstart)) & PXVFREQ_PX_MASK) >>
+	vstart = (I915_GT_READ(PXVFREQ(fstart)) & PXVFREQ_PX_MASK) >>
 		PXVFREQ_PX_SHIFT;
 
 	dev_priv->ips.fmax = fmax; /* IPS callback will increase this */
@@ -5021,28 +5021,28 @@ static void ironlake_enable_drps(struct drm_i915_private *dev_priv)
 	DRM_DEBUG_DRIVER("fmax: %d, fmin: %d, fstart: %d\n",
 			 fmax, fmin, fstart);
 
-	I915_WRITE(MEMINTREN, MEMINT_CX_SUPR_EN | MEMINT_EVAL_CHG_EN);
+	I915_GT_WRITE(MEMINTREN, MEMINT_CX_SUPR_EN | MEMINT_EVAL_CHG_EN);
 
 	/*
 	 * Interrupts will be enabled in ironlake_irq_postinstall
 	 */
 
-	I915_WRITE(VIDSTART, vstart);
-	POSTING_READ(VIDSTART);
+	I915_GT_WRITE(VIDSTART, vstart);
+	POSTING_GT_READ(VIDSTART);
 
 	rgvmodectl |= MEMMODE_SWMODE_EN;
-	I915_WRITE(MEMMODECTL, rgvmodectl);
+	I915_GT_WRITE(MEMMODECTL, rgvmodectl);
 
-	if (wait_for_atomic((I915_READ(MEMSWCTL) & MEMCTL_CMD_STS) == 0, 10))
+	if (wait_for_atomic((I915_GT_READ(MEMSWCTL) & MEMCTL_CMD_STS) == 0, 10))
 		DRM_ERROR("stuck trying to change perf mode\n");
 	mdelay(1);
 
 	ironlake_set_drps(dev_priv, fstart);
 
-	dev_priv->ips.last_count1 = I915_READ(DMIEC) +
-		I915_READ(DDREC) + I915_READ(CSIEC);
+	dev_priv->ips.last_count1 = I915_GT_READ(DMIEC) +
+		I915_GT_READ(DDREC) + I915_GT_READ(CSIEC);
 	dev_priv->ips.last_time1 = jiffies_to_msecs(jiffies);
-	dev_priv->ips.last_count2 = I915_READ(GFXEC);
+	dev_priv->ips.last_count2 = I915_GT_READ(GFXEC);
 	dev_priv->ips.last_time2 = ktime_get_raw_ns();
 
 	spin_unlock_irq(&mchdev_lock);
@@ -5054,20 +5054,20 @@ static void ironlake_disable_drps(struct drm_i915_private *dev_priv)
 
 	spin_lock_irq(&mchdev_lock);
 
-	rgvswctl = I915_READ16(MEMSWCTL);
+	rgvswctl = I915_GT_READ16(MEMSWCTL);
 
 	/* Ack interrupts, disable EFC interrupt */
-	I915_WRITE(MEMINTREN, I915_READ(MEMINTREN) & ~MEMINT_EVAL_CHG_EN);
-	I915_WRITE(MEMINTRSTS, MEMINT_EVAL_CHG);
-	I915_WRITE(DEIER, I915_READ(DEIER) & ~DE_PCU_EVENT);
-	I915_WRITE(DEIIR, DE_PCU_EVENT);
-	I915_WRITE(DEIMR, I915_READ(DEIMR) | DE_PCU_EVENT);
+	I915_GT_WRITE(MEMINTREN, I915_GT_READ(MEMINTREN) & ~MEMINT_EVAL_CHG_EN);
+	I915_GT_WRITE(MEMINTRSTS, MEMINT_EVAL_CHG);
+	I915_DE_WRITE(DEIER, I915_DE_READ(DEIER) & ~DE_PCU_EVENT);
+	I915_DE_WRITE(DEIIR, DE_PCU_EVENT);
+	I915_DE_WRITE(DEIMR, I915_DE_READ(DEIMR) | DE_PCU_EVENT);
 
 	/* Go back to the starting frequency */
 	ironlake_set_drps(dev_priv, dev_priv->ips.fstart);
 	mdelay(1);
 	rgvswctl |= MEMCTL_CMD_STS;
-	I915_WRITE(MEMSWCTL, rgvswctl);
+	I915_GT_WRITE(MEMSWCTL, rgvswctl);
 	mdelay(1);
 
 	spin_unlock_irq(&mchdev_lock);
@@ -5177,25 +5177,25 @@ static void gen6_set_rps_thresholds(struct drm_i915_private *dev_priv, u8 val)
 	if (IS_VALLEYVIEW(dev_priv))
 		goto skip_hw_write;
 
-	I915_WRITE(GEN6_RP_UP_EI,
-		   GT_INTERVAL_FROM_US(dev_priv, ei_up));
-	I915_WRITE(GEN6_RP_UP_THRESHOLD,
-		   GT_INTERVAL_FROM_US(dev_priv,
-				       ei_up * threshold_up / 100));
+	I915_GT_WRITE(GEN6_RP_UP_EI,
+		      GT_INTERVAL_FROM_US(dev_priv, ei_up));
+	I915_GT_WRITE(GEN6_RP_UP_THRESHOLD,
+		      GT_INTERVAL_FROM_US(dev_priv,
+					  ei_up * threshold_up / 100));
 
-	I915_WRITE(GEN6_RP_DOWN_EI,
-		   GT_INTERVAL_FROM_US(dev_priv, ei_down));
-	I915_WRITE(GEN6_RP_DOWN_THRESHOLD,
-		   GT_INTERVAL_FROM_US(dev_priv,
-				       ei_down * threshold_down / 100));
+	I915_GT_WRITE(GEN6_RP_DOWN_EI,
+		      GT_INTERVAL_FROM_US(dev_priv, ei_down));
+	I915_GT_WRITE(GEN6_RP_DOWN_THRESHOLD,
+		      GT_INTERVAL_FROM_US(dev_priv,
+					  ei_down * threshold_down / 100));
 
-	I915_WRITE(GEN6_RP_CONTROL,
-		   GEN6_RP_MEDIA_TURBO |
-		   GEN6_RP_MEDIA_HW_NORMAL_MODE |
-		   GEN6_RP_MEDIA_IS_GFX |
-		   GEN6_RP_ENABLE |
-		   GEN6_RP_UP_BUSY_AVG |
-		   GEN6_RP_DOWN_IDLE_AVG);
+	I915_GT_WRITE(GEN6_RP_CONTROL,
+		      GEN6_RP_MEDIA_TURBO |
+		      GEN6_RP_MEDIA_HW_NORMAL_MODE |
+		      GEN6_RP_MEDIA_IS_GFX |
+		      GEN6_RP_ENABLE |
+		      GEN6_RP_UP_BUSY_AVG |
+		      GEN6_RP_DOWN_IDLE_AVG);
 
 skip_hw_write:
 	dev_priv->rps.power = new_power;
@@ -5231,23 +5231,23 @@ static int gen6_set_rps(struct drm_i915_private *dev_priv, u8 val)
 		gen6_set_rps_thresholds(dev_priv, val);
 
 		if (IS_GEN9(dev_priv))
-			I915_WRITE(GEN6_RPNSWREQ,
-				   GEN9_FREQUENCY(val));
+			I915_GT_WRITE(GEN6_RPNSWREQ,
+				      GEN9_FREQUENCY(val));
 		else if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
-			I915_WRITE(GEN6_RPNSWREQ,
-				   HSW_FREQUENCY(val));
+			I915_GT_WRITE(GEN6_RPNSWREQ,
+				      HSW_FREQUENCY(val));
 		else
-			I915_WRITE(GEN6_RPNSWREQ,
-				   GEN6_FREQUENCY(val) |
-				   GEN6_OFFSET(0) |
-				   GEN6_AGGRESSIVE_TURBO);
+			I915_GT_WRITE(GEN6_RPNSWREQ,
+				      GEN6_FREQUENCY(val) |
+				      GEN6_OFFSET(0) |
+				      GEN6_AGGRESSIVE_TURBO);
 	}
 
 	/* Make sure we continue to get interrupts
 	 * until we hit the minimum or maximum frequencies.
 	 */
-	I915_WRITE(GEN6_RP_INTERRUPT_LIMITS, intel_rps_limits(dev_priv, val));
-	I915_WRITE(GEN6_PMINTRMSK, gen6_rps_pm_mask(dev_priv, val));
+	I915_GT_WRITE(GEN6_RP_INTERRUPT_LIMITS, intel_rps_limits(dev_priv, val));
+	I915_GT_WRITE(GEN6_PMINTRMSK, gen6_rps_pm_mask(dev_priv, val));
 
 	dev_priv->rps.cur_freq = val;
 	trace_intel_gpu_freq_change(intel_gpu_freq(dev_priv, val));
@@ -5263,7 +5263,7 @@ static int valleyview_set_rps(struct drm_i915_private *dev_priv, u8 val)
 		      "Odd GPU freq value\n"))
 		val &= ~1;
 
-	I915_WRITE(GEN6_PMINTRMSK, gen6_rps_pm_mask(dev_priv, val));
+	I915_GT_WRITE(GEN6_PMINTRMSK, gen6_rps_pm_mask(dev_priv, val));
 
 	if (val != dev_priv->rps.cur_freq) {
 		err = vlv_punit_write(dev_priv, PUNIT_REG_GPU_FREQ_REQ, val);
@@ -5322,8 +5322,8 @@ void gen6_rps_busy(struct drm_i915_private *dev_priv)
 
 		if (dev_priv->pm_rps_events & GEN6_PM_RP_UP_EI_EXPIRED)
 			gen6_rps_reset_ei(dev_priv);
-		I915_WRITE(GEN6_PMINTRMSK,
-			   gen6_rps_pm_mask(dev_priv, dev_priv->rps.cur_freq));
+		I915_GT_WRITE(GEN6_PMINTRMSK,
+			      gen6_rps_pm_mask(dev_priv, dev_priv->rps.cur_freq));
 
 		gen6_enable_rps_interrupts(dev_priv);
 
@@ -5358,8 +5358,8 @@ void gen6_rps_idle(struct drm_i915_private *dev_priv)
 		else
 			gen6_set_rps(dev_priv, dev_priv->rps.idle_freq);
 		dev_priv->rps.last_adj = 0;
-		I915_WRITE(GEN6_PMINTRMSK,
-			   gen6_sanitize_rps_pm_mask(dev_priv, ~0));
+		I915_GT_WRITE(GEN6_PMINTRMSK,
+			      gen6_sanitize_rps_pm_mask(dev_priv, ~0));
 	}
 	mutex_unlock(&dev_priv->rps.hw_lock);
 
@@ -5428,25 +5428,25 @@ int intel_set_rps(struct drm_i915_private *dev_priv, u8 val)
 
 static void gen9_disable_rc6(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(GEN6_RC_CONTROL, 0);
-	I915_WRITE(GEN9_PG_ENABLE, 0);
+	I915_GT_WRITE(GEN6_RC_CONTROL, 0);
+	I915_GT_WRITE(GEN9_PG_ENABLE, 0);
 }
 
 static void gen9_disable_rps(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(GEN6_RP_CONTROL, 0);
+	I915_GT_WRITE(GEN6_RP_CONTROL, 0);
 }
 
 static void gen6_disable_rps(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(GEN6_RC_CONTROL, 0);
-	I915_WRITE(GEN6_RPNSWREQ, 1 << 31);
-	I915_WRITE(GEN6_RP_CONTROL, 0);
+	I915_GT_WRITE(GEN6_RC_CONTROL, 0);
+	I915_GT_WRITE(GEN6_RPNSWREQ, 1 << 31);
+	I915_GT_WRITE(GEN6_RP_CONTROL, 0);
 }
 
 static void cherryview_disable_rps(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(GEN6_RC_CONTROL, 0);
+	I915_GT_WRITE(GEN6_RC_CONTROL, 0);
 }
 
 static void valleyview_disable_rps(struct drm_i915_private *dev_priv)
@@ -5455,7 +5455,7 @@ static void valleyview_disable_rps(struct drm_i915_private *dev_priv)
 	 * This what the BIOS expects when going into suspend */
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
-	I915_WRITE(GEN6_RC_CONTROL, 0);
+	I915_GT_WRITE(GEN6_RC_CONTROL, 0);
 
 	intel_uncore_forcewake_put(dev_priv, FORCEWAKE_ALL);
 }
@@ -5488,8 +5488,8 @@ static bool bxt_check_bios_rc6_setup(struct drm_i915_private *dev_priv)
 	u32 rc_ctl;
 	int rc_sw_target;
 
-	rc_ctl = I915_READ(GEN6_RC_CONTROL);
-	rc_sw_target = (I915_READ(GEN6_RC_STATE) & RC_SW_TARGET_STATE_MASK) >>
+	rc_ctl = I915_GT_READ(GEN6_RC_CONTROL);
+	rc_sw_target = (I915_GT_READ(GEN6_RC_STATE) & RC_SW_TARGET_STATE_MASK) >>
 		       RC_SW_TARGET_STATE_SHIFT;
 	DRM_DEBUG_DRIVER("BIOS enabled RC states: "
 			 "HW_CTRL %s HW_RC6 %s SW_TARGET_STATE %x\n",
@@ -5497,7 +5497,7 @@ static bool bxt_check_bios_rc6_setup(struct drm_i915_private *dev_priv)
 			 onoff(rc_ctl & GEN6_RC_CTL_RC6_ENABLE),
 			 rc_sw_target);
 
-	if (!(I915_READ(RC6_LOCATION) & RC6_CTX_IN_DRAM)) {
+	if (!(I915_GT_READ(RC6_LOCATION) & RC6_CTX_IN_DRAM)) {
 		DRM_DEBUG_DRIVER("RC6 Base location not set properly.\n");
 		enable_rc6 = false;
 	}
@@ -5506,7 +5506,7 @@ static bool bxt_check_bios_rc6_setup(struct drm_i915_private *dev_priv)
 	 * The exact context size is not known for BXT, so assume a page size
 	 * for this check.
 	 */
-	rc6_ctx_base = I915_READ(RC6_CTX_BASE) & RC6_CTX_BASE_MASK;
+	rc6_ctx_base = I915_GT_READ(RC6_CTX_BASE) & RC6_CTX_BASE_MASK;
 	if (!((rc6_ctx_base >= ggtt->stolen_reserved_base) &&
 	      (rc6_ctx_base + PAGE_SIZE <= ggtt->stolen_reserved_base +
 					ggtt->stolen_reserved_size))) {
@@ -5514,27 +5514,27 @@ static bool bxt_check_bios_rc6_setup(struct drm_i915_private *dev_priv)
 		enable_rc6 = false;
 	}
 
-	if (!(((I915_READ(PWRCTX_MAXCNT_RCSUNIT) & IDLE_TIME_MASK) > 1) &&
-	      ((I915_READ(PWRCTX_MAXCNT_VCSUNIT0) & IDLE_TIME_MASK) > 1) &&
-	      ((I915_READ(PWRCTX_MAXCNT_BCSUNIT) & IDLE_TIME_MASK) > 1) &&
-	      ((I915_READ(PWRCTX_MAXCNT_VECSUNIT) & IDLE_TIME_MASK) > 1))) {
+	if (!(((I915_GT_READ(PWRCTX_MAXCNT_RCSUNIT) & IDLE_TIME_MASK) > 1) &&
+	      ((I915_GT_READ(PWRCTX_MAXCNT_VCSUNIT0) & IDLE_TIME_MASK) > 1) &&
+	      ((I915_GT_READ(PWRCTX_MAXCNT_BCSUNIT) & IDLE_TIME_MASK) > 1) &&
+	      ((I915_GT_READ(PWRCTX_MAXCNT_VECSUNIT) & IDLE_TIME_MASK) > 1))) {
 		DRM_DEBUG_DRIVER("Engine Idle wait time not set properly.\n");
 		enable_rc6 = false;
 	}
 
-	if (!I915_READ(GEN8_PUSHBUS_CONTROL) ||
-	    !I915_READ(GEN8_PUSHBUS_ENABLE) ||
-	    !I915_READ(GEN8_PUSHBUS_SHIFT)) {
+	if (!I915_GT_READ(GEN8_PUSHBUS_CONTROL) ||
+	    !I915_GT_READ(GEN8_PUSHBUS_ENABLE) ||
+	    !I915_GT_READ(GEN8_PUSHBUS_SHIFT)) {
 		DRM_DEBUG_DRIVER("Pushbus not setup properly.\n");
 		enable_rc6 = false;
 	}
 
-	if (!I915_READ(GEN6_GFXPAUSE)) {
+	if (!I915_GT_READ(GEN6_GFXPAUSE)) {
 		DRM_DEBUG_DRIVER("GFX pause not setup properly.\n");
 		enable_rc6 = false;
 	}
 
-	if (!I915_READ(GEN8_MISC_CTRL0)) {
+	if (!I915_GT_READ(GEN8_MISC_CTRL0)) {
 		DRM_DEBUG_DRIVER("GPM control not setup properly.\n");
 		enable_rc6 = false;
 	}
@@ -5586,12 +5586,12 @@ static void gen6_init_rps_frequencies(struct drm_i915_private *dev_priv)
 
 	/* static values from HW: RP0 > RP1 > RPn (min_freq) */
 	if (IS_GEN9_LP(dev_priv)) {
-		u32 rp_state_cap = I915_READ(BXT_RP_STATE_CAP);
+		u32 rp_state_cap = I915_DE_READ(BXT_RP_STATE_CAP);
 		dev_priv->rps.rp0_freq = (rp_state_cap >> 16) & 0xff;
 		dev_priv->rps.rp1_freq = (rp_state_cap >>  8) & 0xff;
 		dev_priv->rps.min_freq = (rp_state_cap >>  0) & 0xff;
 	} else {
-		u32 rp_state_cap = I915_READ(GEN6_RP_STATE_CAP);
+		u32 rp_state_cap = I915_DE_READ(GEN6_RP_STATE_CAP);
 		dev_priv->rps.rp0_freq = (rp_state_cap >>  0) & 0xff;
 		dev_priv->rps.rp1_freq = (rp_state_cap >>  8) & 0xff;
 		dev_priv->rps.min_freq = (rp_state_cap >> 16) & 0xff;
@@ -5645,14 +5645,14 @@ static void gen9_enable_rps(struct drm_i915_private *dev_priv)
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
 	/* Program defaults and thresholds for RPS*/
-	I915_WRITE(GEN6_RC_VIDEO_FREQ,
-		GEN9_FREQUENCY(dev_priv->rps.rp1_freq));
+	I915_GT_WRITE(GEN6_RC_VIDEO_FREQ,
+		      GEN9_FREQUENCY(dev_priv->rps.rp1_freq));
 
 	/* 1 second timeout*/
-	I915_WRITE(GEN6_RP_DOWN_TIMEOUT,
-		GT_INTERVAL_FROM_US(dev_priv, 1000000));
+	I915_GT_WRITE(GEN6_RP_DOWN_TIMEOUT,
+		      GT_INTERVAL_FROM_US(dev_priv, 1000000));
 
-	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 0xa);
+	I915_GT_WRITE(GEN6_RP_IDLE_HYSTERSIS, 0xa);
 
 	/* Leaning on the below call to gen6_set_rps to program/setup the
 	 * Up/Down EI & threshold registers, as well as the RP_CONTROL,
@@ -5669,53 +5669,55 @@ static void gen9_enable_rc6(struct drm_i915_private *dev_priv)
 	uint32_t rc6_mask = 0;
 
 	/* 1a: Software RC state - RC0 */
-	I915_WRITE(GEN6_RC_STATE, 0);
+	I915_GT_WRITE(GEN6_RC_STATE, 0);
 
 	/* 1b: Get forcewake during program sequence. Although the driver
 	 * hasn't enabled a state yet where we need forcewake, BIOS may have.*/
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
 	/* 2a: Disable RC states. */
-	I915_WRITE(GEN6_RC_CONTROL, 0);
+	I915_GT_WRITE(GEN6_RC_CONTROL, 0);
 
 	/* 2b: Program RC6 thresholds.*/
 
 	/* WaRsDoubleRc6WrlWithCoarsePowerGating: Doubling WRL only when CPG is enabled */
 	if (IS_SKYLAKE(dev_priv))
-		I915_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 108 << 16);
+		I915_GT_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 108 << 16);
 	else
-		I915_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 54 << 16);
-	I915_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000); /* 12500 * 1280ns */
-	I915_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25); /* 25 * 1280ns */
+		I915_GT_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 54 << 16);
+	I915_GT_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000); /* 12500 * 1280ns */
+	I915_GT_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25); /* 25 * 1280ns */
 	for_each_engine(engine, dev_priv, id)
-		I915_WRITE(RING_MAX_IDLE(engine->mmio_base), 10);
+		I915_GT_WRITE(RING_MAX_IDLE(engine->mmio_base), 10);
 
 	if (HAS_GUC(dev_priv))
-		I915_WRITE(GUC_MAX_IDLE_COUNT, 0xA);
+		I915_GT_WRITE(GUC_MAX_IDLE_COUNT, 0xA);
 
-	I915_WRITE(GEN6_RC_SLEEP, 0);
+	I915_GT_WRITE(GEN6_RC_SLEEP, 0);
 
 	/* 2c: Program Coarse Power Gating Policies. */
-	I915_WRITE(GEN9_MEDIA_PG_IDLE_HYSTERESIS, 25);
-	I915_WRITE(GEN9_RENDER_PG_IDLE_HYSTERESIS, 25);
+	I915_GT_WRITE(GEN9_MEDIA_PG_IDLE_HYSTERESIS, 25);
+	I915_GT_WRITE(GEN9_RENDER_PG_IDLE_HYSTERESIS, 25);
 
 	/* 3a: Enable RC6 */
 	if (intel_enable_rc6() & INTEL_RC6_ENABLE)
 		rc6_mask = GEN6_RC_CTL_RC6_ENABLE;
 	DRM_INFO("RC6 %s\n", onoff(rc6_mask & GEN6_RC_CTL_RC6_ENABLE));
-	I915_WRITE(GEN6_RC6_THRESHOLD, 37500); /* 37.5/125ms per EI */
-	I915_WRITE(GEN6_RC_CONTROL,
-		   GEN6_RC_CTL_HW_ENABLE | GEN6_RC_CTL_EI_MODE(1) | rc6_mask);
+	I915_GT_WRITE(GEN6_RC6_THRESHOLD, 37500); /* 37.5/125ms per EI */
+	I915_GT_WRITE(GEN6_RC_CONTROL,
+		      GEN6_RC_CTL_HW_ENABLE |
+		      GEN6_RC_CTL_EI_MODE(1) |
+		      rc6_mask);
 
 	/*
 	 * 3b: Enable Coarse Power Gating only when RC6 is enabled.
 	 * WaRsDisableCoarsePowerGating:skl,bxt - Render/Media PG need to be disabled with RC6.
 	 */
 	if (NEEDS_WaRsDisableCoarsePowerGating(dev_priv))
-		I915_WRITE(GEN9_PG_ENABLE, 0);
+		I915_GT_WRITE(GEN9_PG_ENABLE, 0);
 	else
-		I915_WRITE(GEN9_PG_ENABLE, (rc6_mask & GEN6_RC_CTL_RC6_ENABLE) ?
-				(GEN9_RENDER_PG_ENABLE | GEN9_MEDIA_PG_ENABLE) : 0);
+		I915_GT_WRITE(GEN9_PG_ENABLE, (rc6_mask & GEN6_RC_CTL_RC6_ENABLE) ?
+			      (GEN9_RENDER_PG_ENABLE | GEN9_MEDIA_PG_ENABLE) : 0);
 
 	intel_uncore_forcewake_put(dev_priv, FORCEWAKE_ALL);
 }
@@ -5727,62 +5729,62 @@ static void gen8_enable_rps(struct drm_i915_private *dev_priv)
 	uint32_t rc6_mask = 0;
 
 	/* 1a: Software RC state - RC0 */
-	I915_WRITE(GEN6_RC_STATE, 0);
+	I915_GT_WRITE(GEN6_RC_STATE, 0);
 
 	/* 1c & 1d: Get forcewake during program sequence. Although the driver
 	 * hasn't enabled a state yet where we need forcewake, BIOS may have.*/
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
 	/* 2a: Disable RC states. */
-	I915_WRITE(GEN6_RC_CONTROL, 0);
+	I915_GT_WRITE(GEN6_RC_CONTROL, 0);
 
 	/* 2b: Program RC6 thresholds.*/
-	I915_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 40 << 16);
-	I915_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000); /* 12500 * 1280ns */
-	I915_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25); /* 25 * 1280ns */
+	I915_GT_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 40 << 16);
+	I915_GT_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000); /* 12500 * 1280ns */
+	I915_GT_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25); /* 25 * 1280ns */
 	for_each_engine(engine, dev_priv, id)
-		I915_WRITE(RING_MAX_IDLE(engine->mmio_base), 10);
-	I915_WRITE(GEN6_RC_SLEEP, 0);
+		I915_GT_WRITE(RING_MAX_IDLE(engine->mmio_base), 10);
+	I915_GT_WRITE(GEN6_RC_SLEEP, 0);
 	if (IS_BROADWELL(dev_priv))
-		I915_WRITE(GEN6_RC6_THRESHOLD, 625); /* 800us/1.28 for TO */
+		I915_GT_WRITE(GEN6_RC6_THRESHOLD, 625); /* 800us/1.28 for TO */
 	else
-		I915_WRITE(GEN6_RC6_THRESHOLD, 50000); /* 50/125ms per EI */
+		I915_GT_WRITE(GEN6_RC6_THRESHOLD, 50000); /* 50/125ms per EI */
 
 	/* 3: Enable RC6 */
 	if (intel_enable_rc6() & INTEL_RC6_ENABLE)
 		rc6_mask = GEN6_RC_CTL_RC6_ENABLE;
 	intel_print_rc6_info(dev_priv, rc6_mask);
 	if (IS_BROADWELL(dev_priv))
-		I915_WRITE(GEN6_RC_CONTROL, GEN6_RC_CTL_HW_ENABLE |
+		I915_GT_WRITE(GEN6_RC_CONTROL, GEN6_RC_CTL_HW_ENABLE |
 				GEN7_RC_CTL_TO_MODE |
 				rc6_mask);
 	else
-		I915_WRITE(GEN6_RC_CONTROL, GEN6_RC_CTL_HW_ENABLE |
+		I915_GT_WRITE(GEN6_RC_CONTROL, GEN6_RC_CTL_HW_ENABLE |
 				GEN6_RC_CTL_EI_MODE(1) |
 				rc6_mask);
 
 	/* 4 Program defaults and thresholds for RPS*/
-	I915_WRITE(GEN6_RPNSWREQ,
+	I915_GT_WRITE(GEN6_RPNSWREQ,
 		   HSW_FREQUENCY(dev_priv->rps.rp1_freq));
-	I915_WRITE(GEN6_RC_VIDEO_FREQ,
+	I915_GT_WRITE(GEN6_RC_VIDEO_FREQ,
 		   HSW_FREQUENCY(dev_priv->rps.rp1_freq));
 	/* NB: Docs say 1s, and 1000000 - which aren't equivalent */
-	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 100000000 / 128); /* 1 second timeout */
+	I915_GT_WRITE(GEN6_RP_DOWN_TIMEOUT, 100000000 / 128); /* 1 second timeout */
 
 	/* Docs recommend 900MHz, and 300 MHz respectively */
-	I915_WRITE(GEN6_RP_INTERRUPT_LIMITS,
+	I915_GT_WRITE(GEN6_RP_INTERRUPT_LIMITS,
 		   dev_priv->rps.max_freq_softlimit << 24 |
 		   dev_priv->rps.min_freq_softlimit << 16);
 
-	I915_WRITE(GEN6_RP_UP_THRESHOLD, 7600000 / 128); /* 76ms busyness per EI, 90% */
-	I915_WRITE(GEN6_RP_DOWN_THRESHOLD, 31300000 / 128); /* 313ms busyness per EI, 70%*/
-	I915_WRITE(GEN6_RP_UP_EI, 66000); /* 84.48ms, XXX: random? */
-	I915_WRITE(GEN6_RP_DOWN_EI, 350000); /* 448ms, XXX: random? */
+	I915_GT_WRITE(GEN6_RP_UP_THRESHOLD, 7600000 / 128); /* 76ms busyness per EI, 90% */
+	I915_GT_WRITE(GEN6_RP_DOWN_THRESHOLD, 31300000 / 128); /* 313ms busyness per EI, 70%*/
+	I915_GT_WRITE(GEN6_RP_UP_EI, 66000); /* 84.48ms, XXX: random? */
+	I915_GT_WRITE(GEN6_RP_DOWN_EI, 350000); /* 448ms, XXX: random? */
 
-	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
+	I915_GT_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
 
 	/* 5: Enable RPS */
-	I915_WRITE(GEN6_RP_CONTROL,
+	I915_GT_WRITE(GEN6_RP_CONTROL,
 		   GEN6_RP_MEDIA_TURBO |
 		   GEN6_RP_MEDIA_HW_NORMAL_MODE |
 		   GEN6_RP_MEDIA_IS_GFX |
@@ -5814,37 +5816,37 @@ static void gen6_enable_rps(struct drm_i915_private *dev_priv)
 	 * Perhaps there might be some value in exposing these to
 	 * userspace...
 	 */
-	I915_WRITE(GEN6_RC_STATE, 0);
+	I915_GT_WRITE(GEN6_RC_STATE, 0);
 
 	/* Clear the DBG now so we don't confuse earlier errors */
-	gtfifodbg = I915_READ(GTFIFODBG);
+	gtfifodbg = I915_DE_READ(GTFIFODBG);
 	if (gtfifodbg) {
 		DRM_ERROR("GT fifo had a previous error %x\n", gtfifodbg);
-		I915_WRITE(GTFIFODBG, gtfifodbg);
+		I915_DE_WRITE(GTFIFODBG, gtfifodbg);
 	}
 
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
 	/* disable the counters and set deterministic thresholds */
-	I915_WRITE(GEN6_RC_CONTROL, 0);
+	I915_GT_WRITE(GEN6_RC_CONTROL, 0);
 
-	I915_WRITE(GEN6_RC1_WAKE_RATE_LIMIT, 1000 << 16);
-	I915_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 40 << 16 | 30);
-	I915_WRITE(GEN6_RC6pp_WAKE_RATE_LIMIT, 30);
-	I915_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000);
-	I915_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25);
+	I915_GT_WRITE(GEN6_RC1_WAKE_RATE_LIMIT, 1000 << 16);
+	I915_GT_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 40 << 16 | 30);
+	I915_GT_WRITE(GEN6_RC6pp_WAKE_RATE_LIMIT, 30);
+	I915_GT_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000);
+	I915_GT_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25);
 
 	for_each_engine(engine, dev_priv, id)
-		I915_WRITE(RING_MAX_IDLE(engine->mmio_base), 10);
+		I915_GT_WRITE(RING_MAX_IDLE(engine->mmio_base), 10);
 
-	I915_WRITE(GEN6_RC_SLEEP, 0);
-	I915_WRITE(GEN6_RC1e_THRESHOLD, 1000);
+	I915_GT_WRITE(GEN6_RC_SLEEP, 0);
+	I915_GT_WRITE(GEN6_RC1e_THRESHOLD, 1000);
 	if (IS_IVYBRIDGE(dev_priv))
-		I915_WRITE(GEN6_RC6_THRESHOLD, 125000);
+		I915_GT_WRITE(GEN6_RC6_THRESHOLD, 125000);
 	else
-		I915_WRITE(GEN6_RC6_THRESHOLD, 50000);
-	I915_WRITE(GEN6_RC6p_THRESHOLD, 150000);
-	I915_WRITE(GEN6_RC6pp_THRESHOLD, 64000); /* unused */
+		I915_GT_WRITE(GEN6_RC6_THRESHOLD, 50000);
+	I915_GT_WRITE(GEN6_RC6p_THRESHOLD, 150000);
+	I915_GT_WRITE(GEN6_RC6pp_THRESHOLD, 64000); /* unused */
 
 	/* Check if we are enabling RC6 */
 	rc6_mode = intel_enable_rc6();
@@ -5862,14 +5864,14 @@ static void gen6_enable_rps(struct drm_i915_private *dev_priv)
 
 	intel_print_rc6_info(dev_priv, rc6_mask);
 
-	I915_WRITE(GEN6_RC_CONTROL,
+	I915_GT_WRITE(GEN6_RC_CONTROL,
 		   rc6_mask |
 		   GEN6_RC_CTL_EI_MODE(1) |
 		   GEN6_RC_CTL_HW_ENABLE);
 
 	/* Power down if completely idle for over 50ms */
-	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 50000);
-	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
+	I915_GT_WRITE(GEN6_RP_DOWN_TIMEOUT, 50000);
+	I915_GT_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
 
 	reset_rps(dev_priv, gen6_set_rps);
 
@@ -5916,7 +5918,7 @@ static void gen6_update_ring_freq(struct drm_i915_private *dev_priv)
 	/* Convert from kHz to MHz */
 	max_ia_freq /= 1000;
 
-	min_ring_freq = I915_READ(DCLK) & 0xf;
+	min_ring_freq = I915_DE_READ(DCLK) & 0xf;
 	/* convert DDR frequency from units of 266.6MHz to bandwidth */
 	min_ring_freq = mult_frac(min_ring_freq, 8, 3);
 
@@ -6087,7 +6089,7 @@ static int valleyview_rps_min_freq(struct drm_i915_private *dev_priv)
 /* Check that the pctx buffer wasn't move under us. */
 static void valleyview_check_pctx(struct drm_i915_private *dev_priv)
 {
-	unsigned long pctx_addr = I915_READ(VLV_PCBR) & ~4095;
+	unsigned long pctx_addr = I915_DE_READ(VLV_PCBR) & ~4095;
 
 	WARN_ON(pctx_addr != dev_priv->mm.stolen_base +
 			     dev_priv->vlv_pctx->stolen->start);
@@ -6097,7 +6099,7 @@ static void valleyview_check_pctx(struct drm_i915_private *dev_priv)
 /* Check that the pcbr address is not empty. */
 static void cherryview_check_pctx(struct drm_i915_private *dev_priv)
 {
-	unsigned long pctx_addr = I915_READ(VLV_PCBR) & ~4095;
+	unsigned long pctx_addr = I915_DE_READ(VLV_PCBR) & ~4095;
 
 	WARN_ON((pctx_addr >> VLV_PCBR_ADDR_SHIFT) == 0);
 }
@@ -6109,17 +6111,17 @@ static void cherryview_setup_pctx(struct drm_i915_private *dev_priv)
 	u32 pcbr;
 	int pctx_size = 32*1024;
 
-	pcbr = I915_READ(VLV_PCBR);
+	pcbr = I915_DE_READ(VLV_PCBR);
 	if ((pcbr >> VLV_PCBR_ADDR_SHIFT) == 0) {
 		DRM_DEBUG_DRIVER("BIOS didn't set up PCBR, fixing up\n");
 		paddr = (dev_priv->mm.stolen_base +
 			 (ggtt->stolen_size - pctx_size));
 
 		pctx_paddr = (paddr & (~4095));
-		I915_WRITE(VLV_PCBR, pctx_paddr);
+		I915_DE_WRITE(VLV_PCBR, pctx_paddr);
 	}
 
-	DRM_DEBUG_DRIVER("PCBR: 0x%08x\n", I915_READ(VLV_PCBR));
+	DRM_DEBUG_DRIVER("PCBR: 0x%08x\n", I915_DE_READ(VLV_PCBR));
 }
 
 static void valleyview_setup_pctx(struct drm_i915_private *dev_priv)
@@ -6129,7 +6131,7 @@ static void valleyview_setup_pctx(struct drm_i915_private *dev_priv)
 	u32 pcbr;
 	int pctx_size = 24*1024;
 
-	pcbr = I915_READ(VLV_PCBR);
+	pcbr = I915_DE_READ(VLV_PCBR);
 	if (pcbr) {
 		/* BIOS set it up already, grab the pre-alloc'd space */
 		int pcbr_offset;
@@ -6159,10 +6161,10 @@ static void valleyview_setup_pctx(struct drm_i915_private *dev_priv)
 	}
 
 	pctx_paddr = dev_priv->mm.stolen_base + pctx->stolen->start;
-	I915_WRITE(VLV_PCBR, pctx_paddr);
+	I915_DE_WRITE(VLV_PCBR, pctx_paddr);
 
 out:
-	DRM_DEBUG_DRIVER("PCBR: 0x%08x\n", I915_READ(VLV_PCBR));
+	DRM_DEBUG_DRIVER("PCBR: 0x%08x\n", I915_DE_READ(VLV_PCBR));
 	dev_priv->vlv_pctx = pctx;
 }
 
@@ -6294,12 +6296,12 @@ static void cherryview_enable_rps(struct drm_i915_private *dev_priv)
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 
-	gtfifodbg = I915_READ(GTFIFODBG) & ~(GT_FIFO_SBDEDICATE_FREE_ENTRY_CHV |
+	gtfifodbg = I915_DE_READ(GTFIFODBG) & ~(GT_FIFO_SBDEDICATE_FREE_ENTRY_CHV |
 					     GT_FIFO_FREE_ENTRIES_CHV);
 	if (gtfifodbg) {
 		DRM_DEBUG_DRIVER("GT fifo had a previous error %x\n",
 				 gtfifodbg);
-		I915_WRITE(GTFIFODBG, gtfifodbg);
+		I915_DE_WRITE(GTFIFODBG, gtfifodbg);
 	}
 
 	cherryview_check_pctx(dev_priv);
@@ -6309,47 +6311,47 @@ static void cherryview_enable_rps(struct drm_i915_private *dev_priv)
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
 	/*  Disable RC states. */
-	I915_WRITE(GEN6_RC_CONTROL, 0);
+	I915_GT_WRITE(GEN6_RC_CONTROL, 0);
 
 	/* 2a: Program RC6 thresholds.*/
-	I915_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 40 << 16);
-	I915_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000); /* 12500 * 1280ns */
-	I915_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25); /* 25 * 1280ns */
+	I915_GT_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 40 << 16);
+	I915_GT_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000); /* 12500 * 1280ns */
+	I915_GT_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25); /* 25 * 1280ns */
 
 	for_each_engine(engine, dev_priv, id)
-		I915_WRITE(RING_MAX_IDLE(engine->mmio_base), 10);
-	I915_WRITE(GEN6_RC_SLEEP, 0);
+		I915_GT_WRITE(RING_MAX_IDLE(engine->mmio_base), 10);
+	I915_GT_WRITE(GEN6_RC_SLEEP, 0);
 
 	/* TO threshold set to 500 us ( 0x186 * 1.28 us) */
-	I915_WRITE(GEN6_RC6_THRESHOLD, 0x186);
+	I915_GT_WRITE(GEN6_RC6_THRESHOLD, 0x186);
 
 	/* allows RC6 residency counter to work */
-	I915_WRITE(VLV_COUNTER_CONTROL,
+	I915_GT_WRITE(VLV_COUNTER_CONTROL,
 		   _MASKED_BIT_ENABLE(VLV_COUNT_RANGE_HIGH |
 				      VLV_MEDIA_RC6_COUNT_EN |
 				      VLV_RENDER_RC6_COUNT_EN));
 
 	/* For now we assume BIOS is allocating and populating the PCBR  */
-	pcbr = I915_READ(VLV_PCBR);
+	pcbr = I915_DE_READ(VLV_PCBR);
 
 	/* 3: Enable RC6 */
 	if ((intel_enable_rc6() & INTEL_RC6_ENABLE) &&
 	    (pcbr >> VLV_PCBR_ADDR_SHIFT))
 		rc6_mode = GEN7_RC_CTL_TO_MODE;
 
-	I915_WRITE(GEN6_RC_CONTROL, rc6_mode);
+	I915_GT_WRITE(GEN6_RC_CONTROL, rc6_mode);
 
 	/* 4 Program defaults and thresholds for RPS*/
-	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 1000000);
-	I915_WRITE(GEN6_RP_UP_THRESHOLD, 59400);
-	I915_WRITE(GEN6_RP_DOWN_THRESHOLD, 245000);
-	I915_WRITE(GEN6_RP_UP_EI, 66000);
-	I915_WRITE(GEN6_RP_DOWN_EI, 350000);
+	I915_GT_WRITE(GEN6_RP_DOWN_TIMEOUT, 1000000);
+	I915_GT_WRITE(GEN6_RP_UP_THRESHOLD, 59400);
+	I915_GT_WRITE(GEN6_RP_DOWN_THRESHOLD, 245000);
+	I915_GT_WRITE(GEN6_RP_UP_EI, 66000);
+	I915_GT_WRITE(GEN6_RP_DOWN_EI, 350000);
 
-	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
+	I915_GT_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
 
 	/* 5: Enable RPS */
-	I915_WRITE(GEN6_RP_CONTROL,
+	I915_GT_WRITE(GEN6_RP_CONTROL,
 		   GEN6_RP_MEDIA_HW_NORMAL_MODE |
 		   GEN6_RP_MEDIA_IS_GFX |
 		   GEN6_RP_ENABLE |
@@ -6385,28 +6387,28 @@ static void valleyview_enable_rps(struct drm_i915_private *dev_priv)
 
 	valleyview_check_pctx(dev_priv);
 
-	gtfifodbg = I915_READ(GTFIFODBG);
+	gtfifodbg = I915_DE_READ(GTFIFODBG);
 	if (gtfifodbg) {
 		DRM_DEBUG_DRIVER("GT fifo had a previous error %x\n",
 				 gtfifodbg);
-		I915_WRITE(GTFIFODBG, gtfifodbg);
+		I915_DE_WRITE(GTFIFODBG, gtfifodbg);
 	}
 
 	/* If VLV, Forcewake all wells, else re-direct to regular path */
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
 	/*  Disable RC states. */
-	I915_WRITE(GEN6_RC_CONTROL, 0);
+	I915_GT_WRITE(GEN6_RC_CONTROL, 0);
 
-	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 1000000);
-	I915_WRITE(GEN6_RP_UP_THRESHOLD, 59400);
-	I915_WRITE(GEN6_RP_DOWN_THRESHOLD, 245000);
-	I915_WRITE(GEN6_RP_UP_EI, 66000);
-	I915_WRITE(GEN6_RP_DOWN_EI, 350000);
+	I915_GT_WRITE(GEN6_RP_DOWN_TIMEOUT, 1000000);
+	I915_GT_WRITE(GEN6_RP_UP_THRESHOLD, 59400);
+	I915_GT_WRITE(GEN6_RP_DOWN_THRESHOLD, 245000);
+	I915_GT_WRITE(GEN6_RP_UP_EI, 66000);
+	I915_GT_WRITE(GEN6_RP_DOWN_EI, 350000);
 
-	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
+	I915_GT_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
 
-	I915_WRITE(GEN6_RP_CONTROL,
+	I915_GT_WRITE(GEN6_RP_CONTROL,
 		   GEN6_RP_MEDIA_TURBO |
 		   GEN6_RP_MEDIA_HW_NORMAL_MODE |
 		   GEN6_RP_MEDIA_IS_GFX |
@@ -6414,17 +6416,17 @@ static void valleyview_enable_rps(struct drm_i915_private *dev_priv)
 		   GEN6_RP_UP_BUSY_AVG |
 		   GEN6_RP_DOWN_IDLE_CONT);
 
-	I915_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 0x00280000);
-	I915_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000);
-	I915_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25);
+	I915_GT_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 0x00280000);
+	I915_GT_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000);
+	I915_GT_WRITE(GEN6_RC_IDLE_HYSTERSIS, 25);
 
 	for_each_engine(engine, dev_priv, id)
-		I915_WRITE(RING_MAX_IDLE(engine->mmio_base), 10);
+		I915_GT_WRITE(RING_MAX_IDLE(engine->mmio_base), 10);
 
-	I915_WRITE(GEN6_RC6_THRESHOLD, 0x557);
+	I915_GT_WRITE(GEN6_RC6_THRESHOLD, 0x557);
 
 	/* allows RC6 residency counter to work */
-	I915_WRITE(VLV_COUNTER_CONTROL,
+	I915_GT_WRITE(VLV_COUNTER_CONTROL,
 		   _MASKED_BIT_ENABLE(VLV_COUNT_RANGE_HIGH |
 				      VLV_MEDIA_RC0_COUNT_EN |
 				      VLV_RENDER_RC0_COUNT_EN |
@@ -6436,7 +6438,7 @@ static void valleyview_enable_rps(struct drm_i915_private *dev_priv)
 
 	intel_print_rc6_info(dev_priv, rc6_mode);
 
-	I915_WRITE(GEN6_RC_CONTROL, rc6_mode);
+	I915_GT_WRITE(GEN6_RC_CONTROL, rc6_mode);
 
 	/* Setting Fixed Bias */
 	val = VLV_OVERRIDE_EN |
@@ -6505,9 +6507,9 @@ static unsigned long __i915_chipset_val(struct drm_i915_private *dev_priv)
 	if (diff1 <= 10)
 		return dev_priv->ips.chipset_power;
 
-	count1 = I915_READ(DMIEC);
-	count2 = I915_READ(DDREC);
-	count3 = I915_READ(CSIEC);
+	count1 = I915_GT_READ(DMIEC);
+	count2 = I915_GT_READ(DDREC);
+	count3 = I915_GT_READ(CSIEC);
 
 	total_count = count1 + count2 + count3;
 
@@ -6561,10 +6563,10 @@ unsigned long i915_mch_val(struct drm_i915_private *dev_priv)
 	unsigned long m, x, b;
 	u32 tsfs;
 
-	tsfs = I915_READ(TSFS);
+	tsfs = I915_GT_READ(TSFS);
 
 	m = ((tsfs & TSFS_SLOPE_MASK) >> TSFS_SLOPE_SHIFT);
-	x = I915_READ8(TR1);
+	x = I915_GT_READ8(TR1);
 
 	b = tsfs & TSFS_INTR_MASK;
 
@@ -6608,7 +6610,7 @@ static void __i915_update_gfx_val(struct drm_i915_private *dev_priv)
 	if (!diffms)
 		return;
 
-	count = I915_READ(GFXEC);
+	count = I915_GT_READ(GFXEC);
 
 	if (count < dev_priv->ips.last_count2) {
 		diff = ~0UL - dev_priv->ips.last_count2;
@@ -6645,7 +6647,7 @@ static unsigned long __i915_gfx_val(struct drm_i915_private *dev_priv)
 
 	lockdep_assert_held(&mchdev_lock);
 
-	pxvid = I915_READ(PXVFREQ(dev_priv->rps.cur_freq));
+	pxvid = I915_GT_READ(PXVFREQ(dev_priv->rps.cur_freq));
 	pxvid = (pxvid >> 24) & 0x7f;
 	ext_v = pvid_to_extvid(dev_priv, pxvid);
 
@@ -6867,23 +6869,23 @@ static void intel_init_emon(struct drm_i915_private *dev_priv)
 	int i;
 
 	/* Disable to program */
-	I915_WRITE(ECR, 0);
-	POSTING_READ(ECR);
+	I915_GT_WRITE(ECR, 0);
+	POSTING_GT_READ(ECR);
 
 	/* Program energy weights for various events */
-	I915_WRITE(SDEW, 0x15040d00);
-	I915_WRITE(CSIEW0, 0x007f0000);
-	I915_WRITE(CSIEW1, 0x1e220004);
-	I915_WRITE(CSIEW2, 0x04000004);
+	I915_GT_WRITE(SDEW, 0x15040d00);
+	I915_GT_WRITE(CSIEW0, 0x007f0000);
+	I915_GT_WRITE(CSIEW1, 0x1e220004);
+	I915_GT_WRITE(CSIEW2, 0x04000004);
 
 	for (i = 0; i < 5; i++)
-		I915_WRITE(PEW(i), 0);
+		I915_GT_WRITE(PEW(i), 0);
 	for (i = 0; i < 3; i++)
-		I915_WRITE(DEW(i), 0);
+		I915_GT_WRITE(DEW(i), 0);
 
 	/* Program P-state weights to account for frequency power adjustment */
 	for (i = 0; i < 16; i++) {
-		u32 pxvidfreq = I915_READ(PXVFREQ(i));
+		u32 pxvidfreq = I915_GT_READ(PXVFREQ(i));
 		unsigned long freq = intel_pxfreq(pxvidfreq);
 		unsigned long vid = (pxvidfreq & PXVFREQ_PX_MASK) >>
 			PXVFREQ_PX_SHIFT;
@@ -6904,28 +6906,28 @@ static void intel_init_emon(struct drm_i915_private *dev_priv)
 	for (i = 0; i < 4; i++) {
 		u32 val = (pxw[i*4] << 24) | (pxw[(i*4)+1] << 16) |
 			(pxw[(i*4)+2] << 8) | (pxw[(i*4)+3]);
-		I915_WRITE(PXW(i), val);
+		I915_GT_WRITE(PXW(i), val);
 	}
 
 	/* Adjust magic regs to magic values (more experimental results) */
-	I915_WRITE(OGW0, 0);
-	I915_WRITE(OGW1, 0);
-	I915_WRITE(EG0, 0x00007f00);
-	I915_WRITE(EG1, 0x0000000e);
-	I915_WRITE(EG2, 0x000e0000);
-	I915_WRITE(EG3, 0x68000300);
-	I915_WRITE(EG4, 0x42000000);
-	I915_WRITE(EG5, 0x00140031);
-	I915_WRITE(EG6, 0);
-	I915_WRITE(EG7, 0);
+	I915_GT_WRITE(OGW0, 0);
+	I915_GT_WRITE(OGW1, 0);
+	I915_GT_WRITE(EG0, 0x00007f00);
+	I915_GT_WRITE(EG1, 0x0000000e);
+	I915_GT_WRITE(EG2, 0x000e0000);
+	I915_GT_WRITE(EG3, 0x68000300);
+	I915_GT_WRITE(EG4, 0x42000000);
+	I915_GT_WRITE(EG5, 0x00140031);
+	I915_GT_WRITE(EG6, 0);
+	I915_GT_WRITE(EG7, 0);
 
 	for (i = 0; i < 8; i++)
-		I915_WRITE(PXWL(i), 0);
+		I915_GT_WRITE(PXWL(i), 0);
 
 	/* Enable PMON + select events */
-	I915_WRITE(ECR, 0x80000019);
+	I915_GT_WRITE(ECR, 0x80000019);
 
-	lcfuse = I915_READ(LCFUSE02);
+	lcfuse = I915_GT_READ(LCFUSE02);
 
 	dev_priv->ips.corr = (lcfuse & LCFUSE_HIV_MASK);
 }
@@ -7162,7 +7164,7 @@ static void ibx_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * gating for the panel power sequencer or it will fail to
 	 * start up when no ports are active.
 	 */
-	I915_WRITE(SOUTH_DSPCLK_GATE_D, PCH_DPLSUNIT_CLOCK_GATE_DISABLE);
+	I915_DE_WRITE(SOUTH_DSPCLK_GATE_D, PCH_DPLSUNIT_CLOCK_GATE_DISABLE);
 }
 
 static void g4x_disable_trickle_feed(struct drm_i915_private *dev_priv)
@@ -7170,20 +7172,20 @@ static void g4x_disable_trickle_feed(struct drm_i915_private *dev_priv)
 	enum pipe pipe;
 
 	for_each_pipe(dev_priv, pipe) {
-		I915_WRITE(DSPCNTR(pipe),
-			   I915_READ(DSPCNTR(pipe)) |
-			   DISPPLANE_TRICKLE_FEED_DISABLE);
+		I915_DE_WRITE(DSPCNTR(pipe),
+			      I915_DE_READ(DSPCNTR(pipe)) |
+			      DISPPLANE_TRICKLE_FEED_DISABLE);
 
-		I915_WRITE(DSPSURF(pipe), I915_READ(DSPSURF(pipe)));
-		POSTING_READ(DSPSURF(pipe));
+		I915_DE_WRITE(DSPSURF(pipe), I915_DE_READ(DSPSURF(pipe)));
+		POSTING_DE_READ(DSPSURF(pipe));
 	}
 }
 
 static void ilk_init_lp_watermarks(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(WM3_LP_ILK, I915_READ(WM3_LP_ILK) & ~WM1_LP_SR_EN);
-	I915_WRITE(WM2_LP_ILK, I915_READ(WM2_LP_ILK) & ~WM1_LP_SR_EN);
-	I915_WRITE(WM1_LP_ILK, I915_READ(WM1_LP_ILK) & ~WM1_LP_SR_EN);
+	I915_DE_WRITE(WM3_LP_ILK, I915_DE_READ(WM3_LP_ILK) & ~WM1_LP_SR_EN);
+	I915_DE_WRITE(WM2_LP_ILK, I915_DE_READ(WM2_LP_ILK) & ~WM1_LP_SR_EN);
+	I915_DE_WRITE(WM1_LP_ILK, I915_DE_READ(WM1_LP_ILK) & ~WM1_LP_SR_EN);
 
 	/*
 	 * Don't touch WM1S_LP_EN here.
@@ -7203,11 +7205,11 @@ static void ironlake_init_clock_gating(struct drm_i915_private *dev_priv)
 		   ILK_DPFCUNIT_CLOCK_GATE_DISABLE |
 		   ILK_DPFDUNIT_CLOCK_GATE_ENABLE;
 
-	I915_WRITE(PCH_3DCGDIS0,
-		   MARIUNIT_CLOCK_GATE_DISABLE |
-		   SVSMUNIT_CLOCK_GATE_DISABLE);
-	I915_WRITE(PCH_3DCGDIS1,
-		   VFMUNIT_CLOCK_GATE_DISABLE);
+	I915_DE_WRITE(PCH_3DCGDIS0,
+		      MARIUNIT_CLOCK_GATE_DISABLE |
+		      SVSMUNIT_CLOCK_GATE_DISABLE);
+	I915_DE_WRITE(PCH_3DCGDIS1,
+		      VFMUNIT_CLOCK_GATE_DISABLE);
 
 	/*
 	 * According to the spec the following bits should be set in
@@ -7216,13 +7218,13 @@ static void ironlake_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * The bit 5 of 0x42020
 	 * The bit 15 of 0x45000
 	 */
-	I915_WRITE(ILK_DISPLAY_CHICKEN2,
-		   (I915_READ(ILK_DISPLAY_CHICKEN2) |
+	I915_DE_WRITE(ILK_DISPLAY_CHICKEN2,
+		   (I915_DE_READ(ILK_DISPLAY_CHICKEN2) |
 		    ILK_DPARB_GATE | ILK_VSDPFD_FULL));
 	dspclk_gate |= ILK_DPARBUNIT_CLOCK_GATE_ENABLE;
-	I915_WRITE(DISP_ARB_CTL,
-		   (I915_READ(DISP_ARB_CTL) |
-		    DISP_FBC_WM_DIS));
+	I915_DE_WRITE(DISP_ARB_CTL,
+		      (I915_DE_READ(DISP_ARB_CTL) |
+		       DISP_FBC_WM_DIS));
 
 	ilk_init_lp_watermarks(dev_priv);
 
@@ -7235,29 +7237,29 @@ static void ironlake_init_clock_gating(struct drm_i915_private *dev_priv)
 	 */
 	if (IS_IRONLAKE_M(dev_priv)) {
 		/* WaFbcAsynchFlipDisableFbcQueue:ilk */
-		I915_WRITE(ILK_DISPLAY_CHICKEN1,
-			   I915_READ(ILK_DISPLAY_CHICKEN1) |
-			   ILK_FBCQ_DIS);
-		I915_WRITE(ILK_DISPLAY_CHICKEN2,
-			   I915_READ(ILK_DISPLAY_CHICKEN2) |
-			   ILK_DPARB_GATE);
+		I915_DE_WRITE(ILK_DISPLAY_CHICKEN1,
+			      I915_DE_READ(ILK_DISPLAY_CHICKEN1) |
+			      ILK_FBCQ_DIS);
+		I915_DE_WRITE(ILK_DISPLAY_CHICKEN2,
+			      I915_DE_READ(ILK_DISPLAY_CHICKEN2) |
+			      ILK_DPARB_GATE);
 	}
 
-	I915_WRITE(ILK_DSPCLK_GATE_D, dspclk_gate);
+	I915_DE_WRITE(ILK_DSPCLK_GATE_D, dspclk_gate);
 
-	I915_WRITE(ILK_DISPLAY_CHICKEN2,
-		   I915_READ(ILK_DISPLAY_CHICKEN2) |
-		   ILK_ELPIN_409_SELECT);
-	I915_WRITE(_3D_CHICKEN2,
-		   _3D_CHICKEN2_WM_READ_PIPELINED << 16 |
-		   _3D_CHICKEN2_WM_READ_PIPELINED);
+	I915_DE_WRITE(ILK_DISPLAY_CHICKEN2,
+		      I915_DE_READ(ILK_DISPLAY_CHICKEN2) |
+		      ILK_ELPIN_409_SELECT);
+	I915_GT_WRITE(_3D_CHICKEN2,
+		      _3D_CHICKEN2_WM_READ_PIPELINED << 16 |
+		      _3D_CHICKEN2_WM_READ_PIPELINED);
 
 	/* WaDisableRenderCachePipelinedFlush:ilk */
-	I915_WRITE(CACHE_MODE_0,
-		   _MASKED_BIT_ENABLE(CM0_PIPELINED_RENDER_FLUSH_DISABLE));
+	I915_GT_WRITE(CACHE_MODE_0,
+		      _MASKED_BIT_ENABLE(CM0_PIPELINED_RENDER_FLUSH_DISABLE));
 
 	/* WaDisable_RenderCache_OperationalFlush:ilk */
-	I915_WRITE(CACHE_MODE_0, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
+	I915_GT_WRITE(CACHE_MODE_0, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
 
 	g4x_disable_trickle_feed(dev_priv);
 
@@ -7274,16 +7276,16 @@ static void cpt_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * gating for the panel power sequencer or it will fail to
 	 * start up when no ports are active.
 	 */
-	I915_WRITE(SOUTH_DSPCLK_GATE_D, PCH_DPLSUNIT_CLOCK_GATE_DISABLE |
-		   PCH_DPLUNIT_CLOCK_GATE_DISABLE |
-		   PCH_CPUNIT_CLOCK_GATE_DISABLE);
-	I915_WRITE(SOUTH_CHICKEN2, I915_READ(SOUTH_CHICKEN2) |
-		   DPLS_EDP_PPS_FIX_DIS);
+	I915_DE_WRITE(SOUTH_DSPCLK_GATE_D, PCH_DPLSUNIT_CLOCK_GATE_DISABLE |
+		      PCH_DPLUNIT_CLOCK_GATE_DISABLE |
+		      PCH_CPUNIT_CLOCK_GATE_DISABLE);
+	I915_DE_WRITE(SOUTH_CHICKEN2, I915_DE_READ(SOUTH_CHICKEN2) |
+		      DPLS_EDP_PPS_FIX_DIS);
 	/* The below fixes the weird display corruption, a few pixels shifted
 	 * downward, on (only) LVDS of some HP laptops with IVY.
 	 */
 	for_each_pipe(dev_priv, pipe) {
-		val = I915_READ(TRANS_CHICKEN2(pipe));
+		val = I915_DE_READ(TRANS_CHICKEN2(pipe));
 		val |= TRANS_CHICKEN2_TIMING_OVERRIDE;
 		val &= ~TRANS_CHICKEN2_FDI_POLARITY_REVERSED;
 		if (dev_priv->vbt.fdi_rx_polarity_inverted)
@@ -7291,12 +7293,12 @@ static void cpt_init_clock_gating(struct drm_i915_private *dev_priv)
 		val &= ~TRANS_CHICKEN2_FRAME_START_DELAY_MASK;
 		val &= ~TRANS_CHICKEN2_DISABLE_DEEP_COLOR_COUNTER;
 		val &= ~TRANS_CHICKEN2_DISABLE_DEEP_COLOR_MODESWITCH;
-		I915_WRITE(TRANS_CHICKEN2(pipe), val);
+		I915_DE_WRITE(TRANS_CHICKEN2(pipe), val);
 	}
 	/* WADP0ClockGatingDisable */
 	for_each_pipe(dev_priv, pipe) {
-		I915_WRITE(TRANS_CHICKEN1(pipe),
-			   TRANS_CHICKEN1_DP0UNIT_GC_DISABLE);
+		I915_DE_WRITE(TRANS_CHICKEN1(pipe),
+			      TRANS_CHICKEN1_DP0UNIT_GC_DISABLE);
 	}
 }
 
@@ -7304,7 +7306,7 @@ static void gen6_check_mch_setup(struct drm_i915_private *dev_priv)
 {
 	uint32_t tmp;
 
-	tmp = I915_READ(MCH_SSKPD);
+	tmp = I915_DE_READ(MCH_SSKPD);
 	if ((tmp & MCH_SSKPD_WM0_MASK) != MCH_SSKPD_WM0_VAL)
 		DRM_DEBUG_KMS("Wrong MCH_SSKPD value: 0x%08x This can cause underruns.\n",
 			      tmp);
@@ -7314,18 +7316,18 @@ static void gen6_init_clock_gating(struct drm_i915_private *dev_priv)
 {
 	uint32_t dspclk_gate = ILK_VRHUNIT_CLOCK_GATE_DISABLE;
 
-	I915_WRITE(ILK_DSPCLK_GATE_D, dspclk_gate);
+	I915_DE_WRITE(ILK_DSPCLK_GATE_D, dspclk_gate);
 
-	I915_WRITE(ILK_DISPLAY_CHICKEN2,
-		   I915_READ(ILK_DISPLAY_CHICKEN2) |
-		   ILK_ELPIN_409_SELECT);
+	I915_DE_WRITE(ILK_DISPLAY_CHICKEN2,
+		      I915_DE_READ(ILK_DISPLAY_CHICKEN2) |
+		      ILK_ELPIN_409_SELECT);
 
 	/* WaDisableHiZPlanesWhenMSAAEnabled:snb */
-	I915_WRITE(_3D_CHICKEN,
-		   _MASKED_BIT_ENABLE(_3D_CHICKEN_HIZ_PLANE_DISABLE_MSAA_4X_SNB));
+	I915_GT_WRITE(_3D_CHICKEN,
+		      _MASKED_BIT_ENABLE(_3D_CHICKEN_HIZ_PLANE_DISABLE_MSAA_4X_SNB));
 
 	/* WaDisable_RenderCache_OperationalFlush:snb */
-	I915_WRITE(CACHE_MODE_0, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
+	I915_GT_WRITE(CACHE_MODE_0, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
 
 	/*
 	 * BSpec recoomends 8x4 when MSAA is used,
@@ -7335,18 +7337,18 @@ static void gen6_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * disable bit, which we don't touch here, but it's good
 	 * to keep in mind (see 3DSTATE_PS and 3DSTATE_WM).
 	 */
-	I915_WRITE(GEN6_GT_MODE,
-		   _MASKED_FIELD(GEN6_WIZ_HASHING_MASK, GEN6_WIZ_HASHING_16x4));
+	I915_GT_WRITE(GEN6_GT_MODE,
+		      _MASKED_FIELD(GEN6_WIZ_HASHING_MASK, GEN6_WIZ_HASHING_16x4));
 
 	ilk_init_lp_watermarks(dev_priv);
 
-	I915_WRITE(CACHE_MODE_0,
-		   _MASKED_BIT_DISABLE(CM0_STC_EVICT_DISABLE_LRA_SNB));
+	I915_GT_WRITE(CACHE_MODE_0,
+		      _MASKED_BIT_DISABLE(CM0_STC_EVICT_DISABLE_LRA_SNB));
 
-	I915_WRITE(GEN6_UCGCTL1,
-		   I915_READ(GEN6_UCGCTL1) |
-		   GEN6_BLBUNIT_CLOCK_GATE_DISABLE |
-		   GEN6_CSUNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN6_UCGCTL1,
+		      I915_GT_READ(GEN6_UCGCTL1) |
+		      GEN6_BLBUNIT_CLOCK_GATE_DISABLE |
+		      GEN6_CSUNIT_CLOCK_GATE_DISABLE);
 
 	/* According to the BSpec vol1g, bit 12 (RCPBUNIT) clock
 	 * gating disable must be set.  Failure to set it results in
@@ -7361,21 +7363,21 @@ static void gen6_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * WaDisableRCCUnitClockGating:snb
 	 * WaDisableRCPBUnitClockGating:snb
 	 */
-	I915_WRITE(GEN6_UCGCTL2,
-		   GEN6_RCPBUNIT_CLOCK_GATE_DISABLE |
-		   GEN6_RCCUNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN6_UCGCTL2,
+		      GEN6_RCPBUNIT_CLOCK_GATE_DISABLE |
+		      GEN6_RCCUNIT_CLOCK_GATE_DISABLE);
 
 	/* WaStripsFansDisableFastClipPerformanceFix:snb */
-	I915_WRITE(_3D_CHICKEN3,
-		   _MASKED_BIT_ENABLE(_3D_CHICKEN3_SF_DISABLE_FASTCLIP_CULL));
+	I915_GT_WRITE(_3D_CHICKEN3,
+		      _MASKED_BIT_ENABLE(_3D_CHICKEN3_SF_DISABLE_FASTCLIP_CULL));
 
 	/*
 	 * Bspec says:
 	 * "This bit must be set if 3DSTATE_CLIP clip mode is set to normal and
 	 * 3DSTATE_SF number of SF output attributes is more than 16."
 	 */
-	I915_WRITE(_3D_CHICKEN3,
-		   _MASKED_BIT_ENABLE(_3D_CHICKEN3_SF_DISABLE_PIPELINED_ATTR_FETCH));
+	I915_GT_WRITE(_3D_CHICKEN3,
+		      _MASKED_BIT_ENABLE(_3D_CHICKEN3_SF_DISABLE_PIPELINED_ATTR_FETCH));
 
 	/*
 	 * According to the spec the following bits should be
@@ -7388,16 +7390,16 @@ static void gen6_init_clock_gating(struct drm_i915_private *dev_priv)
 	 *
 	 * WaFbcAsynchFlipDisableFbcQueue:snb
 	 */
-	I915_WRITE(ILK_DISPLAY_CHICKEN1,
-		   I915_READ(ILK_DISPLAY_CHICKEN1) |
-		   ILK_FBCQ_DIS | ILK_PABSTRETCH_DIS);
-	I915_WRITE(ILK_DISPLAY_CHICKEN2,
-		   I915_READ(ILK_DISPLAY_CHICKEN2) |
-		   ILK_DPARB_GATE | ILK_VSDPFD_FULL);
-	I915_WRITE(ILK_DSPCLK_GATE_D,
-		   I915_READ(ILK_DSPCLK_GATE_D) |
-		   ILK_DPARBUNIT_CLOCK_GATE_ENABLE  |
-		   ILK_DPFDUNIT_CLOCK_GATE_ENABLE);
+	I915_DE_WRITE(ILK_DISPLAY_CHICKEN1,
+		      I915_DE_READ(ILK_DISPLAY_CHICKEN1) |
+		      ILK_FBCQ_DIS | ILK_PABSTRETCH_DIS);
+	I915_DE_WRITE(ILK_DISPLAY_CHICKEN2,
+		      I915_DE_READ(ILK_DISPLAY_CHICKEN2) |
+		      ILK_DPARB_GATE | ILK_VSDPFD_FULL);
+	I915_DE_WRITE(ILK_DSPCLK_GATE_D,
+		      I915_DE_READ(ILK_DSPCLK_GATE_D) |
+		      ILK_DPARBUNIT_CLOCK_GATE_ENABLE  |
+		      ILK_DPFDUNIT_CLOCK_GATE_ENABLE);
 
 	g4x_disable_trickle_feed(dev_priv);
 
@@ -7408,7 +7410,7 @@ static void gen6_init_clock_gating(struct drm_i915_private *dev_priv)
 
 static void gen7_setup_fixed_func_scheduler(struct drm_i915_private *dev_priv)
 {
-	uint32_t reg = I915_READ(GEN7_FF_THREAD_MODE);
+	uint32_t reg = I915_GT_READ(GEN7_FF_THREAD_MODE);
 
 	/*
 	 * WaVSThreadDispatchOverride:ivb,vlv
@@ -7421,7 +7423,7 @@ static void gen7_setup_fixed_func_scheduler(struct drm_i915_private *dev_priv)
 	reg |= GEN7_FF_VS_SCHED_HW;
 	reg |= GEN7_FF_DS_SCHED_HW;
 
-	I915_WRITE(GEN7_FF_THREAD_MODE, reg);
+	I915_GT_WRITE(GEN7_FF_THREAD_MODE, reg);
 }
 
 static void lpt_init_clock_gating(struct drm_i915_private *dev_priv)
@@ -7431,23 +7433,23 @@ static void lpt_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * disabled when not needed anymore in order to save power.
 	 */
 	if (HAS_PCH_LPT_LP(dev_priv))
-		I915_WRITE(SOUTH_DSPCLK_GATE_D,
-			   I915_READ(SOUTH_DSPCLK_GATE_D) |
-			   PCH_LP_PARTITION_LEVEL_DISABLE);
+		I915_DE_WRITE(SOUTH_DSPCLK_GATE_D,
+			      I915_DE_READ(SOUTH_DSPCLK_GATE_D) |
+			      PCH_LP_PARTITION_LEVEL_DISABLE);
 
 	/* WADPOClockGatingDisable:hsw */
-	I915_WRITE(TRANS_CHICKEN1(PIPE_A),
-		   I915_READ(TRANS_CHICKEN1(PIPE_A)) |
-		   TRANS_CHICKEN1_DP0UNIT_GC_DISABLE);
+	I915_DE_WRITE(TRANS_CHICKEN1(PIPE_A),
+		      I915_DE_READ(TRANS_CHICKEN1(PIPE_A)) |
+		      TRANS_CHICKEN1_DP0UNIT_GC_DISABLE);
 }
 
 static void lpt_suspend_hw(struct drm_i915_private *dev_priv)
 {
 	if (HAS_PCH_LPT_LP(dev_priv)) {
-		uint32_t val = I915_READ(SOUTH_DSPCLK_GATE_D);
+		uint32_t val = I915_DE_READ(SOUTH_DSPCLK_GATE_D);
 
 		val &= ~PCH_LP_PARTITION_LEVEL_DISABLE;
-		I915_WRITE(SOUTH_DSPCLK_GATE_D, val);
+		I915_DE_WRITE(SOUTH_DSPCLK_GATE_D, val);
 	}
 }
 
@@ -7458,20 +7460,20 @@ static void gen8_set_l3sqc_credits(struct drm_i915_private *dev_priv,
 	u32 misccpctl;
 
 	/* WaTempDisableDOPClkGating:bdw */
-	misccpctl = I915_READ(GEN7_MISCCPCTL);
-	I915_WRITE(GEN7_MISCCPCTL, misccpctl & ~GEN7_DOP_CLOCK_GATE_ENABLE);
+	misccpctl = I915_GT_READ(GEN7_MISCCPCTL);
+	I915_GT_WRITE(GEN7_MISCCPCTL, misccpctl & ~GEN7_DOP_CLOCK_GATE_ENABLE);
 
-	I915_WRITE(GEN8_L3SQCREG1,
-		   L3_GENERAL_PRIO_CREDITS(general_prio_credits) |
-		   L3_HIGH_PRIO_CREDITS(high_prio_credits));
+	I915_GT_WRITE(GEN8_L3SQCREG1,
+		      L3_GENERAL_PRIO_CREDITS(general_prio_credits) |
+		      L3_HIGH_PRIO_CREDITS(high_prio_credits));
 
 	/*
 	 * Wait at least 100 clocks before re-enabling clock gating.
 	 * See the definition of L3SQCREG1 in BSpec.
 	 */
-	POSTING_READ(GEN8_L3SQCREG1);
+	POSTING_GT_READ(GEN8_L3SQCREG1);
 	udelay(1);
-	I915_WRITE(GEN7_MISCCPCTL, misccpctl);
+	I915_GT_WRITE(GEN7_MISCCPCTL, misccpctl);
 }
 
 static void kabylake_init_clock_gating(struct drm_i915_private *dev_priv)
@@ -7480,17 +7482,17 @@ static void kabylake_init_clock_gating(struct drm_i915_private *dev_priv)
 
 	/* WaDisableSDEUnitClockGating:kbl */
 	if (IS_KBL_REVID(dev_priv, 0, KBL_REVID_B0))
-		I915_WRITE(GEN8_UCGCTL6, I915_READ(GEN8_UCGCTL6) |
-			   GEN8_SDEUNIT_CLOCK_GATE_DISABLE);
+		I915_GT_WRITE(GEN8_UCGCTL6, I915_GT_READ(GEN8_UCGCTL6) |
+			      GEN8_SDEUNIT_CLOCK_GATE_DISABLE);
 
 	/* WaDisableGamClockGating:kbl */
 	if (IS_KBL_REVID(dev_priv, 0, KBL_REVID_B0))
-		I915_WRITE(GEN6_UCGCTL1, I915_READ(GEN6_UCGCTL1) |
-			   GEN6_GAMUNIT_CLOCK_GATE_DISABLE);
+		I915_GT_WRITE(GEN6_UCGCTL1, I915_GT_READ(GEN6_UCGCTL1) |
+			      GEN6_GAMUNIT_CLOCK_GATE_DISABLE);
 
 	/* WaFbcNukeOnHostModify:kbl */
-	I915_WRITE(ILK_DPFC_CHICKEN, I915_READ(ILK_DPFC_CHICKEN) |
-		   ILK_DPFC_NUKE_ON_ANY_MODIFICATION);
+	I915_DE_WRITE(ILK_DPFC_CHICKEN, I915_DE_READ(ILK_DPFC_CHICKEN) |
+		      ILK_DPFC_NUKE_ON_ANY_MODIFICATION);
 }
 
 static void skylake_init_clock_gating(struct drm_i915_private *dev_priv)
@@ -7498,12 +7500,12 @@ static void skylake_init_clock_gating(struct drm_i915_private *dev_priv)
 	gen9_init_clock_gating(dev_priv);
 
 	/* WAC6entrylatency:skl */
-	I915_WRITE(FBC_LLC_READ_CTRL, I915_READ(FBC_LLC_READ_CTRL) |
-		   FBC_LLC_FULLY_OPEN);
+	I915_GT_WRITE(FBC_LLC_READ_CTRL, I915_GT_READ(FBC_LLC_READ_CTRL) |
+		      FBC_LLC_FULLY_OPEN);
 
 	/* WaFbcNukeOnHostModify:skl */
-	I915_WRITE(ILK_DPFC_CHICKEN, I915_READ(ILK_DPFC_CHICKEN) |
-		   ILK_DPFC_NUKE_ON_ANY_MODIFICATION);
+	I915_DE_WRITE(ILK_DPFC_CHICKEN, I915_DE_READ(ILK_DPFC_CHICKEN) |
+		      ILK_DPFC_NUKE_ON_ANY_MODIFICATION);
 }
 
 static void broadwell_init_clock_gating(struct drm_i915_private *dev_priv)
@@ -7513,31 +7515,31 @@ static void broadwell_init_clock_gating(struct drm_i915_private *dev_priv)
 	ilk_init_lp_watermarks(dev_priv);
 
 	/* WaSwitchSolVfFArbitrationPriority:bdw */
-	I915_WRITE(GAM_ECOCHK, I915_READ(GAM_ECOCHK) | HSW_ECOCHK_ARB_PRIO_SOL);
+	I915_GT_WRITE(GAM_ECOCHK, I915_GT_READ(GAM_ECOCHK) | HSW_ECOCHK_ARB_PRIO_SOL);
 
 	/* WaPsrDPAMaskVBlankInSRD:bdw */
-	I915_WRITE(CHICKEN_PAR1_1,
-		   I915_READ(CHICKEN_PAR1_1) | DPA_MASK_VBLANK_SRD);
+	I915_DE_WRITE(CHICKEN_PAR1_1,
+		      I915_DE_READ(CHICKEN_PAR1_1) | DPA_MASK_VBLANK_SRD);
 
 	/* WaPsrDPRSUnmaskVBlankInSRD:bdw */
 	for_each_pipe(dev_priv, pipe) {
-		I915_WRITE(CHICKEN_PIPESL_1(pipe),
-			   I915_READ(CHICKEN_PIPESL_1(pipe)) |
-			   BDW_DPRS_MASK_VBLANK_SRD);
+		I915_DE_WRITE(CHICKEN_PIPESL_1(pipe),
+			      I915_DE_READ(CHICKEN_PIPESL_1(pipe)) |
+			      BDW_DPRS_MASK_VBLANK_SRD);
 	}
 
 	/* WaVSRefCountFullforceMissDisable:bdw */
 	/* WaDSRefCountFullforceMissDisable:bdw */
-	I915_WRITE(GEN7_FF_THREAD_MODE,
-		   I915_READ(GEN7_FF_THREAD_MODE) &
-		   ~(GEN8_FF_DS_REF_CNT_FFME | GEN7_FF_VS_REF_CNT_FFME));
+	I915_GT_WRITE(GEN7_FF_THREAD_MODE,
+		      I915_GT_READ(GEN7_FF_THREAD_MODE) &
+		      ~(GEN8_FF_DS_REF_CNT_FFME | GEN7_FF_VS_REF_CNT_FFME));
 
-	I915_WRITE(GEN6_RC_SLEEP_PSMI_CONTROL,
+	I915_GT_WRITE(GEN6_RC_SLEEP_PSMI_CONTROL,
 		   _MASKED_BIT_ENABLE(GEN8_RC_SEMA_IDLE_MSG_DISABLE));
 
 	/* WaDisableSDEUnitClockGating:bdw */
-	I915_WRITE(GEN8_UCGCTL6, I915_READ(GEN8_UCGCTL6) |
-		   GEN8_SDEUNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN8_UCGCTL6, I915_GT_READ(GEN8_UCGCTL6) |
+		      GEN8_SDEUNIT_CLOCK_GATE_DISABLE);
 
 	/* WaProgramL3SqcReg1Default:bdw */
 	gen8_set_l3sqc_credits(dev_priv, 30, 2);
@@ -7547,11 +7549,11 @@ static void broadwell_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * GTT cache may not work with big pages, so if those
 	 * are ever enabled GTT cache may need to be disabled.
 	 */
-	I915_WRITE(HSW_GTT_CACHE_EN, GTT_CACHE_EN_ALL);
+	I915_GT_WRITE(HSW_GTT_CACHE_EN, GTT_CACHE_EN_ALL);
 
 	/* WaKVMNotificationOnConfigChange:bdw */
-	I915_WRITE(CHICKEN_PAR2_1, I915_READ(CHICKEN_PAR2_1)
-		   | KVM_CONFIG_CHANGE_NOTIFICATION_SELECT);
+	I915_DE_WRITE(CHICKEN_PAR2_1, I915_DE_READ(CHICKEN_PAR2_1)
+		      | KVM_CONFIG_CHANGE_NOTIFICATION_SELECT);
 
 	lpt_init_clock_gating(dev_priv);
 
@@ -7560,8 +7562,9 @@ static void broadwell_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * Also see the CHICKEN2 write in bdw_init_workarounds() to disable DOP
 	 * clock gating.
 	 */
-	I915_WRITE(GEN6_UCGCTL1,
-		   I915_READ(GEN6_UCGCTL1) | GEN6_EU_TCUNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN6_UCGCTL1,
+		      I915_GT_READ(GEN6_UCGCTL1) |
+		      GEN6_EU_TCUNIT_CLOCK_GATE_DISABLE);
 }
 
 static void haswell_init_clock_gating(struct drm_i915_private *dev_priv)
@@ -7569,29 +7572,29 @@ static void haswell_init_clock_gating(struct drm_i915_private *dev_priv)
 	ilk_init_lp_watermarks(dev_priv);
 
 	/* L3 caching of data atomics doesn't work -- disable it. */
-	I915_WRITE(HSW_SCRATCH1, HSW_SCRATCH1_L3_DATA_ATOMICS_DISABLE);
-	I915_WRITE(HSW_ROW_CHICKEN3,
-		   _MASKED_BIT_ENABLE(HSW_ROW_CHICKEN3_L3_GLOBAL_ATOMICS_DISABLE));
+	I915_GT_WRITE(HSW_SCRATCH1, HSW_SCRATCH1_L3_DATA_ATOMICS_DISABLE);
+	I915_GT_WRITE(HSW_ROW_CHICKEN3,
+		      _MASKED_BIT_ENABLE(HSW_ROW_CHICKEN3_L3_GLOBAL_ATOMICS_DISABLE));
 
 	/* This is required by WaCatErrorRejectionIssue:hsw */
-	I915_WRITE(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG,
-			I915_READ(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG) |
-			GEN7_SQ_CHICKEN_MBCUNIT_SQINTMOB);
+	I915_GT_WRITE(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG,
+		      I915_GT_READ(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG) |
+		      GEN7_SQ_CHICKEN_MBCUNIT_SQINTMOB);
 
 	/* WaVSRefCountFullforceMissDisable:hsw */
-	I915_WRITE(GEN7_FF_THREAD_MODE,
-		   I915_READ(GEN7_FF_THREAD_MODE) & ~GEN7_FF_VS_REF_CNT_FFME);
+	I915_GT_WRITE(GEN7_FF_THREAD_MODE,
+		      I915_GT_READ(GEN7_FF_THREAD_MODE) & ~GEN7_FF_VS_REF_CNT_FFME);
 
 	/* WaDisable_RenderCache_OperationalFlush:hsw */
-	I915_WRITE(CACHE_MODE_0_GEN7, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
+	I915_GT_WRITE(CACHE_MODE_0_GEN7, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
 
 	/* enable HiZ Raw Stall Optimization */
-	I915_WRITE(CACHE_MODE_0_GEN7,
-		   _MASKED_BIT_DISABLE(HIZ_RAW_STALL_OPT_DISABLE));
+	I915_GT_WRITE(CACHE_MODE_0_GEN7,
+		      _MASKED_BIT_DISABLE(HIZ_RAW_STALL_OPT_DISABLE));
 
 	/* WaDisable4x2SubspanOptimization:hsw */
-	I915_WRITE(CACHE_MODE_1,
-		   _MASKED_BIT_ENABLE(PIXEL_SUBSPAN_COLLECT_OPT_DISABLE));
+	I915_GT_WRITE(CACHE_MODE_1,
+		      _MASKED_BIT_ENABLE(PIXEL_SUBSPAN_COLLECT_OPT_DISABLE));
 
 	/*
 	 * BSpec recommends 8x4 when MSAA is used,
@@ -7601,19 +7604,19 @@ static void haswell_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * disable bit, which we don't touch here, but it's good
 	 * to keep in mind (see 3DSTATE_PS and 3DSTATE_WM).
 	 */
-	I915_WRITE(GEN7_GT_MODE,
-		   _MASKED_FIELD(GEN6_WIZ_HASHING_MASK, GEN6_WIZ_HASHING_16x4));
+	I915_GT_WRITE(GEN7_GT_MODE,
+		      _MASKED_FIELD(GEN6_WIZ_HASHING_MASK, GEN6_WIZ_HASHING_16x4));
 
 	/* WaSampleCChickenBitEnable:hsw */
-	I915_WRITE(HALF_SLICE_CHICKEN3,
-		   _MASKED_BIT_ENABLE(HSW_SAMPLE_C_PERFORMANCE));
+	I915_GT_WRITE(HALF_SLICE_CHICKEN3,
+		      _MASKED_BIT_ENABLE(HSW_SAMPLE_C_PERFORMANCE));
 
 	/* WaSwitchSolVfFArbitrationPriority:hsw */
-	I915_WRITE(GAM_ECOCHK, I915_READ(GAM_ECOCHK) | HSW_ECOCHK_ARB_PRIO_SOL);
+	I915_GT_WRITE(GAM_ECOCHK, I915_GT_READ(GAM_ECOCHK) | HSW_ECOCHK_ARB_PRIO_SOL);
 
 	/* WaRsPkgCStateDisplayPMReq:hsw */
-	I915_WRITE(CHICKEN_PAR1_1,
-		   I915_READ(CHICKEN_PAR1_1) | FORCE_ARB_IDLE_PLANES);
+	I915_DE_WRITE(CHICKEN_PAR1_1,
+		      I915_DE_READ(CHICKEN_PAR1_1) | FORCE_ARB_IDLE_PLANES);
 
 	lpt_init_clock_gating(dev_priv);
 }
@@ -7624,60 +7627,60 @@ static void ivybridge_init_clock_gating(struct drm_i915_private *dev_priv)
 
 	ilk_init_lp_watermarks(dev_priv);
 
-	I915_WRITE(ILK_DSPCLK_GATE_D, ILK_VRHUNIT_CLOCK_GATE_DISABLE);
+	I915_DE_WRITE(ILK_DSPCLK_GATE_D, ILK_VRHUNIT_CLOCK_GATE_DISABLE);
 
 	/* WaDisableEarlyCull:ivb */
-	I915_WRITE(_3D_CHICKEN3,
-		   _MASKED_BIT_ENABLE(_3D_CHICKEN_SF_DISABLE_OBJEND_CULL));
+	I915_GT_WRITE(_3D_CHICKEN3,
+		      _MASKED_BIT_ENABLE(_3D_CHICKEN_SF_DISABLE_OBJEND_CULL));
 
 	/* WaDisableBackToBackFlipFix:ivb */
-	I915_WRITE(IVB_CHICKEN3,
-		   CHICKEN3_DGMG_REQ_OUT_FIX_DISABLE |
-		   CHICKEN3_DGMG_DONE_FIX_DISABLE);
+	I915_DE_WRITE(IVB_CHICKEN3,
+		      CHICKEN3_DGMG_REQ_OUT_FIX_DISABLE |
+		      CHICKEN3_DGMG_DONE_FIX_DISABLE);
 
 	/* WaDisablePSDDualDispatchEnable:ivb */
 	if (IS_IVB_GT1(dev_priv))
-		I915_WRITE(GEN7_HALF_SLICE_CHICKEN1,
-			   _MASKED_BIT_ENABLE(GEN7_PSD_SINGLE_PORT_DISPATCH_ENABLE));
+		I915_GT_WRITE(GEN7_HALF_SLICE_CHICKEN1,
+			      _MASKED_BIT_ENABLE(GEN7_PSD_SINGLE_PORT_DISPATCH_ENABLE));
 
 	/* WaDisable_RenderCache_OperationalFlush:ivb */
-	I915_WRITE(CACHE_MODE_0_GEN7, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
+	I915_GT_WRITE(CACHE_MODE_0_GEN7, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
 
 	/* Apply the WaDisableRHWOOptimizationForRenderHang:ivb workaround. */
-	I915_WRITE(GEN7_COMMON_SLICE_CHICKEN1,
-		   GEN7_CSC1_RHWO_OPT_DISABLE_IN_RCC);
+	I915_GT_WRITE(GEN7_COMMON_SLICE_CHICKEN1,
+		      GEN7_CSC1_RHWO_OPT_DISABLE_IN_RCC);
 
 	/* WaApplyL3ControlAndL3ChickenMode:ivb */
-	I915_WRITE(GEN7_L3CNTLREG1,
-			GEN7_WA_FOR_GEN7_L3_CONTROL);
-	I915_WRITE(GEN7_L3_CHICKEN_MODE_REGISTER,
-		   GEN7_WA_L3_CHICKEN_MODE);
-	if (IS_IVB_GT1(dev_priv))
-		I915_WRITE(GEN7_ROW_CHICKEN2,
-			   _MASKED_BIT_ENABLE(DOP_CLOCK_GATING_DISABLE));
-	else {
+	I915_GT_WRITE(GEN7_L3CNTLREG1,
+		      GEN7_WA_FOR_GEN7_L3_CONTROL);
+	I915_GT_WRITE(GEN7_L3_CHICKEN_MODE_REGISTER,
+		      GEN7_WA_L3_CHICKEN_MODE);
+	if (IS_IVB_GT1(dev_priv)) {
+		I915_GT_WRITE(GEN7_ROW_CHICKEN2,
+			      _MASKED_BIT_ENABLE(DOP_CLOCK_GATING_DISABLE));
+	} else {
 		/* must write both registers */
-		I915_WRITE(GEN7_ROW_CHICKEN2,
-			   _MASKED_BIT_ENABLE(DOP_CLOCK_GATING_DISABLE));
-		I915_WRITE(GEN7_ROW_CHICKEN2_GT2,
-			   _MASKED_BIT_ENABLE(DOP_CLOCK_GATING_DISABLE));
+		I915_GT_WRITE(GEN7_ROW_CHICKEN2,
+			      _MASKED_BIT_ENABLE(DOP_CLOCK_GATING_DISABLE));
+		I915_GT_WRITE(GEN7_ROW_CHICKEN2_GT2,
+			      _MASKED_BIT_ENABLE(DOP_CLOCK_GATING_DISABLE));
 	}
 
 	/* WaForceL3Serialization:ivb */
-	I915_WRITE(GEN7_L3SQCREG4, I915_READ(GEN7_L3SQCREG4) &
-		   ~L3SQ_URB_READ_CAM_MATCH_DISABLE);
+	I915_GT_WRITE(GEN7_L3SQCREG4, I915_GT_READ(GEN7_L3SQCREG4) &
+		      ~L3SQ_URB_READ_CAM_MATCH_DISABLE);
 
 	/*
 	 * According to the spec, bit 13 (RCZUNIT) must be set on IVB.
 	 * This implements the WaDisableRCZUnitClockGating:ivb workaround.
 	 */
-	I915_WRITE(GEN6_UCGCTL2,
-		   GEN6_RCZUNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN6_UCGCTL2,
+		      GEN6_RCZUNIT_CLOCK_GATE_DISABLE);
 
 	/* This is required by WaCatErrorRejectionIssue:ivb */
-	I915_WRITE(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG,
-			I915_READ(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG) |
-			GEN7_SQ_CHICKEN_MBCUNIT_SQINTMOB);
+	I915_GT_WRITE(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG,
+		      I915_GT_READ(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG) |
+		      GEN7_SQ_CHICKEN_MBCUNIT_SQINTMOB);
 
 	g4x_disable_trickle_feed(dev_priv);
 
@@ -7685,13 +7688,13 @@ static void ivybridge_init_clock_gating(struct drm_i915_private *dev_priv)
 
 	if (0) { /* causes HiZ corruption on ivb:gt1 */
 		/* enable HiZ Raw Stall Optimization */
-		I915_WRITE(CACHE_MODE_0_GEN7,
-			   _MASKED_BIT_DISABLE(HIZ_RAW_STALL_OPT_DISABLE));
+		I915_GT_WRITE(CACHE_MODE_0_GEN7,
+			      _MASKED_BIT_DISABLE(HIZ_RAW_STALL_OPT_DISABLE));
 	}
 
 	/* WaDisable4x2SubspanOptimization:ivb */
-	I915_WRITE(CACHE_MODE_1,
-		   _MASKED_BIT_ENABLE(PIXEL_SUBSPAN_COLLECT_OPT_DISABLE));
+	I915_GT_WRITE(CACHE_MODE_1,
+		      _MASKED_BIT_ENABLE(PIXEL_SUBSPAN_COLLECT_OPT_DISABLE));
 
 	/*
 	 * BSpec recommends 8x4 when MSAA is used,
@@ -7701,13 +7704,13 @@ static void ivybridge_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * disable bit, which we don't touch here, but it's good
 	 * to keep in mind (see 3DSTATE_PS and 3DSTATE_WM).
 	 */
-	I915_WRITE(GEN7_GT_MODE,
-		   _MASKED_FIELD(GEN6_WIZ_HASHING_MASK, GEN6_WIZ_HASHING_16x4));
+	I915_GT_WRITE(GEN7_GT_MODE,
+		      _MASKED_FIELD(GEN6_WIZ_HASHING_MASK, GEN6_WIZ_HASHING_16x4));
 
-	snpcr = I915_READ(GEN6_MBCUNIT_SNPCR);
+	snpcr = I915_GT_READ(GEN6_MBCUNIT_SNPCR);
 	snpcr &= ~GEN6_MBC_SNPCR_MASK;
 	snpcr |= GEN6_MBC_SNPCR_MED;
-	I915_WRITE(GEN6_MBCUNIT_SNPCR, snpcr);
+	I915_GT_WRITE(GEN6_MBCUNIT_SNPCR, snpcr);
 
 	if (!HAS_PCH_NOP(dev_priv))
 		cpt_init_clock_gating(dev_priv);
@@ -7718,35 +7721,35 @@ static void ivybridge_init_clock_gating(struct drm_i915_private *dev_priv)
 static void valleyview_init_clock_gating(struct drm_i915_private *dev_priv)
 {
 	/* WaDisableEarlyCull:vlv */
-	I915_WRITE(_3D_CHICKEN3,
-		   _MASKED_BIT_ENABLE(_3D_CHICKEN_SF_DISABLE_OBJEND_CULL));
+	I915_GT_WRITE(_3D_CHICKEN3,
+		      _MASKED_BIT_ENABLE(_3D_CHICKEN_SF_DISABLE_OBJEND_CULL));
 
 	/* WaDisableBackToBackFlipFix:vlv */
-	I915_WRITE(IVB_CHICKEN3,
-		   CHICKEN3_DGMG_REQ_OUT_FIX_DISABLE |
-		   CHICKEN3_DGMG_DONE_FIX_DISABLE);
+	I915_DE_WRITE(IVB_CHICKEN3,
+		      CHICKEN3_DGMG_REQ_OUT_FIX_DISABLE |
+		      CHICKEN3_DGMG_DONE_FIX_DISABLE);
 
 	/* WaPsdDispatchEnable:vlv */
 	/* WaDisablePSDDualDispatchEnable:vlv */
-	I915_WRITE(GEN7_HALF_SLICE_CHICKEN1,
-		   _MASKED_BIT_ENABLE(GEN7_MAX_PS_THREAD_DEP |
-				      GEN7_PSD_SINGLE_PORT_DISPATCH_ENABLE));
+	I915_GT_WRITE(GEN7_HALF_SLICE_CHICKEN1,
+		      _MASKED_BIT_ENABLE(GEN7_MAX_PS_THREAD_DEP |
+					 GEN7_PSD_SINGLE_PORT_DISPATCH_ENABLE));
 
 	/* WaDisable_RenderCache_OperationalFlush:vlv */
-	I915_WRITE(CACHE_MODE_0_GEN7, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
+	I915_GT_WRITE(CACHE_MODE_0_GEN7, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
 
 	/* WaForceL3Serialization:vlv */
-	I915_WRITE(GEN7_L3SQCREG4, I915_READ(GEN7_L3SQCREG4) &
-		   ~L3SQ_URB_READ_CAM_MATCH_DISABLE);
+	I915_GT_WRITE(GEN7_L3SQCREG4, I915_GT_READ(GEN7_L3SQCREG4) &
+		      ~L3SQ_URB_READ_CAM_MATCH_DISABLE);
 
 	/* WaDisableDopClockGating:vlv */
-	I915_WRITE(GEN7_ROW_CHICKEN2,
-		   _MASKED_BIT_ENABLE(DOP_CLOCK_GATING_DISABLE));
+	I915_GT_WRITE(GEN7_ROW_CHICKEN2,
+		      _MASKED_BIT_ENABLE(DOP_CLOCK_GATING_DISABLE));
 
 	/* This is required by WaCatErrorRejectionIssue:vlv */
-	I915_WRITE(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG,
-		   I915_READ(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG) |
-		   GEN7_SQ_CHICKEN_MBCUNIT_SQINTMOB);
+	I915_GT_WRITE(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG,
+		      I915_GT_READ(GEN7_SQ_CHICKEN_MBCUNIT_CONFIG) |
+		      GEN7_SQ_CHICKEN_MBCUNIT_SQINTMOB);
 
 	gen7_setup_fixed_func_scheduler(dev_priv);
 
@@ -7754,21 +7757,21 @@ static void valleyview_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * According to the spec, bit 13 (RCZUNIT) must be set on IVB.
 	 * This implements the WaDisableRCZUnitClockGating:vlv workaround.
 	 */
-	I915_WRITE(GEN6_UCGCTL2,
-		   GEN6_RCZUNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN6_UCGCTL2,
+		      GEN6_RCZUNIT_CLOCK_GATE_DISABLE);
 
 	/* WaDisableL3Bank2xClockGate:vlv
 	 * Disabling L3 clock gating- MMIO 940c[25] = 1
 	 * Set bit 25, to disable L3_BANK_2x_CLK_GATING */
-	I915_WRITE(GEN7_UCGCTL4,
-		   I915_READ(GEN7_UCGCTL4) | GEN7_L3BANK2X_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN7_UCGCTL4,
+		      I915_GT_READ(GEN7_UCGCTL4) | GEN7_L3BANK2X_CLOCK_GATE_DISABLE);
 
 	/*
 	 * BSpec says this must be set, even though
 	 * WaDisable4x2SubspanOptimization isn't listed for VLV.
 	 */
-	I915_WRITE(CACHE_MODE_1,
-		   _MASKED_BIT_ENABLE(PIXEL_SUBSPAN_COLLECT_OPT_DISABLE));
+	I915_GT_WRITE(CACHE_MODE_1,
+		      _MASKED_BIT_ENABLE(PIXEL_SUBSPAN_COLLECT_OPT_DISABLE));
 
 	/*
 	 * BSpec recommends 8x4 when MSAA is used,
@@ -7778,42 +7781,42 @@ static void valleyview_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * disable bit, which we don't touch here, but it's good
 	 * to keep in mind (see 3DSTATE_PS and 3DSTATE_WM).
 	 */
-	I915_WRITE(GEN7_GT_MODE,
-		   _MASKED_FIELD(GEN6_WIZ_HASHING_MASK, GEN6_WIZ_HASHING_16x4));
+	I915_GT_WRITE(GEN7_GT_MODE,
+		      _MASKED_FIELD(GEN6_WIZ_HASHING_MASK, GEN6_WIZ_HASHING_16x4));
 
 	/*
 	 * WaIncreaseL3CreditsForVLVB0:vlv
 	 * This is the hardware default actually.
 	 */
-	I915_WRITE(GEN7_L3SQCREG1, VLV_B0_WA_L3SQCREG1_VALUE);
+	I915_GT_WRITE(GEN7_L3SQCREG1, VLV_B0_WA_L3SQCREG1_VALUE);
 
 	/*
 	 * WaDisableVLVClockGating_VBIIssue:vlv
 	 * Disable clock gating on th GCFG unit to prevent a delay
 	 * in the reporting of vblank events.
 	 */
-	I915_WRITE(VLV_GUNIT_CLOCK_GATE, GCFG_DIS);
+	I915_DE_WRITE(VLV_GUNIT_CLOCK_GATE, GCFG_DIS);
 }
 
 static void cherryview_init_clock_gating(struct drm_i915_private *dev_priv)
 {
 	/* WaVSRefCountFullforceMissDisable:chv */
 	/* WaDSRefCountFullforceMissDisable:chv */
-	I915_WRITE(GEN7_FF_THREAD_MODE,
-		   I915_READ(GEN7_FF_THREAD_MODE) &
-		   ~(GEN8_FF_DS_REF_CNT_FFME | GEN7_FF_VS_REF_CNT_FFME));
+	I915_GT_WRITE(GEN7_FF_THREAD_MODE,
+		      I915_GT_READ(GEN7_FF_THREAD_MODE) &
+		      ~(GEN8_FF_DS_REF_CNT_FFME | GEN7_FF_VS_REF_CNT_FFME));
 
 	/* WaDisableSemaphoreAndSyncFlipWait:chv */
-	I915_WRITE(GEN6_RC_SLEEP_PSMI_CONTROL,
-		   _MASKED_BIT_ENABLE(GEN8_RC_SEMA_IDLE_MSG_DISABLE));
+	I915_GT_WRITE(GEN6_RC_SLEEP_PSMI_CONTROL,
+		      _MASKED_BIT_ENABLE(GEN8_RC_SEMA_IDLE_MSG_DISABLE));
 
 	/* WaDisableCSUnitClockGating:chv */
-	I915_WRITE(GEN6_UCGCTL1, I915_READ(GEN6_UCGCTL1) |
-		   GEN6_CSUNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN6_UCGCTL1, I915_GT_READ(GEN6_UCGCTL1) |
+		      GEN6_CSUNIT_CLOCK_GATE_DISABLE);
 
 	/* WaDisableSDEUnitClockGating:chv */
-	I915_WRITE(GEN8_UCGCTL6, I915_READ(GEN8_UCGCTL6) |
-		   GEN8_SDEUNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(GEN8_UCGCTL6, I915_GT_READ(GEN8_UCGCTL6) |
+		      GEN8_SDEUNIT_CLOCK_GATE_DISABLE);
 
 	/*
 	 * WaProgramL3SqcReg1Default:chv
@@ -7826,105 +7829,105 @@ static void cherryview_init_clock_gating(struct drm_i915_private *dev_priv)
 	 * GTT cache may not work with big pages, so if those
 	 * are ever enabled GTT cache may need to be disabled.
 	 */
-	I915_WRITE(HSW_GTT_CACHE_EN, GTT_CACHE_EN_ALL);
+	I915_GT_WRITE(HSW_GTT_CACHE_EN, GTT_CACHE_EN_ALL);
 }
 
 static void g4x_init_clock_gating(struct drm_i915_private *dev_priv)
 {
 	uint32_t dspclk_gate;
 
-	I915_WRITE(RENCLK_GATE_D1, 0);
-	I915_WRITE(RENCLK_GATE_D2, VF_UNIT_CLOCK_GATE_DISABLE |
-		   GS_UNIT_CLOCK_GATE_DISABLE |
-		   CL_UNIT_CLOCK_GATE_DISABLE);
-	I915_WRITE(RAMCLK_GATE_D, 0);
+	I915_GT_WRITE(RENCLK_GATE_D1, 0);
+	I915_GT_WRITE(RENCLK_GATE_D2, VF_UNIT_CLOCK_GATE_DISABLE |
+		      GS_UNIT_CLOCK_GATE_DISABLE |
+		      CL_UNIT_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(RAMCLK_GATE_D, 0);
 	dspclk_gate = VRHUNIT_CLOCK_GATE_DISABLE |
 		OVRUNIT_CLOCK_GATE_DISABLE |
 		OVCUNIT_CLOCK_GATE_DISABLE;
 	if (IS_GM45(dev_priv))
 		dspclk_gate |= DSSUNIT_CLOCK_GATE_DISABLE;
-	I915_WRITE(DSPCLK_GATE_D, dspclk_gate);
+	I915_GT_WRITE(DSPCLK_GATE_D, dspclk_gate);
 
 	/* WaDisableRenderCachePipelinedFlush */
-	I915_WRITE(CACHE_MODE_0,
-		   _MASKED_BIT_ENABLE(CM0_PIPELINED_RENDER_FLUSH_DISABLE));
+	I915_GT_WRITE(CACHE_MODE_0,
+		      _MASKED_BIT_ENABLE(CM0_PIPELINED_RENDER_FLUSH_DISABLE));
 
 	/* WaDisable_RenderCache_OperationalFlush:g4x */
-	I915_WRITE(CACHE_MODE_0, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
+	I915_GT_WRITE(CACHE_MODE_0, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
 
 	g4x_disable_trickle_feed(dev_priv);
 }
 
 static void crestline_init_clock_gating(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(RENCLK_GATE_D1, I965_RCC_CLOCK_GATE_DISABLE);
-	I915_WRITE(RENCLK_GATE_D2, 0);
-	I915_WRITE(DSPCLK_GATE_D, 0);
-	I915_WRITE(RAMCLK_GATE_D, 0);
-	I915_WRITE16(DEUC, 0);
-	I915_WRITE(MI_ARB_STATE,
-		   _MASKED_BIT_ENABLE(MI_ARB_DISPLAY_TRICKLE_FEED_DISABLE));
+	I915_GT_WRITE(RENCLK_GATE_D1, I965_RCC_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(RENCLK_GATE_D2, 0);
+	I915_GT_WRITE(DSPCLK_GATE_D, 0);
+	I915_GT_WRITE(RAMCLK_GATE_D, 0);
+	I915_GT_WRITE16(DEUC, 0);
+	I915_GT_WRITE(MI_ARB_STATE,
+		      _MASKED_BIT_ENABLE(MI_ARB_DISPLAY_TRICKLE_FEED_DISABLE));
 
 	/* WaDisable_RenderCache_OperationalFlush:gen4 */
-	I915_WRITE(CACHE_MODE_0, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
+	I915_GT_WRITE(CACHE_MODE_0, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
 }
 
 static void broadwater_init_clock_gating(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(RENCLK_GATE_D1, I965_RCZ_CLOCK_GATE_DISABLE |
-		   I965_RCC_CLOCK_GATE_DISABLE |
-		   I965_RCPB_CLOCK_GATE_DISABLE |
-		   I965_ISC_CLOCK_GATE_DISABLE |
-		   I965_FBC_CLOCK_GATE_DISABLE);
-	I915_WRITE(RENCLK_GATE_D2, 0);
-	I915_WRITE(MI_ARB_STATE,
-		   _MASKED_BIT_ENABLE(MI_ARB_DISPLAY_TRICKLE_FEED_DISABLE));
+	I915_GT_WRITE(RENCLK_GATE_D1, I965_RCZ_CLOCK_GATE_DISABLE |
+		      I965_RCC_CLOCK_GATE_DISABLE |
+		      I965_RCPB_CLOCK_GATE_DISABLE |
+		      I965_ISC_CLOCK_GATE_DISABLE |
+		      I965_FBC_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(RENCLK_GATE_D2, 0);
+	I915_GT_WRITE(MI_ARB_STATE,
+		      _MASKED_BIT_ENABLE(MI_ARB_DISPLAY_TRICKLE_FEED_DISABLE));
 
 	/* WaDisable_RenderCache_OperationalFlush:gen4 */
-	I915_WRITE(CACHE_MODE_0, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
+	I915_GT_WRITE(CACHE_MODE_0, _MASKED_BIT_DISABLE(RC_OP_FLUSH_ENABLE));
 }
 
 static void gen3_init_clock_gating(struct drm_i915_private *dev_priv)
 {
-	u32 dstate = I915_READ(D_STATE);
+	u32 dstate = I915_GT_READ(D_STATE);
 
 	dstate |= DSTATE_PLL_D3_OFF | DSTATE_GFX_CLOCK_GATING |
 		DSTATE_DOT_CLOCK_GATING;
-	I915_WRITE(D_STATE, dstate);
+	I915_GT_WRITE(D_STATE, dstate);
 
 	if (IS_PINEVIEW(dev_priv))
-		I915_WRITE(ECOSKPD, _MASKED_BIT_ENABLE(ECO_GATING_CX_ONLY));
+		I915_GT_WRITE(ECOSKPD, _MASKED_BIT_ENABLE(ECO_GATING_CX_ONLY));
 
 	/* IIR "flip pending" means done if this bit is set */
-	I915_WRITE(ECOSKPD, _MASKED_BIT_DISABLE(ECO_FLIP_DONE));
+	I915_GT_WRITE(ECOSKPD, _MASKED_BIT_DISABLE(ECO_FLIP_DONE));
 
 	/* interrupts should cause a wake up from C3 */
-	I915_WRITE(INSTPM, _MASKED_BIT_ENABLE(INSTPM_AGPBUSY_INT_EN));
+	I915_GT_WRITE(INSTPM, _MASKED_BIT_ENABLE(INSTPM_AGPBUSY_INT_EN));
 
 	/* On GEN3 we really need to make sure the ARB C3 LP bit is set */
-	I915_WRITE(MI_ARB_STATE, _MASKED_BIT_ENABLE(MI_ARB_C3_LP_WRITE_ENABLE));
+	I915_GT_WRITE(MI_ARB_STATE, _MASKED_BIT_ENABLE(MI_ARB_C3_LP_WRITE_ENABLE));
 
-	I915_WRITE(MI_ARB_STATE,
-		   _MASKED_BIT_ENABLE(MI_ARB_DISPLAY_TRICKLE_FEED_DISABLE));
+	I915_GT_WRITE(MI_ARB_STATE,
+		      _MASKED_BIT_ENABLE(MI_ARB_DISPLAY_TRICKLE_FEED_DISABLE));
 }
 
 static void i85x_init_clock_gating(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(RENCLK_GATE_D1, SV_CLOCK_GATE_DISABLE);
+	I915_GT_WRITE(RENCLK_GATE_D1, SV_CLOCK_GATE_DISABLE);
 
 	/* interrupts should cause a wake up from C3 */
-	I915_WRITE(MI_STATE, _MASKED_BIT_ENABLE(MI_AGPBUSY_INT_EN) |
-		   _MASKED_BIT_DISABLE(MI_AGPBUSY_830_MODE));
+	I915_GT_WRITE(MI_STATE, _MASKED_BIT_ENABLE(MI_AGPBUSY_INT_EN) |
+		      _MASKED_BIT_DISABLE(MI_AGPBUSY_830_MODE));
 
-	I915_WRITE(MEM_MODE,
-		   _MASKED_BIT_ENABLE(MEM_DISPLAY_TRICKLE_FEED_DISABLE));
+	I915_GT_WRITE(MEM_MODE,
+		      _MASKED_BIT_ENABLE(MEM_DISPLAY_TRICKLE_FEED_DISABLE));
 }
 
 static void i830_init_clock_gating(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(MEM_MODE,
-		   _MASKED_BIT_ENABLE(MEM_DISPLAY_A_TRICKLE_FEED_DISABLE) |
-		   _MASKED_BIT_ENABLE(MEM_DISPLAY_B_TRICKLE_FEED_DISABLE));
+	I915_GT_WRITE(MEM_MODE,
+		      _MASKED_BIT_ENABLE(MEM_DISPLAY_A_TRICKLE_FEED_DISABLE) |
+		      _MASKED_BIT_ENABLE(MEM_DISPLAY_B_TRICKLE_FEED_DISABLE));
 }
 
 void intel_init_clock_gating(struct drm_i915_private *dev_priv)
@@ -8074,7 +8077,7 @@ void intel_init_pm(struct drm_i915_private *dev_priv)
 static inline int gen6_check_mailbox_status(struct drm_i915_private *dev_priv)
 {
 	uint32_t flags =
-		I915_READ_FW(GEN6_PCODE_MAILBOX) & GEN6_PCODE_ERROR_MASK;
+		I915_DE_READ_FW(GEN6_PCODE_MAILBOX) & GEN6_PCODE_ERROR_MASK;
 
 	switch (flags) {
 	case GEN6_PCODE_SUCCESS:
@@ -8096,7 +8099,7 @@ static inline int gen6_check_mailbox_status(struct drm_i915_private *dev_priv)
 static inline int gen7_check_mailbox_status(struct drm_i915_private *dev_priv)
 {
 	uint32_t flags =
-		I915_READ_FW(GEN6_PCODE_MAILBOX) & GEN6_PCODE_ERROR_MASK;
+		I915_DE_READ_FW(GEN6_PCODE_MAILBOX) & GEN6_PCODE_ERROR_MASK;
 
 	switch (flags) {
 	case GEN6_PCODE_SUCCESS:
@@ -8126,24 +8129,24 @@ int sandybridge_pcode_read(struct drm_i915_private *dev_priv, u32 mbox, u32 *val
 	 * required when reading/writing.
 	 */
 
-	if (I915_READ_FW(GEN6_PCODE_MAILBOX) & GEN6_PCODE_READY) {
+	if (I915_DE_READ_FW(GEN6_PCODE_MAILBOX) & GEN6_PCODE_READY) {
 		DRM_DEBUG_DRIVER("warning: pcode (read) mailbox access failed\n");
 		return -EAGAIN;
 	}
 
-	I915_WRITE_FW(GEN6_PCODE_DATA, *val);
-	I915_WRITE_FW(GEN6_PCODE_DATA1, 0);
-	I915_WRITE_FW(GEN6_PCODE_MAILBOX, GEN6_PCODE_READY | mbox);
+	I915_DE_WRITE_FW(GEN6_PCODE_DATA, *val);
+	I915_DE_WRITE_FW(GEN6_PCODE_DATA1, 0);
+	I915_DE_WRITE_FW(GEN6_PCODE_MAILBOX, GEN6_PCODE_READY | mbox);
 
-	if (__intel_wait_for_register_fw(dev_priv,
-					 GEN6_PCODE_MAILBOX, GEN6_PCODE_READY, 0,
-					 500, 0, NULL)) {
+	if (__intel_de_wait_for_register_fw(dev_priv,
+					    GEN6_PCODE_MAILBOX, GEN6_PCODE_READY, 0,
+					    500, 0, NULL)) {
 		DRM_ERROR("timeout waiting for pcode read (%d) to finish\n", mbox);
 		return -ETIMEDOUT;
 	}
 
-	*val = I915_READ_FW(GEN6_PCODE_DATA);
-	I915_WRITE_FW(GEN6_PCODE_DATA, 0);
+	*val = I915_DE_READ_FW(GEN6_PCODE_DATA);
+	I915_DE_WRITE_FW(GEN6_PCODE_DATA, 0);
 
 	if (INTEL_GEN(dev_priv) > 6)
 		status = gen7_check_mailbox_status(dev_priv);
@@ -8171,23 +8174,23 @@ int sandybridge_pcode_write(struct drm_i915_private *dev_priv,
 	 * required when reading/writing.
 	 */
 
-	if (I915_READ_FW(GEN6_PCODE_MAILBOX) & GEN6_PCODE_READY) {
+	if (I915_DE_READ_FW(GEN6_PCODE_MAILBOX) & GEN6_PCODE_READY) {
 		DRM_DEBUG_DRIVER("warning: pcode (write) mailbox access failed\n");
 		return -EAGAIN;
 	}
 
-	I915_WRITE_FW(GEN6_PCODE_DATA, val);
-	I915_WRITE_FW(GEN6_PCODE_DATA1, 0);
-	I915_WRITE_FW(GEN6_PCODE_MAILBOX, GEN6_PCODE_READY | mbox);
+	I915_DE_WRITE_FW(GEN6_PCODE_DATA, val);
+	I915_DE_WRITE_FW(GEN6_PCODE_DATA1, 0);
+	I915_DE_WRITE_FW(GEN6_PCODE_MAILBOX, GEN6_PCODE_READY | mbox);
 
-	if (__intel_wait_for_register_fw(dev_priv,
-					 GEN6_PCODE_MAILBOX, GEN6_PCODE_READY, 0,
-					 500, 0, NULL)) {
+	if (__intel_de_wait_for_register_fw(dev_priv,
+					    GEN6_PCODE_MAILBOX, GEN6_PCODE_READY, 0,
+					    500, 0, NULL)) {
 		DRM_ERROR("timeout waiting for pcode write (%d) to finish\n", mbox);
 		return -ETIMEDOUT;
 	}
 
-	I915_WRITE_FW(GEN6_PCODE_DATA, 0);
+	I915_DE_WRITE_FW(GEN6_PCODE_DATA, 0);
 
 	if (INTEL_GEN(dev_priv) > 6)
 		status = gen7_check_mailbox_status(dev_priv);
@@ -8404,19 +8407,19 @@ static u64 vlv_residency_raw(struct drm_i915_private *dev_priv,
 	 * before we have set the default VLV_COUNTER_CONTROL value. So always
 	 * set the high bit to be safe.
 	 */
-	I915_WRITE_FW(VLV_COUNTER_CONTROL,
-		      _MASKED_BIT_ENABLE(VLV_COUNT_RANGE_HIGH));
-	upper = I915_READ_FW(reg);
+	I915_DE_WRITE_FW(VLV_COUNTER_CONTROL,
+			 _MASKED_BIT_ENABLE(VLV_COUNT_RANGE_HIGH));
+	upper = I915_DE_READ_FW(reg);
 	do {
 		tmp = upper;
 
-		I915_WRITE_FW(VLV_COUNTER_CONTROL,
-			      _MASKED_BIT_DISABLE(VLV_COUNT_RANGE_HIGH));
-		lower = I915_READ_FW(reg);
+		I915_DE_WRITE_FW(VLV_COUNTER_CONTROL,
+				 _MASKED_BIT_DISABLE(VLV_COUNT_RANGE_HIGH));
+		lower = I915_DE_READ_FW(reg);
 
-		I915_WRITE_FW(VLV_COUNTER_CONTROL,
-			      _MASKED_BIT_ENABLE(VLV_COUNT_RANGE_HIGH));
-		upper = I915_READ_FW(reg);
+		I915_DE_WRITE_FW(VLV_COUNTER_CONTROL,
+				 _MASKED_BIT_ENABLE(VLV_COUNT_RANGE_HIGH));
+		upper = I915_DE_READ_FW(reg);
 	} while (upper != tmp && --loop);
 
 	/* Everywhere else we always use VLV_COUNTER_CONTROL with the
@@ -8449,12 +8452,12 @@ u64 intel_rc6_residency_us(struct drm_i915_private *dev_priv,
 		units = 1000;
 		div = 1200;		/* 833.33ns */
 
-		time_hw = I915_READ(reg);
+		time_hw = I915_DE_READ(reg);
 	} else {
 		units = 128000; /* 1.28us */
 		div = 100000;
 
-		time_hw = I915_READ(reg);
+		time_hw = I915_DE_READ(reg);
 	}
 
 	intel_runtime_pm_put(dev_priv);

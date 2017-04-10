@@ -173,8 +173,8 @@ static void intel_mst_pre_enable_dp(struct intel_encoder *encoder,
 
 
 	intel_dp->active_mst_links++;
-	temp = I915_READ(DP_TP_STATUS(port));
-	I915_WRITE(DP_TP_STATUS(port), temp);
+	temp = I915_DE_READ(DP_TP_STATUS(port));
+	I915_DE_WRITE(DP_TP_STATUS(port), temp);
 
 	ret = drm_dp_update_payload_part1(&intel_dp->mst_mgr);
 }
@@ -192,11 +192,11 @@ static void intel_mst_enable_dp(struct intel_encoder *encoder,
 
 	DRM_DEBUG_KMS("%d\n", intel_dp->active_mst_links);
 
-	if (intel_wait_for_register(dev_priv,
-				    DP_TP_STATUS(port),
-				    DP_TP_STATUS_ACT_SENT,
-				    DP_TP_STATUS_ACT_SENT,
-				    1))
+	if (intel_de_wait_for_register(dev_priv,
+				       DP_TP_STATUS(port),
+				       DP_TP_STATUS_ACT_SENT,
+				       DP_TP_STATUS_ACT_SENT,
+				       1))
 		DRM_ERROR("Timed out waiting for ACT sent\n");
 
 	ret = drm_dp_check_act_status(&intel_dp->mst_mgr);
@@ -229,7 +229,7 @@ static void intel_dp_mst_enc_get_config(struct intel_encoder *encoder,
 	pipe_config->has_audio =
 		intel_ddi_is_audio_enabled(dev_priv, crtc);
 
-	temp = I915_READ(TRANS_DDI_FUNC_CTL(cpu_transcoder));
+	temp = I915_DE_READ(TRANS_DDI_FUNC_CTL(cpu_transcoder));
 	if (temp & TRANS_DDI_PHSYNC)
 		flags |= DRM_MODE_FLAG_PHSYNC;
 	else

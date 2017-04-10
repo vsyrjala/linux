@@ -280,16 +280,16 @@ void bxt_ddi_phy_set_signal_level(struct drm_i915_private *dev_priv,
 	 * While we write to the group register to program all lanes at once we
 	 * can read only lane registers and we pick lanes 0/1 for that.
 	 */
-	val = I915_READ(BXT_PORT_PCS_DW10_LN01(phy, ch));
+	val = I915_DE_READ(BXT_PORT_PCS_DW10_LN01(phy, ch));
 	val &= ~(TX2_SWING_CALC_INIT | TX1_SWING_CALC_INIT);
-	I915_WRITE(BXT_PORT_PCS_DW10_GRP(phy, ch), val);
+	I915_DE_WRITE(BXT_PORT_PCS_DW10_GRP(phy, ch), val);
 
-	val = I915_READ(BXT_PORT_TX_DW2_LN0(phy, ch));
+	val = I915_DE_READ(BXT_PORT_TX_DW2_LN0(phy, ch));
 	val &= ~(MARGIN_000 | UNIQ_TRANS_SCALE);
 	val |= margin << MARGIN_000_SHIFT | scale << UNIQ_TRANS_SCALE_SHIFT;
-	I915_WRITE(BXT_PORT_TX_DW2_GRP(phy, ch), val);
+	I915_DE_WRITE(BXT_PORT_TX_DW2_GRP(phy, ch), val);
 
-	val = I915_READ(BXT_PORT_TX_DW3_LN0(phy, ch));
+	val = I915_DE_READ(BXT_PORT_TX_DW3_LN0(phy, ch));
 	val &= ~SCALE_DCOMP_METHOD;
 	if (enable)
 		val |= SCALE_DCOMP_METHOD;
@@ -297,16 +297,16 @@ void bxt_ddi_phy_set_signal_level(struct drm_i915_private *dev_priv,
 	if ((val & UNIQUE_TRANGE_EN_METHOD) && !(val & SCALE_DCOMP_METHOD))
 		DRM_ERROR("Disabled scaling while ouniqetrangenmethod was set");
 
-	I915_WRITE(BXT_PORT_TX_DW3_GRP(phy, ch), val);
+	I915_DE_WRITE(BXT_PORT_TX_DW3_GRP(phy, ch), val);
 
-	val = I915_READ(BXT_PORT_TX_DW4_LN0(phy, ch));
+	val = I915_DE_READ(BXT_PORT_TX_DW4_LN0(phy, ch));
 	val &= ~DE_EMPHASIS;
 	val |= deemphasis << DEEMPH_SHIFT;
-	I915_WRITE(BXT_PORT_TX_DW4_GRP(phy, ch), val);
+	I915_DE_WRITE(BXT_PORT_TX_DW4_GRP(phy, ch), val);
 
-	val = I915_READ(BXT_PORT_PCS_DW10_LN01(phy, ch));
+	val = I915_DE_READ(BXT_PORT_PCS_DW10_LN01(phy, ch));
 	val |= TX2_SWING_CALC_INIT | TX1_SWING_CALC_INIT;
-	I915_WRITE(BXT_PORT_PCS_DW10_GRP(phy, ch), val);
+	I915_DE_WRITE(BXT_PORT_PCS_DW10_GRP(phy, ch), val);
 }
 
 bool bxt_ddi_phy_is_enabled(struct drm_i915_private *dev_priv,
@@ -317,10 +317,10 @@ bool bxt_ddi_phy_is_enabled(struct drm_i915_private *dev_priv,
 
 	phy_info = bxt_get_phy_info(dev_priv, phy);
 
-	if (!(I915_READ(BXT_P_CR_GT_DISP_PWRON) & phy_info->pwron_mask))
+	if (!(I915_DE_READ(BXT_P_CR_GT_DISP_PWRON) & phy_info->pwron_mask))
 		return false;
 
-	if ((I915_READ(BXT_PORT_CL1CM_DW0(phy)) &
+	if ((I915_DE_READ(BXT_PORT_CL1CM_DW0(phy)) &
 	     (PHY_POWER_GOOD | PHY_RESERVED)) != PHY_POWER_GOOD) {
 		DRM_DEBUG_DRIVER("DDI PHY %d powered, but power hasn't settled\n",
 				 phy);
@@ -328,7 +328,7 @@ bool bxt_ddi_phy_is_enabled(struct drm_i915_private *dev_priv,
 		return false;
 	}
 
-	if (!(I915_READ(BXT_PHY_CTL_FAMILY(phy)) & COMMON_RESET_DIS)) {
+	if (!(I915_DE_READ(BXT_PHY_CTL_FAMILY(phy)) & COMMON_RESET_DIS)) {
 		DRM_DEBUG_DRIVER("DDI PHY %d powered, but still in reset\n",
 				 phy);
 
@@ -336,7 +336,7 @@ bool bxt_ddi_phy_is_enabled(struct drm_i915_private *dev_priv,
 	}
 
 	for_each_port_masked(port, bxt_phy_port_mask(phy_info)) {
-		u32 tmp = I915_READ(BXT_PHY_CTL(port));
+		u32 tmp = I915_DE_READ(BXT_PHY_CTL(port));
 
 		if (tmp & BXT_PHY_CMNLANE_POWERDOWN_ACK) {
 			DRM_DEBUG_DRIVER("DDI PHY %d powered, but common lane "
@@ -353,7 +353,7 @@ bool bxt_ddi_phy_is_enabled(struct drm_i915_private *dev_priv,
 
 static u32 bxt_get_grc(struct drm_i915_private *dev_priv, enum dpio_phy phy)
 {
-	u32 val = I915_READ(BXT_PORT_REF_DW6(phy));
+	u32 val = I915_DE_READ(BXT_PORT_REF_DW6(phy));
 
 	return (val & GRC_CODE_MASK) >> GRC_CODE_SHIFT;
 }
@@ -361,10 +361,10 @@ static u32 bxt_get_grc(struct drm_i915_private *dev_priv, enum dpio_phy phy)
 static void bxt_phy_wait_grc_done(struct drm_i915_private *dev_priv,
 				  enum dpio_phy phy)
 {
-	if (intel_wait_for_register(dev_priv,
-				    BXT_PORT_REF_DW3(phy),
-				    GRC_DONE, GRC_DONE,
-				    10))
+	if (intel_de_wait_for_register(dev_priv,
+				       BXT_PORT_REF_DW3(phy),
+				       GRC_DONE, GRC_DONE,
+				       10))
 		DRM_ERROR("timeout waiting for PHY%d GRC\n", phy);
 }
 
@@ -391,9 +391,9 @@ static void _bxt_ddi_phy_init(struct drm_i915_private *dev_priv,
 				 "force reprogramming it\n", phy);
 	}
 
-	val = I915_READ(BXT_P_CR_GT_DISP_PWRON);
+	val = I915_DE_READ(BXT_P_CR_GT_DISP_PWRON);
 	val |= phy_info->pwron_mask;
-	I915_WRITE(BXT_P_CR_GT_DISP_PWRON, val);
+	I915_DE_WRITE(BXT_P_CR_GT_DISP_PWRON, val);
 
 	/*
 	 * The PHY registers start out inaccessible and respond to reads with
@@ -403,32 +403,32 @@ static void _bxt_ddi_phy_init(struct drm_i915_private *dev_priv,
 	 * HW team confirmed that the time to reach phypowergood status is
 	 * anywhere between 50 us and 100us.
 	 */
-	if (wait_for_us(((I915_READ(BXT_PORT_CL1CM_DW0(phy)) &
+	if (wait_for_us(((I915_DE_READ(BXT_PORT_CL1CM_DW0(phy)) &
 		(PHY_RESERVED | PHY_POWER_GOOD)) == PHY_POWER_GOOD), 100)) {
 		DRM_ERROR("timeout during PHY%d power on\n", phy);
 	}
 
 	/* Program PLL Rcomp code offset */
-	val = I915_READ(BXT_PORT_CL1CM_DW9(phy));
+	val = I915_DE_READ(BXT_PORT_CL1CM_DW9(phy));
 	val &= ~IREF0RC_OFFSET_MASK;
 	val |= 0xE4 << IREF0RC_OFFSET_SHIFT;
-	I915_WRITE(BXT_PORT_CL1CM_DW9(phy), val);
+	I915_DE_WRITE(BXT_PORT_CL1CM_DW9(phy), val);
 
-	val = I915_READ(BXT_PORT_CL1CM_DW10(phy));
+	val = I915_DE_READ(BXT_PORT_CL1CM_DW10(phy));
 	val &= ~IREF1RC_OFFSET_MASK;
 	val |= 0xE4 << IREF1RC_OFFSET_SHIFT;
-	I915_WRITE(BXT_PORT_CL1CM_DW10(phy), val);
+	I915_DE_WRITE(BXT_PORT_CL1CM_DW10(phy), val);
 
 	/* Program power gating */
-	val = I915_READ(BXT_PORT_CL1CM_DW28(phy));
+	val = I915_DE_READ(BXT_PORT_CL1CM_DW28(phy));
 	val |= OCL1_POWER_DOWN_EN | DW28_OLDO_DYN_PWR_DOWN_EN |
 		SUS_CLK_CONFIG;
-	I915_WRITE(BXT_PORT_CL1CM_DW28(phy), val);
+	I915_DE_WRITE(BXT_PORT_CL1CM_DW28(phy), val);
 
 	if (phy_info->dual_channel) {
-		val = I915_READ(BXT_PORT_CL2CM_DW6(phy));
+		val = I915_DE_READ(BXT_PORT_CL2CM_DW6(phy));
 		val |= DW6_OLDO_DYN_PWR_DOWN_EN;
-		I915_WRITE(BXT_PORT_CL2CM_DW6(phy), val);
+		I915_DE_WRITE(BXT_PORT_CL2CM_DW6(phy), val);
 	}
 
 	if (phy_info->rcomp_phy != -1) {
@@ -446,19 +446,19 @@ static void _bxt_ddi_phy_init(struct drm_i915_private *dev_priv,
 		grc_code = val << GRC_CODE_FAST_SHIFT |
 			   val << GRC_CODE_SLOW_SHIFT |
 			   val;
-		I915_WRITE(BXT_PORT_REF_DW6(phy), grc_code);
+		I915_DE_WRITE(BXT_PORT_REF_DW6(phy), grc_code);
 
-		val = I915_READ(BXT_PORT_REF_DW8(phy));
+		val = I915_DE_READ(BXT_PORT_REF_DW8(phy));
 		val |= GRC_DIS | GRC_RDY_OVRD;
-		I915_WRITE(BXT_PORT_REF_DW8(phy), val);
+		I915_DE_WRITE(BXT_PORT_REF_DW8(phy), val);
 	}
 
 	if (phy_info->reset_delay)
 		udelay(phy_info->reset_delay);
 
-	val = I915_READ(BXT_PHY_CTL_FAMILY(phy));
+	val = I915_DE_READ(BXT_PHY_CTL_FAMILY(phy));
 	val |= COMMON_RESET_DIS;
-	I915_WRITE(BXT_PHY_CTL_FAMILY(phy), val);
+	I915_DE_WRITE(BXT_PHY_CTL_FAMILY(phy), val);
 }
 
 void bxt_ddi_phy_uninit(struct drm_i915_private *dev_priv, enum dpio_phy phy)
@@ -468,13 +468,13 @@ void bxt_ddi_phy_uninit(struct drm_i915_private *dev_priv, enum dpio_phy phy)
 
 	phy_info = bxt_get_phy_info(dev_priv, phy);
 
-	val = I915_READ(BXT_PHY_CTL_FAMILY(phy));
+	val = I915_DE_READ(BXT_PHY_CTL_FAMILY(phy));
 	val &= ~COMMON_RESET_DIS;
-	I915_WRITE(BXT_PHY_CTL_FAMILY(phy), val);
+	I915_DE_WRITE(BXT_PHY_CTL_FAMILY(phy), val);
 
-	val = I915_READ(BXT_P_CR_GT_DISP_PWRON);
+	val = I915_DE_READ(BXT_P_CR_GT_DISP_PWRON);
 	val &= ~phy_info->pwron_mask;
-	I915_WRITE(BXT_P_CR_GT_DISP_PWRON, val);
+	I915_DE_WRITE(BXT_P_CR_GT_DISP_PWRON, val);
 }
 
 void bxt_ddi_phy_init(struct drm_i915_private *dev_priv, enum dpio_phy phy)
@@ -512,7 +512,7 @@ __phy_reg_verify_state(struct drm_i915_private *dev_priv, enum dpio_phy phy,
 	va_list args;
 	u32 val;
 
-	val = I915_READ(reg);
+	val = I915_DE_READ(reg);
 	if ((val & mask) == expected)
 		return true;
 
@@ -617,7 +617,7 @@ void bxt_ddi_phy_set_lane_optim_mask(struct intel_encoder *encoder,
 	bxt_port_to_phy_channel(dev_priv, port, &phy, &ch);
 
 	for (lane = 0; lane < 4; lane++) {
-		u32 val = I915_READ(BXT_PORT_TX_DW14_LN(phy, ch, lane));
+		u32 val = I915_DE_READ(BXT_PORT_TX_DW14_LN(phy, ch, lane));
 
 		/*
 		 * Note that on CHV this flag is called UPAR, but has
@@ -627,7 +627,7 @@ void bxt_ddi_phy_set_lane_optim_mask(struct intel_encoder *encoder,
 		if (lane_lat_optim_mask & BIT(lane))
 			val |= LATENCY_OPTIM;
 
-		I915_WRITE(BXT_PORT_TX_DW14_LN(phy, ch, lane), val);
+		I915_DE_WRITE(BXT_PORT_TX_DW14_LN(phy, ch, lane), val);
 	}
 }
 
@@ -646,7 +646,7 @@ bxt_ddi_phy_get_lane_lat_optim_mask(struct intel_encoder *encoder)
 
 	mask = 0;
 	for (lane = 0; lane < 4; lane++) {
-		u32 val = I915_READ(BXT_PORT_TX_DW14_LN(phy, ch, lane));
+		u32 val = I915_DE_READ(BXT_PORT_TX_DW14_LN(phy, ch, lane));
 
 		if (val & LATENCY_OPTIM)
 			mask |= BIT(lane);

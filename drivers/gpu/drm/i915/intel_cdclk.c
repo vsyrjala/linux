@@ -234,7 +234,7 @@ static unsigned int intel_hpll_vco(struct drm_i915_private *dev_priv)
 	else
 		return 0;
 
-	tmp = I915_READ(IS_MOBILE(dev_priv) ? HPLLVCO_MOBILE : HPLLVCO);
+	tmp = I915_GT_READ(IS_MOBILE(dev_priv) ? HPLLVCO_MOBILE : HPLLVCO);
 
 	vco = vco_table[tmp & 0x7];
 	if (vco == 0)
@@ -402,12 +402,12 @@ static void gm45_get_cdclk(struct drm_i915_private *dev_priv,
 static void hsw_get_cdclk(struct drm_i915_private *dev_priv,
 			  struct intel_cdclk_state *cdclk_state)
 {
-	uint32_t lcpll = I915_READ(LCPLL_CTL);
+	uint32_t lcpll = I915_DE_READ(LCPLL_CTL);
 	uint32_t freq = lcpll & LCPLL_CLK_FREQ_MASK;
 
 	if (lcpll & LCPLL_CD_SOURCE_FCLK)
 		cdclk_state->cdclk = 800000;
-	else if (I915_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
+	else if (I915_DE_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
 		cdclk_state->cdclk = 450000;
 	else if (freq == LCPLL_CLK_FREQ_450)
 		cdclk_state->cdclk = 450000;
@@ -472,17 +472,17 @@ static void vlv_program_pfi_credits(struct drm_i915_private *dev_priv)
 	 * WA - write default credits before re-programming
 	 * FIXME: should we also set the resend bit here?
 	 */
-	I915_WRITE(GCI_CONTROL, VGA_FAST_MODE_DISABLE |
-		   default_credits);
+	I915_DE_WRITE(GCI_CONTROL, VGA_FAST_MODE_DISABLE |
+		      default_credits);
 
-	I915_WRITE(GCI_CONTROL, VGA_FAST_MODE_DISABLE |
-		   credits | PFI_CREDIT_RESEND);
+	I915_DE_WRITE(GCI_CONTROL, VGA_FAST_MODE_DISABLE |
+		      credits | PFI_CREDIT_RESEND);
 
 	/*
 	 * FIXME is this guaranteed to clear
 	 * immediately or should we poll for it?
 	 */
-	WARN_ON(I915_READ(GCI_CONTROL) & PFI_CREDIT_RESEND);
+	WARN_ON(I915_DE_READ(GCI_CONTROL) & PFI_CREDIT_RESEND);
 }
 
 static void vlv_set_cdclk(struct drm_i915_private *dev_priv,
@@ -607,12 +607,12 @@ static int bdw_calc_cdclk(int max_pixclk)
 static void bdw_get_cdclk(struct drm_i915_private *dev_priv,
 			  struct intel_cdclk_state *cdclk_state)
 {
-	uint32_t lcpll = I915_READ(LCPLL_CTL);
+	uint32_t lcpll = I915_DE_READ(LCPLL_CTL);
 	uint32_t freq = lcpll & LCPLL_CLK_FREQ_MASK;
 
 	if (lcpll & LCPLL_CD_SOURCE_FCLK)
 		cdclk_state->cdclk = 800000;
-	else if (I915_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
+	else if (I915_DE_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
 		cdclk_state->cdclk = 450000;
 	else if (freq == LCPLL_CLK_FREQ_450)
 		cdclk_state->cdclk = 450000;
@@ -631,7 +631,7 @@ static void bdw_set_cdclk(struct drm_i915_private *dev_priv,
 	uint32_t val, data;
 	int ret;
 
-	if (WARN((I915_READ(LCPLL_CTL) &
+	if (WARN((I915_DE_READ(LCPLL_CTL) &
 		  (LCPLL_PLL_DISABLE | LCPLL_PLL_LOCK |
 		   LCPLL_CD_CLOCK_DISABLE | LCPLL_ROOT_CD_CLOCK_DISABLE |
 		   LCPLL_CD2X_CLOCK_DISABLE | LCPLL_POWER_DOWN_ALLOW |
@@ -648,15 +648,15 @@ static void bdw_set_cdclk(struct drm_i915_private *dev_priv,
 		return;
 	}
 
-	val = I915_READ(LCPLL_CTL);
+	val = I915_DE_READ(LCPLL_CTL);
 	val |= LCPLL_CD_SOURCE_FCLK;
-	I915_WRITE(LCPLL_CTL, val);
+	I915_DE_WRITE(LCPLL_CTL, val);
 
-	if (wait_for_us(I915_READ(LCPLL_CTL) &
+	if (wait_for_us(I915_DE_READ(LCPLL_CTL) &
 			LCPLL_CD_SOURCE_FCLK_DONE, 1))
 		DRM_ERROR("Switching to FCLK failed\n");
 
-	val = I915_READ(LCPLL_CTL);
+	val = I915_DE_READ(LCPLL_CTL);
 	val &= ~LCPLL_CLK_FREQ_MASK;
 
 	switch (cdclk) {
@@ -681,13 +681,13 @@ static void bdw_set_cdclk(struct drm_i915_private *dev_priv,
 		return;
 	}
 
-	I915_WRITE(LCPLL_CTL, val);
+	I915_DE_WRITE(LCPLL_CTL, val);
 
-	val = I915_READ(LCPLL_CTL);
+	val = I915_DE_READ(LCPLL_CTL);
 	val &= ~LCPLL_CD_SOURCE_FCLK;
-	I915_WRITE(LCPLL_CTL, val);
+	I915_DE_WRITE(LCPLL_CTL, val);
 
-	if (wait_for_us((I915_READ(LCPLL_CTL) &
+	if (wait_for_us((I915_DE_READ(LCPLL_CTL) &
 			LCPLL_CD_SOURCE_FCLK_DONE) == 0, 1))
 		DRM_ERROR("Switching back to LCPLL failed\n");
 
@@ -695,7 +695,7 @@ static void bdw_set_cdclk(struct drm_i915_private *dev_priv,
 	sandybridge_pcode_write(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ, data);
 	mutex_unlock(&dev_priv->rps.hw_lock);
 
-	I915_WRITE(CDCLK_FREQ, DIV_ROUND_CLOSEST(cdclk, 1000) - 1);
+	I915_DE_WRITE(CDCLK_FREQ, DIV_ROUND_CLOSEST(cdclk, 1000) - 1);
 
 	intel_update_cdclk(dev_priv);
 
@@ -735,14 +735,14 @@ static void skl_dpll0_update(struct drm_i915_private *dev_priv,
 	cdclk_state->ref = 24000;
 	cdclk_state->vco = 0;
 
-	val = I915_READ(LCPLL1_CTL);
+	val = I915_DE_READ(LCPLL1_CTL);
 	if ((val & LCPLL_PLL_ENABLE) == 0)
 		return;
 
 	if (WARN_ON((val & LCPLL_PLL_LOCK) == 0))
 		return;
 
-	val = I915_READ(DPLL_CTRL1);
+	val = I915_DE_READ(DPLL_CTRL1);
 
 	if (WARN_ON((val & (DPLL_CTRL1_HDMI_MODE(SKL_DPLL0) |
 			    DPLL_CTRL1_SSC(SKL_DPLL0) |
@@ -779,7 +779,7 @@ static void skl_get_cdclk(struct drm_i915_private *dev_priv,
 	if (cdclk_state->vco == 0)
 		return;
 
-	cdctl = I915_READ(CDCLK_CTL);
+	cdctl = I915_DE_READ(CDCLK_CTL);
 
 	if (cdclk_state->vco == 8640000) {
 		switch (cdctl & CDCLK_FREQ_SEL_MASK) {
@@ -846,8 +846,8 @@ static void skl_dpll0_enable(struct drm_i915_private *dev_priv, int vco)
 
 	/* select the minimum CDCLK before enabling DPLL 0 */
 	val = CDCLK_FREQ_337_308 | skl_cdclk_decimal(min_cdclk);
-	I915_WRITE(CDCLK_CTL, val);
-	POSTING_READ(CDCLK_CTL);
+	I915_DE_WRITE(CDCLK_CTL, val);
+	POSTING_DE_READ(CDCLK_CTL);
 
 	/*
 	 * We always enable DPLL0 with the lowest link rate possible, but still
@@ -858,7 +858,7 @@ static void skl_dpll0_enable(struct drm_i915_private *dev_priv, int vco)
 	 * rate later on, with the constraint of choosing a frequency that
 	 * works with vco.
 	 */
-	val = I915_READ(DPLL_CTRL1);
+	val = I915_DE_READ(DPLL_CTRL1);
 
 	val &= ~(DPLL_CTRL1_HDMI_MODE(SKL_DPLL0) | DPLL_CTRL1_SSC(SKL_DPLL0) |
 		 DPLL_CTRL1_LINK_RATE_MASK(SKL_DPLL0));
@@ -870,14 +870,14 @@ static void skl_dpll0_enable(struct drm_i915_private *dev_priv, int vco)
 		val |= DPLL_CTRL1_LINK_RATE(DPLL_CTRL1_LINK_RATE_810,
 					    SKL_DPLL0);
 
-	I915_WRITE(DPLL_CTRL1, val);
-	POSTING_READ(DPLL_CTRL1);
+	I915_DE_WRITE(DPLL_CTRL1, val);
+	POSTING_DE_READ(DPLL_CTRL1);
 
-	I915_WRITE(LCPLL1_CTL, I915_READ(LCPLL1_CTL) | LCPLL_PLL_ENABLE);
+	I915_DE_WRITE(LCPLL1_CTL, I915_DE_READ(LCPLL1_CTL) | LCPLL_PLL_ENABLE);
 
-	if (intel_wait_for_register(dev_priv,
-				    LCPLL1_CTL, LCPLL_PLL_LOCK, LCPLL_PLL_LOCK,
-				    5))
+	if (intel_de_wait_for_register(dev_priv,
+				       LCPLL1_CTL, LCPLL_PLL_LOCK, LCPLL_PLL_LOCK,
+				       5))
 		DRM_ERROR("DPLL0 not locked\n");
 
 	dev_priv->cdclk.hw.vco = vco;
@@ -888,10 +888,10 @@ static void skl_dpll0_enable(struct drm_i915_private *dev_priv, int vco)
 
 static void skl_dpll0_disable(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(LCPLL1_CTL, I915_READ(LCPLL1_CTL) & ~LCPLL_PLL_ENABLE);
-	if (intel_wait_for_register(dev_priv,
-				   LCPLL1_CTL, LCPLL_PLL_LOCK, 0,
-				   1))
+	I915_DE_WRITE(LCPLL1_CTL, I915_DE_READ(LCPLL1_CTL) & ~LCPLL_PLL_ENABLE);
+	if (intel_de_wait_for_register(dev_priv,
+				       LCPLL1_CTL, LCPLL_PLL_LOCK, 0,
+				       1))
 		DRM_ERROR("Couldn't disable DPLL0\n");
 
 	dev_priv->cdclk.hw.vco = 0;
@@ -950,8 +950,8 @@ static void skl_set_cdclk(struct drm_i915_private *dev_priv,
 	if (dev_priv->cdclk.hw.vco != vco)
 		skl_dpll0_enable(dev_priv, vco);
 
-	I915_WRITE(CDCLK_CTL, freq_select | skl_cdclk_decimal(cdclk));
-	POSTING_READ(CDCLK_CTL);
+	I915_DE_WRITE(CDCLK_CTL, freq_select | skl_cdclk_decimal(cdclk));
+	POSTING_DE_READ(CDCLK_CTL);
 
 	/* inform PCU of the change */
 	mutex_lock(&dev_priv->rps.hw_lock);
@@ -970,7 +970,7 @@ static void skl_sanitize_cdclk(struct drm_i915_private *dev_priv)
 	 * There is SWF18 scratchpad register defined which is set by the
 	 * pre-os which can be used by the OS drivers to check the status
 	 */
-	if ((I915_READ(SWF_ILK(0x18)) & 0x00FFFFFF) == 0)
+	if ((I915_DE_READ(SWF_ILK(0x18)) & 0x00FFFFFF) == 0)
 		goto sanitize;
 
 	intel_update_cdclk(dev_priv);
@@ -985,7 +985,7 @@ static void skl_sanitize_cdclk(struct drm_i915_private *dev_priv)
 	 * decimal part is programmed wrong from BIOS where pre-os does not
 	 * enable display. Verify the same as well.
 	 */
-	cdctl = I915_READ(CDCLK_CTL);
+	cdctl = I915_DE_READ(CDCLK_CTL);
 	expected = (cdctl & CDCLK_FREQ_SEL_MASK) |
 		skl_cdclk_decimal(dev_priv->cdclk.hw.cdclk);
 	if (cdctl == expected)
@@ -1137,14 +1137,14 @@ static void bxt_de_pll_update(struct drm_i915_private *dev_priv,
 	cdclk_state->ref = 19200;
 	cdclk_state->vco = 0;
 
-	val = I915_READ(BXT_DE_PLL_ENABLE);
+	val = I915_DE_READ(BXT_DE_PLL_ENABLE);
 	if ((val & BXT_DE_PLL_PLL_ENABLE) == 0)
 		return;
 
 	if (WARN_ON((val & BXT_DE_PLL_LOCK) == 0))
 		return;
 
-	val = I915_READ(BXT_DE_PLL_CTL);
+	val = I915_DE_READ(BXT_DE_PLL_CTL);
 	cdclk_state->vco = (val & BXT_DE_PLL_RATIO_MASK) * cdclk_state->ref;
 }
 
@@ -1161,7 +1161,7 @@ static void bxt_get_cdclk(struct drm_i915_private *dev_priv,
 	if (cdclk_state->vco == 0)
 		return;
 
-	divider = I915_READ(CDCLK_CTL) & BXT_CDCLK_CD2X_DIV_SEL_MASK;
+	divider = I915_DE_READ(CDCLK_CTL) & BXT_CDCLK_CD2X_DIV_SEL_MASK;
 
 	switch (divider) {
 	case BXT_CDCLK_CD2X_DIV_SEL_1:
@@ -1187,12 +1187,12 @@ static void bxt_get_cdclk(struct drm_i915_private *dev_priv,
 
 static void bxt_de_pll_disable(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(BXT_DE_PLL_ENABLE, 0);
+	I915_DE_WRITE(BXT_DE_PLL_ENABLE, 0);
 
 	/* Timeout 200us */
-	if (intel_wait_for_register(dev_priv,
-				    BXT_DE_PLL_ENABLE, BXT_DE_PLL_LOCK, 0,
-				    1))
+	if (intel_de_wait_for_register(dev_priv,
+				       BXT_DE_PLL_ENABLE, BXT_DE_PLL_LOCK, 0,
+				       1))
 		DRM_ERROR("timeout waiting for DE PLL unlock\n");
 
 	dev_priv->cdclk.hw.vco = 0;
@@ -1203,19 +1203,19 @@ static void bxt_de_pll_enable(struct drm_i915_private *dev_priv, int vco)
 	int ratio = DIV_ROUND_CLOSEST(vco, dev_priv->cdclk.hw.ref);
 	u32 val;
 
-	val = I915_READ(BXT_DE_PLL_CTL);
+	val = I915_DE_READ(BXT_DE_PLL_CTL);
 	val &= ~BXT_DE_PLL_RATIO_MASK;
 	val |= BXT_DE_PLL_RATIO(ratio);
-	I915_WRITE(BXT_DE_PLL_CTL, val);
+	I915_DE_WRITE(BXT_DE_PLL_CTL, val);
 
-	I915_WRITE(BXT_DE_PLL_ENABLE, BXT_DE_PLL_PLL_ENABLE);
+	I915_DE_WRITE(BXT_DE_PLL_ENABLE, BXT_DE_PLL_PLL_ENABLE);
 
 	/* Timeout 200us */
-	if (intel_wait_for_register(dev_priv,
-				    BXT_DE_PLL_ENABLE,
-				    BXT_DE_PLL_LOCK,
-				    BXT_DE_PLL_LOCK,
-				    1))
+	if (intel_de_wait_for_register(dev_priv,
+				       BXT_DE_PLL_ENABLE,
+				       BXT_DE_PLL_LOCK,
+				       BXT_DE_PLL_LOCK,
+				       1))
 		DRM_ERROR("timeout waiting for DE PLL lock\n");
 
 	dev_priv->cdclk.hw.vco = vco;
@@ -1283,7 +1283,7 @@ static void bxt_set_cdclk(struct drm_i915_private *dev_priv,
 	 */
 	if (cdclk >= 500000)
 		val |= BXT_CDCLK_SSA_PRECHARGE_ENABLE;
-	I915_WRITE(CDCLK_CTL, val);
+	I915_DE_WRITE(CDCLK_CTL, val);
 
 	mutex_lock(&dev_priv->rps.hw_lock);
 	ret = sandybridge_pcode_write(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ,
@@ -1315,7 +1315,7 @@ static void bxt_sanitize_cdclk(struct drm_i915_private *dev_priv)
 	 * set reserved MBZ bits in CDCLK_CTL at least during exiting from S4,
 	 * so sanitize this register.
 	 */
-	cdctl = I915_READ(CDCLK_CTL);
+	cdctl = I915_DE_READ(CDCLK_CTL);
 	/*
 	 * Let's ignore the pipe field, since BIOS could have configured the
 	 * dividers both synching to an active pipe, or asynchronously
@@ -1697,7 +1697,7 @@ static int intel_compute_max_dotclk(struct drm_i915_private *dev_priv)
 void intel_update_max_cdclk(struct drm_i915_private *dev_priv)
 {
 	if (IS_GEN9_BC(dev_priv)) {
-		u32 limit = I915_READ(SKL_DFSM) & SKL_DFSM_CDCLK_LIMIT_MASK;
+		u32 limit = I915_DE_READ(SKL_DFSM) & SKL_DFSM_CDCLK_LIMIT_MASK;
 		int max_cdclk, vco;
 
 		vco = dev_priv->skl_preferred_vco_freq;
@@ -1729,7 +1729,7 @@ void intel_update_max_cdclk(struct drm_i915_private *dev_priv)
 		 * How can we know if extra cooling is
 		 * available? PCI ID, VTB, something else?
 		 */
-		if (I915_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
+		if (I915_DE_READ(FUSE_STRAP) & HSW_CDCLK_LIMIT)
 			dev_priv->max_cdclk_freq = 450000;
 		else if (IS_BDW_ULX(dev_priv))
 			dev_priv->max_cdclk_freq = 450000;
@@ -1776,13 +1776,13 @@ void intel_update_cdclk(struct drm_i915_private *dev_priv)
 	 * generate GMBus clock. This will vary with the cdclk freq.
 	 */
 	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
-		I915_WRITE(GMBUSFREQ_VLV,
-			   DIV_ROUND_UP(dev_priv->cdclk.hw.cdclk, 1000));
+		I915_DE_WRITE(GMBUSFREQ_VLV,
+			      DIV_ROUND_UP(dev_priv->cdclk.hw.cdclk, 1000));
 }
 
 static int pch_rawclk(struct drm_i915_private *dev_priv)
 {
-	return (I915_READ(PCH_RAWCLK_FREQ) & RAWCLK_FREQ_MASK) * 1000;
+	return (I915_DE_READ(PCH_RAWCLK_FREQ) & RAWCLK_FREQ_MASK) * 1000;
 }
 
 static int vlv_hrawclk(struct drm_i915_private *dev_priv)
@@ -1797,7 +1797,7 @@ static int g4x_hrawclk(struct drm_i915_private *dev_priv)
 	uint32_t clkcfg;
 
 	/* hrawclock is 1/4 the FSB frequency */
-	clkcfg = I915_READ(CLKCFG);
+	clkcfg = I915_GT_READ(CLKCFG);
 	switch (clkcfg & CLKCFG_FSB_MASK) {
 	case CLKCFG_FSB_400:
 		return 100000;

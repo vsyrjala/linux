@@ -118,17 +118,16 @@ static void i8xx_fbc_deactivate(struct drm_i915_private *dev_priv)
 	u32 fbc_ctl;
 
 	/* Disable compression */
-	fbc_ctl = I915_READ(FBC_CONTROL);
+	fbc_ctl = I915_GT_READ(FBC_CONTROL);
 	if ((fbc_ctl & FBC_CTL_EN) == 0)
 		return;
 
 	fbc_ctl &= ~FBC_CTL_EN;
-	I915_WRITE(FBC_CONTROL, fbc_ctl);
+	I915_GT_WRITE(FBC_CONTROL, fbc_ctl);
 
 	/* Wait for compressing bit to clear */
-	if (intel_wait_for_register(dev_priv,
-				    FBC_STATUS, FBC_STAT_COMPRESSING, 0,
-				    10)) {
+	if (intel_gt_wait_for_register(dev_priv, FBC_STATUS,
+				       FBC_STAT_COMPRESSING, 0, 10)) {
 		DRM_DEBUG_KMS("FBC idle timed out\n");
 		return;
 	}
@@ -154,7 +153,7 @@ static void i8xx_fbc_activate(struct drm_i915_private *dev_priv)
 
 	/* Clear old tags */
 	for (i = 0; i < (FBC_LL_SIZE / 32) + 1; i++)
-		I915_WRITE(FBC_TAG(i), 0);
+		I915_GT_WRITE(FBC_TAG(i), 0);
 
 	if (IS_GEN4(dev_priv)) {
 		u32 fbc_ctl2;
@@ -162,24 +161,24 @@ static void i8xx_fbc_activate(struct drm_i915_private *dev_priv)
 		/* Set it up... */
 		fbc_ctl2 = FBC_CTL_FENCE_DBL | FBC_CTL_IDLE_IMM | FBC_CTL_CPU_FENCE;
 		fbc_ctl2 |= FBC_CTL_PLANE(params->crtc.plane);
-		I915_WRITE(FBC_CONTROL2, fbc_ctl2);
-		I915_WRITE(FBC_FENCE_OFF, params->crtc.fence_y_offset);
+		I915_GT_WRITE(FBC_CONTROL2, fbc_ctl2);
+		I915_GT_WRITE(FBC_FENCE_OFF, params->crtc.fence_y_offset);
 	}
 
 	/* enable it... */
-	fbc_ctl = I915_READ(FBC_CONTROL);
+	fbc_ctl = I915_GT_READ(FBC_CONTROL);
 	fbc_ctl &= 0x3fff << FBC_CTL_INTERVAL_SHIFT;
 	fbc_ctl |= FBC_CTL_EN | FBC_CTL_PERIODIC;
 	if (IS_I945GM(dev_priv))
 		fbc_ctl |= FBC_CTL_C3_IDLE; /* 945 needs special SR handling */
 	fbc_ctl |= (cfb_pitch & 0xff) << FBC_CTL_STRIDE_SHIFT;
 	fbc_ctl |= params->vma->fence->id;
-	I915_WRITE(FBC_CONTROL, fbc_ctl);
+	I915_GT_WRITE(FBC_CONTROL, fbc_ctl);
 }
 
 static bool i8xx_fbc_is_active(struct drm_i915_private *dev_priv)
 {
-	return I915_READ(FBC_CONTROL) & FBC_CTL_EN;
+	return I915_GT_READ(FBC_CONTROL) & FBC_CTL_EN;
 }
 
 static void g4x_fbc_activate(struct drm_i915_private *dev_priv)
@@ -195,13 +194,13 @@ static void g4x_fbc_activate(struct drm_i915_private *dev_priv)
 
 	if (params->vma->fence) {
 		dpfc_ctl |= DPFC_CTL_FENCE_EN | params->vma->fence->id;
-		I915_WRITE(DPFC_FENCE_YOFF, params->crtc.fence_y_offset);
+		I915_GT_WRITE(DPFC_FENCE_YOFF, params->crtc.fence_y_offset);
 	} else {
-		I915_WRITE(DPFC_FENCE_YOFF, 0);
+		I915_GT_WRITE(DPFC_FENCE_YOFF, 0);
 	}
 
 	/* enable it... */
-	I915_WRITE(DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
+	I915_GT_WRITE(DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
 }
 
 static void g4x_fbc_deactivate(struct drm_i915_private *dev_priv)
@@ -209,23 +208,23 @@ static void g4x_fbc_deactivate(struct drm_i915_private *dev_priv)
 	u32 dpfc_ctl;
 
 	/* Disable compression */
-	dpfc_ctl = I915_READ(DPFC_CONTROL);
+	dpfc_ctl = I915_GT_READ(DPFC_CONTROL);
 	if (dpfc_ctl & DPFC_CTL_EN) {
 		dpfc_ctl &= ~DPFC_CTL_EN;
-		I915_WRITE(DPFC_CONTROL, dpfc_ctl);
+		I915_GT_WRITE(DPFC_CONTROL, dpfc_ctl);
 	}
 }
 
 static bool g4x_fbc_is_active(struct drm_i915_private *dev_priv)
 {
-	return I915_READ(DPFC_CONTROL) & DPFC_CTL_EN;
+	return I915_GT_READ(DPFC_CONTROL) & DPFC_CTL_EN;
 }
 
 /* This function forces a CFB recompression through the nuke operation. */
 static void intel_fbc_recompress(struct drm_i915_private *dev_priv)
 {
-	I915_WRITE(MSG_FBC_REND_STATE, FBC_REND_NUKE);
-	POSTING_READ(MSG_FBC_REND_STATE);
+	I915_DE_WRITE(MSG_FBC_REND_STATE, FBC_REND_NUKE);
+	POSTING_DE_READ(MSG_FBC_REND_STATE);
 }
 
 static void ilk_fbc_activate(struct drm_i915_private *dev_priv)
@@ -256,24 +255,24 @@ static void ilk_fbc_activate(struct drm_i915_private *dev_priv)
 		if (IS_GEN5(dev_priv))
 			dpfc_ctl |= params->vma->fence->id;
 		if (IS_GEN6(dev_priv)) {
-			I915_WRITE(SNB_DPFC_CTL_SA,
-				   SNB_CPU_FENCE_ENABLE |
-				   params->vma->fence->id);
-			I915_WRITE(DPFC_CPU_FENCE_OFFSET,
-				   params->crtc.fence_y_offset);
+			I915_DE_WRITE(SNB_DPFC_CTL_SA,
+				      SNB_CPU_FENCE_ENABLE |
+				      params->vma->fence->id);
+			I915_DE_WRITE(DPFC_CPU_FENCE_OFFSET,
+				      params->crtc.fence_y_offset);
 		}
 	} else {
 		if (IS_GEN6(dev_priv)) {
-			I915_WRITE(SNB_DPFC_CTL_SA, 0);
-			I915_WRITE(DPFC_CPU_FENCE_OFFSET, 0);
+			I915_DE_WRITE(SNB_DPFC_CTL_SA, 0);
+			I915_DE_WRITE(DPFC_CPU_FENCE_OFFSET, 0);
 		}
 	}
 
-	I915_WRITE(ILK_DPFC_FENCE_YOFF, params->crtc.fence_y_offset);
-	I915_WRITE(ILK_FBC_RT_BASE,
-		   i915_ggtt_offset(params->vma) | ILK_FBC_RT_VALID);
+	I915_DE_WRITE(ILK_DPFC_FENCE_YOFF, params->crtc.fence_y_offset);
+	I915_GT_WRITE(ILK_FBC_RT_BASE,
+		      i915_ggtt_offset(params->vma) | ILK_FBC_RT_VALID);
 	/* enable it... */
-	I915_WRITE(ILK_DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
+	I915_DE_WRITE(ILK_DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
 
 	intel_fbc_recompress(dev_priv);
 }
@@ -283,16 +282,16 @@ static void ilk_fbc_deactivate(struct drm_i915_private *dev_priv)
 	u32 dpfc_ctl;
 
 	/* Disable compression */
-	dpfc_ctl = I915_READ(ILK_DPFC_CONTROL);
+	dpfc_ctl = I915_DE_READ(ILK_DPFC_CONTROL);
 	if (dpfc_ctl & DPFC_CTL_EN) {
 		dpfc_ctl &= ~DPFC_CTL_EN;
-		I915_WRITE(ILK_DPFC_CONTROL, dpfc_ctl);
+		I915_DE_WRITE(ILK_DPFC_CONTROL, dpfc_ctl);
 	}
 }
 
 static bool ilk_fbc_is_active(struct drm_i915_private *dev_priv)
 {
-	return I915_READ(ILK_DPFC_CONTROL) & DPFC_CTL_EN;
+	return I915_DE_READ(ILK_DPFC_CONTROL) & DPFC_CTL_EN;
 }
 
 static void gen7_fbc_activate(struct drm_i915_private *dev_priv)
@@ -323,13 +322,13 @@ static void gen7_fbc_activate(struct drm_i915_private *dev_priv)
 
 	if (params->vma->fence) {
 		dpfc_ctl |= IVB_DPFC_CTL_FENCE_EN;
-		I915_WRITE(SNB_DPFC_CTL_SA,
-			   SNB_CPU_FENCE_ENABLE |
-			   params->vma->fence->id);
-		I915_WRITE(DPFC_CPU_FENCE_OFFSET, params->crtc.fence_y_offset);
+		I915_DE_WRITE(SNB_DPFC_CTL_SA,
+			      SNB_CPU_FENCE_ENABLE |
+			      params->vma->fence->id);
+		I915_DE_WRITE(DPFC_CPU_FENCE_OFFSET, params->crtc.fence_y_offset);
 	} else {
-		I915_WRITE(SNB_DPFC_CTL_SA,0);
-		I915_WRITE(DPFC_CPU_FENCE_OFFSET, 0);
+		I915_DE_WRITE(SNB_DPFC_CTL_SA,0);
+		I915_DE_WRITE(DPFC_CPU_FENCE_OFFSET, 0);
 	}
 
 	if (dev_priv->fbc.false_color)
@@ -337,17 +336,17 @@ static void gen7_fbc_activate(struct drm_i915_private *dev_priv)
 
 	if (IS_IVYBRIDGE(dev_priv)) {
 		/* WaFbcAsynchFlipDisableFbcQueue:ivb */
-		I915_WRITE(ILK_DISPLAY_CHICKEN1,
-			   I915_READ(ILK_DISPLAY_CHICKEN1) |
-			   ILK_FBCQ_DIS);
+		I915_DE_WRITE(ILK_DISPLAY_CHICKEN1,
+			      I915_DE_READ(ILK_DISPLAY_CHICKEN1) |
+			      ILK_FBCQ_DIS);
 	} else if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
 		/* WaFbcAsynchFlipDisableFbcQueue:hsw,bdw */
-		I915_WRITE(CHICKEN_PIPESL_1(params->crtc.pipe),
-			   I915_READ(CHICKEN_PIPESL_1(params->crtc.pipe)) |
-			   HSW_FBCQ_DIS);
+		I915_DE_WRITE(CHICKEN_PIPESL_1(params->crtc.pipe),
+			      I915_DE_READ(CHICKEN_PIPESL_1(params->crtc.pipe)) |
+			      HSW_FBCQ_DIS);
 	}
 
-	I915_WRITE(ILK_DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
+	I915_DE_WRITE(ILK_DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
 
 	intel_fbc_recompress(dev_priv);
 }
@@ -597,9 +596,9 @@ static int intel_fbc_alloc_cfb(struct intel_crtc *crtc)
 	fbc->threshold = ret;
 
 	if (INTEL_GEN(dev_priv) >= 5)
-		I915_WRITE(ILK_DPFC_CB_BASE, fbc->compressed_fb.start);
+		I915_DE_WRITE(ILK_DPFC_CB_BASE, fbc->compressed_fb.start);
 	else if (IS_GM45(dev_priv)) {
-		I915_WRITE(DPFC_CB_BASE, fbc->compressed_fb.start);
+		I915_GT_WRITE(DPFC_CB_BASE, fbc->compressed_fb.start);
 	} else {
 		compressed_llb = kzalloc(sizeof(*compressed_llb), GFP_KERNEL);
 		if (!compressed_llb)
@@ -612,10 +611,10 @@ static int intel_fbc_alloc_cfb(struct intel_crtc *crtc)
 
 		fbc->compressed_llb = compressed_llb;
 
-		I915_WRITE(FBC_CFB_BASE,
-			   dev_priv->mm.stolen_base + fbc->compressed_fb.start);
-		I915_WRITE(FBC_LL_BASE,
-			   dev_priv->mm.stolen_base + compressed_llb->start);
+		I915_GT_WRITE(FBC_CFB_BASE,
+			      dev_priv->mm.stolen_base + fbc->compressed_fb.start);
+		I915_GT_WRITE(FBC_LL_BASE,
+			      dev_priv->mm.stolen_base + compressed_llb->start);
 	}
 
 	DRM_DEBUG_KMS("reserved %llu bytes of contiguous stolen space for FBC, threshold: %d\n",
@@ -1363,7 +1362,7 @@ void intel_fbc_init(struct drm_i915_private *dev_priv)
 
 	/* This value was pulled out of someone's hat */
 	if (INTEL_GEN(dev_priv) <= 4 && !IS_GM45(dev_priv))
-		I915_WRITE(FBC_CONTROL, 500 << FBC_CTL_INTERVAL_SHIFT);
+		I915_GT_WRITE(FBC_CONTROL, 500 << FBC_CTL_INTERVAL_SHIFT);
 
 	/* We still don't have any sort of hardware state readout for FBC, so
 	 * deactivate it in case the BIOS activated it to make sure software

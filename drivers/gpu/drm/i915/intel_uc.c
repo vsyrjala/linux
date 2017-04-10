@@ -52,7 +52,7 @@ static int __intel_uc_reset_hw(struct drm_i915_private *dev_priv)
 		return ret;
 	}
 
-	guc_status = I915_READ(GUC_STATUS);
+	guc_status = I915_GT_READ(GUC_STATUS);
 	WARN(!(guc_status & GS_MIA_IN_RESET),
 	     "GuC status: 0x%x, MIA core expected to be in reset\n",
 	     guc_status);
@@ -379,21 +379,21 @@ int intel_guc_send_mmio(struct intel_guc *guc, const u32 *action, u32 len)
 	dev_priv->guc.action_cmd = action[0];
 
 	for (i = 0; i < len; i++)
-		I915_WRITE(SOFT_SCRATCH(i), action[i]);
+		I915_GT_WRITE(SOFT_SCRATCH(i), action[i]);
 
-	POSTING_READ(SOFT_SCRATCH(i - 1));
+	POSTING_GT_READ(SOFT_SCRATCH(i - 1));
 
-	I915_WRITE(GUC_SEND_INTERRUPT, GUC_SEND_TRIGGER);
+	I915_GT_WRITE(GUC_SEND_INTERRUPT, GUC_SEND_TRIGGER);
 
 	/*
 	 * No GuC command should ever take longer than 10ms.
 	 * Fast commands should still complete in 10us.
 	 */
-	ret = __intel_wait_for_register_fw(dev_priv,
-					   SOFT_SCRATCH(0),
-					   INTEL_GUC_RECV_MASK,
-					   INTEL_GUC_RECV_MASK,
-					   10, 10, &status);
+	ret = __intel_gt_wait_for_register_fw(dev_priv,
+					      SOFT_SCRATCH(0),
+					      INTEL_GUC_RECV_MASK,
+					      INTEL_GUC_RECV_MASK,
+					      10, 10, &status);
 	if (status != INTEL_GUC_STATUS_SUCCESS) {
 		/*
 		 * Either the GuC explicitly returned an error (which
@@ -405,7 +405,7 @@ int intel_guc_send_mmio(struct intel_guc *guc, const u32 *action, u32 len)
 
 		DRM_WARN("INTEL_GUC_SEND: Action 0x%X failed;"
 			 " ret=%d status=0x%08X response=0x%08X\n",
-			 action[0], ret, status, I915_READ(SOFT_SCRATCH(15)));
+			 action[0], ret, status, I915_GT_READ(SOFT_SCRATCH(15)));
 
 		dev_priv->guc.action_fail += 1;
 		dev_priv->guc.action_err = ret;

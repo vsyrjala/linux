@@ -156,10 +156,10 @@ static void guc_params_init(struct drm_i915_private *dev_priv)
 		params[GUC_CTL_FEATURE] &= ~GUC_CTL_DISABLE_SCHEDULER;
 	}
 
-	I915_WRITE(SOFT_SCRATCH(0), 0);
+	I915_GT_WRITE(SOFT_SCRATCH(0), 0);
 
 	for (i = 0; i < GUC_CTL_MAX_DWORDS; i++)
-		I915_WRITE(SOFT_SCRATCH(1 + i), params[i]);
+		I915_GT_WRITE(SOFT_SCRATCH(1 + i), params[i]);
 }
 
 /*
@@ -174,7 +174,7 @@ static void guc_params_init(struct drm_i915_private *dev_priv)
 static inline bool guc_ucode_response(struct drm_i915_private *dev_priv,
 				      u32 *status)
 {
-	u32 val = I915_READ(GUC_STATUS);
+	u32 val = I915_GT_READ(GUC_STATUS);
 	u32 uk_val = val & GS_UKERNEL_MASK;
 	*status = val;
 	return (uk_val == GS_UKERNEL_READY ||
@@ -206,26 +206,26 @@ static int guc_ucode_xfer_dma(struct drm_i915_private *dev_priv,
 	/* Copy RSA signature from the fw image to HW for verification */
 	sg_pcopy_to_buffer(sg->sgl, sg->nents, rsa, sizeof(rsa), offset);
 	for (i = 0; i < UOS_RSA_SCRATCH_MAX_COUNT; i++)
-		I915_WRITE(UOS_RSA_SCRATCH(i), rsa[i]);
+		I915_GT_WRITE(UOS_RSA_SCRATCH(i), rsa[i]);
 
 	/* The header plus uCode will be copied to WOPCM via DMA, excluding any
 	 * other components */
-	I915_WRITE(DMA_COPY_SIZE, guc_fw->header_size + guc_fw->ucode_size);
+	I915_GT_WRITE(DMA_COPY_SIZE, guc_fw->header_size + guc_fw->ucode_size);
 
 	/* Set the source address for the new blob */
 	offset = guc_ggtt_offset(vma) + guc_fw->header_offset;
-	I915_WRITE(DMA_ADDR_0_LOW, lower_32_bits(offset));
-	I915_WRITE(DMA_ADDR_0_HIGH, upper_32_bits(offset) & 0xFFFF);
+	I915_GT_WRITE(DMA_ADDR_0_LOW, lower_32_bits(offset));
+	I915_GT_WRITE(DMA_ADDR_0_HIGH, upper_32_bits(offset) & 0xFFFF);
 
 	/*
 	 * Set the DMA destination. Current uCode expects the code to be
 	 * loaded at 8k; locations below this are used for the stack.
 	 */
-	I915_WRITE(DMA_ADDR_1_LOW, 0x2000);
-	I915_WRITE(DMA_ADDR_1_HIGH, DMA_ADDRESS_SPACE_WOPCM);
+	I915_GT_WRITE(DMA_ADDR_1_LOW, 0x2000);
+	I915_GT_WRITE(DMA_ADDR_1_HIGH, DMA_ADDRESS_SPACE_WOPCM);
 
 	/* Finally start the DMA */
-	I915_WRITE(DMA_CTRL, _MASKED_BIT_ENABLE(UOS_MOVE | START_DMA));
+	I915_GT_WRITE(DMA_CTRL, _MASKED_BIT_ENABLE(UOS_MOVE | START_DMA));
 
 	/*
 	 * Wait for the DMA to complete & the GuC to start up.
@@ -238,7 +238,7 @@ static int guc_ucode_xfer_dma(struct drm_i915_private *dev_priv,
 	ret = wait_for(guc_ucode_response(dev_priv, &status), 100);
 
 	DRM_DEBUG_DRIVER("DMA status 0x%x, GuC status 0x%x\n",
-			I915_READ(DMA_CTRL), status);
+			I915_GT_READ(DMA_CTRL), status);
 
 	if ((status & GS_BOOTROM_MASK) == GS_BOOTROM_RSA_FAILED) {
 		DRM_ERROR("GuC firmware signature verification failed\n");
@@ -286,34 +286,34 @@ static int guc_ucode_xfer(struct drm_i915_private *dev_priv)
 	intel_uncore_forcewake_get(dev_priv, FORCEWAKE_ALL);
 
 	/* init WOPCM */
-	I915_WRITE(GUC_WOPCM_SIZE, intel_guc_wopcm_size(dev_priv));
-	I915_WRITE(DMA_GUC_WOPCM_OFFSET, GUC_WOPCM_OFFSET_VALUE);
+	I915_GT_WRITE(GUC_WOPCM_SIZE, intel_guc_wopcm_size(dev_priv));
+	I915_GT_WRITE(DMA_GUC_WOPCM_OFFSET, GUC_WOPCM_OFFSET_VALUE);
 
 	/* Enable MIA caching. GuC clock gating is disabled. */
-	I915_WRITE(GUC_SHIM_CONTROL, GUC_SHIM_CONTROL_VALUE);
+	I915_GT_WRITE(GUC_SHIM_CONTROL, GUC_SHIM_CONTROL_VALUE);
 
 	/* WaDisableMinuteIaClockGating:bxt */
 	if (IS_BXT_REVID(dev_priv, 0, BXT_REVID_A1)) {
-		I915_WRITE(GUC_SHIM_CONTROL, (I915_READ(GUC_SHIM_CONTROL) &
-					      ~GUC_ENABLE_MIA_CLOCK_GATING));
+		I915_GT_WRITE(GUC_SHIM_CONTROL, I915_GT_READ(GUC_SHIM_CONTROL) &
+			      ~GUC_ENABLE_MIA_CLOCK_GATING);
 	}
 
 	/* WaC6DisallowByGfxPause:bxt */
 	if (IS_BXT_REVID(dev_priv, 0, BXT_REVID_B0))
-		I915_WRITE(GEN6_GFXPAUSE, 0x30FFF);
+		I915_GT_WRITE(GEN6_GFXPAUSE, 0x30FFF);
 
 	if (IS_GEN9_LP(dev_priv))
-		I915_WRITE(GEN9LP_GT_PM_CONFIG, GT_DOORBELL_ENABLE);
+		I915_GT_WRITE(GEN9LP_GT_PM_CONFIG, GT_DOORBELL_ENABLE);
 	else
-		I915_WRITE(GEN9_GT_PM_CONFIG, GT_DOORBELL_ENABLE);
+		I915_GT_WRITE(GEN9_GT_PM_CONFIG, GT_DOORBELL_ENABLE);
 
 	if (IS_GEN9(dev_priv)) {
 		/* DOP Clock Gating Enable for GuC clocks */
-		I915_WRITE(GEN7_MISCCPCTL, (GEN8_DOP_CLOCK_GATE_GUC_ENABLE |
-					    I915_READ(GEN7_MISCCPCTL)));
+		I915_GT_WRITE(GEN7_MISCCPCTL, GEN8_DOP_CLOCK_GATE_GUC_ENABLE |
+			      I915_GT_READ(GEN7_MISCCPCTL));
 
 		/* allows for 5us (in 10ns units) before GT can go to RC6 */
-		I915_WRITE(GUC_ARAT_C6DIS, 0x1FF);
+		I915_GT_WRITE(GUC_ARAT_C6DIS, 0x1FF);
 	}
 
 	guc_params_init(dev_priv);

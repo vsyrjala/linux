@@ -2507,10 +2507,6 @@ enum skl_disp_power_wells {
 #define FBC_FENCE_OFF		_MMIO(0x3218) /* BSpec typo has 321Bh */
 #define FBC_TAG(i)		_MMIO(0x3300 + (i) * 4)
 
-#define FBC_STATUS2			_MMIO(0x43214)
-#define  IVB_FBC_COMPRESSION_MASK	0x7ff
-#define  BDW_FBC_COMPRESSION_MASK	0xfff
-
 #define FBC_LL_SIZE		(1536)
 
 #define FBC_LLC_READ_CTRL	_MMIO(0x9044)
@@ -2553,6 +2549,9 @@ enum skl_disp_power_wells {
 #define   DPFC_RESERVED		(0x1FFFFF00)
 #define ILK_DPFC_RECOMP_CTL	_MMIO(0x4320c)
 #define ILK_DPFC_STATUS		_MMIO(0x43210)
+#define ILK_DPFC_STATUS2	_MMIO(0x43214)
+#define  IVB_FBC_COMPRESSION_MASK	0x7ff
+#define  BDW_FBC_COMPRESSION_MASK	0xfff
 #define ILK_DPFC_FENCE_YOFF	_MMIO(0x43218)
 #define ILK_DPFC_CHICKEN	_MMIO(0x43224)
 #define   ILK_DPFC_DISABLE_DUMMY0 (1<<8)
@@ -7305,7 +7304,6 @@ enum {
 #define   VLV_GTLC_RENDER_CTX_EXISTS		(1 << 25)
 #define   VLV_GTLC_MEDIA_CTX_EXISTS		(1 << 24)
 #define   VLV_GTLC_ALLOWWAKEREQ			(1 << 0)
-
 #define  VLV_GTLC_PW_STATUS			_MMIO(0x130094)
 #define   VLV_GTLC_ALLOWWAKEACK			(1 << 0)
 #define   VLV_GTLC_ALLOWWAKEERR			(1 << 1)

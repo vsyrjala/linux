@@ -126,7 +126,7 @@ static bool intel_dvo_connector_get_hw_state(struct intel_connector *connector)
 	struct intel_dvo *intel_dvo = intel_attached_dvo(&connector->base);
 	u32 tmp;
 
-	tmp = I915_READ(intel_dvo->dev.dvo_reg);
+	tmp = I915_DE_READ(intel_dvo->dev.dvo_reg);
 
 	if (!(tmp & DVO_ENABLE))
 		return false;
@@ -142,7 +142,7 @@ static bool intel_dvo_get_hw_state(struct intel_encoder *encoder,
 	struct intel_dvo *intel_dvo = enc_to_dvo(encoder);
 	u32 tmp;
 
-	tmp = I915_READ(intel_dvo->dev.dvo_reg);
+	tmp = I915_DE_READ(intel_dvo->dev.dvo_reg);
 
 	if (!(tmp & DVO_ENABLE))
 		return false;
@@ -159,7 +159,7 @@ static void intel_dvo_get_config(struct intel_encoder *encoder,
 	struct intel_dvo *intel_dvo = enc_to_dvo(encoder);
 	u32 tmp, flags = 0;
 
-	tmp = I915_READ(intel_dvo->dev.dvo_reg);
+	tmp = I915_DE_READ(intel_dvo->dev.dvo_reg);
 	if (tmp & DVO_HSYNC_ACTIVE_HIGH)
 		flags |= DRM_MODE_FLAG_PHSYNC;
 	else
@@ -181,11 +181,11 @@ static void intel_disable_dvo(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	struct intel_dvo *intel_dvo = enc_to_dvo(encoder);
 	i915_reg_t dvo_reg = intel_dvo->dev.dvo_reg;
-	u32 temp = I915_READ(dvo_reg);
+	u32 temp = I915_DE_READ(dvo_reg);
 
 	intel_dvo->dev.dev_ops->dpms(&intel_dvo->dev, false);
-	I915_WRITE(dvo_reg, temp & ~DVO_ENABLE);
-	I915_READ(dvo_reg);
+	I915_DE_WRITE(dvo_reg, temp & ~DVO_ENABLE);
+	I915_DE_READ(dvo_reg);
 }
 
 static void intel_enable_dvo(struct intel_encoder *encoder,
@@ -195,14 +195,14 @@ static void intel_enable_dvo(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	struct intel_dvo *intel_dvo = enc_to_dvo(encoder);
 	i915_reg_t dvo_reg = intel_dvo->dev.dvo_reg;
-	u32 temp = I915_READ(dvo_reg);
+	u32 temp = I915_DE_READ(dvo_reg);
 
 	intel_dvo->dev.dev_ops->mode_set(&intel_dvo->dev,
 					 &pipe_config->base.mode,
 					 &pipe_config->base.adjusted_mode);
 
-	I915_WRITE(dvo_reg, temp | DVO_ENABLE);
-	I915_READ(dvo_reg);
+	I915_DE_WRITE(dvo_reg, temp | DVO_ENABLE);
+	I915_DE_READ(dvo_reg);
 
 	intel_dvo->dev.dev_ops->dpms(&intel_dvo->dev, true);
 }
@@ -271,7 +271,7 @@ static void intel_dvo_pre_enable(struct intel_encoder *encoder,
 	i915_reg_t dvo_srcdim_reg = intel_dvo->dev.dvo_srcdim_reg;
 
 	/* Save the data order, since I don't know what it should be set to. */
-	dvo_val = I915_READ(dvo_reg) &
+	dvo_val = I915_DE_READ(dvo_reg) &
 		  (DVO_PRESERVE_MASK | DVO_DATA_ORDER_GBRG);
 	dvo_val |= DVO_DATA_ORDER_FP | DVO_BORDER_ENABLE |
 		   DVO_BLANK_ACTIVE_HIGH;
@@ -287,11 +287,11 @@ static void intel_dvo_pre_enable(struct intel_encoder *encoder,
 	/*I915_WRITE(DVOB_SRCDIM,
 	  (adjusted_mode->crtc_hdisplay << DVO_SRCDIM_HORIZONTAL_SHIFT) |
 	  (adjusted_mode->crtc_vdisplay << DVO_SRCDIM_VERTICAL_SHIFT));*/
-	I915_WRITE(dvo_srcdim_reg,
-		   (adjusted_mode->crtc_hdisplay << DVO_SRCDIM_HORIZONTAL_SHIFT) |
-		   (adjusted_mode->crtc_vdisplay << DVO_SRCDIM_VERTICAL_SHIFT));
+	I915_DE_WRITE(dvo_srcdim_reg,
+		      (adjusted_mode->crtc_hdisplay << DVO_SRCDIM_HORIZONTAL_SHIFT) |
+		      (adjusted_mode->crtc_vdisplay << DVO_SRCDIM_VERTICAL_SHIFT));
 	/*I915_WRITE(DVOB, dvo_val);*/
-	I915_WRITE(dvo_reg, dvo_val);
+	I915_DE_WRITE(dvo_reg, dvo_val);
 }
 
 /**
@@ -386,7 +386,7 @@ intel_dvo_get_current_mode(struct drm_connector *connector)
 	struct drm_device *dev = connector->dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_dvo *intel_dvo = intel_attached_dvo(connector);
-	uint32_t dvo_val = I915_READ(intel_dvo->dev.dvo_reg);
+	uint32_t dvo_val = I915_DE_READ(intel_dvo->dev.dvo_reg);
 	struct drm_display_mode *mode = NULL;
 
 	/* If the DVO port is active, that'll be the LVDS, so we can pull out
@@ -493,15 +493,15 @@ void intel_dvo_init(struct drm_i915_private *dev_priv)
 		 * initialize the device.
 		 */
 		for_each_pipe(dev_priv, pipe) {
-			dpll[pipe] = I915_READ(DPLL(pipe));
-			I915_WRITE(DPLL(pipe), dpll[pipe] | DPLL_DVO_2X_MODE);
+			dpll[pipe] = I915_GT_READ(DPLL(pipe));
+			I915_GT_WRITE(DPLL(pipe), dpll[pipe] | DPLL_DVO_2X_MODE);
 		}
 
 		dvoinit = dvo->dev_ops->init(&intel_dvo->dev, i2c);
 
 		/* restore the DVO 2x clock state to original */
 		for_each_pipe(dev_priv, pipe) {
-			I915_WRITE(DPLL(pipe), dpll[pipe]);
+			I915_GT_WRITE(DPLL(pipe), dpll[pipe]);
 		}
 
 		intel_gmbus_force_bit(i2c, false);

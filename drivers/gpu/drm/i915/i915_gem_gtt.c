@@ -111,13 +111,13 @@ static void gen6_ggtt_invalidate(struct drm_i915_private *dev_priv)
 	/* Note that as an uncached mmio write, this should flush the
 	 * WCB of the writes into the GGTT before it triggers the invalidate.
 	 */
-	I915_WRITE(GFX_FLSH_CNTL_GEN6, GFX_FLSH_CNTL_EN);
+	I915_DE_WRITE(GFX_FLSH_CNTL_GEN6, GFX_FLSH_CNTL_EN);
 }
 
 static void guc_ggtt_invalidate(struct drm_i915_private *dev_priv)
 {
 	gen6_ggtt_invalidate(dev_priv);
-	I915_WRITE(GEN8_GTCR, GEN8_GTCR_INVALIDATE);
+	I915_GT_WRITE(GEN8_GTCR, GEN8_GTCR_INVALIDATE);
 }
 
 static void gmch_ggtt_invalidate(struct drm_i915_private *dev_priv)
@@ -1010,8 +1010,8 @@ static int gen8_ppgtt_notify_vgt(struct i915_hw_ppgtt *ppgtt, bool create)
 	if (use_4lvl(vm)) {
 		const u64 daddr = px_dma(&ppgtt->pml4);
 
-		I915_WRITE(vgtif_reg(pdp[0].lo), lower_32_bits(daddr));
-		I915_WRITE(vgtif_reg(pdp[0].hi), upper_32_bits(daddr));
+		I915_GT_WRITE(vgtif_reg(pdp[0].lo), lower_32_bits(daddr));
+		I915_GT_WRITE(vgtif_reg(pdp[0].hi), upper_32_bits(daddr));
 
 		msg = (create ? VGT_G2V_PPGTT_L4_PAGE_TABLE_CREATE :
 				VGT_G2V_PPGTT_L4_PAGE_TABLE_DESTROY);
@@ -1019,15 +1019,15 @@ static int gen8_ppgtt_notify_vgt(struct i915_hw_ppgtt *ppgtt, bool create)
 		for (i = 0; i < GEN8_3LVL_PDPES; i++) {
 			const u64 daddr = i915_page_dir_dma_addr(ppgtt, i);
 
-			I915_WRITE(vgtif_reg(pdp[i].lo), lower_32_bits(daddr));
-			I915_WRITE(vgtif_reg(pdp[i].hi), upper_32_bits(daddr));
+			I915_GT_WRITE(vgtif_reg(pdp[i].lo), lower_32_bits(daddr));
+			I915_GT_WRITE(vgtif_reg(pdp[i].hi), upper_32_bits(daddr));
 		}
 
 		msg = (create ? VGT_G2V_PPGTT_L3_PAGE_TABLE_CREATE :
 				VGT_G2V_PPGTT_L3_PAGE_TABLE_DESTROY);
 	}
 
-	I915_WRITE(vgtif_reg(g2v_notify), msg);
+	I915_GT_WRITE(vgtif_reg(g2v_notify), msg);
 
 	return 0;
 }
@@ -1522,8 +1522,8 @@ static int gen6_mm_switch(struct i915_hw_ppgtt *ppgtt,
 	struct intel_engine_cs *engine = req->engine;
 	struct drm_i915_private *dev_priv = req->i915;
 
-	I915_WRITE(RING_PP_DIR_DCLV(engine), PP_DIR_DCLV_2G);
-	I915_WRITE(RING_PP_DIR_BASE(engine), get_pd_offset(ppgtt));
+	I915_GT_WRITE(RING_PP_DIR_DCLV(engine), PP_DIR_DCLV_2G);
+	I915_GT_WRITE(RING_PP_DIR_BASE(engine), get_pd_offset(ppgtt));
 	return 0;
 }
 
@@ -1535,8 +1535,8 @@ static void gen8_ppgtt_enable(struct drm_i915_private *dev_priv)
 	for_each_engine(engine, dev_priv, id) {
 		u32 four_level = USES_FULL_48BIT_PPGTT(dev_priv) ?
 				 GEN8_GFX_PPGTT_48B : 0;
-		I915_WRITE(RING_MODE_GEN7(engine),
-			   _MASKED_BIT_ENABLE(GFX_PPGTT_ENABLE | four_level));
+		I915_GT_WRITE(RING_MODE_GEN7(engine),
+			      _MASKED_BIT_ENABLE(GFX_PPGTT_ENABLE | four_level));
 	}
 }
 
@@ -1546,22 +1546,22 @@ static void gen7_ppgtt_enable(struct drm_i915_private *dev_priv)
 	u32 ecochk, ecobits;
 	enum intel_engine_id id;
 
-	ecobits = I915_READ(GAC_ECO_BITS);
-	I915_WRITE(GAC_ECO_BITS, ecobits | ECOBITS_PPGTT_CACHE64B);
+	ecobits = I915_GT_READ(GAC_ECO_BITS);
+	I915_GT_WRITE(GAC_ECO_BITS, ecobits | ECOBITS_PPGTT_CACHE64B);
 
-	ecochk = I915_READ(GAM_ECOCHK);
+	ecochk = I915_GT_READ(GAM_ECOCHK);
 	if (IS_HASWELL(dev_priv)) {
 		ecochk |= ECOCHK_PPGTT_WB_HSW;
 	} else {
 		ecochk |= ECOCHK_PPGTT_LLC_IVB;
 		ecochk &= ~ECOCHK_PPGTT_GFDT_IVB;
 	}
-	I915_WRITE(GAM_ECOCHK, ecochk);
+	I915_GT_WRITE(GAM_ECOCHK, ecochk);
 
 	for_each_engine(engine, dev_priv, id) {
 		/* GFX_MODE is per-ring on gen7+ */
-		I915_WRITE(RING_MODE_GEN7(engine),
-			   _MASKED_BIT_ENABLE(GFX_PPGTT_ENABLE));
+		I915_GT_WRITE(RING_MODE_GEN7(engine),
+			      _MASKED_BIT_ENABLE(GFX_PPGTT_ENABLE));
 	}
 }
 
@@ -1569,17 +1569,17 @@ static void gen6_ppgtt_enable(struct drm_i915_private *dev_priv)
 {
 	u32 ecochk, gab_ctl, ecobits;
 
-	ecobits = I915_READ(GAC_ECO_BITS);
-	I915_WRITE(GAC_ECO_BITS, ecobits | ECOBITS_SNB_BIT |
-		   ECOBITS_PPGTT_CACHE64B);
+	ecobits = I915_GT_READ(GAC_ECO_BITS);
+	I915_GT_WRITE(GAC_ECO_BITS, ecobits | ECOBITS_SNB_BIT |
+		      ECOBITS_PPGTT_CACHE64B);
 
-	gab_ctl = I915_READ(GAB_CTL);
-	I915_WRITE(GAB_CTL, gab_ctl | GAB_CTL_CONT_AFTER_PAGEFAULT);
+	gab_ctl = I915_GT_READ(GAB_CTL);
+	I915_GT_WRITE(GAB_CTL, gab_ctl | GAB_CTL_CONT_AFTER_PAGEFAULT);
 
-	ecochk = I915_READ(GAM_ECOCHK);
-	I915_WRITE(GAM_ECOCHK, ecochk | ECOCHK_SNB_BIT | ECOCHK_PPGTT_CACHE64B);
+	ecochk = I915_GT_READ(GAM_ECOCHK);
+	I915_GT_WRITE(GAM_ECOCHK, ecochk | ECOCHK_SNB_BIT | ECOCHK_PPGTT_CACHE64B);
 
-	I915_WRITE(GFX_MODE, _MASKED_BIT_ENABLE(GFX_PPGTT_ENABLE));
+	I915_GT_WRITE(GFX_MODE, _MASKED_BIT_ENABLE(GFX_PPGTT_ENABLE));
 }
 
 /* PPGTT support for Sandybdrige/Gen6 and later */
@@ -1883,13 +1883,13 @@ static void gtt_write_workarounds(struct drm_i915_private *dev_priv)
 	 */
 	/* WaIncreaseDefaultTLBEntries:chv,bdw,skl,bxt,kbl,glk */
 	if (IS_BROADWELL(dev_priv))
-		I915_WRITE(GEN8_L3_LRA_1_GPGPU, GEN8_L3_LRA_1_GPGPU_DEFAULT_VALUE_BDW);
+		I915_GT_WRITE(GEN8_L3_LRA_1_GPGPU, GEN8_L3_LRA_1_GPGPU_DEFAULT_VALUE_BDW);
 	else if (IS_CHERRYVIEW(dev_priv))
-		I915_WRITE(GEN8_L3_LRA_1_GPGPU, GEN8_L3_LRA_1_GPGPU_DEFAULT_VALUE_CHV);
+		I915_GT_WRITE(GEN8_L3_LRA_1_GPGPU, GEN8_L3_LRA_1_GPGPU_DEFAULT_VALUE_CHV);
 	else if (IS_GEN9_BC(dev_priv))
-		I915_WRITE(GEN8_L3_LRA_1_GPGPU, GEN9_L3_LRA_1_GPGPU_DEFAULT_VALUE_SKL);
+		I915_GT_WRITE(GEN8_L3_LRA_1_GPGPU, GEN9_L3_LRA_1_GPGPU_DEFAULT_VALUE_SKL);
 	else if (IS_GEN9_LP(dev_priv))
-		I915_WRITE(GEN8_L3_LRA_1_GPGPU, GEN9_L3_LRA_1_GPGPU_DEFAULT_VALUE_BXT);
+		I915_GT_WRITE(GEN8_L3_LRA_1_GPGPU, GEN9_L3_LRA_1_GPGPU_DEFAULT_VALUE_BXT);
 }
 
 int i915_ppgtt_init_hw(struct drm_i915_private *dev_priv)
@@ -2007,7 +2007,7 @@ void i915_check_and_clear_faults(struct drm_i915_private *dev_priv)
 
 	for_each_engine(engine, dev_priv, id) {
 		u32 fault_reg;
-		fault_reg = I915_READ(RING_FAULT_REG(engine));
+		fault_reg = I915_GT_READ(RING_FAULT_REG(engine));
 		if (fault_reg & RING_FAULT_VALID) {
 			DRM_DEBUG_DRIVER("Unexpected fault\n"
 					 "\tAddr: 0x%08lx\n"
@@ -2018,14 +2018,14 @@ void i915_check_and_clear_faults(struct drm_i915_private *dev_priv)
 					 fault_reg & RING_FAULT_GTTSEL_MASK ? "GGTT" : "PPGTT",
 					 RING_FAULT_SRCID(fault_reg),
 					 RING_FAULT_FAULT_TYPE(fault_reg));
-			I915_WRITE(RING_FAULT_REG(engine),
+			I915_GT_WRITE(RING_FAULT_REG(engine),
 				   fault_reg & ~RING_FAULT_VALID);
 		}
 	}
 
 	/* Engine specific init may not have been done till this point. */
 	if (dev_priv->engine[RCS])
-		POSTING_READ(RING_FAULT_REG(dev_priv->engine[RCS]));
+		POSTING_GT_READ(RING_FAULT_REG(dev_priv->engine[RCS]));
 }
 
 void i915_gem_suspend_gtt_mappings(struct drm_i915_private *dev_priv)
@@ -2688,8 +2688,8 @@ static void bdw_setup_private_ppat(struct drm_i915_private *dev_priv)
 
 	/* XXX: spec defines this as 2 distinct registers. It's unclear if a 64b
 	 * write would work. */
-	I915_WRITE(GEN8_PRIVATE_PAT_LO, pat);
-	I915_WRITE(GEN8_PRIVATE_PAT_HI, pat >> 32);
+	I915_GT_WRITE(GEN8_PRIVATE_PAT_LO, pat);
+	I915_GT_WRITE(GEN8_PRIVATE_PAT_HI, pat >> 32);
 }
 
 static void chv_setup_private_ppat(struct drm_i915_private *dev_priv)
@@ -2723,8 +2723,8 @@ static void chv_setup_private_ppat(struct drm_i915_private *dev_priv)
 	      GEN8_PPAT(6, CHV_PPAT_SNOOP) |
 	      GEN8_PPAT(7, CHV_PPAT_SNOOP);
 
-	I915_WRITE(GEN8_PRIVATE_PAT_LO, pat);
-	I915_WRITE(GEN8_PRIVATE_PAT_HI, pat >> 32);
+	I915_GT_WRITE(GEN8_PRIVATE_PAT_LO, pat);
+	I915_GT_WRITE(GEN8_PRIVATE_PAT_HI, pat >> 32);
 }
 
 static void gen6_gmch_remove(struct i915_address_space *vm)
