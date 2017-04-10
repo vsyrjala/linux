@@ -28,6 +28,7 @@
 #include <linux/async.h>
 #include <linux/i2c.h>
 #include <linux/hdmi.h>
+#include <linux/pm_qos.h>
 #include <linux/sched/clock.h>
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
@@ -800,6 +801,8 @@ struct intel_crtc {
 
 	/* scalers available on this crtc */
 	int num_scalers;
+
+	struct pm_qos_request pm_qos;
 };
 
 struct intel_plane {

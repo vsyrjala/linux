@@ -66,6 +66,7 @@ int intel_usecs_to_scanlines(const struct drm_display_mode *adjusted_mode,
 }
 
 #define VBLANK_EVASION_TIME_US 100
+#define VBLANK_EVASION_QOS_LATENCY_TIME_US 0
 
 /**
  * intel_pipe_update_start() - start update of a set of display registers
@@ -98,6 +99,9 @@ void intel_pipe_update_start(struct intel_crtc *crtc)
 	min = vblank_start - intel_usecs_to_scanlines(adjusted_mode,
 						      VBLANK_EVASION_TIME_US);
 	max = vblank_start - 1;
+
+	pm_qos_update_request(&crtc->pm_qos,
+			      VBLANK_EVASION_QOS_LATENCY_TIME_US);
 
 	local_irq_disable();
 
@@ -191,6 +195,8 @@ void intel_pipe_update_end(struct intel_crtc *crtc, struct intel_flip_work *work
 	drm_crtc_vblank_put(&crtc->base);
 
 	local_irq_enable();
+
+	pm_qos_update_request(&crtc->pm_qos, PM_QOS_DEFAULT_VALUE);
 
 	if (intel_vgpu_active(dev_priv))
 		return;

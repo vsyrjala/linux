@@ -9900,6 +9900,8 @@ static void intel_crtc_destroy(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	struct intel_flip_work *work;
 
+	pm_qos_remove_request(&intel_crtc->pm_qos);
+
 	spin_lock_irq(&dev->event_lock);
 	work = intel_crtc->flip_work;
 	intel_crtc->flip_work = NULL;
@@ -13899,6 +13901,9 @@ static int intel_crtc_init(struct drm_i915_private *dev_priv, enum pipe pipe)
 	intel_color_init(&intel_crtc->base);
 
 	WARN_ON(drm_crtc_index(&intel_crtc->base) != intel_crtc->pipe);
+
+        pm_qos_add_request(&intel_crtc->pm_qos, PM_QOS_CPU_DMA_LATENCY,
+			   PM_QOS_DEFAULT_VALUE);
 
 	return 0;
 
