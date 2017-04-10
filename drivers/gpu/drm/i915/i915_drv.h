@@ -3903,18 +3903,21 @@ int intel_freq_opcode(struct drm_i915_private *dev_priv, int val);
 u64 intel_rc6_residency_us(struct drm_i915_private *dev_priv,
 			   const i915_reg_t reg);
 
-#define I915_READ8(reg)		dev_priv->uncore.funcs.mmio_readb(dev_priv, (reg), true)
-#define I915_WRITE8(reg, val)	dev_priv->uncore.funcs.mmio_writeb(dev_priv, (reg), (val), true)
+#define _I915_READ(size, reg, trace)		dev_priv->uncore.funcs.mmio_read##size(dev_priv, (reg), (trace))
+#define _I915_WRITE(size, reg, val, trace)	dev_priv->uncore.funcs.mmio_write##size(dev_priv, (reg), (val), (trace))
 
-#define I915_READ16(reg)	dev_priv->uncore.funcs.mmio_readw(dev_priv, (reg), true)
-#define I915_WRITE16(reg, val)	dev_priv->uncore.funcs.mmio_writew(dev_priv, (reg), (val), true)
-#define I915_READ16_NOTRACE(reg)	dev_priv->uncore.funcs.mmio_readw(dev_priv, (reg), false)
-#define I915_WRITE16_NOTRACE(reg, val)	dev_priv->uncore.funcs.mmio_writew(dev_priv, (reg), (val), false)
+#define I915_READ8(reg)		_I915_READ(b, (reg), true)
+#define I915_WRITE8(reg, val)	_I915_WRITE(b, (reg), (val), true)
 
-#define I915_READ(reg)		dev_priv->uncore.funcs.mmio_readl(dev_priv, (reg), true)
-#define I915_WRITE(reg, val)	dev_priv->uncore.funcs.mmio_writel(dev_priv, (reg), (val), true)
-#define I915_READ_NOTRACE(reg)		dev_priv->uncore.funcs.mmio_readl(dev_priv, (reg), false)
-#define I915_WRITE_NOTRACE(reg, val)	dev_priv->uncore.funcs.mmio_writel(dev_priv, (reg), (val), false)
+#define I915_READ16(reg)	_I915_READ(w, (reg), true)
+#define I915_WRITE16(reg, val)	_I915_WRITE(w, (reg), (val), true)
+#define I915_READ16_NOTRACE(reg)	_I915_READ(w, (reg), false)
+#define I915_WRITE16_NOTRACE(reg, val)	_I915_WRITE(w, (reg), (val), false)
+
+#define I915_READ(reg)		_I915_READ(l, (reg), true)
+#define I915_WRITE(reg, val)	_I915_WRITE(l, (reg), (val), true)
+#define I915_READ_NOTRACE(reg)		_I915_READ(l, (reg), false)
+#define I915_WRITE_NOTRACE(reg, val)	_I915_WRITE(l, (reg), (val), false)
 
 /* Be very careful with read/write 64-bit values. On 32-bit machines, they
  * will be implemented using 2 32-bit writes in an arbitrary order with
@@ -3930,7 +3933,7 @@ u64 intel_rc6_residency_us(struct drm_i915_private *dev_priv,
  *
  * You have been warned.
  */
-#define I915_READ64(reg)	dev_priv->uncore.funcs.mmio_readq(dev_priv, (reg), true)
+#define I915_READ64(reg)	_I915_READ(q, (reg), true)
 
 #define I915_READ64_2x32(lower_reg, upper_reg) ({			\
 	u32 upper, lower, old_upper, loop = 0;				\
