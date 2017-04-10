@@ -117,8 +117,8 @@ static void intel_begin_crtc_commit(struct drm_crtc *, struct drm_crtc_state *);
 static void intel_finish_crtc_commit(struct drm_crtc *, struct drm_crtc_state *);
 static void intel_crtc_init_scalers(struct intel_crtc *crtc,
 				    struct intel_crtc_state *crtc_state);
-static void skylake_pfit_enable(struct intel_crtc *crtc);
-static void ironlake_pfit_disable(struct intel_crtc *crtc, bool force);
+static void skl_pipe_scaler_enable(struct intel_crtc *crtc);
+static void ironlake_pfit_disable(struct intel_crtc *crtc);
 static void ironlake_pfit_enable(struct intel_crtc *crtc);
 static void intel_modeset_setup_hw_state(struct drm_device *dev);
 static void intel_pre_disable_primary_noatomic(struct drm_crtc *crtc);
@@ -3153,30 +3153,29 @@ intel_fb_stride_alignment(const struct drm_framebuffer *fb, int plane)
 		return intel_tile_width_bytes(fb, plane);
 }
 
-static void skl_detach_scaler(struct intel_crtc *intel_crtc, int id)
+static void skl_scaler_disable(struct intel_crtc *intel_crtc, int id)
 {
 	struct drm_device *dev = intel_crtc->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 
-	I915_WRITE(SKL_PS_CTRL(intel_crtc->pipe, id), 0);
-	I915_WRITE(SKL_PS_WIN_POS(intel_crtc->pipe, id), 0);
-	I915_WRITE(SKL_PS_WIN_SZ(intel_crtc->pipe, id), 0);
+	I915_WRITE_FW(SKL_PS_CTRL(intel_crtc->pipe, id), 0);
+	I915_WRITE_FW(SKL_PS_WIN_POS(intel_crtc->pipe, id), 0);
+	I915_WRITE_FW(SKL_PS_WIN_SZ(intel_crtc->pipe, id), 0);
 }
 
 /*
  * This function detaches (aka. unbinds) unused scalers in hardware
  */
-static void skl_detach_scalers(struct intel_crtc *intel_crtc)
+static void skl_disable_unused_scalers(struct intel_crtc *crtc)
 {
-	struct intel_crtc_scaler_state *scaler_state;
+	const struct intel_crtc_scaler_state *scaler_state =
+		&crtc->config->scaler_state;
 	int i;
 
-	scaler_state = &intel_crtc->config->scaler_state;
-
 	/* loop through and disable scalers that aren't in use */
-	for (i = 0; i < intel_crtc->num_scalers; i++) {
+	for (i = 0; i < crtc->num_scalers; i++) {
 		if (!scaler_state->scalers[i].in_use)
-			skl_detach_scaler(intel_crtc, i);
+			skl_scaler_disable(crtc, i);
 	}
 }
 
@@ -3614,6 +3613,51 @@ static bool intel_crtc_has_pending_flip(struct drm_crtc *crtc)
 	return pending;
 }
 
+static void _skl_pipe_scaler_enable(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	const struct intel_crtc_scaler_state *scaler_state =
+		&crtc->config->scaler_state;
+	enum pipe pipe = crtc->pipe;
+	int id = scaler_state->scaler_id;
+
+	if (WARN_ON(id < 0))
+		return;
+
+	I915_WRITE_FW(SKL_PS_CTRL(pipe, id), PS_SCALER_EN |
+		   PS_FILTER_MEDIUM | scaler_state->scalers[id].mode);
+	I915_WRITE_FW(SKL_PS_WIN_POS(pipe, id), crtc->config->pch_pfit.pos);
+	I915_WRITE_FW(SKL_PS_WIN_SZ(pipe, id), crtc->config->pch_pfit.size);
+}
+
+static void _ironlake_pfit_enable(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+
+	/* Force use of hard-coded filter coefficients
+	 * as some pre-programmed values are broken,
+	 * e.g. x201.
+	 */
+	if (IS_IVYBRIDGE(dev_priv) || IS_HASWELL(dev_priv))
+		I915_WRITE_FW(PF_CTL(pipe), PF_ENABLE | PF_FILTER_MED_3x3 |
+			   PF_PIPE_SEL_IVB(pipe));
+	else
+		I915_WRITE_FW(PF_CTL(pipe), PF_ENABLE | PF_FILTER_MED_3x3);
+	I915_WRITE_FW(PF_WIN_POS(pipe), crtc->config->pch_pfit.pos);
+	I915_WRITE_FW(PF_WIN_SZ(pipe), crtc->config->pch_pfit.size);
+}
+
+static void _ironlake_pfit_disable(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+
+	I915_WRITE_FW(PF_CTL(pipe), 0);
+	I915_WRITE_FW(PF_WIN_POS(pipe), 0);
+	I915_WRITE_FW(PF_WIN_SZ(pipe), 0);
+}
+
 static void intel_update_pipe_config(struct intel_crtc *crtc,
 				     struct intel_crtc_state *old_crtc_state)
 {
@@ -3633,21 +3677,18 @@ static void intel_update_pipe_config(struct intel_crtc *crtc,
 	 * sized surface.
 	 */
 
-	I915_WRITE(PIPESRC(crtc->pipe),
-		   ((pipe_config->pipe_src_w - 1) << 16) |
-		   (pipe_config->pipe_src_h - 1));
+	I915_WRITE_FW(PIPESRC(crtc->pipe),
+		      ((pipe_config->pipe_src_w - 1) << 16) |
+		      (pipe_config->pipe_src_h - 1));
 
-	/* on skylake this is done by detaching scalers */
 	if (INTEL_GEN(dev_priv) >= 9) {
-		skl_detach_scalers(crtc);
-
-		if (pipe_config->pch_pfit.enabled)
-			skylake_pfit_enable(crtc);
+		if (crtc->config->pch_pfit.enabled)
+			_skl_pipe_scaler_enable(crtc);
 	} else if (HAS_PCH_SPLIT(dev_priv)) {
 		if (pipe_config->pch_pfit.enabled)
-			ironlake_pfit_enable(crtc);
+			_ironlake_pfit_enable(crtc);
 		else if (old_crtc_state->pch_pfit.enabled)
-			ironlake_pfit_disable(crtc, true);
+			_ironlake_pfit_disable(crtc);
 	}
 }
 
@@ -4729,55 +4770,41 @@ static int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 	return 0;
 }
 
-static void skylake_scaler_disable(struct intel_crtc *crtc)
+static void skylake_disable_all_scalers(struct intel_crtc *crtc)
 {
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	int i;
 
+	spin_lock_irq(&dev_priv->uncore.lock);
+
 	for (i = 0; i < crtc->num_scalers; i++)
-		skl_detach_scaler(crtc, i);
+		skl_scaler_disable(crtc, i);
+
+	spin_unlock_irq(&dev_priv->uncore.lock);
 }
 
-static void skylake_pfit_enable(struct intel_crtc *crtc)
+static void skl_pipe_scaler_enable(struct intel_crtc *crtc)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	int pipe = crtc->pipe;
-	struct intel_crtc_scaler_state *scaler_state =
-		&crtc->config->scaler_state;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	if (crtc->config->pch_pfit.enabled) {
-		int id;
+	if (!crtc->config->pch_pfit.enabled)
+		return;
 
-		if (WARN_ON(crtc->config->scaler_state.scaler_id < 0))
-			return;
-
-		id = scaler_state->scaler_id;
-		I915_WRITE(SKL_PS_CTRL(pipe, id), PS_SCALER_EN |
-			PS_FILTER_MEDIUM | scaler_state->scalers[id].mode);
-		I915_WRITE(SKL_PS_WIN_POS(pipe, id), crtc->config->pch_pfit.pos);
-		I915_WRITE(SKL_PS_WIN_SZ(pipe, id), crtc->config->pch_pfit.size);
-	}
+	spin_lock_irq(&dev_priv->uncore.lock);
+	_skl_pipe_scaler_enable(crtc);
+	spin_unlock_irq(&dev_priv->uncore.lock);
 }
 
 static void ironlake_pfit_enable(struct intel_crtc *crtc)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	int pipe = crtc->pipe;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	if (crtc->config->pch_pfit.enabled) {
-		/* Force use of hard-coded filter coefficients
-		 * as some pre-programmed values are broken,
-		 * e.g. x201.
-		 */
-		if (IS_IVYBRIDGE(dev_priv) || IS_HASWELL(dev_priv))
-			I915_WRITE(PF_CTL(pipe), PF_ENABLE | PF_FILTER_MED_3x3 |
-						 PF_PIPE_SEL_IVB(pipe));
-		else
-			I915_WRITE(PF_CTL(pipe), PF_ENABLE | PF_FILTER_MED_3x3);
-		I915_WRITE(PF_WIN_POS(pipe), crtc->config->pch_pfit.pos);
-		I915_WRITE(PF_WIN_SZ(pipe), crtc->config->pch_pfit.size);
-	}
+	if (!crtc->config->pch_pfit.enabled)
+		return;
+
+	spin_lock_irq(&dev_priv->uncore.lock);
+	_ironlake_pfit_enable(crtc);
+	spin_unlock_irq(&dev_priv->uncore.lock);
 }
 
 void hsw_enable_ips(struct intel_crtc *crtc)
@@ -5363,7 +5390,7 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 		intel_ddi_enable_pipe_clock(pipe_config);
 
 	if (INTEL_GEN(dev_priv) >= 9)
-		skylake_pfit_enable(intel_crtc);
+		skl_pipe_scaler_enable(intel_crtc);
 	else
 		ironlake_pfit_enable(intel_crtc);
 
@@ -5412,19 +5439,16 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 	}
 }
 
-static void ironlake_pfit_disable(struct intel_crtc *crtc, bool force)
+static void ironlake_pfit_disable(struct intel_crtc *crtc)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	int pipe = crtc->pipe;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	/* To avoid upsetting the power well on haswell only disable the pfit if
-	 * it's in use. The hw state code will make sure we get this right. */
-	if (force || crtc->config->pch_pfit.enabled) {
-		I915_WRITE(PF_CTL(pipe), 0);
-		I915_WRITE(PF_WIN_POS(pipe), 0);
-		I915_WRITE(PF_WIN_SZ(pipe), 0);
-	}
+	if (!crtc->config->pch_pfit.enabled)
+		return;
+
+	spin_lock_irq(&dev_priv->uncore.lock);
+	_ironlake_pfit_disable(crtc);
+	spin_unlock_irq(&dev_priv->uncore.lock);
 }
 
 static void ironlake_crtc_disable(struct intel_crtc_state *old_crtc_state,
@@ -5453,7 +5477,7 @@ static void ironlake_crtc_disable(struct intel_crtc_state *old_crtc_state,
 
 	intel_disable_pipe(intel_crtc);
 
-	ironlake_pfit_disable(intel_crtc, false);
+	ironlake_pfit_disable(intel_crtc);
 
 	if (intel_crtc->config->has_pch_encoder)
 		ironlake_fdi_disable(crtc);
@@ -5516,9 +5540,9 @@ static void haswell_crtc_disable(struct intel_crtc_state *old_crtc_state,
 		intel_ddi_disable_transcoder_func(dev_priv, cpu_transcoder);
 
 	if (INTEL_GEN(dev_priv) >= 9)
-		skylake_scaler_disable(intel_crtc);
+		skylake_disable_all_scalers(intel_crtc);
 	else
-		ironlake_pfit_disable(intel_crtc, false);
+		ironlake_pfit_disable(intel_crtc);
 
 	if (!transcoder_is_dsi(cpu_transcoder))
 		intel_ddi_disable_pipe_clock(intel_crtc->config);
@@ -13331,10 +13355,11 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc,
 	if (modeset)
 		goto out;
 
+	if (INTEL_GEN(dev_priv) >= 9)
+		skl_disable_unused_scalers(intel_crtc);
+
 	if (intel_cstate->update_pipe)
 		intel_update_pipe_config(intel_crtc, old_intel_cstate);
-	else if (INTEL_GEN(dev_priv) >= 9)
-		skl_detach_scalers(intel_crtc);
 
 out:
 	if (dev_priv->display.atomic_update_watermarks)
