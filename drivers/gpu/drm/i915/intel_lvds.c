@@ -85,6 +85,12 @@ static struct intel_lvds_connector *to_lvds_connector(struct drm_connector *conn
 	return container_of(connector, struct intel_lvds_connector, base.base);
 }
 
+static i915_reg_t intel_lvds_reg(const struct intel_lvds_encoder *lvds_encoder)
+{
+	_check(i915_mmio_reg_offset(lvds_encoder->reg), 0x40000, 0xffffffff);
+	return lvds_encoder->reg;
+}
+
 static bool intel_lvds_get_hw_state(struct intel_encoder *encoder,
 				    enum pipe *pipe)
 {
@@ -100,7 +106,7 @@ static bool intel_lvds_get_hw_state(struct intel_encoder *encoder,
 
 	ret = false;
 
-	tmp = I915_READ(lvds_encoder->reg);
+	tmp = I915_READ(intel_lvds_reg(lvds_encoder));
 
 	if (!(tmp & LVDS_PORT_EN))
 		goto out;
@@ -125,7 +131,7 @@ static void intel_lvds_get_config(struct intel_encoder *encoder,
 	struct intel_lvds_encoder *lvds_encoder = to_lvds_encoder(&encoder->base);
 	u32 tmp, flags = 0;
 
-	tmp = I915_READ(lvds_encoder->reg);
+	tmp = I915_READ(intel_lvds_reg(lvds_encoder));
 	if (tmp & LVDS_HSYNC_POLARITY)
 		flags |= DRM_MODE_FLAG_NHSYNC;
 	else
@@ -299,7 +305,7 @@ static void intel_pre_enable_lvds(struct intel_encoder *encoder,
 	if (adjusted_mode->flags & DRM_MODE_FLAG_NVSYNC)
 		temp |= LVDS_VSYNC_POLARITY;
 
-	I915_WRITE(lvds_encoder->reg, temp);
+	I915_WRITE(intel_lvds_reg(lvds_encoder), temp);
 }
 
 /**
@@ -315,10 +321,10 @@ static void intel_enable_lvds(struct intel_encoder *encoder,
 		&lvds_encoder->attached_connector->base;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 
-	I915_WRITE(lvds_encoder->reg, I915_READ(lvds_encoder->reg) | LVDS_PORT_EN);
+	I915_WRITE(intel_lvds_reg(lvds_encoder), I915_READ(intel_lvds_reg(lvds_encoder)) | LVDS_PORT_EN);
 
 	I915_WRITE(PP_CONTROL(0), I915_READ(PP_CONTROL(0)) | PANEL_POWER_ON);
-	POSTING_READ(lvds_encoder->reg);
+	POSTING_READ(intel_lvds_reg(lvds_encoder));
 	if (intel_wait_for_register(dev_priv, PP_STATUS(0), PP_ON, PP_ON, 1000))
 		DRM_ERROR("timed out waiting for panel to power on\n");
 
@@ -336,8 +342,8 @@ static void intel_disable_lvds(struct intel_encoder *encoder,
 	if (intel_wait_for_register(dev_priv, PP_STATUS(0), PP_ON, 0, 1000))
 		DRM_ERROR("timed out waiting for panel to power off\n");
 
-	I915_WRITE(lvds_encoder->reg, I915_READ(lvds_encoder->reg) & ~LVDS_PORT_EN);
-	POSTING_READ(lvds_encoder->reg);
+	I915_WRITE(intel_lvds_reg(lvds_encoder), I915_READ(intel_lvds_reg(lvds_encoder)) & ~LVDS_PORT_EN);
+	POSTING_READ(intel_lvds_reg(lvds_encoder));
 }
 
 static void gmch_disable_lvds(struct intel_encoder *encoder,
@@ -940,7 +946,7 @@ static bool compute_is_dual_link_lvds(struct intel_lvds_encoder *lvds_encoder)
 	 * we need to check "the value to be set" in VBT when LVDS
 	 * register is uninitialized.
 	 */
-	val = I915_READ(lvds_encoder->reg);
+	val = I915_READ(intel_lvds_reg(lvds_encoder));
 	if (!(val & ~(LVDS_PIPE_MASK | LVDS_DETECTED)))
 		val = dev_priv->vbt.bios_lvds_val;
 

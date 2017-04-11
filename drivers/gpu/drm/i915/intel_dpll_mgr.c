@@ -883,7 +883,7 @@ static const struct intel_shared_dpll_funcs hsw_ddi_lcpll_funcs = {
 	.disable = hsw_ddi_lcpll_disable,
 	.get_hw_state = hsw_ddi_lcpll_get_hw_state,
 };
-
+#if 0
 struct skl_dpll_regs {
 	i915_reg_t ctl, cfgcr1, cfgcr2;
 };
@@ -914,6 +914,50 @@ static const struct skl_dpll_regs skl_dpll_regs[4] = {
 		.cfgcr2 = DPLL_CFGCR2(SKL_DPLL3),
 	},
 };
+#endif
+static const i915_reg_t skl_dpll_ctl_reg(enum intel_dpll_id id)
+{
+	switch (id) {
+	case DPLL_ID_SKL_DPLL0:
+		return LCPLL1_CTL;
+	case DPLL_ID_SKL_DPLL1:
+		return LCPLL2_CTL;
+	case DPLL_ID_SKL_DPLL2:
+		return WRPLL_CTL(0);
+	case DPLL_ID_SKL_DPLL3:
+		return WRPLL_CTL(1);
+	default:
+		_assume(0);
+	}
+}
+
+static const i915_reg_t skl_dpll_cfgcr1_reg(enum intel_dpll_id id)
+{
+	switch (id) {
+	case DPLL_ID_SKL_DPLL1:
+		return DPLL_CFGCR1(SKL_DPLL1);
+	case DPLL_ID_SKL_DPLL2:
+		return DPLL_CFGCR1(SKL_DPLL2);
+	case DPLL_ID_SKL_DPLL3:
+		return DPLL_CFGCR1(SKL_DPLL3);
+	default:
+		_assume(0);
+	}
+}
+
+static const i915_reg_t skl_dpll_cfgcr2_reg(enum intel_dpll_id id)
+{
+	switch (id) {
+	case DPLL_ID_SKL_DPLL1:
+		return DPLL_CFGCR2(SKL_DPLL1);
+	case DPLL_ID_SKL_DPLL2:
+		return DPLL_CFGCR2(SKL_DPLL2);
+	case DPLL_ID_SKL_DPLL3:
+		return DPLL_CFGCR2(SKL_DPLL3);
+	default:
+		_assume(0);
+	}
+}
 
 static void skl_ddi_pll_write_ctrl1(struct drm_i915_private *dev_priv,
 				    struct intel_shared_dpll *pll)
@@ -933,18 +977,18 @@ static void skl_ddi_pll_write_ctrl1(struct drm_i915_private *dev_priv,
 static void skl_ddi_pll_enable(struct drm_i915_private *dev_priv,
 			       struct intel_shared_dpll *pll)
 {
-	const struct skl_dpll_regs *regs = skl_dpll_regs;
+	//const struct skl_dpll_regs *regs = skl_dpll_regs;
 
 	skl_ddi_pll_write_ctrl1(dev_priv, pll);
 
-	I915_WRITE(regs[pll->id].cfgcr1, pll->state.hw_state.cfgcr1);
-	I915_WRITE(regs[pll->id].cfgcr2, pll->state.hw_state.cfgcr2);
-	POSTING_READ(regs[pll->id].cfgcr1);
-	POSTING_READ(regs[pll->id].cfgcr2);
+	I915_WRITE(skl_dpll_cfgcr1_reg(pll->id), pll->state.hw_state.cfgcr1);
+	I915_WRITE(skl_dpll_cfgcr2_reg(pll->id), pll->state.hw_state.cfgcr2);
+	POSTING_READ(skl_dpll_cfgcr1_reg(pll->id));
+	POSTING_READ(skl_dpll_cfgcr2_reg(pll->id));
 
 	/* the enable bit is always bit 31 */
-	I915_WRITE(regs[pll->id].ctl,
-		   I915_READ(regs[pll->id].ctl) | LCPLL_PLL_ENABLE);
+	I915_WRITE(skl_dpll_ctl_reg(pll->id),
+		   I915_READ(skl_dpll_ctl_reg(pll->id)) | LCPLL_PLL_ENABLE);
 
 	if (intel_wait_for_register(dev_priv,
 				    DPLL_STATUS,
@@ -963,12 +1007,12 @@ static void skl_ddi_dpll0_enable(struct drm_i915_private *dev_priv,
 static void skl_ddi_pll_disable(struct drm_i915_private *dev_priv,
 				struct intel_shared_dpll *pll)
 {
-	const struct skl_dpll_regs *regs = skl_dpll_regs;
+	//const struct skl_dpll_regs *regs = skl_dpll_regs;
 
 	/* the enable bit is always bit 31 */
-	I915_WRITE(regs[pll->id].ctl,
-		   I915_READ(regs[pll->id].ctl) & ~LCPLL_PLL_ENABLE);
-	POSTING_READ(regs[pll->id].ctl);
+	I915_WRITE(skl_dpll_ctl_reg(pll->id),
+		   I915_READ(skl_dpll_ctl_reg(pll->id)) & ~LCPLL_PLL_ENABLE);
+	POSTING_READ(skl_dpll_ctl_reg(pll->id));
 }
 
 static void skl_ddi_dpll0_disable(struct drm_i915_private *dev_priv,
@@ -981,7 +1025,7 @@ static bool skl_ddi_pll_get_hw_state(struct drm_i915_private *dev_priv,
 				     struct intel_dpll_hw_state *hw_state)
 {
 	uint32_t val;
-	const struct skl_dpll_regs *regs = skl_dpll_regs;
+	//const struct skl_dpll_regs *regs = skl_dpll_regs;
 	bool ret;
 
 	if (!intel_display_power_get_if_enabled(dev_priv, POWER_DOMAIN_PLLS))
@@ -989,7 +1033,7 @@ static bool skl_ddi_pll_get_hw_state(struct drm_i915_private *dev_priv,
 
 	ret = false;
 
-	val = I915_READ(regs[pll->id].ctl);
+	val = I915_READ(skl_dpll_ctl_reg(pll->id));
 	if (!(val & LCPLL_PLL_ENABLE))
 		goto out;
 
@@ -998,8 +1042,8 @@ static bool skl_ddi_pll_get_hw_state(struct drm_i915_private *dev_priv,
 
 	/* avoid reading back stale values if HDMI mode is not enabled */
 	if (val & DPLL_CTRL1_HDMI_MODE(pll->id)) {
-		hw_state->cfgcr1 = I915_READ(regs[pll->id].cfgcr1);
-		hw_state->cfgcr2 = I915_READ(regs[pll->id].cfgcr2);
+		hw_state->cfgcr1 = I915_READ(skl_dpll_cfgcr1_reg(pll->id));
+		hw_state->cfgcr2 = I915_READ(skl_dpll_cfgcr2_reg(pll->id));
 	}
 	ret = true;
 
@@ -1014,7 +1058,7 @@ static bool skl_ddi_dpll0_get_hw_state(struct drm_i915_private *dev_priv,
 				       struct intel_dpll_hw_state *hw_state)
 {
 	uint32_t val;
-	const struct skl_dpll_regs *regs = skl_dpll_regs;
+	//const struct skl_dpll_regs *regs = skl_dpll_regs;
 	bool ret;
 
 	if (!intel_display_power_get_if_enabled(dev_priv, POWER_DOMAIN_PLLS))
@@ -1023,7 +1067,7 @@ static bool skl_ddi_dpll0_get_hw_state(struct drm_i915_private *dev_priv,
 	ret = false;
 
 	/* DPLL0 is always enabled since it drives CDCLK */
-	val = I915_READ(regs[pll->id].ctl);
+	val = I915_READ(skl_dpll_ctl_reg(pll->id));
 	if (WARN_ON(!(val & LCPLL_PLL_ENABLE)))
 		goto out;
 
