@@ -4115,18 +4115,18 @@ enum {
 
 #define PFIT_AUTO_RATIOS _MMIO(dev_priv->info.display_mmio_offset + 0x61238)
 
-#define _VLV_BLC_PWM_CTL2_A (dev_priv->info.display_mmio_offset + 0x61250)
-#define _VLV_BLC_PWM_CTL2_B (dev_priv->info.display_mmio_offset + 0x61350)
+#define _VLV_BLC_PWM_CTL2_A (VLV_DISPLAY_BASE + 0x61250)
+#define _VLV_BLC_PWM_CTL2_B (VLV_DISPLAY_BASE + 0x61350)
 #define VLV_BLC_PWM_CTL2(pipe) _MMIO_PIPE(pipe, _VLV_BLC_PWM_CTL2_A, \
 					 _VLV_BLC_PWM_CTL2_B)
 
-#define _VLV_BLC_PWM_CTL_A (dev_priv->info.display_mmio_offset + 0x61254)
-#define _VLV_BLC_PWM_CTL_B (dev_priv->info.display_mmio_offset + 0x61354)
+#define _VLV_BLC_PWM_CTL_A (VLV_DISPLAY_BASE + 0x61254)
+#define _VLV_BLC_PWM_CTL_B (VLV_DISPLAY_BASE + 0x61354)
 #define VLV_BLC_PWM_CTL(pipe) _MMIO_PIPE(pipe, _VLV_BLC_PWM_CTL_A, \
 					_VLV_BLC_PWM_CTL_B)
 
-#define _VLV_BLC_HIST_CTL_A (dev_priv->info.display_mmio_offset + 0x61260)
-#define _VLV_BLC_HIST_CTL_B (dev_priv->info.display_mmio_offset + 0x61360)
+#define _VLV_BLC_HIST_CTL_A (VLV_DISPLAY_BASE + 0x61260)
+#define _VLV_BLC_HIST_CTL_B (VLV_DISPLAY_BASE + 0x61360)
 #define VLV_BLC_HIST_CTL(pipe) _MMIO_PIPE(pipe, _VLV_BLC_HIST_CTL_A, \
 					 _VLV_BLC_HIST_CTL_B)
 
