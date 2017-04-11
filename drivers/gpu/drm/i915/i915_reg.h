@@ -6803,15 +6803,15 @@ enum {
 
 #define _PCH_DPLL_A              0xc6014
 #define _PCH_DPLL_B              0xc6018
-#define PCH_DPLL(pll) _MMIO(pll == 0 ? _PCH_DPLL_A : _PCH_DPLL_B)
+#define PCH_DPLL(pll) _MMIO_PIPE((pll), _PCH_DPLL_A, _PCH_DPLL_B)
 
 #define _PCH_FPA0                0xc6040
 #define  FP_CB_TUNE		(0x3<<22)
 #define _PCH_FPA1                0xc6044
 #define _PCH_FPB0                0xc6048
 #define _PCH_FPB1                0xc604c
-#define PCH_FP0(pll) _MMIO(pll == 0 ? _PCH_FPA0 : _PCH_FPB0)
-#define PCH_FP1(pll) _MMIO(pll == 0 ? _PCH_FPA1 : _PCH_FPB1)
+#define PCH_FP0(pll) _MMIO_PIPE((pll), _PCH_FPA0, _PCH_FPB0)
+#define PCH_FP1(pll) _MMIO_PIPE((pll), _PCH_FPA1, _PCH_FPB1)
 
 #define PCH_DPLL_TEST           _MMIO(0xc606c)
 
