@@ -195,12 +195,12 @@ static void had_substream_put(struct snd_intelhad *intelhaddata)
 /* Register access functions */
 static u32 had_read_register_raw(struct snd_intelhad *ctx, u32 reg)
 {
-	return ioread32(ctx->card_ctx->mmio_start + ctx->had_config_offset + reg);
+	return ioread32(ctx->mmio_start + reg);
 }
 
 static void had_write_register_raw(struct snd_intelhad *ctx, u32 reg, u32 val)
 {
-	iowrite32(val, ctx->card_ctx->mmio_start + ctx->had_config_offset + reg);
+	iowrite32(val, ctx->mmio_start + reg);
 }
 
 static void had_read_register(struct snd_intelhad *ctx, u32 reg, u32 *val)
@@ -1551,16 +1551,12 @@ static irqreturn_t display_pipe_interrupt_handler(int irq, void *dev_id)
 /*
  * monitor plug/unplug notification from i915; just kick off the work
  */
-static void notify_audio_lpe(struct platform_device *pdev)
+static void notify_audio_lpe(struct platform_device *pdev, int pipe)
 {
 	struct snd_intelhad_card *card_ctx = platform_get_drvdata(pdev);
-	int pipe;
+	struct snd_intelhad *ctx = &card_ctx->pcm_ctx[pipe];
 
-	for_each_pipe(card_ctx, pipe) {
-		struct snd_intelhad *ctx = &card_ctx->pcm_ctx[pipe];
-
-		schedule_work(&ctx->hdmi_audio_wq);
-	}
+	schedule_work(&ctx->hdmi_audio_wq);
 }
 
 /* the work to handle monitor hot plug/unplug */
@@ -1569,7 +1565,7 @@ static void had_audio_wq(struct work_struct *work)
 	struct snd_intelhad *ctx =
 		container_of(work, struct snd_intelhad, hdmi_audio_wq);
 	struct intel_hdmi_lpe_audio_pdata *pdata = ctx->dev->platform_data;
-	struct intel_hdmi_lpe_audio_pipe_pdata *ppdata = &pdata->pipe;
+	struct intel_hdmi_lpe_audio_pipe_pdata *ppdata = &pdata->pipe[ctx->pipe];
 
 	pm_runtime_get_sync(ctx->dev);
 	mutex_lock(&ctx->mutex);
@@ -1581,22 +1577,6 @@ static void had_audio_wq(struct work_struct *work)
 	} else {
 		dev_dbg(ctx->dev, "%s: HAD_NOTIFY_ELD : port = %d, tmds = %d\n",
 			__func__, ppdata->port, ppdata->ls_clock);
-
-		switch (pdata->pipe_id) {
-		case 0:
-			ctx->had_config_offset = AUDIO_HDMI_CONFIG_A;
-			break;
-		case 1:
-			ctx->had_config_offset = AUDIO_HDMI_CONFIG_B;
-			break;
-		case 2:
-			ctx->had_config_offset = AUDIO_HDMI_CONFIG_C;
-			break;
-		default:
-			dev_dbg(ctx->dev, "Invalid pipe %d\n",
-				pdata->pipe_id);
-			break;
-		}
 
 		memcpy(ctx->eld, ppdata->eld, sizeof(ctx->eld));
 
@@ -1794,7 +1774,7 @@ static int hdmi_lpe_audio_probe(struct platform_device *pdev)
 
 	init_channel_allocations();
 
-	card_ctx->num_pipes = 1;
+	card_ctx->num_pipes = pdata->num_pipes;
 
 	for_each_pipe(card_ctx, pipe) {
 		struct snd_intelhad *ctx = &card_ctx->pcm_ctx[pipe];
@@ -1806,9 +1786,24 @@ static int hdmi_lpe_audio_probe(struct platform_device *pdev)
 
 		INIT_WORK(&ctx->hdmi_audio_wq, had_audio_wq);
 
-		ctx->had_config_offset = AUDIO_HDMI_CONFIG_A;
+		switch (pipe) {
+		case 0:
+			ctx->mmio_start =
+				card_ctx->mmio_start + AUDIO_HDMI_CONFIG_A;
+			break;
+		case 1:
+			ctx->mmio_start =
+				card_ctx->mmio_start + AUDIO_HDMI_CONFIG_B;
+			break;
+		case 2:
+			ctx->mmio_start =
+				card_ctx->mmio_start + AUDIO_HDMI_CONFIG_C;
+			break;
+		default:
+			break;
+		}
 
-		ret = snd_pcm_new(card, INTEL_HAD, PCM_INDEX, MAX_PB_STREAMS,
+		ret = snd_pcm_new(card, INTEL_HAD, pipe, MAX_PB_STREAMS,
 				  MAX_CAP_STREAMS, &pcm);
 		if (ret)
 			goto err;

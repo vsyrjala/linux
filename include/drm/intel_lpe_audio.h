@@ -39,10 +39,10 @@ struct intel_hdmi_lpe_audio_pipe_pdata {
 };
 
 struct intel_hdmi_lpe_audio_pdata {
-	struct intel_hdmi_lpe_audio_pipe_pdata pipe;
-	int pipe_id;
+	struct intel_hdmi_lpe_audio_pipe_pdata pipe[3];
+	int num_pipes;
 
-	void (*notify_audio_lpe)(struct platform_device *pdev);
+	void (*notify_audio_lpe)(struct platform_device *pdev, int pipe);
 	spinlock_t lpe_audio_slock;
 };
 
