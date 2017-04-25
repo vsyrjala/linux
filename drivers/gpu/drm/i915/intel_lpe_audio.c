@@ -335,9 +335,8 @@ void intel_lpe_audio_notify(struct drm_i915_private *dev_priv,
 	if (eld != NULL) {
 		memcpy(pdata->eld.eld_data, eld,
 			HDMI_MAX_ELD_BYTES);
-		pdata->eld.port_id = port;
 		pdata->eld.pipe_id = pipe;
-		pdata->hdmi_connected = true;
+		pdata->port = port;
 		pdata->ls_clock = ls_clock;
 		pdata->dp_output = dp_output;
 
@@ -348,7 +347,7 @@ void intel_lpe_audio_notify(struct drm_i915_private *dev_priv,
 	} else {
 		memset(pdata->eld.eld_data, 0,
 			HDMI_MAX_ELD_BYTES);
-		pdata->hdmi_connected = false;
+		pdata->port = -1;
 		pdata->ls_clock = 0;
 		pdata->dp_output = false;
 
