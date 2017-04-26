@@ -80,6 +80,7 @@ lpe_audio_platdev_create(struct drm_i915_private *dev_priv)
 	struct resource *rsc;
 	struct platform_device *platdev;
 	struct intel_hdmi_lpe_audio_pdata *pdata;
+	enum pipe pipe;
 
 	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -112,6 +113,8 @@ lpe_audio_platdev_create(struct drm_i915_private *dev_priv)
 	pinfo.dma_mask = DMA_BIT_MASK(32);
 
 	pdata->num_pipes = INTEL_INFO(dev_priv)->num_pipes;
+	for_each_pipe(dev_priv, pipe)
+		pdata->pipe[pipe].port = -1;
 	spin_lock_init(&pdata->lpe_audio_slock);
 
 	platdev = platform_device_register_full(&pinfo);
