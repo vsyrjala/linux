@@ -111,7 +111,8 @@ struct snd_intelhad {
 	struct snd_pcm_chmap *chmap;
 	int tmds_clock_speed;
 	int link_rate;
-	int pipe;
+	int pipe; /* can change dynamically */
+	int port; /* fixed */
 
 	/* ring buffer (BD) position index */
 	unsigned int bd_head;
@@ -123,7 +124,6 @@ struct snd_intelhad {
 	unsigned int period_bytes;	/* PCM period size in bytes */
 
 	/* internal stuff */
-	void __iomem *mmio_start;
 	union aud_cfg aud_config;	/* AUD_CONFIG reg value cache */
 	struct work_struct hdmi_audio_wq;
 	struct mutex mutex; /* for protecting chmap and eld */
@@ -139,7 +139,8 @@ struct snd_intelhad_card {
 	int irq;
 	void __iomem *mmio_start;
 	int num_pipes;
-	struct snd_intelhad pcm_ctx[3];
+	int num_ports;
+	struct snd_intelhad pcm_ctx[3]; /* one for each port */
 };
 
 #endif /* _INTEL_HDMI_AUDIO_ */

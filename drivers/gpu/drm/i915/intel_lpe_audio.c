@@ -80,7 +80,6 @@ lpe_audio_platdev_create(struct drm_i915_private *dev_priv)
 	struct resource *rsc;
 	struct platform_device *platdev;
 	struct intel_hdmi_lpe_audio_pdata *pdata;
-	enum pipe pipe;
 
 	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -113,8 +112,10 @@ lpe_audio_platdev_create(struct drm_i915_private *dev_priv)
 	pinfo.dma_mask = DMA_BIT_MASK(32);
 
 	pdata->num_pipes = INTEL_INFO(dev_priv)->num_pipes;
-	for_each_pipe(dev_priv, pipe)
-		pdata->pipe[pipe].port = -1;
+	pdata->num_ports = IS_CHERRYVIEW(dev_priv) ? 3 : 2; /* B,C,D or B,C */
+	pdata->port[0].pipe = -1;
+	pdata->port[1].pipe = -1;
+	pdata->port[2].pipe = -1;
 	spin_lock_init(&pdata->lpe_audio_slock);
 
 	platdev = platform_device_register_full(&pinfo);
@@ -324,14 +325,14 @@ void intel_lpe_audio_notify(struct drm_i915_private *dev_priv,
 {
 	unsigned long irqflags;
 	struct intel_hdmi_lpe_audio_pdata *pdata;
-	struct intel_hdmi_lpe_audio_pipe_pdata *ppdata;
+	struct intel_hdmi_lpe_audio_port_pdata *ppdata;
 	u32 audio_enable;
 
 	if (!HAS_LPE_AUDIO(dev_priv))
 		return;
 
 	pdata = dev_get_platdata(&dev_priv->lpe_audio.platdev->dev);
-	ppdata = &pdata->pipe[pipe];
+	ppdata = &pdata->port[port];
 
 	spin_lock_irqsave(&pdata->lpe_audio_slock, irqflags);
 
@@ -339,7 +340,7 @@ void intel_lpe_audio_notify(struct drm_i915_private *dev_priv,
 
 	if (eld != NULL) {
 		memcpy(ppdata->eld, eld, HDMI_MAX_ELD_BYTES);
-		ppdata->port = port;
+		ppdata->pipe = pipe;
 		ppdata->ls_clock = ls_clock;
 		ppdata->dp_output = dp_output;
 
@@ -348,7 +349,7 @@ void intel_lpe_audio_notify(struct drm_i915_private *dev_priv,
 			   audio_enable & ~VLV_AMP_MUTE);
 	} else {
 		memset(ppdata->eld, 0, HDMI_MAX_ELD_BYTES);
-		ppdata->port = -1;
+		ppdata->pipe = -1;
 		ppdata->ls_clock = 0;
 		ppdata->dp_output = false;
 
@@ -358,7 +359,7 @@ void intel_lpe_audio_notify(struct drm_i915_private *dev_priv,
 	}
 
 	if (pdata->notify_audio_lpe)
-		pdata->notify_audio_lpe(dev_priv->lpe_audio.platdev, pipe);
+		pdata->notify_audio_lpe(dev_priv->lpe_audio.platdev, port);
 
 	spin_unlock_irqrestore(&pdata->lpe_audio_slock, irqflags);
 }
