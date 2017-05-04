@@ -695,6 +695,23 @@ static void i830_cleanup(void)
 {
 }
 
+#ifdef CONFIG_SMP
+static void __wmb(void *dummy)
+{
+	wmb();
+}
+static int wmb_on_all_cpus(void)
+{
+	return on_each_cpu(__wmb, NULL, 1);
+}
+#else
+static int wmb_on_all_cpus(void)
+{
+	wmb();
+	return 0;
+}
+#endif
+
 /* The chipset_flush interface needs to get data that has already been
  * flushed out of the CPU all the way out to main memory, because the GPU
  * doesn't snoop those buffers.
@@ -712,7 +729,7 @@ static void i830_chipset_flush(void)
 	/* Forcibly evict everything from the CPU write buffers.
 	 * clflush appears to be insufficient.
 	 */
-	wbinvd_on_all_cpus();
+	wmb_on_all_cpus();
 
 	/* Now we've only seen documents for this magic bit on 855GM,
 	 * we hope it exists for the other gen2 chipsets...
