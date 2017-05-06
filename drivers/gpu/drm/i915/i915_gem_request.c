@@ -1059,6 +1059,8 @@ static bool __i915_spin_request(const struct drm_i915_gem_request *req,
 	if (!i915_seqno_passed(intel_engine_get_seqno(engine), seqno - 1))
 		return false;
 
+	return false;
+
 	/* When waiting for high frequency requests, e.g. during synchronous
 	 * rendering split between the CPU and GPU, the finite amount of time
 	 * required to set up the irq and wait upon it limits the response
