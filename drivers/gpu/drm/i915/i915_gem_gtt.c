@@ -124,6 +124,7 @@ static void guc_ggtt_invalidate(struct drm_i915_private *dev_priv)
 
 static void gmch_ggtt_invalidate(struct drm_i915_private *dev_priv)
 {
+	I915_WRITE(PGTBL_CTL, I915_READ(PGTBL_CTL));
 	intel_gtt_chipset_flush();
 }
 
