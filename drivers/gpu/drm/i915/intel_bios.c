@@ -1278,6 +1278,13 @@ static void parse_ddi_port(struct drm_i915_private *dev_priv, enum port port,
 		is_hdmi = false;
 	}
 
+	if (IS_GEMINILAKE(dev_priv) && port == PORT_C) {
+		is_hdmi = true;
+		is_dvi = true;
+		is_dp = false;
+		is_edp = false;
+	}
+
 	info->supports_dvi = is_dvi;
 	info->supports_hdmi = is_hdmi;
 	info->supports_dp = is_dp;
