@@ -1815,6 +1815,8 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 	intel_attach_broadcast_rgb_property(connector);
 	intel_attach_aspect_ratio_property(connector);
 	connector->state->picture_aspect_ratio = HDMI_PICTURE_ASPECT_NONE;
+	drm_object_attach_property(&connector->base,
+		connector->dev->mode_config.hdr_source_metadata_property, 0);
 }
 
 /*
