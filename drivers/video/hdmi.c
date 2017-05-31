@@ -426,7 +426,7 @@ EXPORT_SYMBOL(hdmi_drm_infoframe_init);
  * error code on failure.
  */
 ssize_t hdmi_drm_infoframe_pack(struct hdmi_drm_infoframe *frame, void *buffer,
-                                size_t size)
+                               size_t size)
 {
 	u8 *ptr = buffer;
 	size_t length;
