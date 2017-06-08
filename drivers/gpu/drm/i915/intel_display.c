@@ -3335,6 +3335,21 @@ u32 skl_plane_ctl(const struct intel_crtc_state *crtc_state,
 	return plane_ctl;
 }
 
+u32 glk_color_ctl(const struct intel_plane_state *plane_state)
+{
+	const struct drm_framebuffer *fb = plane_state->base.fb;
+	u32 color_ctl;
+
+	color_ctl = PLANE_COLOR_PIPE_GAMMA_ENABLE |
+		PLANE_COLOR_PIPE_CSC_ENABLE |
+		PLANE_COLOR_PLANE_GAMMA_DISABLE;
+
+	if (intel_format_is_yuv(fb->format->format))
+		color_ctl |= PLANE_COLOR_CSC_MODE_YUV601_TO_RGB709;
+
+	return color_ctl;
+}
+
 static void skylake_update_primary_plane(struct intel_plane *plane,
 					 const struct intel_crtc_state *crtc_state,
 					 const struct intel_plane_state *plane_state)
@@ -3374,9 +3389,7 @@ static void skylake_update_primary_plane(struct intel_plane *plane,
 
 	if (IS_GEMINILAKE(dev_priv)) {
 		I915_WRITE_FW(PLANE_COLOR_CTL(pipe, plane_id),
-			      PLANE_COLOR_PIPE_GAMMA_ENABLE |
-			      PLANE_COLOR_PIPE_CSC_ENABLE |
-			      PLANE_COLOR_PLANE_GAMMA_DISABLE);
+			      glk_color_ctl(plane_state));
 	}
 
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl);
