@@ -396,8 +396,7 @@ int drm_plane_create_color_properties(struct drm_plane *plane,
 		len++;
 	}
 
-	prop = drm_property_create_enum(dev, DRM_MODE_PROP_ATOMIC,
-					"COLOR_ENCODING",
+	prop = drm_property_create_enum(dev, 0, "COLOR_ENCODING",
 					enum_list, len);
 	if (!prop)
 		return -ENOMEM;
@@ -416,8 +415,7 @@ int drm_plane_create_color_properties(struct drm_plane *plane,
 		len++;
 	}
 
-	prop = drm_property_create_enum(dev, DRM_MODE_PROP_ATOMIC,
-					"COLOR_RANGE",
+	prop = drm_property_create_enum(dev, 0, "COLOR_RANGE",
 					enum_list, len);
 	if (!prop)
 		return -ENOMEM;
