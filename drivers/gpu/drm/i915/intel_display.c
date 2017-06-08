@@ -3324,6 +3324,9 @@ u32 skl_plane_ctl(const struct intel_crtc_state *crtc_state,
 
 		if (plane_state->base.color_encoding == DRM_COLOR_YCBCR_BT709)
 			plane_ctl |= PLANE_CTL_YUV_CSC_FORMAT_BT709;
+
+		if (plane_state->base.color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+			plane_ctl |= PLANE_CTL_YUV_RANGE_CORRECTION_DISABLE;
 	}
 
 	plane_ctl |= skl_plane_ctl_format(fb->format->format);
@@ -3352,6 +3355,9 @@ u32 glk_color_ctl(const struct intel_plane_state *plane_state)
 			color_ctl |= PLANE_COLOR_CSC_MODE_YUV709_TO_RGB709;
 		else
 			color_ctl |= PLANE_COLOR_CSC_MODE_YUV601_TO_RGB709;
+
+		if (plane_state->base.color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+			color_ctl |= PLANE_COLOR_YUV_RANGE_CORRECTION_DISABLE;
 	}
 
 	return color_ctl;
@@ -13830,7 +13836,8 @@ intel_primary_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 		drm_plane_create_color_properties(&primary->base,
 						  BIT(DRM_COLOR_YCBCR_BT601) |
 						  BIT(DRM_COLOR_YCBCR_BT709),
-						  BIT(DRM_COLOR_YCBCR_LIMITED_RANGE),
+						  BIT(DRM_COLOR_YCBCR_LIMITED_RANGE) |
+						  BIT(DRM_COLOR_YCBCR_FULL_RANGE),
 						  DRM_COLOR_YCBCR_BT709,
 						  DRM_COLOR_YCBCR_LIMITED_RANGE);
 

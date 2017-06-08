@@ -387,7 +387,8 @@ vlv_update_clrc(const struct intel_plane_state *plane_state)
 	enum plane_id plane_id = plane->id;
 	int con, bri, sh_sin, sh_cos;
 
-	if (intel_format_is_yuv(fb->format->format)) {
+	if (intel_format_is_yuv(fb->format->format) &&
+	    plane_state->base.color_range == DRM_COLOR_YCBCR_LIMITED_RANGE) {
 		/*
 		 * expand limited range to full range.
 		 * contrast is applied first, then brightness
@@ -599,6 +600,9 @@ static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	if (plane_state->base.color_encoding == DRM_COLOR_YCBCR_BT709)
 		sprctl |= SPRITE_YUV_CSC_FORMAT_BT709;
 
+	if (plane_state->base.color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+		sprctl |= SPRITE_YUV_RANGE_CORRECTION_DISABLE;
+
 	if (fb->modifier == I915_FORMAT_MOD_X_TILED)
 		sprctl |= SPRITE_TILED;
 
@@ -738,6 +742,9 @@ static u32 g4x_sprite_ctl(const struct intel_crtc_state *crtc_state,
 
 	if (plane_state->base.color_encoding == DRM_COLOR_YCBCR_BT709)
 		dvscntr |= DVS_YUV_CSC_FORMAT_BT709;
+
+	if (plane_state->base.color_range == DRM_COLOR_YCBCR_FULL_RANGE)
+		dvscntr |= DVS_YUV_RANGE_CORRECTION_DISABLE;
 
 	if (fb->modifier == I915_FORMAT_MOD_X_TILED)
 		dvscntr |= DVS_TILED;
@@ -1248,7 +1255,8 @@ intel_sprite_plane_create(struct drm_i915_private *dev_priv,
 	drm_plane_create_color_properties(&intel_plane->base,
 					  BIT(DRM_COLOR_YCBCR_BT601) |
 					  BIT(DRM_COLOR_YCBCR_BT709),
-					  BIT(DRM_COLOR_YCBCR_LIMITED_RANGE),
+					  BIT(DRM_COLOR_YCBCR_LIMITED_RANGE) |
+					  BIT(DRM_COLOR_YCBCR_FULL_RANGE),
 					  DRM_COLOR_YCBCR_BT709,
 					  DRM_COLOR_YCBCR_LIMITED_RANGE);
 
