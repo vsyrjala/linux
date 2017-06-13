@@ -2532,6 +2532,10 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 			return ret;
 		}
 
+		DRM_DEBUG_KMS("[%d] %dx%d cpp=%d pitch=%d offset=%d -> %d,%d\n",
+			      i, width, height, cpp,
+			      fb->pitches[i], fb->offsets[i], x, y);
+
 		if ((fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
 		     fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) && i == 1) {
 			int hsub = fb->format->hsub;
