@@ -1587,19 +1587,19 @@ int drm_atomic_helper_setup_commit(struct drm_atomic_state *state,
 EXPORT_SYMBOL(drm_atomic_helper_setup_commit);
 
 
-static struct drm_crtc_commit *preceeding_commit(struct drm_crtc *crtc)
+static struct drm_crtc_commit *
+preceeding_commit(struct drm_crtc *crtc, struct drm_crtc_commit *commit)
 {
-	struct drm_crtc_commit *commit;
-	int i = 0;
+	spin_lock(&crtc->commit_lock);
+	if (list_is_singular(&commit->commit_entry))
+		commit = NULL;
+	else
+		commit = list_next_entry(commit, commit_entry);
+	if (commit)
+		drm_crtc_commit_get(commit);
+	spin_unlock(&crtc->commit_lock);
 
-	list_for_each_entry(commit, &crtc->commit_list, commit_entry) {
-		/* skip the first entry, that's the current commit */
-		if (i == 1)
-			return commit;
-		i++;
-	}
-
-	return NULL;
+	return commit;
 }
 
 /**
@@ -1620,31 +1620,17 @@ void drm_atomic_helper_wait_for_dependencies(struct drm_atomic_state *old_state)
 	struct drm_crtc_state *new_crtc_state;
 	struct drm_crtc_commit *commit;
 	int i;
-	long ret;
 
 	for_each_new_crtc_in_state(old_state, crtc, new_crtc_state, i) {
-		spin_lock(&crtc->commit_lock);
-		commit = preceeding_commit(crtc);
-		if (commit)
-			drm_crtc_commit_get(commit);
-		spin_unlock(&crtc->commit_lock);
-
+		commit = preceeding_commit(crtc, old_state->crtcs[i].commit);
 		if (!commit)
 			continue;
 
-		ret = wait_for_completion_timeout(&commit->hw_done,
-						  10*HZ);
-		if (ret == 0)
-			DRM_ERROR("[CRTC:%d:%s] hw_done timed out\n",
-				  crtc->base.id, crtc->name);
+		wait_for_completion(&commit->hw_done);
 
 		/* Currently no support for overwriting flips, hence
 		 * stall for previous one to execute completely. */
-		ret = wait_for_completion_timeout(&commit->flip_done,
-						  10*HZ);
-		if (ret == 0)
-			DRM_ERROR("[CRTC:%d:%s] flip_done timed out\n",
-				  crtc->base.id, crtc->name);
+		wait_for_completion(&commit->flip_done);
 
 		drm_crtc_commit_put(commit);
 	}
@@ -2066,6 +2052,21 @@ void drm_atomic_helper_cleanup_planes(struct drm_device *dev,
 }
 EXPORT_SYMBOL(drm_atomic_helper_cleanup_planes);
 
+static struct drm_crtc_commit *
+latest_commit(struct drm_crtc *crtc)
+{
+	struct drm_crtc_commit *commit;
+
+	spin_lock(&crtc->commit_lock);
+	commit = list_first_entry_or_null(&crtc->commit_list,
+					  struct drm_crtc_commit, commit_entry);
+	if (commit)
+		drm_crtc_commit_get(commit);
+	spin_unlock(&crtc->commit_lock);
+
+	return commit;
+}
+
 /**
  * drm_atomic_helper_swap_state - store atomic state into current sw state
  * @state: atomic state
@@ -2100,7 +2101,6 @@ void drm_atomic_helper_swap_state(struct drm_atomic_state *state,
 				  bool stall)
 {
 	int i;
-	long ret;
 	struct drm_connector *connector;
 	struct drm_connector_state *old_conn_state, *new_conn_state;
 	struct drm_crtc *crtc;
@@ -2113,21 +2113,12 @@ void drm_atomic_helper_swap_state(struct drm_atomic_state *state,
 
 	if (stall) {
 		for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
-			spin_lock(&crtc->commit_lock);
-			commit = list_first_entry_or_null(&crtc->commit_list,
-					struct drm_crtc_commit, commit_entry);
-			if (commit)
-				drm_crtc_commit_get(commit);
-			spin_unlock(&crtc->commit_lock);
-
+			commit = latest_commit(crtc);
 			if (!commit)
 				continue;
 
-			ret = wait_for_completion_timeout(&commit->hw_done,
-							  10*HZ);
-			if (ret == 0)
-				DRM_ERROR("[CRTC:%d:%s] hw_done timed out\n",
-					  crtc->base.id, crtc->name);
+			wait_for_completion(&commit->hw_done);
+
 			drm_crtc_commit_put(commit);
 		}
 	}
