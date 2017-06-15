@@ -59,13 +59,10 @@ mark_free(struct drm_mm_scan *scan,
 	if (i915_vma_is_pinned(vma))
 		return false;
 
-	if (WARN_ON(!list_empty(&vma->exec_list)))
-		return false;
-
 	if (flags & PIN_NONFAULT && !list_empty(&vma->obj->userfault_link))
 		return false;
 
-	list_add(&vma->exec_list, unwind);
+	list_add(&vma->evict_link, unwind);
 	return drm_mm_scan_add_block(scan, &vma->node);
 }
 
@@ -157,11 +154,9 @@ search_again:
 	} while (*++phase);
 
 	/* Nothing found, clean up and bail out! */
-	list_for_each_entry_safe(vma, next, &eviction_list, exec_list) {
+	list_for_each_entry_safe(vma, next, &eviction_list, evict_link) {
 		ret = drm_mm_scan_remove_block(&scan, &vma->node);
 		BUG_ON(ret);
-
-		INIT_LIST_HEAD(&vma->exec_list);
 	}
 
 	/* Can we unpin some objects such as idle hw contents,
@@ -205,21 +200,16 @@ found:
 	 * calling unbind (which may remove the active reference
 	 * of any of our objects, thus corrupting the list).
 	 */
-	list_for_each_entry_safe(vma, next, &eviction_list, exec_list) {
+	list_for_each_entry_safe(vma, next, &eviction_list, evict_link) {
 		if (drm_mm_scan_remove_block(&scan, &vma->node))
 			__i915_vma_pin(vma);
 		else
-			list_del_init(&vma->exec_list);
+			list_del(&vma->evict_link);
 	}
 
 	/* Unbinding will emit any required flushes */
 	ret = 0;
-	while (!list_empty(&eviction_list)) {
-		vma = list_first_entry(&eviction_list,
-				       struct i915_vma,
-				       exec_list);
-
-		list_del_init(&vma->exec_list);
+	list_for_each_entry_safe(vma, next, &eviction_list, evict_link) {
 		__i915_vma_unpin(vma);
 		if (ret == 0)
 			ret = i915_vma_unbind(vma);
@@ -315,7 +305,7 @@ int i915_gem_evict_for_node(struct i915_address_space *vm,
 		}
 
 		/* Overlap of objects in the same batch? */
-		if (i915_vma_is_pinned(vma) || !list_empty(&vma->exec_list)) {
+		if (i915_vma_is_pinned(vma)) {
 			ret = -ENOSPC;
 			if (vma->exec_entry &&
 			    vma->exec_entry->flags & EXEC_OBJECT_PINNED)
@@ -332,11 +322,10 @@ int i915_gem_evict_for_node(struct i915_address_space *vm,
 		 * reference) another in our eviction list.
 		 */
 		__i915_vma_pin(vma);
-		list_add(&vma->exec_list, &eviction_list);
+		list_add(&vma->evict_link, &eviction_list);
 	}
 
-	list_for_each_entry_safe(vma, next, &eviction_list, exec_list) {
-		list_del_init(&vma->exec_list);
+	list_for_each_entry_safe(vma, next, &eviction_list, evict_link) {
 		__i915_vma_unpin(vma);
 		if (ret == 0)
 			ret = i915_vma_unbind(vma);
