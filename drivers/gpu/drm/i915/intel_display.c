@@ -3499,12 +3499,18 @@ void intel_prepare_reset(struct drm_i915_private *dev_priv)
 	struct drm_atomic_state *state;
 	int ret;
 
+	drm_modeset_acquire_init(ctx, 0);
+
+	/* reset doesn't touch the display, but flips might get nuked anyway, */
+	if (!i915.force_reset_modeset_test &&
+	    !gpu_reset_clobbers_display(dev_priv))
+		return;
+
 	/*
 	 * Need mode_config.mutex so that we don't
 	 * trample ongoing ->detect() and whatnot.
 	 */
 	mutex_lock(&dev->mode_config.mutex);
-	drm_modeset_acquire_init(ctx, 0);
 	while (1) {
 		ret = drm_modeset_lock_all_ctx(dev, ctx);
 		if (ret != -EDEADLK)
@@ -3512,11 +3518,6 @@ void intel_prepare_reset(struct drm_i915_private *dev_priv)
 
 		drm_modeset_backoff(ctx);
 	}
-
-	/* reset doesn't touch the display, but flips might get nuked anyway, */
-	if (!i915.force_reset_modeset_test &&
-	    !gpu_reset_clobbers_display(dev_priv))
-		return;
 
 	/*
 	 * Disabling the crtcs gracefully seems nicer. Also the
@@ -3546,6 +3547,7 @@ void intel_finish_reset(struct drm_i915_private *dev_priv)
 	struct drm_modeset_acquire_ctx *ctx = &dev_priv->reset_ctx;
 	struct drm_atomic_state *state = dev_priv->modeset_restore_state;
 	int ret;
+	bool unlock = !list_empty(&ctx->locked);
 
 	/*
 	 * Flips in the rings will be nuked by the reset,
@@ -3601,7 +3603,8 @@ void intel_finish_reset(struct drm_i915_private *dev_priv)
 		drm_atomic_state_put(state);
 	drm_modeset_drop_locks(ctx);
 	drm_modeset_acquire_fini(ctx);
-	mutex_unlock(&dev->mode_config.mutex);
+	if (unlock)
+		mutex_unlock(&dev->mode_config.mutex);
 }
 
 static bool abort_flip_on_reset(struct intel_crtc *crtc)
