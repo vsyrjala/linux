@@ -1772,16 +1772,13 @@ static void intel_pipe_handle_vblank(struct drm_i915_private *dev_priv,
 		intel_check_page_flip(dev_priv, pipe);
 }
 
-/*
- * Returns true when a page flip has completed.
- */
-static bool i8xx_handle_vblank(struct drm_i915_private *dev_priv,
+static void i8xx_handle_vblank(struct drm_i915_private *dev_priv,
 			       int plane, int pipe, u16 iir)
 {
 	u16 flip_pending = DISPLAY_PLANE_FLIP_PENDING(plane);
 
 	if (!_intel_pipe_handle_vblank(dev_priv, pipe))
-		return false;
+		return;
 
 	if ((iir & flip_pending) == 0)
 		goto check_page_flip;
@@ -1795,24 +1792,21 @@ static bool i8xx_handle_vblank(struct drm_i915_private *dev_priv,
 	if (I915_READ16(ISR) & flip_pending)
 		goto check_page_flip;
 
+	I915_WRITE16(IIR, flip_pending);
 	intel_finish_page_flip_cs(dev_priv, pipe);
-	return true;
+	return;
 
 check_page_flip:
 	intel_check_page_flip(dev_priv, pipe);
-	return false;
 }
 
-/*
- * Returns true when a page flip has completed.
- */
-static bool i915_handle_vblank(struct drm_i915_private *dev_priv,
+static void i915_handle_vblank(struct drm_i915_private *dev_priv,
 			       int plane, int pipe, u32 iir)
 {
 	u32 flip_pending = DISPLAY_PLANE_FLIP_PENDING(plane);
 
 	if (!_intel_pipe_handle_vblank(dev_priv, pipe))
-		return false;
+		return;
 
 	if ((iir & flip_pending) == 0)
 		goto check_page_flip;
@@ -1826,12 +1820,12 @@ static bool i915_handle_vblank(struct drm_i915_private *dev_priv,
 	if (I915_READ(ISR) & flip_pending)
 		goto check_page_flip;
 
+	I915_WRITE(IIR, flip_pending);
 	intel_finish_page_flip_cs(dev_priv, pipe);
-	return true;
+	return;
 
 check_page_flip:
 	intel_check_page_flip(dev_priv, pipe);
-	return false;
 }
 
 static void i9xx_pipestat_irq_reset(struct drm_i915_private *dev_priv)
@@ -3693,7 +3687,7 @@ static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 	u16 iir, new_iir;
 	u32 pipe_stats[2];
 	int pipe;
-	u16 flip_mask =
+	const u16 flip_mask =
 		I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT |
 		I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT;
 	irqreturn_t ret;
@@ -3742,9 +3736,8 @@ static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 			if (HAS_FBC(dev_priv))
 				plane = !plane;
 
-			if (pipe_stats[pipe] & PIPE_VBLANK_INTERRUPT_STATUS &&
-			    i8xx_handle_vblank(dev_priv, plane, pipe, iir))
-				flip_mask &= ~DISPLAY_PLANE_FLIP_PENDING(plane);
+			if (pipe_stats[pipe] & PIPE_VBLANK_INTERRUPT_STATUS)
+				i8xx_handle_vblank(dev_priv, plane, pipe, iir);
 
 			if (pipe_stats[pipe] & PIPE_CRC_DONE_INTERRUPT_STATUS)
 				i9xx_pipe_crc_irq_handler(dev_priv, pipe);
@@ -3828,7 +3821,7 @@ static irqreturn_t i915_irq_handler(int irq, void *arg)
 	struct drm_device *dev = arg;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	u32 iir, new_iir, pipe_stats[I915_MAX_PIPES];
-	u32 flip_mask =
+	const u32 flip_mask =
 		I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT |
 		I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT;
 	int pipe, ret = IRQ_NONE;
@@ -3887,9 +3880,8 @@ static irqreturn_t i915_irq_handler(int irq, void *arg)
 			if (HAS_FBC(dev_priv))
 				plane = !plane;
 
-			if (pipe_stats[pipe] & PIPE_VBLANK_INTERRUPT_STATUS &&
-			    i915_handle_vblank(dev_priv, plane, pipe, iir))
-				flip_mask &= ~DISPLAY_PLANE_FLIP_PENDING(plane);
+			if (pipe_stats[pipe] & PIPE_VBLANK_INTERRUPT_STATUS)
+				i915_handle_vblank(dev_priv, plane, pipe, iir);
 
 			if (pipe_stats[pipe] & PIPE_LEGACY_BLC_EVENT_STATUS)
 				blc_event = true;
@@ -4032,7 +4024,7 @@ static irqreturn_t i965_irq_handler(int irq, void *arg)
 	u32 iir, new_iir;
 	u32 pipe_stats[I915_MAX_PIPES];
 	int ret = IRQ_NONE, pipe;
-	u32 flip_mask =
+	const u32 flip_mask =
 		I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT |
 		I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT;
 
@@ -4092,9 +4084,8 @@ static irqreturn_t i965_irq_handler(int irq, void *arg)
 			notify_ring(dev_priv->engine[VCS]);
 
 		for_each_pipe(dev_priv, pipe) {
-			if (pipe_stats[pipe] & PIPE_START_VBLANK_INTERRUPT_STATUS &&
-			    i915_handle_vblank(dev_priv, pipe, pipe, iir))
-				flip_mask &= ~DISPLAY_PLANE_FLIP_PENDING(pipe);
+			if (pipe_stats[pipe] & PIPE_START_VBLANK_INTERRUPT_STATUS)
+				i915_handle_vblank(dev_priv, pipe, pipe, iir);
 
 			if (pipe_stats[pipe] & PIPE_LEGACY_BLC_EVENT_STATUS)
 				blc_event = true;
