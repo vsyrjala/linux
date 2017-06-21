@@ -1753,8 +1753,8 @@ static void gen9_guc_irq_handler(struct drm_i915_private *dev_priv, u32 gt_iir)
 	}
 }
 
-static bool intel_pipe_handle_vblank(struct drm_i915_private *dev_priv,
-				     enum pipe pipe)
+static bool _intel_pipe_handle_vblank(struct drm_i915_private *dev_priv,
+				      enum pipe pipe)
 {
 	bool ret;
 
@@ -1763,6 +1763,13 @@ static bool intel_pipe_handle_vblank(struct drm_i915_private *dev_priv,
 		intel_finish_page_flip_mmio(dev_priv, pipe);
 
 	return ret;
+}
+
+static void intel_pipe_handle_vblank(struct drm_i915_private *dev_priv,
+				     enum pipe pipe)
+{
+	if (_intel_pipe_handle_vblank(dev_priv, pipe))
+		intel_check_page_flip(dev_priv, pipe);
 }
 
 static void valleyview_pipestat_irq_ack(struct drm_i915_private *dev_priv,
@@ -1829,9 +1836,8 @@ static void valleyview_pipestat_irq_handler(struct drm_i915_private *dev_priv,
 	enum pipe pipe;
 
 	for_each_pipe(dev_priv, pipe) {
-		if (pipe_stats[pipe] & PIPE_START_VBLANK_INTERRUPT_STATUS &&
-		    intel_pipe_handle_vblank(dev_priv, pipe))
-			intel_check_page_flip(dev_priv, pipe);
+		if (pipe_stats[pipe] & PIPE_START_VBLANK_INTERRUPT_STATUS)
+			intel_pipe_handle_vblank(dev_priv, pipe);
 
 		if (pipe_stats[pipe] & PLANE_FLIP_DONE_INT_STATUS_VLV)
 			intel_finish_page_flip_cs(dev_priv, pipe);
@@ -2286,9 +2292,8 @@ static void ilk_display_irq_handler(struct drm_i915_private *dev_priv,
 		DRM_ERROR("Poison interrupt\n");
 
 	for_each_pipe(dev_priv, pipe) {
-		if (de_iir & DE_PIPE_VBLANK(pipe) &&
-		    intel_pipe_handle_vblank(dev_priv, pipe))
-			intel_check_page_flip(dev_priv, pipe);
+		if (de_iir & DE_PIPE_VBLANK(pipe))
+			intel_pipe_handle_vblank(dev_priv, pipe);
 
 		if (de_iir & DE_PIPE_FIFO_UNDERRUN(pipe))
 			intel_cpu_fifo_underrun_irq_handler(dev_priv, pipe);
@@ -2337,9 +2342,8 @@ static void ivb_display_irq_handler(struct drm_i915_private *dev_priv,
 		intel_opregion_asle_intr(dev_priv);
 
 	for_each_pipe(dev_priv, pipe) {
-		if (de_iir & (DE_PIPE_VBLANK_IVB(pipe)) &&
-		    intel_pipe_handle_vblank(dev_priv, pipe))
-			intel_check_page_flip(dev_priv, pipe);
+		if (de_iir & (DE_PIPE_VBLANK_IVB(pipe)))
+			intel_pipe_handle_vblank(dev_priv, pipe);
 
 		/* plane/pipes map 1:1 on ilk+ */
 		if (de_iir & DE_PLANE_FLIP_DONE_IVB(pipe))
@@ -2538,9 +2542,8 @@ gen8_de_irq_handler(struct drm_i915_private *dev_priv, u32 master_ctl)
 		ret = IRQ_HANDLED;
 		I915_WRITE(GEN8_DE_PIPE_IIR(pipe), iir);
 
-		if (iir & GEN8_PIPE_VBLANK &&
-		    intel_pipe_handle_vblank(dev_priv, pipe))
-			intel_check_page_flip(dev_priv, pipe);
+		if (iir & GEN8_PIPE_VBLANK)
+			intel_pipe_handle_vblank(dev_priv, pipe);
 
 		flip_done = iir;
 		if (INTEL_INFO(dev_priv)->gen >= 9)
@@ -3629,7 +3632,7 @@ static bool i8xx_handle_vblank(struct drm_i915_private *dev_priv,
 {
 	u16 flip_pending = DISPLAY_PLANE_FLIP_PENDING(plane);
 
-	if (!intel_pipe_handle_vblank(dev_priv, pipe))
+	if (!_intel_pipe_handle_vblank(dev_priv, pipe))
 		return false;
 
 	if ((iir & flip_pending) == 0)
@@ -3799,7 +3802,7 @@ static bool i915_handle_vblank(struct drm_i915_private *dev_priv,
 {
 	u32 flip_pending = DISPLAY_PLANE_FLIP_PENDING(plane);
 
-	if (!intel_pipe_handle_vblank(dev_priv, pipe))
+	if (!_intel_pipe_handle_vblank(dev_priv, pipe))
 		return false;
 
 	if ((iir & flip_pending) == 0)
