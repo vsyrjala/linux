@@ -12808,6 +12808,53 @@ u32 intel_crtc_get_vblank_counter(struct intel_crtc *crtc)
 	return dev->driver->get_vblank_counter(dev, crtc->pipe);
 }
 
+static void _i915_debug_stuff(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	enum pipe pipe;
+
+	DRM_DEBUG_KMS("IIR: 0x%08x\n", I915_READ(IIR));
+	DRM_DEBUG_KMS("IMR: 0x%08x\n", I915_READ(IMR));
+	DRM_DEBUG_KMS("IER: 0x%08x\n", I915_READ(IER));
+
+	DRM_DEBUG_KMS("EMR: 0x%08x\n", I915_READ(EMR));
+	DRM_DEBUG_KMS("EIR: 0x%08x\n", I915_READ(EIR));
+	DRM_DEBUG_KMS("PGTBL_ER: 0x%08x\n", I915_READ(PGTBL_ER));
+
+	DRM_DEBUG_KMS("DSPFW1: 0x%08x\n", I915_READ(DSPFW1));
+	DRM_DEBUG_KMS("DSPFW2: 0x%08x\n", I915_READ(DSPFW1));
+	DRM_DEBUG_KMS("DSPFW3: 0x%08x\n", I915_READ(DSPFW1));
+	DRM_DEBUG_KMS("FW_BLC_SELF: 0x%08x\n", I915_READ(FW_BLC_SELF));
+
+	for_each_pipe(dev_priv, pipe){
+		DRM_DEBUG_KMS("PIPECONF     %c: 0x%08x\n",
+			      pipe_name(pipe), I915_READ(PIPECONF(pipe)));
+		DRM_DEBUG_KMS("PIPESTAT     %c: 0x%08x\n",
+			      pipe_name(pipe), I915_READ(PIPESTAT(pipe)));
+		DRM_DEBUG_KMS("PIPEFLIPCNT  %c: 0x%08x\n",
+			      pipe_name(pipe), I915_READ(PIPE_FLIPCOUNT_G4X(pipe)));
+		DRM_DEBUG_KMS("PIPEFRAMECNT %c: 0x%08x\n",
+			      pipe_name(pipe), I915_READ(PIPE_FRMCOUNT_G4X(pipe)));
+		DRM_DEBUG_KMS("PIPEDSL      %c: 0x%08x\n",
+			      pipe_name(pipe), I915_READ(PIPEDSL(pipe)));
+		DRM_DEBUG_KMS("CURCNTR      %c: 0x%08x\n",
+			      pipe_name(pipe), I915_READ(CURCNTR(pipe)));
+		DRM_DEBUG_KMS("DSPCNTR      %c: 0x%08x\n",
+			      pipe_name(pipe), I915_READ(DSPCNTR(pipe)));
+		DRM_DEBUG_KMS("DSPSURF      %c: 0x%08x\n",
+			      pipe_name(pipe), I915_READ(DSPSURF(pipe)));
+		DRM_DEBUG_KMS("DSPSURFLIVE  %c: 0x%08x\n",
+			      pipe_name(pipe), I915_READ(DSPSURFLIVE(pipe)));
+	}
+}
+
+static void i915_debug_stuff(struct drm_device *dev)
+{
+	_i915_debug_stuff(dev);
+	msleep(20);
+	_i915_debug_stuff(dev);
+}
+
 static void intel_atomic_wait_for_vblanks(struct drm_device *dev,
 					  struct drm_i915_private *dev_priv,
 					  unsigned crtc_mask)
@@ -12849,6 +12896,8 @@ static void intel_atomic_wait_for_vblanks(struct drm_device *dev,
 				msecs_to_jiffies(50));
 
 		WARN(!lret, "pipe %c vblank wait timed out\n", pipe_name(pipe));
+		if (!lret)
+			i915_debug_stuff(dev);
 
 		drm_crtc_vblank_put(&crtc->base);
 	}
@@ -13019,7 +13068,7 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 	unsigned crtc_vblank_mask = 0;
 	int i;
 
-	drm_atomic_helper_wait_for_dependencies(state);
+	drm_atomic_helper_wait_for_dependencies(state, i915_debug_stuff);
 
 	if (intel_state->modeset)
 		intel_display_power_get(dev_priv, POWER_DOMAIN_MODESET);
@@ -13162,7 +13211,7 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 	drm_atomic_helper_cleanup_planes(dev, state);
 	mutex_unlock(&dev->struct_mutex);
 
-	drm_atomic_helper_commit_cleanup_done(state);
+	drm_atomic_helper_commit_cleanup_done(state, i915_debug_stuff);
 
 	drm_atomic_state_put(state);
 

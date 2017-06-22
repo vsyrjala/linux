@@ -44,7 +44,7 @@ vc4_atomic_complete_commit(struct vc4_commit *c)
 
 	drm_atomic_helper_wait_for_fences(dev, state, false);
 
-	drm_atomic_helper_wait_for_dependencies(state);
+	drm_atomic_helper_wait_for_dependencies(state, NULL);
 
 	drm_atomic_helper_commit_modeset_disables(dev, state);
 
@@ -67,7 +67,7 @@ vc4_atomic_complete_commit(struct vc4_commit *c)
 
 	drm_atomic_helper_cleanup_planes(dev, state);
 
-	drm_atomic_helper_commit_cleanup_done(state);
+	drm_atomic_helper_commit_cleanup_done(state, NULL);
 
 	drm_atomic_state_put(state);
 

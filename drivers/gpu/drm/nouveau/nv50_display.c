@@ -3918,7 +3918,7 @@ nv50_disp_atomic_commit_tail(struct drm_atomic_state *state)
 
 	NV_ATOMIC(drm, "commit %d %d\n", atom->lock_core, atom->flush_disable);
 	drm_atomic_helper_wait_for_fences(dev, state, false);
-	drm_atomic_helper_wait_for_dependencies(state);
+	drm_atomic_helper_wait_for_dependencies(state, NULL);
 	drm_atomic_helper_update_legacy_modeset_state(dev, state);
 
 	if (atom->lock_core)
@@ -4078,7 +4078,7 @@ nv50_disp_atomic_commit_tail(struct drm_atomic_state *state)
 
 	drm_atomic_helper_commit_hw_done(state);
 	drm_atomic_helper_cleanup_planes(dev, state);
-	drm_atomic_helper_commit_cleanup_done(state);
+	drm_atomic_helper_commit_cleanup_done(state, NULL);
 	drm_atomic_state_put(state);
 }
 

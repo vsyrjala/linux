@@ -1290,14 +1290,14 @@ static void commit_tail(struct drm_atomic_state *old_state)
 
 	drm_atomic_helper_wait_for_fences(dev, old_state, false);
 
-	drm_atomic_helper_wait_for_dependencies(old_state);
+	drm_atomic_helper_wait_for_dependencies(old_state, NULL);
 
 	if (funcs && funcs->atomic_commit_tail)
 		funcs->atomic_commit_tail(old_state);
 	else
 		drm_atomic_helper_commit_tail(old_state);
 
-	drm_atomic_helper_commit_cleanup_done(old_state);
+	drm_atomic_helper_commit_cleanup_done(old_state, NULL);
 
 	drm_atomic_state_put(old_state);
 }
@@ -1614,7 +1614,8 @@ static struct drm_crtc_commit *preceeding_commit(struct drm_crtc *crtc)
  * This is part of the atomic helper support for nonblocking commits, see
  * drm_atomic_helper_setup_commit() for an overview.
  */
-void drm_atomic_helper_wait_for_dependencies(struct drm_atomic_state *old_state)
+void drm_atomic_helper_wait_for_dependencies(struct drm_atomic_state *old_state,
+					     void (*timeout_func)(struct drm_device *dev))
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *new_crtc_state;
@@ -1635,16 +1636,24 @@ void drm_atomic_helper_wait_for_dependencies(struct drm_atomic_state *old_state)
 		ret = wait_for_completion_timeout(&commit->hw_done,
 						  10*HZ);
 		if (ret == 0)
+		{
 			DRM_ERROR("[CRTC:%d:%s] hw_done timed out\n",
 				  crtc->base.id, crtc->name);
+			if (timeout_func)
+				timeout_func(crtc->dev);
+		}
 
 		/* Currently no support for overwriting flips, hence
 		 * stall for previous one to execute completely. */
 		ret = wait_for_completion_timeout(&commit->flip_done,
 						  10*HZ);
 		if (ret == 0)
+		{
 			DRM_ERROR("[CRTC:%d:%s] flip_done timed out\n",
 				  crtc->base.id, crtc->name);
+			if (timeout_func)
+				timeout_func(crtc->dev);
+		}
 
 		drm_crtc_commit_put(commit);
 	}
@@ -1698,7 +1707,8 @@ EXPORT_SYMBOL(drm_atomic_helper_commit_hw_done);
  * This is part of the atomic helper support for nonblocking commits, see
  * drm_atomic_helper_setup_commit() for an overview.
  */
-void drm_atomic_helper_commit_cleanup_done(struct drm_atomic_state *old_state)
+void drm_atomic_helper_commit_cleanup_done(struct drm_atomic_state *old_state,
+					   void (*timeout_func)(struct drm_device *dev))
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *new_crtc_state;
@@ -1729,8 +1739,12 @@ void drm_atomic_helper_commit_cleanup_done(struct drm_atomic_state *old_state)
 		ret = wait_for_completion_timeout(&commit->flip_done,
 						  10*HZ);
 		if (ret == 0)
+		{
 			DRM_ERROR("[CRTC:%d:%s] flip_done timed out\n",
 				  crtc->base.id, crtc->name);
+			if (timeout_func)
+				timeout_func(crtc->dev);
+		}
 
 		spin_lock(&crtc->commit_lock);
 del_commit:
