@@ -1772,6 +1772,68 @@ static void intel_pipe_handle_vblank(struct drm_i915_private *dev_priv,
 		intel_check_page_flip(dev_priv, pipe);
 }
 
+/*
+ * Returns true when a page flip has completed.
+ */
+static bool i8xx_handle_vblank(struct drm_i915_private *dev_priv,
+			       int plane, int pipe, u16 iir)
+{
+	u16 flip_pending = DISPLAY_PLANE_FLIP_PENDING(plane);
+
+	if (!_intel_pipe_handle_vblank(dev_priv, pipe))
+		return false;
+
+	if ((iir & flip_pending) == 0)
+		goto check_page_flip;
+
+	/* We detect FlipDone by looking for the change in PendingFlip from '1'
+	 * to '0' on the following vblank, i.e. IIR has the Pendingflip
+	 * asserted following the MI_DISPLAY_FLIP, but ISR is deasserted, hence
+	 * the flip is completed (no longer pending). Since this doesn't raise
+	 * an interrupt per se, we watch for the change at vblank.
+	 */
+	if (I915_READ16(ISR) & flip_pending)
+		goto check_page_flip;
+
+	intel_finish_page_flip_cs(dev_priv, pipe);
+	return true;
+
+check_page_flip:
+	intel_check_page_flip(dev_priv, pipe);
+	return false;
+}
+
+/*
+ * Returns true when a page flip has completed.
+ */
+static bool i915_handle_vblank(struct drm_i915_private *dev_priv,
+			       int plane, int pipe, u32 iir)
+{
+	u32 flip_pending = DISPLAY_PLANE_FLIP_PENDING(plane);
+
+	if (!_intel_pipe_handle_vblank(dev_priv, pipe))
+		return false;
+
+	if ((iir & flip_pending) == 0)
+		goto check_page_flip;
+
+	/* We detect FlipDone by looking for the change in PendingFlip from '1'
+	 * to '0' on the following vblank, i.e. IIR has the Pendingflip
+	 * asserted following the MI_DISPLAY_FLIP, but ISR is deasserted, hence
+	 * the flip is completed (no longer pending). Since this doesn't raise
+	 * an interrupt per se, we watch for the change at vblank.
+	 */
+	if (I915_READ(ISR) & flip_pending)
+		goto check_page_flip;
+
+	intel_finish_page_flip_cs(dev_priv, pipe);
+	return true;
+
+check_page_flip:
+	intel_check_page_flip(dev_priv, pipe);
+	return false;
+}
+
 static void i9xx_pipestat_irq_reset(struct drm_i915_private *dev_priv)
 {
 	enum pipe pipe;
@@ -3624,37 +3686,6 @@ static int i8xx_irq_postinstall(struct drm_device *dev)
 	return 0;
 }
 
-/*
- * Returns true when a page flip has completed.
- */
-static bool i8xx_handle_vblank(struct drm_i915_private *dev_priv,
-			       int plane, int pipe, u32 iir)
-{
-	u16 flip_pending = DISPLAY_PLANE_FLIP_PENDING(plane);
-
-	if (!_intel_pipe_handle_vblank(dev_priv, pipe))
-		return false;
-
-	if ((iir & flip_pending) == 0)
-		goto check_page_flip;
-
-	/* We detect FlipDone by looking for the change in PendingFlip from '1'
-	 * to '0' on the following vblank, i.e. IIR has the Pendingflip
-	 * asserted following the MI_DISPLAY_FLIP, but ISR is deasserted, hence
-	 * the flip is completed (no longer pending). Since this doesn't raise
-	 * an interrupt per se, we watch for the change at vblank.
-	 */
-	if (I915_READ16(ISR) & flip_pending)
-		goto check_page_flip;
-
-	intel_finish_page_flip_cs(dev_priv, pipe);
-	return true;
-
-check_page_flip:
-	intel_check_page_flip(dev_priv, pipe);
-	return false;
-}
-
 static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 {
 	struct drm_device *dev = arg;
@@ -3790,37 +3821,6 @@ static int i915_irq_postinstall(struct drm_device *dev)
 	i915_enable_asle_pipestat(dev_priv);
 
 	return 0;
-}
-
-/*
- * Returns true when a page flip has completed.
- */
-static bool i915_handle_vblank(struct drm_i915_private *dev_priv,
-			       int plane, int pipe, u32 iir)
-{
-	u32 flip_pending = DISPLAY_PLANE_FLIP_PENDING(plane);
-
-	if (!_intel_pipe_handle_vblank(dev_priv, pipe))
-		return false;
-
-	if ((iir & flip_pending) == 0)
-		goto check_page_flip;
-
-	/* We detect FlipDone by looking for the change in PendingFlip from '1'
-	 * to '0' on the following vblank, i.e. IIR has the Pendingflip
-	 * asserted following the MI_DISPLAY_FLIP, but ISR is deasserted, hence
-	 * the flip is completed (no longer pending). Since this doesn't raise
-	 * an interrupt per se, we watch for the change at vblank.
-	 */
-	if (I915_READ(ISR) & flip_pending)
-		goto check_page_flip;
-
-	intel_finish_page_flip_cs(dev_priv, pipe);
-	return true;
-
-check_page_flip:
-	intel_check_page_flip(dev_priv, pipe);
-	return false;
 }
 
 static irqreturn_t i915_irq_handler(int irq, void *arg)
