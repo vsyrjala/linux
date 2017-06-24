@@ -3368,7 +3368,8 @@ EXPORT_SYMBOL(drm_atomic_helper_crtc_reset);
 /**
  * __drm_atomic_helper_crtc_duplicate_state - copy atomic CRTC state
  * @crtc: CRTC object
- * @state: atomic CRTC state
+ * @state: new CRTC state
+ * @old_state: old CRTC state
  *
  * Copies atomic state from a CRTC's current state and resets inferred values.
  * This is useful for drivers that subclass the CRTC state.
@@ -3401,6 +3402,7 @@ EXPORT_SYMBOL(__drm_atomic_helper_crtc_duplicate_state);
 /**
  * drm_atomic_helper_crtc_duplicate_state - default state duplicate hook
  * @crtc: drm CRTC
+ * @old_state: old CRTC state
  *
  * Default CRTC state duplicate hook for drivers which don't have their own
  * subclassed CRTC state structure.
@@ -3481,7 +3483,8 @@ EXPORT_SYMBOL(drm_atomic_helper_plane_reset);
 /**
  * __drm_atomic_helper_plane_duplicate_state - copy atomic plane state
  * @plane: plane object
- * @state: atomic plane state
+ * @state: new plane state
+ * @old_state: old plane state
  *
  * Copies atomic state from a plane's current state. This is useful for
  * drivers that subclass the plane state.
@@ -3502,6 +3505,7 @@ EXPORT_SYMBOL(__drm_atomic_helper_plane_duplicate_state);
 /**
  * drm_atomic_helper_plane_duplicate_state - default state duplicate hook
  * @plane: drm plane
+ * @old_state: old plane state
  *
  * Default plane state duplicate hook for drivers which don't have their own
  * subclassed plane state structure.
@@ -3605,7 +3609,8 @@ EXPORT_SYMBOL(drm_atomic_helper_connector_reset);
 /**
  * __drm_atomic_helper_connector_duplicate_state - copy atomic connector state
  * @connector: connector object
- * @state: atomic connector state
+ * @state: new connector state
+ * @old_state: old connector state
  *
  * Copies atomic state from a connector's current state. This is useful for
  * drivers that subclass the connector state.
@@ -3624,6 +3629,7 @@ EXPORT_SYMBOL(__drm_atomic_helper_connector_duplicate_state);
 /**
  * drm_atomic_helper_connector_duplicate_state - default state duplicate hook
  * @connector: drm connector
+ * @old_state: old connector state
  *
  * Default connector state duplicate hook for drivers which don't have their own
  * subclassed connector state structure.

@@ -497,7 +497,7 @@ struct drm_crtc_funcs {
 	/**
 	 * @atomic_duplicate_state:
 	 *
-	 * Duplicate the current atomic state for this CRTC and return it.
+	 * Duplicate the passed in atomic state for this CRTC and return it.
 	 * The core and helpers guarantee that any atomic state duplicated with
 	 * this hook and still owned by the caller (i.e. not transferred to the
 	 * driver by calling &drm_mode_config_funcs.atomic_commit) will be
