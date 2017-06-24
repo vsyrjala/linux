@@ -324,6 +324,11 @@ drm_atomic_get_private_obj_state(struct drm_atomic_state *state,
 			      void *obj,
 			      const struct drm_private_state_funcs *funcs);
 
+int __must_check
+drm_atomic_state_realloc_connectors(struct drm_device *dev,
+				    struct drm_atomic_state *state,
+				    int index);
+
 /**
  * drm_atomic_get_existing_crtc_state - get crtc state, if it exists
  * @state: global atomic state object
