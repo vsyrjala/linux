@@ -138,8 +138,7 @@ int drm_fb_helper_add_one_connector(struct drm_fb_helper *fb_helper,
 	if (!fb_conn)
 		return -ENOMEM;
 
-	drm_connector_get(connector);
-	fb_conn->connector = connector;
+	fb_conn->connector = drm_connector_get(connector);
 	fb_helper->connector_info[fb_helper->connector_count++] = fb_conn;
 	return 0;
 }
@@ -2299,8 +2298,8 @@ static void drm_setup_crtcs(struct drm_fb_helper *fb_helper,
 			fb_crtc->y = offset->y;
 			modeset->mode = drm_mode_duplicate(dev,
 							   fb_crtc->desired_mode);
-			drm_connector_get(connector);
-			modeset->connectors[modeset->num_connectors++] = connector;
+			modeset->connectors[modeset->num_connectors++] =
+				drm_connector_get(connector);
 			modeset->fb = fb_helper->fb;
 			modeset->x = offset->x;
 			modeset->y = offset->y;
