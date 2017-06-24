@@ -1112,11 +1112,10 @@ drm_atomic_get_connector_state(struct drm_atomic_state *state,
 	if (!connector_state)
 		return ERR_PTR(-ENOMEM);
 
-	drm_connector_get(connector);
 	state->connectors[index].state = connector_state;
 	state->connectors[index].old_state = connector->state;
 	state->connectors[index].new_state = connector_state;
-	state->connectors[index].ptr = connector;
+	state->connectors[index].ptr = drm_connector_get(connector);
 	connector_state->state = state;
 
 	DRM_DEBUG_ATOMIC("Added [CONNECTOR:%d:%s] %p state to %p\n",
