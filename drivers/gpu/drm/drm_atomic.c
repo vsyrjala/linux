@@ -1044,6 +1044,31 @@ drm_atomic_get_private_obj_state(struct drm_atomic_state *state, void *obj,
 }
 EXPORT_SYMBOL(drm_atomic_get_private_obj_state);
 
+int drm_atomic_state_realloc_connectors(struct drm_device *dev,
+					struct drm_atomic_state *state,
+					int index)
+{
+	struct drm_mode_config *config = &dev->mode_config;
+	struct __drm_connnectors_state *c;
+	int alloc = max(index + 1, config->num_connector);
+
+	if (index < state->num_connector)
+		return 0;
+
+	c = krealloc(state->connectors, alloc * sizeof(*state->connectors), GFP_KERNEL);
+	if (!c)
+		return -ENOMEM;
+
+	state->connectors = c;
+	memset(&state->connectors[state->num_connector], 0,
+	       sizeof(*state->connectors) * (alloc - state->num_connector));
+
+	state->num_connector = alloc;
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_atomic_state_realloc_connectors);
+
 /**
  * drm_atomic_get_connector_state - get connector state
  * @state: global atomic state object
@@ -1075,20 +1100,9 @@ drm_atomic_get_connector_state(struct drm_atomic_state *state,
 
 	index = drm_connector_index(connector);
 
-	if (index >= state->num_connector) {
-		struct __drm_connnectors_state *c;
-		int alloc = max(index + 1, config->num_connector);
-
-		c = krealloc(state->connectors, alloc * sizeof(*state->connectors), GFP_KERNEL);
-		if (!c)
-			return ERR_PTR(-ENOMEM);
-
-		state->connectors = c;
-		memset(&state->connectors[state->num_connector], 0,
-		       sizeof(*state->connectors) * (alloc - state->num_connector));
-
-		state->num_connector = alloc;
-	}
+	ret = drm_atomic_state_realloc_connectors(connector->dev, state, index);
+	if (ret)
+		return ERR_PTR(ret);
 
 	if (state->connectors[index].state)
 		return state->connectors[index].state;
