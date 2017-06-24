@@ -916,10 +916,15 @@ static inline struct drm_connector *drm_connector_lookup(struct drm_device *dev,
  * @connector: DRM connector
  *
  * This function increments the connector's refcount.
+
+ * Returns:
+ *
+ * The connector.
  */
-static inline void drm_connector_get(struct drm_connector *connector)
+static inline struct drm_connector *drm_connector_get(struct drm_connector *connector)
 {
 	drm_mode_object_get(&connector->base);
+	return connector;
 }
 
 /**

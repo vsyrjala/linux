@@ -1139,11 +1139,10 @@ drm_atomic_get_connector_state(struct drm_atomic_state *state,
 	if (!connector_state)
 		return ERR_PTR(-ENOMEM);
 
-	drm_connector_get(connector);
 	c->state = connector_state;
 	c->old_state = connector->state;
 	c->new_state = connector_state;
-	c->ptr = connector;
+	c->ptr = drm_connector_get(connector);
 	connector_state->state = state;
 
 	state->num_connector = state->connectors.num_elems;
