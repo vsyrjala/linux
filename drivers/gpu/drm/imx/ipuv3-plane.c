@@ -279,17 +279,18 @@ void ipu_plane_state_reset(struct drm_plane *plane)
 	plane->state = &ipu_state->base;
 }
 
-struct drm_plane_state *ipu_plane_duplicate_state(struct drm_plane *plane)
+struct drm_plane_state *ipu_plane_duplicate_state(struct drm_plane *plane,
+						  struct drm_plane_state *old_state)
 {
 	struct ipu_plane_state *state;
 
-	if (WARN_ON(!plane->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (state)
 		__drm_atomic_helper_plane_duplicate_state(plane, &state->base,
-							  plane->state);
+							  old_state);
 
 	return &state->base;
 }

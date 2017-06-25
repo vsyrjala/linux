@@ -523,7 +523,8 @@ struct drm_crtc_funcs {
 	 *
 	 * Duplicated atomic state or NULL when the allocation failed.
 	 */
-	struct drm_crtc_state *(*atomic_duplicate_state)(struct drm_crtc *crtc);
+	struct drm_crtc_state *(*atomic_duplicate_state)(struct drm_crtc *crtc,
+							 struct drm_crtc_state *old_state);
 
 	/**
 	 * @atomic_destroy_state:

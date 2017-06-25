@@ -799,9 +799,10 @@ static void tegra_dsi_connector_reset(struct drm_connector *connector)
 }
 
 static struct drm_connector_state *
-tegra_dsi_connector_duplicate_state(struct drm_connector *connector)
+tegra_dsi_connector_duplicate_state(struct drm_connector *connector,
+				    struct drm_connector_state *old_state)
 {
-	struct tegra_dsi_state *state = to_dsi_state(connector->state);
+	struct tegra_dsi_state *state = to_dsi_state(old_state);
 	struct tegra_dsi_state *copy;
 
 	copy = kmemdup(state, sizeof(*state), GFP_KERNEL);
@@ -810,7 +811,7 @@ tegra_dsi_connector_duplicate_state(struct drm_connector *connector)
 
 	__drm_atomic_helper_connector_duplicate_state(connector,
 						      &copy->base,
-						      connector->state);
+						      old_state);
 
 	return &copy->base;
 }

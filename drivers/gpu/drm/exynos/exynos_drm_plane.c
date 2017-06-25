@@ -146,18 +146,19 @@ static void exynos_drm_plane_reset(struct drm_plane *plane)
 }
 
 static struct drm_plane_state *
-exynos_drm_plane_duplicate_state(struct drm_plane *plane)
+exynos_drm_plane_duplicate_state(struct drm_plane *plane,
+				 struct drm_plane_state *old_state)
 {
 	struct exynos_drm_plane_state *exynos_state;
 	struct exynos_drm_plane_state *copy;
 
-	exynos_state = to_exynos_plane_state(plane->state);
+	exynos_state = to_exynos_plane_state(old_state);
 	copy = kzalloc(sizeof(*exynos_state), GFP_KERNEL);
 	if (!copy)
 		return NULL;
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &copy->base,
-						  plane->state);
+						  old_state);
 	return &copy->base;
 }
 

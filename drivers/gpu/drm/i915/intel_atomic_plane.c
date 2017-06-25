@@ -71,19 +71,20 @@ intel_create_plane_state(struct drm_plane *plane)
  * Returns: The newly allocated plane state, or NULL on failure.
  */
 struct drm_plane_state *
-intel_plane_duplicate_state(struct drm_plane *plane)
+intel_plane_duplicate_state(struct drm_plane *plane,
+			    struct drm_plane_state *old_state)
 {
 	struct drm_plane_state *state;
 	struct intel_plane_state *intel_state;
 
-	intel_state = kmemdup(plane->state, sizeof(*intel_state), GFP_KERNEL);
+	intel_state = kmemdup(old_state, sizeof(*intel_state), GFP_KERNEL);
 
 	if (!intel_state)
 		return NULL;
 
 	state = &intel_state->base;
 
-	__drm_atomic_helper_plane_duplicate_state(plane, state, plane->state);
+	__drm_atomic_helper_plane_duplicate_state(plane, state, old_state);
 
 	intel_state->vma = NULL;
 

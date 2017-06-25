@@ -552,12 +552,14 @@ int drm_plane_helper_update(struct drm_plane *plane, struct drm_crtc *crtc,
 	struct drm_plane_state *plane_state;
 
 	if (plane->funcs->atomic_duplicate_state)
-		plane_state = plane->funcs->atomic_duplicate_state(plane);
+		plane_state = plane->funcs->atomic_duplicate_state(plane,
+								   plane->state);
 	else {
 		if (!plane->state)
 			drm_atomic_helper_plane_reset(plane);
 
-		plane_state = drm_atomic_helper_plane_duplicate_state(plane);
+		plane_state = drm_atomic_helper_plane_duplicate_state(plane,
+								      plane->state);
 	}
 	if (!plane_state)
 		return -ENOMEM;
@@ -601,12 +603,14 @@ int drm_plane_helper_disable(struct drm_plane *plane)
 		return 0;
 
 	if (plane->funcs->atomic_duplicate_state)
-		plane_state = plane->funcs->atomic_duplicate_state(plane);
+		plane_state = plane->funcs->atomic_duplicate_state(plane,
+								   plane->state);
 	else {
 		if (!plane->state)
 			drm_atomic_helper_plane_reset(plane);
 
-		plane_state = drm_atomic_helper_plane_duplicate_state(plane);
+		plane_state = drm_atomic_helper_plane_duplicate_state(plane,
+								      plane->state);
 	}
 	if (!plane_state)
 		return -ENOMEM;

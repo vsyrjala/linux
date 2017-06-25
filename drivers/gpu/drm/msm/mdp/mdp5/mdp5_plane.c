@@ -214,20 +214,21 @@ static void mdp5_plane_reset(struct drm_plane *plane)
 }
 
 static struct drm_plane_state *
-mdp5_plane_duplicate_state(struct drm_plane *plane)
+mdp5_plane_duplicate_state(struct drm_plane *plane,
+			   struct drm_plane_state *old_state)
 {
 	struct mdp5_plane_state *mdp5_state;
 
-	if (WARN_ON(!plane->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
-	mdp5_state = kmemdup(to_mdp5_plane_state(plane->state),
-			sizeof(*mdp5_state), GFP_KERNEL);
+	mdp5_state = kmemdup(to_mdp5_plane_state(old_state),
+			     sizeof(*mdp5_state), GFP_KERNEL);
 	if (!mdp5_state)
 		return NULL;
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &mdp5_state->base,
-						  plane->state);
+						  old_state);
 
 	return &mdp5_state->base;
 }
@@ -1032,7 +1033,7 @@ static int mdp5_update_cursor_plane_legacy(struct drm_plane *plane,
 	    plane_state->fb != fb)
 		goto slow;
 
-	new_plane_state = mdp5_plane_duplicate_state(plane);
+	new_plane_state = mdp5_plane_duplicate_state(plane, plane->state);
 	if (!new_plane_state)
 		return -ENOMEM;
 
