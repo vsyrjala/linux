@@ -13625,7 +13625,7 @@ intel_legacy_cursor_update(struct drm_plane *plane,
 	    !old_plane_state->fb != !fb)
 		goto slow;
 
-	new_plane_state = intel_plane_duplicate_state(plane);
+	new_plane_state = intel_plane_duplicate_state(plane, plane->state);
 	if (!new_plane_state)
 		return -ENOMEM;
 

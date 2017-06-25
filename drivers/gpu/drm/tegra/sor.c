@@ -1325,9 +1325,10 @@ tegra_sor_connector_detect(struct drm_connector *connector, bool force)
 }
 
 static struct drm_connector_state *
-tegra_sor_connector_duplicate_state(struct drm_connector *connector)
+tegra_sor_connector_duplicate_state(struct drm_connector *connector,
+				    struct drm_connector_state *old_state)
 {
-	struct tegra_sor_state *state = to_sor_state(connector->state);
+	struct tegra_sor_state *state = to_sor_state(old_state);
 	struct tegra_sor_state *copy;
 
 	copy = kmemdup(state, sizeof(*state), GFP_KERNEL);
@@ -1335,7 +1336,7 @@ tegra_sor_connector_duplicate_state(struct drm_connector *connector)
 		return NULL;
 
 	__drm_atomic_helper_connector_duplicate_state(connector, &copy->base,
-						      connector->state);
+						      old_state);
 
 	return &copy->base;
 }

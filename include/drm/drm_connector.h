@@ -540,7 +540,8 @@ struct drm_connector_funcs {
 	 *
 	 * Duplicated atomic state or NULL when the allocation failed.
 	 */
-	struct drm_connector_state *(*atomic_duplicate_state)(struct drm_connector *connector);
+	struct drm_connector_state *(*atomic_duplicate_state)(struct drm_connector *connector,
+							      struct drm_connector_state *old_state);
 
 	/**
 	 * @atomic_destroy_state:

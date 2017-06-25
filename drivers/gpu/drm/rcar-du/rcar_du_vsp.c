@@ -303,21 +303,22 @@ static const struct drm_plane_helper_funcs rcar_du_vsp_plane_helper_funcs = {
 };
 
 static struct drm_plane_state *
-rcar_du_vsp_plane_atomic_duplicate_state(struct drm_plane *plane)
+rcar_du_vsp_plane_atomic_duplicate_state(struct drm_plane *plane,
+					 struct drm_plane_state *old_state)
 {
 	struct rcar_du_vsp_plane_state *state;
 	struct rcar_du_vsp_plane_state *copy;
 
-	if (WARN_ON(!plane->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
-	state = to_rcar_vsp_plane_state(plane->state);
+	state = to_rcar_vsp_plane_state(old_state);
 	copy = kmemdup(state, sizeof(*state), GFP_KERNEL);
 	if (copy == NULL)
 		return NULL;
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &copy->state,
-						  plane->state);
+						  old_state);
 
 	return &copy->state;
 }

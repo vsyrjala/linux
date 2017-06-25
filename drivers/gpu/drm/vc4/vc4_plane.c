@@ -174,21 +174,22 @@ static bool plane_enabled(struct drm_plane_state *state)
 	return state->fb && state->crtc;
 }
 
-static struct drm_plane_state *vc4_plane_duplicate_state(struct drm_plane *plane)
+static struct drm_plane_state *vc4_plane_duplicate_state(struct drm_plane *plane,
+							 struct drm_plane_state *old_state)
 {
 	struct vc4_plane_state *vc4_state;
 
-	if (WARN_ON(!plane->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
-	vc4_state = kmemdup(plane->state, sizeof(*vc4_state), GFP_KERNEL);
+	vc4_state = kmemdup(old_state, sizeof(*vc4_state), GFP_KERNEL);
 	if (!vc4_state)
 		return NULL;
 
 	memset(&vc4_state->lbm, 0, sizeof(vc4_state->lbm));
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &vc4_state->base,
-						  plane->state);
+						  old_state);
 
 	if (vc4_state->dlist) {
 		vc4_state->dlist = kmemdup(vc4_state->dlist,

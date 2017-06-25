@@ -1009,10 +1009,11 @@ static void atmel_hlcdc_plane_reset(struct drm_plane *p)
 }
 
 static struct drm_plane_state *
-atmel_hlcdc_plane_atomic_duplicate_state(struct drm_plane *p)
+atmel_hlcdc_plane_atomic_duplicate_state(struct drm_plane *p,
+					 struct drm_plane_state *old_state)
 {
 	struct atmel_hlcdc_plane_state *state =
-			drm_plane_state_to_atmel_hlcdc_plane_state(p->state);
+			drm_plane_state_to_atmel_hlcdc_plane_state(old_state);
 	struct atmel_hlcdc_plane_state *copy;
 
 	copy = kmemdup(state, sizeof(*state), GFP_KERNEL);

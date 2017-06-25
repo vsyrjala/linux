@@ -413,21 +413,22 @@ static const struct drm_crtc_helper_funcs malidp_crtc_helper_funcs = {
 	.atomic_check = malidp_crtc_atomic_check,
 };
 
-static struct drm_crtc_state *malidp_crtc_duplicate_state(struct drm_crtc *crtc)
+static struct drm_crtc_state *malidp_crtc_duplicate_state(struct drm_crtc *crtc,
+							  struct drm_crtc_state *old_state)
 {
 	struct malidp_crtc_state *state;
 	struct malidp_crtc_state *old_mali_state;
 
-	if (WARN_ON(!crtc->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
-	old_mali_state = to_malidp_crtc_state(crtc->state);
+	old_mali_state = to_malidp_crtc_state(old_state);
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base,
-						 crtc->state);
+						 old_state);
 	memcpy(state->gamma_coeffs, old_mali_state->gamma_coeffs,
 	       sizeof(state->gamma_coeffs));
 	memcpy(state->coloradj_coeffs, old_mali_state->coloradj_coeffs,

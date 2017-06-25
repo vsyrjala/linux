@@ -1011,12 +1011,14 @@ int drm_helper_crtc_mode_set(struct drm_crtc *crtc, struct drm_display_mode *mod
 	int ret;
 
 	if (crtc->funcs->atomic_duplicate_state)
-		crtc_state = crtc->funcs->atomic_duplicate_state(crtc);
+		crtc_state = crtc->funcs->atomic_duplicate_state(crtc,
+								 crtc->state);
 	else {
 		if (!crtc->state)
 			drm_atomic_helper_crtc_reset(crtc);
 
-		crtc_state = drm_atomic_helper_crtc_duplicate_state(crtc);
+		crtc_state = drm_atomic_helper_crtc_duplicate_state(crtc,
+								    crtc->state);
 	}
 
 	if (!crtc_state)
@@ -1074,12 +1076,14 @@ int drm_helper_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	struct drm_plane *plane = crtc->primary;
 
 	if (plane->funcs->atomic_duplicate_state)
-		plane_state = plane->funcs->atomic_duplicate_state(plane);
+		plane_state = plane->funcs->atomic_duplicate_state(plane,
+								   plane->state);
 	else {
 		if (!plane->state)
 			drm_atomic_helper_plane_reset(plane);
 
-		plane_state = drm_atomic_helper_plane_duplicate_state(plane);
+		plane_state = drm_atomic_helper_plane_duplicate_state(plane,
+								      plane->state);
 	}
 	if (!plane_state)
 		return -ENOMEM;

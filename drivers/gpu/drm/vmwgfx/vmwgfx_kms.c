@@ -597,22 +597,23 @@ void vmw_du_crtc_atomic_flush(struct drm_crtc *crtc,
  * Returns: The newly allocated crtc state, or NULL on failure.
  */
 struct drm_crtc_state *
-vmw_du_crtc_duplicate_state(struct drm_crtc *crtc)
+vmw_du_crtc_duplicate_state(struct drm_crtc *crtc,
+			    struct drm_crtc_state *old_state)
 {
 	struct drm_crtc_state *state;
 	struct vmw_crtc_state *vcs;
 
-	if (WARN_ON(!crtc->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
-	vcs = kmemdup(crtc->state, sizeof(*vcs), GFP_KERNEL);
+	vcs = kmemdup(old_state, sizeof(*vcs), GFP_KERNEL);
 
 	if (!vcs)
 		return NULL;
 
 	state = &vcs->base;
 
-	__drm_atomic_helper_crtc_duplicate_state(crtc, state, crtc->state);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, state, old_state);
 
 	return state;
 }
@@ -675,12 +676,13 @@ vmw_du_crtc_destroy_state(struct drm_crtc *crtc,
  * Returns: The newly allocated plane state, or NULL on failure.
  */
 struct drm_plane_state *
-vmw_du_plane_duplicate_state(struct drm_plane *plane)
+vmw_du_plane_duplicate_state(struct drm_plane *plane,
+			     struct drm_plane_state *old_state)
 {
 	struct drm_plane_state *state;
 	struct vmw_plane_state *vps;
 
-	vps = kmemdup(plane->state, sizeof(*vps), GFP_KERNEL);
+	vps = kmemdup(old_state, sizeof(*vps), GFP_KERNEL);
 
 	if (!vps)
 		return NULL;
@@ -701,7 +703,7 @@ vmw_du_plane_duplicate_state(struct drm_plane *plane)
 
 	state = &vps->base;
 
-	__drm_atomic_helper_plane_duplicate_state(plane, state, plane->state);
+	__drm_atomic_helper_plane_duplicate_state(plane, state, old_state);
 
 	return state;
 }
@@ -781,15 +783,16 @@ vmw_du_plane_destroy_state(struct drm_plane *plane,
  * Returns: The newly allocated connector state, or NULL on failure.
  */
 struct drm_connector_state *
-vmw_du_connector_duplicate_state(struct drm_connector *connector)
+vmw_du_connector_duplicate_state(struct drm_connector *connector,
+				 struct drm_connector_state *old_state)
 {
 	struct drm_connector_state *state;
 	struct vmw_connector_state *vcs;
 
-	if (WARN_ON(!connector->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
-	vcs = kmemdup(connector->state, sizeof(*vcs), GFP_KERNEL);
+	vcs = kmemdup(old_state, sizeof(*vcs), GFP_KERNEL);
 
 	if (!vcs)
 		return NULL;
@@ -797,7 +800,7 @@ vmw_du_connector_duplicate_state(struct drm_connector *connector)
 	state = &vcs->base;
 
 	__drm_atomic_helper_connector_duplicate_state(connector, state,
-						      connector->state);
+						      old_state);
 
 	return state;
 }

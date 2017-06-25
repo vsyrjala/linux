@@ -448,9 +448,10 @@ static void tegra_plane_reset(struct drm_plane *plane)
 	}
 }
 
-static struct drm_plane_state *tegra_plane_atomic_duplicate_state(struct drm_plane *plane)
+static struct drm_plane_state *tegra_plane_atomic_duplicate_state(struct drm_plane *plane,
+								  struct drm_plane_state *old_state)
 {
-	struct tegra_plane_state *state = to_tegra_plane_state(plane->state);
+	struct tegra_plane_state *state = to_tegra_plane_state(old_state);
 	struct tegra_plane_state *copy;
 
 	copy = kmalloc(sizeof(*copy), GFP_KERNEL);
@@ -458,7 +459,7 @@ static struct drm_plane_state *tegra_plane_atomic_duplicate_state(struct drm_pla
 		return NULL;
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &copy->base,
-						  plane->state);
+						  old_state);
 	copy->tiling = state->tiling;
 	copy->format = state->format;
 	copy->swap = state->swap;
@@ -1034,9 +1035,10 @@ static void tegra_crtc_reset(struct drm_crtc *crtc)
 }
 
 static struct drm_crtc_state *
-tegra_crtc_atomic_duplicate_state(struct drm_crtc *crtc)
+tegra_crtc_atomic_duplicate_state(struct drm_crtc *crtc,
+				  struct drm_crtc_state *old_state)
 {
-	struct tegra_dc_state *state = to_dc_state(crtc->state);
+	struct tegra_dc_state *state = to_dc_state(old_state);
 	struct tegra_dc_state *copy;
 
 	copy = kmalloc(sizeof(*copy), GFP_KERNEL);
@@ -1044,7 +1046,7 @@ tegra_crtc_atomic_duplicate_state(struct drm_crtc *crtc)
 		return NULL;
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &copy->base,
-						 crtc->state);
+						 old_state);
 	copy->clk = state->clk;
 	copy->pclk = state->pclk;
 	copy->div = state->div;
