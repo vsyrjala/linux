@@ -59,7 +59,8 @@ static struct drm_plane_state *mtk_plane_duplicate_state(struct drm_plane *plane
 	if (!state)
 		return NULL;
 
-	__drm_atomic_helper_plane_duplicate_state(plane, &state->base);
+	__drm_atomic_helper_plane_duplicate_state(plane, &state->base,
+						  plane->state);
 
 	WARN_ON(state->base.plane != plane);
 

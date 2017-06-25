@@ -187,7 +187,8 @@ static struct drm_plane_state *vc4_plane_duplicate_state(struct drm_plane *plane
 
 	memset(&vc4_state->lbm, 0, sizeof(vc4_state->lbm));
 
-	__drm_atomic_helper_plane_duplicate_state(plane, &vc4_state->base);
+	__drm_atomic_helper_plane_duplicate_state(plane, &vc4_state->base,
+						  plane->state);
 
 	if (vc4_state->dlist) {
 		vc4_state->dlist = kmemdup(vc4_state->dlist,

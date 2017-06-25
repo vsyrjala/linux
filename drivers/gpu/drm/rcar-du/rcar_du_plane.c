@@ -623,7 +623,8 @@ rcar_du_plane_atomic_duplicate_state(struct drm_plane *plane)
 	if (copy == NULL)
 		return NULL;
 
-	__drm_atomic_helper_plane_duplicate_state(plane, &copy->state);
+	__drm_atomic_helper_plane_duplicate_state(plane, &copy->state,
+						  plane->state);
 
 	return &copy->state;
 }

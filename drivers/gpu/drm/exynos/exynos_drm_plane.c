@@ -156,7 +156,8 @@ exynos_drm_plane_duplicate_state(struct drm_plane *plane)
 	if (!copy)
 		return NULL;
 
-	__drm_atomic_helper_plane_duplicate_state(plane, &copy->base);
+	__drm_atomic_helper_plane_duplicate_state(plane, &copy->base,
+						  plane->state);
 	return &copy->base;
 }
 

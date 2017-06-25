@@ -226,7 +226,8 @@ mdp5_plane_duplicate_state(struct drm_plane *plane)
 	if (!mdp5_state)
 		return NULL;
 
-	__drm_atomic_helper_plane_duplicate_state(plane, &mdp5_state->base);
+	__drm_atomic_helper_plane_duplicate_state(plane, &mdp5_state->base,
+						  plane->state);
 
 	return &mdp5_state->base;
 }

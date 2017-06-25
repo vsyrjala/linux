@@ -234,7 +234,8 @@ nouveau_conn_atomic_duplicate_state(struct drm_connector *connector)
 	struct nouveau_conn_atom *asyc;
 	if (!(asyc = kmalloc(sizeof(*asyc), GFP_KERNEL)))
 		return NULL;
-	__drm_atomic_helper_connector_duplicate_state(connector, &asyc->state);
+	__drm_atomic_helper_connector_duplicate_state(connector, &asyc->state,
+						      connector->state);
 	asyc->dither = armc->dither;
 	asyc->scaler = armc->scaler;
 	asyc->procamp = armc->procamp;

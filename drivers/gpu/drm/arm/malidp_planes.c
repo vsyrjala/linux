@@ -98,7 +98,8 @@ drm_plane_state *malidp_duplicate_plane_state(struct drm_plane *plane)
 		return NULL;
 
 	m_state = to_malidp_plane_state(plane->state);
-	__drm_atomic_helper_plane_duplicate_state(plane, &state->base);
+	__drm_atomic_helper_plane_duplicate_state(plane, &state->base,
+						  plane->state);
 	state->rotmem_size = m_state->rotmem_size;
 	state->format = m_state->format;
 	state->n_planes = m_state->n_planes;
