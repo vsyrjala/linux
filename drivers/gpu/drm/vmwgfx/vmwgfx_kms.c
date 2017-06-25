@@ -612,7 +612,7 @@ vmw_du_crtc_duplicate_state(struct drm_crtc *crtc)
 
 	state = &vcs->base;
 
-	__drm_atomic_helper_crtc_duplicate_state(crtc, state);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, state, crtc->state);
 
 	return state;
 }
@@ -701,7 +701,7 @@ vmw_du_plane_duplicate_state(struct drm_plane *plane)
 
 	state = &vps->base;
 
-	__drm_atomic_helper_plane_duplicate_state(plane, state);
+	__drm_atomic_helper_plane_duplicate_state(plane, state, plane->state);
 
 	return state;
 }
@@ -796,7 +796,8 @@ vmw_du_connector_duplicate_state(struct drm_connector *connector)
 
 	state = &vcs->base;
 
-	__drm_atomic_helper_connector_duplicate_state(connector, state);
+	__drm_atomic_helper_connector_duplicate_state(connector, state,
+						      connector->state);
 
 	return state;
 }

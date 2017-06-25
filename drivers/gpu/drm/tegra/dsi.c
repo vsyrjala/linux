@@ -809,7 +809,8 @@ tegra_dsi_connector_duplicate_state(struct drm_connector *connector)
 		return NULL;
 
 	__drm_atomic_helper_connector_duplicate_state(connector,
-						      &copy->base);
+						      &copy->base,
+						      connector->state);
 
 	return &copy->base;
 }

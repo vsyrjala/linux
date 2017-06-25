@@ -1334,7 +1334,8 @@ tegra_sor_connector_duplicate_state(struct drm_connector *connector)
 	if (!copy)
 		return NULL;
 
-	__drm_atomic_helper_connector_duplicate_state(connector, &copy->base);
+	__drm_atomic_helper_connector_duplicate_state(connector, &copy->base,
+						      connector->state);
 
 	return &copy->base;
 }

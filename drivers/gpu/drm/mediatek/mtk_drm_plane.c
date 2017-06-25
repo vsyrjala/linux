@@ -52,18 +52,19 @@ static void mtk_plane_reset(struct drm_plane *plane)
 
 static struct drm_plane_state *mtk_plane_duplicate_state(struct drm_plane *plane)
 {
-	struct mtk_plane_state *old_state = to_mtk_plane_state(plane->state);
+	struct mtk_plane_state *old_mtk_state = to_mtk_plane_state(plane->state);
 	struct mtk_plane_state *state;
 
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
 
-	__drm_atomic_helper_plane_duplicate_state(plane, &state->base);
+	__drm_atomic_helper_plane_duplicate_state(plane, &state->base,
+						  plane->state);
 
 	WARN_ON(state->base.plane != plane);
 
-	state->pending = old_state->pending;
+	state->pending = old_mtk_state->pending;
 
 	return &state->base;
 }

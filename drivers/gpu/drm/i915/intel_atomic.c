@@ -146,7 +146,8 @@ intel_digital_connector_duplicate_state(struct drm_connector *connector)
 	if (!state)
 		return NULL;
 
-	__drm_atomic_helper_connector_duplicate_state(connector, &state->base);
+	__drm_atomic_helper_connector_duplicate_state(connector, &state->base,
+						      connector->state);
 	return &state->base;
 }
 
@@ -168,7 +169,8 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 	if (!crtc_state)
 		return NULL;
 
-	__drm_atomic_helper_crtc_duplicate_state(crtc, &crtc_state->base);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, &crtc_state->base,
+						 crtc->state);
 
 	crtc_state->update_pipe = false;
 	crtc_state->disable_lp_wm = false;

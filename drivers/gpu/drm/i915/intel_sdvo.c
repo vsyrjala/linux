@@ -2187,7 +2187,9 @@ intel_sdvo_connector_duplicate_state(struct drm_connector *connector)
 	if (!state)
 		return NULL;
 
-	__drm_atomic_helper_connector_duplicate_state(connector, &state->base.base);
+	__drm_atomic_helper_connector_duplicate_state(connector,
+						      &state->base.base,
+						      connector->state);
 	return &state->base.base;
 }
 

@@ -1011,7 +1011,8 @@ nv50_wndw_atomic_duplicate_state(struct drm_plane *plane)
 	struct nv50_wndw_atom *asyw;
 	if (!(asyw = kmalloc(sizeof(*asyw), GFP_KERNEL)))
 		return NULL;
-	__drm_atomic_helper_plane_duplicate_state(plane, &asyw->state);
+	__drm_atomic_helper_plane_duplicate_state(plane, &asyw->state,
+						  plane->state);
 	asyw->interval = 1;
 	asyw->sema = armw->sema;
 	asyw->ntfy = armw->ntfy;
@@ -2263,7 +2264,8 @@ nv50_head_atomic_duplicate_state(struct drm_crtc *crtc)
 	struct nv50_head_atom *asyh;
 	if (!(asyh = kmalloc(sizeof(*asyh), GFP_KERNEL)))
 		return NULL;
-	__drm_atomic_helper_crtc_duplicate_state(crtc, &asyh->state);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, &asyh->state,
+						 crtc->state);
 	asyh->view = armh->view;
 	asyh->mode = armh->mode;
 	asyh->lut  = armh->lut;

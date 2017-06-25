@@ -819,7 +819,8 @@ static struct drm_crtc_state *vc4_crtc_duplicate_state(struct drm_crtc *crtc)
 	if (!vc4_state)
 		return NULL;
 
-	__drm_atomic_helper_crtc_duplicate_state(crtc, &vc4_state->base);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, &vc4_state->base,
+						 crtc->state);
 	return &vc4_state->base;
 }
 
