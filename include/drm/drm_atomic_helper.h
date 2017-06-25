@@ -253,8 +253,8 @@ int drm_atomic_helper_legacy_gamma_set(struct drm_crtc *crtc,
  * True if the plane is being disabled, false otherwise.
  */
 static inline bool
-drm_atomic_plane_disabling(struct drm_plane_state *old_plane_state,
-			   struct drm_plane_state *new_plane_state)
+drm_atomic_plane_disabling(const struct drm_plane_state *old_plane_state,
+			   const struct drm_plane_state *new_plane_state)
 {
 	/*
 	 * When disabling a plane, CRTC and FB should always be NULL together.
