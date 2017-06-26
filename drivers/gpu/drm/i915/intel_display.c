@@ -3433,15 +3433,15 @@ static void intel_update_primary_planes(struct drm_device *dev)
 
 	for_each_crtc(dev, crtc) {
 		struct intel_plane *plane = to_intel_plane(crtc->primary);
-		struct intel_plane_state *plane_state =
-			to_intel_plane_state(plane->base.state);
+		const struct intel_plane_state *plane_state =
+			to_intel_plane_state(plane->base.commited_state);
 
 		if (plane_state->base.visible) {
 			trace_intel_update_plane(&plane->base,
 						 to_intel_crtc(crtc));
 
 			plane->update_plane(plane,
-					    to_intel_crtc_state(crtc->state),
+					    to_intel_crtc_state(crtc->commited_state),
 					    plane_state);
 		}
 	}
