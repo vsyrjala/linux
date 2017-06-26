@@ -3641,7 +3641,7 @@ static void intel_update_pipe_config(struct intel_crtc *crtc,
 		to_intel_crtc_state(crtc->base.state);
 
 	/* drm_atomic_helper_update_legacy_modeset_state might not be called. */
-	crtc->base.mode = crtc->base.state->mode;
+	crtc->base.mode = pipe_config->base.mode;
 
 	/*
 	 * Update pipe size and adjust fitter if needed: the reason for this is
@@ -10630,7 +10630,7 @@ static void intel_mmio_flip_work_func(struct work_struct *w)
 
 	WARN_ON(i915_gem_object_wait(obj, 0, MAX_SCHEDULE_TIMEOUT, NULL) < 0);
 
-	intel_pipe_update_start(crtc);
+	intel_pipe_update_start(crtc->config);
 
 	if (INTEL_GEN(dev_priv) >= 9)
 		skl_do_mmio_flip(crtc, work->rotation, work);
@@ -10638,7 +10638,7 @@ static void intel_mmio_flip_work_func(struct work_struct *w)
 		/* use_mmio_flip() retricts MMIO flips to ilk+ */
 		ilk_do_mmio_flip(crtc, work);
 
-	intel_pipe_update_end(crtc, work);
+	intel_pipe_update_end(crtc->config, work);
 }
 
 static int intel_default_queue_flip(struct drm_device *dev,
@@ -13519,12 +13519,12 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct intel_crtc_state *intel_cstate =
-		to_intel_crtc_state(crtc->state);
 	struct intel_crtc_state *old_intel_cstate =
 		to_intel_crtc_state(old_crtc_state);
 	struct intel_atomic_state *old_intel_state =
 		to_intel_atomic_state(old_crtc_state->state);
+	struct intel_crtc_state *intel_cstate =
+		intel_atomic_get_new_crtc_state(old_intel_state, intel_crtc);
 	bool modeset = needs_modeset(intel_cstate);
 
 	if (!modeset &&
@@ -13535,7 +13535,7 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc,
 	}
 
 	/* Perform vblank evasion around commit operation */
-	intel_pipe_update_start(intel_crtc);
+	intel_pipe_update_start(intel_cstate);
 
 	if (modeset)
 		goto out;
@@ -13555,8 +13555,12 @@ static void intel_finish_crtc_commit(struct drm_crtc *crtc,
 				     struct drm_crtc_state *old_crtc_state)
 {
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_atomic_state *old_intel_state =
+		to_intel_atomic_state(old_crtc_state->state);
+	struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(old_intel_state, intel_crtc);
 
-	intel_pipe_update_end(intel_crtc, NULL);
+	intel_pipe_update_end(new_crtc_state, NULL);
 }
 
 /**
