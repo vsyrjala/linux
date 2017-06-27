@@ -1097,6 +1097,7 @@ intel_sprite_plane_create(struct drm_i915_private *dev_priv,
 		goto fail;
 	}
 	intel_plane->base.state = &state->base;
+	intel_plane->base.committed_state = &state->base;
 
 	if (INTEL_GEN(dev_priv) >= 9) {
 		intel_plane->can_scale = true;
