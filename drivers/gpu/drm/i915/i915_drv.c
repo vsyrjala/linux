@@ -1864,7 +1864,13 @@ void i915_reset(struct drm_i915_private *dev_priv)
 	error->reset_count++;
 
 	pr_notice("drm/i915: Resetting chip after gpu hang\n");
+	down_write(&dev_priv->commit_sem);
+
+	/* while we still have the irq */
+	intel_prepare_reset(dev_priv);
+
 	disable_irq(dev_priv->drm.irq);
+
 	ret = i915_gem_reset_prepare(dev_priv);
 	if (ret) {
 		DRM_ERROR("GPU recovery failed\n");
@@ -1909,6 +1915,10 @@ void i915_reset(struct drm_i915_private *dev_priv)
 finish:
 	i915_gem_reset_finish(dev_priv);
 	enable_irq(dev_priv->drm.irq);
+
+	/* now that we have the irq again */
+	intel_finish_reset(dev_priv);
+	up_write(&dev_priv->commit_sem);
 
 wakeup:
 	clear_bit(I915_RESET_HANDOFF, &error->flags);

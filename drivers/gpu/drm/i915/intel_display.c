@@ -123,6 +123,7 @@ static void ironlake_pfit_enable(struct intel_crtc *crtc);
 static void intel_modeset_setup_hw_state(struct drm_device *dev,
 					 struct drm_modeset_acquire_ctx *ctx);
 static void intel_pre_disable_primary_noatomic(struct drm_crtc *crtc);
+static void __intel_atomic_commit_tail(struct drm_atomic_state *state, bool is_reset);
 
 struct intel_limit {
 	struct {
@@ -3492,26 +3493,81 @@ static bool gpu_reset_clobbers_display(struct drm_i915_private *dev_priv)
 		INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv);
 }
 
+static void init_intel_state(struct intel_atomic_state *state)
+{
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
+	int i;
+
+	state->modeset = true;
+
+	for_each_oldnew_crtc_in_state(&state->base, crtc, old_crtc_state, new_crtc_state, i) {
+		if (new_crtc_state->active)
+			state->active_crtcs |= 1 << i;
+		else
+			state->active_crtcs &= ~(1 << i);
+
+		if (old_crtc_state->active != new_crtc_state->active)
+			state->active_pipe_changes |= drm_crtc_mask(crtc);
+	}
+}
+
+static struct drm_atomic_state *
+intel_duplicate_commited_state(struct drm_i915_private *dev_priv)
+{
+	struct drm_atomic_state *state;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	int i;
+
+	state = drm_atomic_helper_duplicate_commited_state(&dev_priv->drm);
+	if (IS_ERR(state)) {
+		DRM_ERROR("Duplicating state failed with %ld\n",
+			  PTR_ERR(state));
+		return NULL;
+	}
+
+	to_intel_atomic_state(state)->active_crtcs = 0;
+	to_intel_atomic_state(state)->cdclk.logical = dev_priv->cdclk.hw;
+	to_intel_atomic_state(state)->cdclk.actual = dev_priv->cdclk.hw;
+
+	init_intel_state(to_intel_atomic_state(state));
+
+	/* force a full update */
+	for_each_new_crtc_in_state(state, crtc, crtc_state, i) {
+		struct intel_crtc_state *intel_crtc_state =
+			to_intel_crtc_state(crtc_state);
+
+		if (!crtc_state->active)
+			continue;
+
+		crtc_state->mode_changed = true;
+		crtc_state->active_changed = true;
+		crtc_state->planes_changed = true;
+		crtc_state->connectors_changed = true;
+		crtc_state->color_mgmt_changed = true;
+		crtc_state->zpos_changed = true;
+
+		intel_crtc_state->update_pipe = true;
+		intel_crtc_state->disable_lp_wm = true;
+		intel_crtc_state->disable_cxsr = true;
+		intel_crtc_state->update_wm_post = true;
+		intel_crtc_state->fb_changed = true;
+		intel_crtc_state->fifo_changed = true;
+		intel_crtc_state->wm.need_postvbl_update = true;
+	}
+
+	return state;
+}
+
 void intel_prepare_reset(struct drm_i915_private *dev_priv)
 {
-	struct drm_device *dev = &dev_priv->drm;
-	struct drm_modeset_acquire_ctx *ctx = &dev_priv->reset_ctx;
-	struct drm_atomic_state *state;
-	int ret;
-
-	/*
-	 * Need mode_config.mutex so that we don't
-	 * trample ongoing ->detect() and whatnot.
-	 */
-	mutex_lock(&dev->mode_config.mutex);
-	drm_modeset_acquire_init(ctx, 0);
-	while (1) {
-		ret = drm_modeset_lock_all_ctx(dev, ctx);
-		if (ret != -EDEADLK)
-			break;
-
-		drm_modeset_backoff(ctx);
-	}
+	struct drm_atomic_state *disable_state, *restore_state = NULL;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	struct drm_plane *plane;
+	struct drm_plane_state *plane_state;
+	int i;
 
 	/* reset doesn't touch the display, but flips might get nuked anyway, */
 	if (!i915.force_reset_modeset_test &&
@@ -3522,30 +3578,40 @@ void intel_prepare_reset(struct drm_i915_private *dev_priv)
 	 * Disabling the crtcs gracefully seems nicer. Also the
 	 * g33 docs say we should at least disable all the planes.
 	 */
-	state = drm_atomic_helper_duplicate_state(dev, ctx);
-	if (IS_ERR(state)) {
-		ret = PTR_ERR(state);
-		DRM_ERROR("Duplicating state failed with %i\n", ret);
-		return;
-	}
+	disable_state = intel_duplicate_commited_state(dev_priv);
+	if (IS_ERR(disable_state))
+		goto out;
 
-	ret = drm_atomic_helper_disable_all(dev, ctx);
-	if (ret) {
-		DRM_ERROR("Suspending crtc's failed with %i\n", ret);
-		drm_atomic_state_put(state);
-		return;
-	}
+	to_intel_atomic_state(disable_state)->active_crtcs = 0;
 
-	dev_priv->modeset_restore_state = state;
-	state->acquire_ctx = ctx;
+	for_each_new_crtc_in_state(disable_state, crtc, crtc_state, i)
+		crtc_state->active = false;
+	for_each_new_plane_in_state(disable_state, plane, plane_state, i)
+		plane_state->visible = false;
+
+	__intel_atomic_commit_tail(disable_state, true);
+
+	drm_atomic_helper_clean_commited_state(disable_state);
+	drm_atomic_state_put(disable_state);
+
+	restore_state = intel_duplicate_commited_state(dev_priv);
+	if (IS_ERR(restore_state))
+		restore_state = NULL;
+
+	for_each_old_crtc_in_state(restore_state, crtc, crtc_state, i)
+		crtc_state->active = false;
+	for_each_old_plane_in_state(restore_state, plane, plane_state, i)
+		plane_state->visible = false;
+
+out:
+	dev_priv->modeset_restore_state = restore_state;
 }
 
 void intel_finish_reset(struct drm_i915_private *dev_priv)
 {
 	struct drm_device *dev = &dev_priv->drm;
-	struct drm_modeset_acquire_ctx *ctx = &dev_priv->reset_ctx;
-	struct drm_atomic_state *state = dev_priv->modeset_restore_state;
-	int ret;
+	struct drm_atomic_state *restore_state =
+		dev_priv->modeset_restore_state;
 
 	/*
 	 * Flips in the rings will be nuked by the reset,
@@ -3558,7 +3624,7 @@ void intel_finish_reset(struct drm_i915_private *dev_priv)
 
 	/* reset doesn't touch the display */
 	if (!gpu_reset_clobbers_display(dev_priv)) {
-		if (!state) {
+		if (!restore_state) {
 			/*
 			 * Flips in the rings have been nuked by the reset,
 			 * so update the base address of all primary
@@ -3570,9 +3636,7 @@ void intel_finish_reset(struct drm_i915_private *dev_priv)
 			 */
 			intel_update_primary_planes(dev);
 		} else {
-			ret = __intel_display_resume(dev, state, ctx);
-			if (ret)
-				DRM_ERROR("Restoring old state failed with %i\n", ret);
+			__intel_atomic_commit_tail(restore_state, true);
 		}
 	} else {
 		/*
@@ -3590,18 +3654,15 @@ void intel_finish_reset(struct drm_i915_private *dev_priv)
 			dev_priv->display.hpd_irq_setup(dev_priv);
 		spin_unlock_irq(&dev_priv->irq_lock);
 
-		ret = __intel_display_resume(dev, state, ctx);
-		if (ret)
-			DRM_ERROR("Restoring old state failed with %i\n", ret);
+		__intel_atomic_commit_tail(restore_state, true);
 
 		intel_hpd_init(dev_priv);
 	}
 
-	if (state)
-		drm_atomic_state_put(state);
-	drm_modeset_drop_locks(ctx);
-	drm_modeset_acquire_fini(ctx);
-	mutex_unlock(&dev->mode_config.mutex);
+	if (restore_state) {
+		drm_atomic_helper_clean_commited_state(restore_state);
+		drm_atomic_state_put(restore_state);
+	}
 }
 
 static bool abort_flip_on_reset(struct intel_crtc *crtc)
@@ -12601,29 +12662,18 @@ static int intel_modeset_checks(struct drm_atomic_state *state)
 {
 	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
 	struct drm_i915_private *dev_priv = to_i915(state->dev);
-	struct drm_crtc *crtc;
-	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
-	int ret = 0, i;
+	int ret = 0;
 
 	if (!check_digital_port_conflicts(state)) {
 		DRM_DEBUG_KMS("rejecting conflicting digital port configuration\n");
 		return -EINVAL;
 	}
 
-	intel_state->modeset = true;
 	intel_state->active_crtcs = dev_priv->active_crtcs;
 	intel_state->cdclk.logical = dev_priv->cdclk.logical;
 	intel_state->cdclk.actual = dev_priv->cdclk.actual;
 
-	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
-		if (new_crtc_state->active)
-			intel_state->active_crtcs |= 1 << i;
-		else
-			intel_state->active_crtcs &= ~(1 << i);
-
-		if (old_crtc_state->active != new_crtc_state->active)
-			intel_state->active_pipe_changes |= drm_crtc_mask(crtc);
-	}
+	init_intel_state(intel_state);
 
 	/*
 	 * See if the config requires any additional preparation, e.g.
@@ -13013,7 +13063,7 @@ static void intel_atomic_helper_free_state_worker(struct work_struct *work)
 	intel_atomic_helper_free_state(dev_priv);
 }
 
-static void __intel_atomic_commit_tail(struct drm_atomic_state *state)
+static void __intel_atomic_commit_tail(struct drm_atomic_state *state, bool is_reset)
 {
 	struct drm_device *dev = state->dev;
 	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
@@ -13074,10 +13124,18 @@ static void __intel_atomic_commit_tail(struct drm_atomic_state *state)
 
 	/* Only after disabling all output pipelines that will be changed can we
 	 * update the the output configuration. */
-	intel_modeset_update_crtc_state(state);
+	if (!is_reset)
+		intel_modeset_update_crtc_state(state);
 
 	if (intel_state->modeset) {
-		drm_atomic_helper_update_legacy_modeset_state(state->dev, state);
+		if (!is_reset) {
+			drm_atomic_helper_update_legacy_modeset_state(state->dev, state);
+		} else {
+			for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
+				if (new_crtc_state->enable)
+					drm_calc_timestamping_constants(crtc, &new_crtc_state->adjusted_mode);
+			}
+		}
 
 		intel_set_cdclk(dev_priv, &dev_priv->cdclk.actual);
 
@@ -13088,7 +13146,8 @@ static void __intel_atomic_commit_tail(struct drm_atomic_state *state)
 		if (!intel_can_enable_sagv(state))
 			intel_disable_sagv(dev_priv);
 
-		intel_modeset_verify_disabled(dev, state);
+		if (!is_reset)
+			intel_modeset_verify_disabled(dev, state);
 	}
 
 	/* Complete the events for pipes that have now been disabled */
@@ -13141,7 +13200,8 @@ static void __intel_atomic_commit_tail(struct drm_atomic_state *state)
 		if (put_domains[i])
 			modeset_put_power_domains(dev_priv, put_domains[i]);
 
-		intel_modeset_verify_crtc(crtc, state, old_crtc_state, new_crtc_state);
+		if (!is_reset)
+			intel_modeset_verify_crtc(crtc, state, old_crtc_state, new_crtc_state);
 	}
 
 	if (intel_state->modeset && intel_can_enable_sagv(state))
@@ -13166,9 +13226,13 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 
 	drm_atomic_helper_wait_for_dependencies(state);
 
-	__intel_atomic_commit_tail(state);
+	down_read(&dev_priv->commit_sem);
+
+	__intel_atomic_commit_tail(state, false);
 
 	drm_atomic_helper_commit_hw_done(state);
+
+	up_read(&dev_priv->commit_sem);
 
 	mutex_lock(&dev->struct_mutex);
 	drm_atomic_helper_cleanup_planes(dev, state);
@@ -15030,6 +15094,8 @@ int intel_modeset_init(struct drm_device *dev)
 	init_llist_head(&dev_priv->atomic_helper.free_list);
 	INIT_WORK(&dev_priv->atomic_helper.free_work,
 		  intel_atomic_helper_free_state_worker);
+
+	init_rwsem(&dev_priv->commit_sem);
 
 	intel_init_quirks(dev);
 
