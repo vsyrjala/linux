@@ -3652,7 +3652,7 @@ bool intel_can_enable_sagv(struct drm_atomic_state *state)
 	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
 	struct intel_crtc *crtc;
 	struct intel_plane *plane;
-	struct intel_crtc_state *cstate;
+	const struct intel_crtc_state *crtc_state;
 	enum pipe pipe;
 	int level, latency;
 
@@ -3673,14 +3673,16 @@ bool intel_can_enable_sagv(struct drm_atomic_state *state)
 	/* Since we're now guaranteed to only have one active CRTC... */
 	pipe = ffs(intel_state->active_crtcs) - 1;
 	crtc = intel_get_crtc_for_pipe(dev_priv, pipe);
-	cstate = to_intel_crtc_state(crtc->base.state);
+	crtc_state = intel_atomic_get_new_crtc_state(intel_state, crtc);
 
-	if (crtc->base.state->adjusted_mode.flags & DRM_MODE_FLAG_INTERLACE)
+	if (crtc_state->base.adjusted_mode.flags & DRM_MODE_FLAG_INTERLACE)
 		return false;
 
 	for_each_intel_plane_on_crtc(dev, crtc, plane) {
-		struct skl_plane_wm *wm =
-			&cstate->wm.skl.optimal.planes[plane->id];
+		const struct intel_plane_state *plane_state =
+			intel_atomic_get_new_plane_state(intel_state, plane);
+		const struct skl_plane_wm *wm =
+			&crtc_state->wm.skl.optimal.planes[plane->id];
 
 		/* Skip this plane if it's not enabled */
 		if (!wm->wm[0].plane_en)
@@ -3694,8 +3696,7 @@ bool intel_can_enable_sagv(struct drm_atomic_state *state)
 		latency = dev_priv->wm.skl_latency[level];
 
 		if (skl_needs_memory_bw_wa(intel_state) &&
-		    plane->base.state->fb->modifier ==
-		    I915_FORMAT_MOD_X_TILED)
+		    plane_state->base.fb->modifier == I915_FORMAT_MOD_X_TILED)
 			latency += 15;
 
 		/*
