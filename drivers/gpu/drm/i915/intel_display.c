@@ -13365,6 +13365,8 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 				return PTR_ERR(vma);
 			}
 
+			if (to_intel_plane_state(new_state)->vma)
+				i915_vma_put(to_intel_plane_state(new_state)->vma);
 			to_intel_plane_state(new_state)->vma = vma;
 		}
 	}
@@ -13684,6 +13686,8 @@ intel_legacy_cursor_update(struct drm_plane *plane,
 			goto out_unlock;
 		}
 
+		if (to_intel_plane_state(new_plane_state)->vma)
+			i915_vma_put(to_intel_plane_state(new_plane_state)->vma);
 		to_intel_plane_state(new_plane_state)->vma = vma;
 	}
 

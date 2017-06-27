@@ -83,7 +83,8 @@ intel_plane_duplicate_state(struct drm_plane *plane,
 	__drm_atomic_helper_plane_duplicate_state(plane, &state->base,
 						  old_state);
 
-	state->vma = NULL;
+	if (state->vma)
+		state->vma = i915_vma_get(state->vma);
 
 	return &state->base;
 }
@@ -100,7 +101,8 @@ void
 intel_plane_destroy_state(struct drm_plane *plane,
 			  struct drm_plane_state *state)
 {
-	WARN_ON(to_intel_plane_state(state)->vma);
+	if (to_intel_plane_state(state)->vma)
+		i915_vma_put(to_intel_plane_state(state)->vma);
 
 	drm_atomic_helper_plane_destroy_state(plane, state);
 }
