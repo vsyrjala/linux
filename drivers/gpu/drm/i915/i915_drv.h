@@ -563,6 +563,15 @@ struct i915_hotplug {
 	     (__i)++) \
 		for_each_if (plane_state)
 
+#define for_each_oldnew_intel_plane_in_state(__state, plane, old_plane_state, new_plane_state, __i) \
+	for ((__i) = 0; \
+	     (__i) < (__state)->base.dev->mode_config.num_total_plane && \
+		     ((plane) = to_intel_plane((__state)->base.planes[__i].ptr), \
+		      (old_plane_state) = to_intel_plane_state((__state)->base.planes[__i].old_state), \
+		      (new_plane_state) = to_intel_plane_state((__state)->base.planes[__i].new_state), 1); \
+	     (__i)++) \
+		for_each_if (plane)
+
 struct drm_i915_private;
 struct i915_mm_struct;
 struct i915_mmu_object;
