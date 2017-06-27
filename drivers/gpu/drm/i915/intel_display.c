@@ -13758,6 +13758,7 @@ intel_primary_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 	}
 
 	primary->base.state = &state->base;
+	primary->base.commited_state = &state->base;
 
 	primary->can_scale = false;
 	primary->max_downscale = 1;
@@ -13871,6 +13872,7 @@ intel_cursor_plane_create(struct drm_i915_private *dev_priv,
 	}
 
 	cursor->base.state = &state->base;
+	cursor->base.commited_state = &state->base;
 
 	cursor->can_scale = false;
 	cursor->max_downscale = 1;
@@ -13965,6 +13967,7 @@ static int intel_crtc_init(struct drm_i915_private *dev_priv, enum pipe pipe)
 	}
 	intel_crtc->config = crtc_state;
 	intel_crtc->base.state = &crtc_state->base;
+	intel_crtc->base.commited_state = &crtc_state->base;
 	crtc_state->base.crtc = &intel_crtc->base;
 
 	primary = intel_primary_plane_create(dev_priv, pipe);
