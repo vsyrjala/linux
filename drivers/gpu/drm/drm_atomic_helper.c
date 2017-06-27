@@ -3596,6 +3596,129 @@ free:
 }
 EXPORT_SYMBOL(drm_atomic_helper_duplicate_state);
 
+struct drm_atomic_state *
+drm_atomic_helper_duplicate_committed_state(struct drm_device *dev)
+{
+	struct drm_atomic_state *state;
+	struct drm_connector_list_iter conn_iter;
+	struct drm_connector *conn;
+	struct drm_plane *plane;
+	struct drm_crtc *crtc;
+	int err = 0;
+
+	state = drm_atomic_state_alloc(dev);
+	if (!state)
+		return ERR_PTR(-ENOMEM);
+
+	drm_for_each_plane(plane, dev) {
+		int i = drm_plane_index(plane);
+
+		state->planes[i].ptr = plane;
+		state->planes[i].state =
+			plane->funcs->atomic_duplicate_state(plane);
+		state->planes[i].new_state = state->planes[i].state;
+		state->planes[i].old_state =
+			plane->funcs->atomic_duplicate_state(plane);
+
+		if (!state->planes[i].state ||
+		    !state->planes[i].old_state) {
+			err = -ENOMEM;
+			goto free;
+		}
+
+		state->planes[i].old_state->state = state;
+	}
+
+	drm_for_each_crtc(crtc, dev) {
+		int i = drm_crtc_index(crtc);
+
+		state->crtcs[i].ptr = crtc;
+		state->crtcs[i].state =
+			crtc->funcs->atomic_duplicate_state(crtc);
+		state->crtcs[i].new_state = state->crtcs[i].state;
+		state->crtcs[i].old_state =
+			crtc->funcs->atomic_duplicate_state(crtc);
+
+		if (!state->crtcs[i].state ||
+		    !state->crtcs[i].old_state) {
+			err = -ENOMEM;
+			goto free;
+		}
+
+		state->crtcs[i].old_state->state = state;
+	}
+
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter) {
+		int i = drm_connector_index(conn);
+
+		err = drm_atomic_state_realloc_connectors(conn->dev, state, i);
+		if (err)
+			break;
+
+		drm_connector_get(conn);
+		state->connectors[i].ptr = conn;
+		state->connectors[i].state = conn->funcs->atomic_duplicate_state(conn);
+		state->connectors[i].new_state = state->connectors[i].state;
+		state->connectors[i].old_state = conn->funcs->atomic_duplicate_state(conn);
+
+		if (!state->connectors[i].state ||
+		    !state->connectors[i].old_state) {
+			err = -ENOMEM;
+			break;
+		}
+
+		state->connectors[i].old_state->state = state;
+	}
+	drm_connector_list_iter_end(&conn_iter);
+
+free:
+	if (err < 0) {
+		drm_atomic_helper_clean_committed_state(state);
+		drm_atomic_state_put(state);
+		state = ERR_PTR(err);
+	}
+
+	return state;
+}
+EXPORT_SYMBOL(drm_atomic_helper_duplicate_committed_state);
+
+void
+drm_atomic_helper_clean_committed_state(struct drm_atomic_state *state)
+{
+	struct drm_plane *plane;
+	struct drm_crtc *crtc;
+	struct drm_connector *conn;
+	struct drm_plane_state *plane_state;
+	struct drm_crtc_state *crtc_state;
+	struct drm_connector_state *conn_state;
+	int i;
+
+	/* restore the correct state->state */
+	for_each_new_plane_in_state(state, plane, plane_state, i) {
+		if (!state->planes[i].old_state)
+			continue;
+		plane->funcs->atomic_destroy_state(plane,
+						   state->planes[i].old_state);
+		state->planes[i].old_state = NULL;
+	}
+	for_each_new_crtc_in_state(state, crtc, crtc_state, i) {
+		if (!state->crtcs[i].old_state)
+			continue;
+		crtc->funcs->atomic_destroy_state(crtc,
+						  state->crtcs[i].old_state);
+		state->crtcs[i].old_state = NULL;
+	}
+	for_each_new_connector_in_state(state, conn, conn_state, i) {
+		if (!state->connectors[i].old_state)
+			continue;
+		conn->funcs->atomic_destroy_state(conn,
+						  state->connectors[i].old_state);
+		state->connectors[i].old_state = NULL;
+	}
+}
+EXPORT_SYMBOL(drm_atomic_helper_clean_committed_state);
+
 /**
  * __drm_atomic_helper_connector_destroy_state - release connector state
  * @state: connector state object to release

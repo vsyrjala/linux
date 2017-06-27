@@ -173,6 +173,10 @@ drm_atomic_helper_connector_duplicate_state(struct drm_connector *connector);
 struct drm_atomic_state *
 drm_atomic_helper_duplicate_state(struct drm_device *dev,
 				  struct drm_modeset_acquire_ctx *ctx);
+struct drm_atomic_state *
+drm_atomic_helper_duplicate_committed_state(struct drm_device *dev);
+void
+drm_atomic_helper_clean_committed_state(struct drm_atomic_state *state);
 void
 __drm_atomic_helper_connector_destroy_state(struct drm_connector_state *state);
 void drm_atomic_helper_connector_destroy_state(struct drm_connector *connector,
