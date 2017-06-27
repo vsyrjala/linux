@@ -4993,7 +4993,8 @@ static void intel_post_plane_update(struct intel_crtc_state *old_crtc_state)
 
 	if (old_pri_state) {
 		struct intel_plane_state *primary_state =
-			to_intel_plane_state(primary->state);
+			intel_atomic_get_new_crtc_state(to_intel_atomic_state(old_state),
+							crtc);
 		struct intel_plane_state *old_primary_state =
 			to_intel_plane_state(old_pri_state);
 
