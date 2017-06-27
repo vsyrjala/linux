@@ -1698,6 +1698,8 @@ int intel_gpu_reset(struct drm_i915_private *dev_priv, unsigned engine_mask)
 	if (reset == NULL)
 		return -ENODEV;
 
+	DRM_DEBUG_DRIVER("yanking on reset line\n");
+
 	/* If the power well sleeps during the reset, the reset
 	 * request may be dropped and never completes (causing -EIO).
 	 */
