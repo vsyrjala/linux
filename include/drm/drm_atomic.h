@@ -194,12 +194,16 @@ struct drm_private_state_funcs {
 
 struct drm_private_obj {
 	struct drm_private_state *state;
+	struct drm_private_state *committed_state;
 
 	const struct drm_private_state_funcs *funcs;
+
+	unsigned int state_seqno;
 };
 
 struct drm_private_state {
 	struct drm_atomic_state *state;
+	unsigned int seqno;
 };
 
 struct __drm_private_objs_state {

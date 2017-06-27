@@ -59,6 +59,8 @@ struct drm_modeset_acquire_ctx;
 struct drm_plane_state {
 	struct drm_plane *plane;
 
+	unsigned int seqno;
+
 	/**
 	 * @crtc:
 	 *
@@ -470,6 +472,8 @@ struct drm_plane {
 
 	char *name;
 
+	unsigned int state_seqno;
+
 	/**
 	 * @mutex:
 	 *
@@ -521,6 +525,13 @@ struct drm_plane {
 	 * in the atomic helpers, see &struct drm_crtc_commit.
 	 */
 	struct drm_plane_state *state;
+
+	/**
+	 * @committed_state:
+	 *
+	 * Current committed atomic state for this plane.
+	 */
+	struct drm_plane_state *committed_state;
 
 	struct drm_property *zpos_property;
 	struct drm_property *rotation_property;

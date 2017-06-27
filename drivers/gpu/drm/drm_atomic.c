@@ -1020,6 +1020,7 @@ drm_atomic_private_obj_init(struct drm_private_obj *obj,
 	memset(obj, 0, sizeof(*obj));
 
 	obj->state = state;
+	obj->committed_state = state;
 	obj->funcs = funcs;
 }
 EXPORT_SYMBOL(drm_atomic_private_obj_init);

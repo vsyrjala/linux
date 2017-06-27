@@ -108,6 +108,8 @@ struct drm_plane_helper_funcs;
 struct drm_crtc_state {
 	struct drm_crtc *crtc;
 
+	unsigned int seqno;
+
 	bool enable;
 	bool active;
 
@@ -750,6 +752,8 @@ struct drm_crtc {
 
 	char *name;
 
+	unsigned int state_seqno;
+
 	/**
 	 * @mutex:
 	 *
@@ -814,6 +818,13 @@ struct drm_crtc {
 	 * in the atomic helpers, see &struct drm_crtc_commit.
 	 */
 	struct drm_crtc_state *state;
+
+	/**
+	 * @committed_state:
+	 *
+	 * Current committed atomic state for this CRTC.
+	 */
+	struct drm_crtc_state *committed_state;
 
 	/**
 	 * @commit_list:

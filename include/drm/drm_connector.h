@@ -306,6 +306,8 @@ struct drm_tv_connector_state {
 struct drm_connector_state {
 	struct drm_connector *connector;
 
+	unsigned int seqno;
+
 	/**
 	 * @crtc: CRTC to connect connector to, NULL if disabled.
 	 *
@@ -707,6 +709,8 @@ struct drm_connector {
 
 	char *name;
 
+	unsigned int state_seqno;
+
 	/**
 	 * @mutex: Lock for general connector state, but currently only protects
 	 * @registered. Most of the connector state is still protected by
@@ -867,6 +871,13 @@ struct drm_connector {
 	 * &struct drm_crtc_commit.
 	 */
 	struct drm_connector_state *state;
+
+	/**
+	 * @committed_state:
+	 *
+	 * Current committed atomic state for this connector.
+	 */
+	struct drm_connector_state *committed_state;
 
 	/* DisplayID bits */
 	bool has_tile;
