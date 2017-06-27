@@ -3639,6 +3639,8 @@ void intel_finish_reset(struct drm_i915_private *dev_priv)
 			__intel_atomic_commit_tail(restore_state, true);
 		}
 	} else {
+		i915_redisable_vga(dev_priv);
+
 		/*
 		 * The display has been reset as well,
 		 * so need a full re-initialization.
