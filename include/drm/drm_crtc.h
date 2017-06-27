@@ -816,6 +816,13 @@ struct drm_crtc {
 	struct drm_crtc_state *state;
 
 	/**
+	 * @commited_state:
+	 *
+	 * Current commited atomic state for this CRTC.
+	 */
+	struct drm_crtc_state *commited_state;
+
+	/**
 	 * @commit_list:
 	 *
 	 * List of &drm_crtc_commit structures tracking pending commits.

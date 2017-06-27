@@ -868,6 +868,13 @@ struct drm_connector {
 	 */
 	struct drm_connector_state *state;
 
+	/**
+	 * @commited_state:
+	 *
+	 * Current commited atomic state for this connector.
+	 */
+	struct drm_connector_state *commited_state;
+
 	/* DisplayID bits */
 	bool has_tile;
 	struct drm_tile_group *tile_group;

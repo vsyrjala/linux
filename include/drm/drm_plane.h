@@ -522,6 +522,13 @@ struct drm_plane {
 	 */
 	struct drm_plane_state *state;
 
+	/**
+	 * @commuted_state:
+	 *
+	 * Current commited atomic state for this plane.
+	 */
+	struct drm_plane_state *commited_state;
+
 	struct drm_property *zpos_property;
 	struct drm_property *rotation_property;
 };
