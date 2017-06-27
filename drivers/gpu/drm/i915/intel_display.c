@@ -12954,7 +12954,7 @@ static void skl_update_crtcs(struct drm_atomic_state *state,
 			unsigned int cmask = drm_crtc_mask(crtc);
 
 			intel_crtc = to_intel_crtc(crtc);
-			cstate = to_intel_crtc_state(crtc->state);
+			cstate = to_intel_crtc_state(new_crtc_state);
 			pipe = intel_crtc->pipe;
 
 			if (updated & cmask || !cstate->base.active)
