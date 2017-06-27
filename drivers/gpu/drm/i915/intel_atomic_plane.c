@@ -108,7 +108,9 @@ intel_plane_destroy_state(struct drm_plane *plane,
 	drm_atomic_helper_plane_destroy_state(plane, state);
 }
 
-int intel_plane_atomic_check_with_state(struct intel_crtc_state *crtc_state,
+int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_state,
+					struct intel_crtc_state *crtc_state,
+					const struct intel_plane_state *old_plane_state,
 					struct intel_plane_state *intel_state)
 {
 	struct drm_plane *plane = intel_state->base.plane;
@@ -123,7 +125,7 @@ int intel_plane_atomic_check_with_state(struct intel_crtc_state *crtc_state,
 	 * anything driver-specific we need to test in that case, so
 	 * just return success.
 	 */
-	if (!intel_state->base.crtc && !plane->state->crtc)
+	if (!intel_state->base.crtc && !old_plane_state->base.crtc)
 		return 0;
 
 	/* Clip all planes to CRTC size, or 0x0 if CRTC is disabled */
@@ -180,16 +182,20 @@ int intel_plane_atomic_check_with_state(struct intel_crtc_state *crtc_state,
 	else
 		crtc_state->active_planes &= ~BIT(intel_plane->id);
 
-	return intel_plane_atomic_calc_changes(&crtc_state->base, state);
+	return intel_plane_atomic_calc_changes(old_crtc_state,
+					       &crtc_state->base,
+					       old_plane_state,
+					       state);
 }
 
 static int intel_plane_atomic_check(struct drm_plane *plane,
 				    struct drm_plane_state *state)
 {
-	struct drm_crtc *crtc = state->crtc;
+	const struct drm_plane_state *old_plane_state =
+		drm_atomic_get_old_plane_state(state->state, plane);
+	struct drm_crtc *crtc = state->crtc ?: old_plane_state->crtc;
+	const struct drm_crtc_state *old_crtc_state;
 	struct drm_crtc_state *drm_crtc_state;
-
-	crtc = crtc ? crtc : plane->state->crtc;
 
 	/*
 	 * Both crtc and plane->crtc could be NULL if we're updating a
@@ -200,29 +206,33 @@ static int intel_plane_atomic_check(struct drm_plane *plane,
 	if (!crtc)
 		return 0;
 
-	drm_crtc_state = drm_atomic_get_existing_crtc_state(state->state, crtc);
-	if (WARN_ON(!drm_crtc_state))
-		return -EINVAL;
+	old_crtc_state = drm_atomic_get_old_crtc_state(state->state, crtc);
+	drm_crtc_state = drm_atomic_get_new_crtc_state(state->state, crtc);
 
-	return intel_plane_atomic_check_with_state(to_intel_crtc_state(drm_crtc_state),
+	return intel_plane_atomic_check_with_state(to_intel_crtc_state(old_crtc_state),
+						   to_intel_crtc_state(drm_crtc_state),
+						   to_intel_plane_state(old_plane_state),
 						   to_intel_plane_state(state));
 }
 
 static void intel_plane_atomic_update(struct drm_plane *plane,
 				      struct drm_plane_state *old_state)
 {
+	struct intel_atomic_state *state = to_intel_atomic_state(old_state->state);
 	struct intel_plane *intel_plane = to_intel_plane(plane);
-	struct intel_plane_state *intel_state =
-		to_intel_plane_state(plane->state);
-	struct drm_crtc *crtc = plane->state->crtc ?: old_state->crtc;
+	const struct intel_plane_state *intel_state =
+		intel_atomic_get_new_plane_state(state, intel_plane);
+	struct drm_crtc *crtc = intel_state->base.crtc ?: old_state->crtc;
 
 	if (intel_state->base.visible) {
+		const struct intel_crtc_state *intel_crtc_state =
+			intel_atomic_get_new_crtc_state(state, to_intel_crtc(crtc));
+
 		trace_intel_update_plane(plane,
 					 to_intel_crtc(crtc));
 
 		intel_plane->update_plane(intel_plane,
-					  to_intel_crtc_state(crtc->state),
-					  intel_state);
+					  intel_crtc_state, intel_state);
 	} else {
 		trace_intel_disable_plane(plane,
 					  to_intel_crtc(crtc));
