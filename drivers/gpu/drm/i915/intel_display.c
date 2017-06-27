@@ -13009,7 +13009,7 @@ static void intel_atomic_helper_free_state_worker(struct work_struct *work)
 	intel_atomic_helper_free_state(dev_priv);
 }
 
-static void intel_atomic_commit_tail(struct drm_atomic_state *state)
+static void __intel_atomic_commit_tail(struct drm_atomic_state *state)
 {
 	struct drm_device *dev = state->dev;
 	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
@@ -13021,8 +13021,6 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 	u64 put_domains[I915_MAX_PIPES] = {};
 	unsigned crtc_vblank_mask = 0;
 	int i;
-
-	drm_atomic_helper_wait_for_dependencies(state);
 
 	if (intel_state->modeset)
 		intel_display_power_get(dev_priv, POWER_DOMAIN_MODESET);
@@ -13148,8 +13146,6 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 	if (intel_state->modeset && intel_can_enable_sagv(state))
 		intel_enable_sagv(dev_priv);
 
-	drm_atomic_helper_commit_hw_done(state);
-
 	if (intel_state->modeset) {
 		/* As one of the primary mmio accessors, KMS has a high
 		 * likelihood of triggering bugs in unclaimed access. After we
@@ -13160,6 +13156,18 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 		intel_uncore_arm_unclaimed_mmio_detection(dev_priv);
 		intel_display_power_put(dev_priv, POWER_DOMAIN_MODESET);
 	}
+}
+
+static void intel_atomic_commit_tail(struct drm_atomic_state *state)
+{
+	struct drm_device *dev = state->dev;
+	struct drm_i915_private *dev_priv = to_i915(dev);
+
+	drm_atomic_helper_wait_for_dependencies(state);
+
+	__intel_atomic_commit_tail(state);
+
+	drm_atomic_helper_commit_hw_done(state);
 
 	mutex_lock(&dev->struct_mutex);
 	drm_atomic_helper_cleanup_planes(dev, state);
