@@ -13066,7 +13066,7 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 				 */
 				if (INTEL_GEN(dev_priv) >= 9)
 					dev_priv->display.initial_watermarks(intel_state,
-									     new_crtc_state);
+									     to_intel_crtc_state(new_crtc_state));
 			}
 		}
 	}
