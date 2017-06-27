@@ -13054,7 +13054,7 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 			intel_check_cpu_fifo_underruns(dev_priv);
 			intel_check_pch_fifo_underruns(dev_priv);
 
-			if (!crtc->state->active) {
+			if (!new_crtc_state->active) {
 				/*
 				 * Make sure we don't call initial_watermarks
 				 * for ILK-style watermark updates.
@@ -13063,7 +13063,7 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 				 */
 				if (INTEL_GEN(dev_priv) >= 9)
 					dev_priv->display.initial_watermarks(intel_state,
-									     to_intel_crtc_state(crtc->state));
+									     new_crtc_state);
 			}
 		}
 	}
