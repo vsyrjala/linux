@@ -74,21 +74,18 @@ struct drm_plane_state *
 intel_plane_duplicate_state(struct drm_plane *plane,
 			    struct drm_plane_state *old_state)
 {
-	struct drm_plane_state *state;
-	struct intel_plane_state *intel_state;
+	struct intel_plane_state *state;
 
-	intel_state = kmemdup(old_state, sizeof(*intel_state), GFP_KERNEL);
-
-	if (!intel_state)
+	state = kmemdup(old_state, sizeof(*state), GFP_KERNEL);
+	if (!state)
 		return NULL;
 
-	state = &intel_state->base;
+	__drm_atomic_helper_plane_duplicate_state(plane, &state->base,
+						  old_state);
 
-	__drm_atomic_helper_plane_duplicate_state(plane, state, old_state);
+	state->vma = NULL;
 
-	intel_state->vma = NULL;
-
-	return state;
+	return &state->base;
 }
 
 /**
