@@ -2744,7 +2744,7 @@ intel_find_initial_plane_obj(struct intel_crtc *intel_crtc,
 		if (!state->vma)
 			continue;
 
-		if (intel_plane_ggtt_offset(state) == plane_config->base) {
+		if (state->gtt_offset == plane_config->base) {
 			fb = c->primary->fb;
 			drm_framebuffer_reference(fb);
 			goto valid_fb;
@@ -2771,6 +2771,8 @@ valid_fb:
 	mutex_lock(&dev->struct_mutex);
 	intel_state->vma =
 		intel_pin_and_fence_fb_obj(fb, primary->state->rotation);
+	intel_state->gtt_offset = i915_ggtt_offset(intel_state->vma);
+
 	mutex_unlock(&dev->struct_mutex);
 	if (IS_ERR(intel_state->vma)) {
 		DRM_ERROR("failed to pin boot fb on pipe %d: %li\n",
@@ -3122,19 +3124,16 @@ static void i9xx_update_primary_plane(struct intel_plane *primary,
 	I915_WRITE_FW(DSPSTRIDE(plane), fb->pitches[0]);
 	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
 		I915_WRITE_FW(DSPSURF(plane),
-			      intel_plane_ggtt_offset(plane_state) +
-			      crtc->dspaddr_offset);
+			      plane_state->gtt_offset + crtc->dspaddr_offset);
 		I915_WRITE_FW(DSPOFFSET(plane), (y << 16) | x);
 	} else if (INTEL_GEN(dev_priv) >= 4) {
 		I915_WRITE_FW(DSPSURF(plane),
-			      intel_plane_ggtt_offset(plane_state) +
-			      crtc->dspaddr_offset);
+			      plane_state->gtt_offset + crtc->dspaddr_offset);
 		I915_WRITE_FW(DSPTILEOFF(plane), (y << 16) | x);
 		I915_WRITE_FW(DSPLINOFF(plane), linear_offset);
 	} else {
 		I915_WRITE_FW(DSPADDR(plane),
-			      intel_plane_ggtt_offset(plane_state) +
-			      crtc->dspaddr_offset);
+			      plane_state->gtt_offset + crtc->dspaddr_offset);
 	}
 	POSTING_READ_FW(reg);
 
@@ -3395,7 +3394,7 @@ static void skylake_update_primary_plane(struct intel_plane *plane,
 	}
 
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
-		      intel_plane_ggtt_offset(plane_state) + surf_addr);
+		      plane_state->gtt_offset + surf_addr);
 
 	POSTING_READ_FW(PLANE_SURF(pipe, plane_id));
 
@@ -9202,15 +9201,9 @@ static u32 intel_cursor_base(const struct intel_plane_state *plane_state)
 	struct drm_i915_private *dev_priv =
 		to_i915(plane_state->base.plane->dev);
 	const struct drm_framebuffer *fb = plane_state->base.fb;
-	const struct drm_i915_gem_object *obj = intel_fb_obj(fb);
 	u32 base;
 
-	if (INTEL_INFO(dev_priv)->cursor_needs_physical)
-		base = obj->phys_handle->busaddr;
-	else
-		base = intel_plane_ggtt_offset(plane_state);
-
-	base += plane_state->main.offset;
+	base = plane_state->gtt_offset + plane_state->main.offset;
 
 	/* ILK+ do this automagically */
 	if (HAS_GMCH_DISPLAY(dev_priv) &&
@@ -10863,8 +10856,11 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 
 	work->old_vma = to_intel_plane_state(primary->state)->vma;
 	to_intel_plane_state(primary->state)->vma = vma;
+	to_intel_plane_state(primary->state)->gtt_offset =
+		i915_ggtt_offset(vma);
 
-	work->gtt_offset = i915_ggtt_offset(vma) + intel_crtc->dspaddr_offset;
+	work->gtt_offset = to_intel_plane_state(primary->state)->gtt_offset +
+		intel_crtc->dspaddr_offset;
 	work->rotation = crtc->primary->state->rotation;
 
 	/*
@@ -10920,6 +10916,8 @@ cleanup_request:
 	i915_add_request(request);
 cleanup_unpin:
 	to_intel_plane_state(primary->state)->vma = work->old_vma;
+	to_intel_plane_state(primary->state)->gtt_offset =
+		i915_ggtt_offset(work->old_vma);
 	intel_unpin_fb_vma(vma);
 cleanup_pending:
 	atomic_dec(&intel_crtc->unpin_work_count);
@@ -13361,6 +13359,8 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 				DRM_DEBUG_KMS("failed to attach phys object\n");
 				return ret;
 			}
+			to_intel_plane_state(new_state)->gtt_offset =
+				obj->phys_handle->busaddr;
 		} else {
 			struct i915_vma *vma;
 
@@ -13371,6 +13371,8 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 			}
 
 			to_intel_plane_state(new_state)->vma = vma;
+			to_intel_plane_state(new_state)->gtt_offset =
+				i915_ggtt_offset(vma);
 		}
 	}
 
@@ -13680,6 +13682,8 @@ intel_legacy_cursor_update(struct drm_plane *plane,
 			DRM_DEBUG_KMS("failed to attach phys object\n");
 			goto out_unlock;
 		}
+		to_intel_plane_state(new_plane_state)->gtt_offset =
+			intel_fb_obj(fb)->phys_handle->busaddr;
 	} else {
 		struct i915_vma *vma;
 
@@ -13692,6 +13696,8 @@ intel_legacy_cursor_update(struct drm_plane *plane,
 		}
 
 		to_intel_plane_state(new_plane_state)->vma = vma;
+		to_intel_plane_state(new_plane_state)->gtt_offset =
+			i915_ggtt_offset(vma);
 	}
 
 	old_fb = old_plane_state->fb;

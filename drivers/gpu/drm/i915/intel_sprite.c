@@ -300,7 +300,7 @@ skl_update_plane(struct intel_plane *plane,
 
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl);
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
-		      intel_plane_ggtt_offset(plane_state) + surf_addr);
+		      plane_state->gtt_offset + surf_addr);
 	POSTING_READ_FW(PLANE_SURF(pipe, plane_id));
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
@@ -477,7 +477,7 @@ vlv_update_plane(struct intel_plane *plane,
 	I915_WRITE_FW(SPSIZE(pipe, plane_id), (crtc_h << 16) | crtc_w);
 	I915_WRITE_FW(SPCNTR(pipe, plane_id), sprctl);
 	I915_WRITE_FW(SPSURF(pipe, plane_id),
-		      intel_plane_ggtt_offset(plane_state) + sprsurf_offset);
+		      plane_state->gtt_offset + sprsurf_offset);
 	POSTING_READ_FW(SPSURF(pipe, plane_id));
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
@@ -615,7 +615,7 @@ ivb_update_plane(struct intel_plane *plane,
 		I915_WRITE_FW(SPRSCALE(pipe), sprscale);
 	I915_WRITE_FW(SPRCTL(pipe), sprctl);
 	I915_WRITE_FW(SPRSURF(pipe),
-		      intel_plane_ggtt_offset(plane_state) + sprsurf_offset);
+		      plane_state->gtt_offset + sprsurf_offset);
 	POSTING_READ_FW(SPRSURF(pipe));
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
@@ -747,7 +747,7 @@ g4x_update_plane(struct intel_plane *plane,
 	I915_WRITE_FW(DVSSCALE(pipe), dvsscale);
 	I915_WRITE_FW(DVSCNTR(pipe), dvscntr);
 	I915_WRITE_FW(DVSSURF(pipe),
-		      intel_plane_ggtt_offset(plane_state) + dvssurf_offset);
+		      plane_state->gtt_offset + dvssurf_offset);
 	POSTING_READ_FW(DVSSURF(pipe));
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
