@@ -3636,12 +3636,14 @@ static bool intel_crtc_has_pending_flip(struct drm_crtc *crtc)
 static void intel_update_pipe_config(struct intel_crtc *crtc,
 				     struct intel_crtc_state *old_crtc_state)
 {
+	struct intel_atomic_state *state =
+		to_intel_atomic_state(old_crtc_state->base.state);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_crtc_state *pipe_config =
-		to_intel_crtc_state(crtc->base.state);
+		intel_atomic_get_new_crtc_state(state, crtc);
 
 	/* drm_atomic_helper_update_legacy_modeset_state might not be called. */
-	crtc->base.mode = crtc->base.state->mode;
+	crtc->base.mode = pipe_config->base.mode;
 
 	/*
 	 * Update pipe size and adjust fitter if needed: the reason for this is
