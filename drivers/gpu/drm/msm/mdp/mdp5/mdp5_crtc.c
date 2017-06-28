@@ -889,20 +889,21 @@ static void mdp5_crtc_reset(struct drm_crtc *crtc)
 }
 
 static struct drm_crtc_state *
-mdp5_crtc_duplicate_state(struct drm_crtc *crtc)
+mdp5_crtc_duplicate_state(struct drm_crtc *crtc,
+			  struct drm_crtc_state *old_state)
 {
 	struct mdp5_crtc_state *mdp5_cstate;
 
-	if (WARN_ON(!crtc->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
-	mdp5_cstate = kmemdup(to_mdp5_crtc_state(crtc->state),
+	mdp5_cstate = kmemdup(to_mdp5_crtc_state(old_state),
 			      sizeof(*mdp5_cstate), GFP_KERNEL);
 	if (!mdp5_cstate)
 		return NULL;
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &mdp5_cstate->base,
-						 crtc->state);
+						 old_state);
 
 	return &mdp5_cstate->base;
 }

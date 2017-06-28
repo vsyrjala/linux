@@ -50,9 +50,10 @@ static void mtk_plane_reset(struct drm_plane *plane)
 	state->pending.format = DRM_FORMAT_RGB565;
 }
 
-static struct drm_plane_state *mtk_plane_duplicate_state(struct drm_plane *plane)
+static struct drm_plane_state *mtk_plane_duplicate_state(struct drm_plane *plane,
+							 struct drm_plane_state *old_state)
 {
-	struct mtk_plane_state *old_mtk_state = to_mtk_plane_state(plane->state);
+	struct mtk_plane_state *old_mtk_state = to_mtk_plane_state(old_state);
 	struct mtk_plane_state *state;
 
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
@@ -60,7 +61,7 @@ static struct drm_plane_state *mtk_plane_duplicate_state(struct drm_plane *plane
 		return NULL;
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &state->base,
-						  plane->state);
+						  old_state);
 
 	WARN_ON(state->base.plane != plane);
 

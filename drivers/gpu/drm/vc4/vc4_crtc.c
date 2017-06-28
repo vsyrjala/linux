@@ -813,7 +813,8 @@ static int vc4_page_flip(struct drm_crtc *crtc,
 		return drm_atomic_helper_page_flip(crtc, fb, event, flags, ctx);
 }
 
-static struct drm_crtc_state *vc4_crtc_duplicate_state(struct drm_crtc *crtc)
+static struct drm_crtc_state *vc4_crtc_duplicate_state(struct drm_crtc *crtc,
+						       struct drm_crtc_state *old_state)
 {
 	struct vc4_crtc_state *vc4_state;
 
@@ -822,7 +823,7 @@ static struct drm_crtc_state *vc4_crtc_duplicate_state(struct drm_crtc *crtc)
 		return NULL;
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &vc4_state->base,
-						 crtc->state);
+						 old_state);
 	return &vc4_state->base;
 }
 

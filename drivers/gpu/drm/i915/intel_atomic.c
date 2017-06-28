@@ -138,16 +138,17 @@ int intel_digital_connector_atomic_check(struct drm_connector *conn,
  * Returns: The newly allocated connector state, or NULL on failure.
  */
 struct drm_connector_state *
-intel_digital_connector_duplicate_state(struct drm_connector *connector)
+intel_digital_connector_duplicate_state(struct drm_connector *connector,
+					struct drm_connector_state *old_state)
 {
 	struct intel_digital_connector_state *state;
 
-	state = kmemdup(connector->state, sizeof(*state), GFP_KERNEL);
+	state = kmemdup(old_state, sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
 
 	__drm_atomic_helper_connector_duplicate_state(connector, &state->base,
-						      connector->state);
+						      old_state);
 	return &state->base;
 }
 
@@ -161,16 +162,17 @@ intel_digital_connector_duplicate_state(struct drm_connector *connector)
  * Returns: The newly allocated crtc state, or NULL on failure.
  */
 struct drm_crtc_state *
-intel_crtc_duplicate_state(struct drm_crtc *crtc)
+intel_crtc_duplicate_state(struct drm_crtc *crtc,
+			   struct drm_crtc_state *old_state)
 {
 	struct intel_crtc_state *crtc_state;
 
-	crtc_state = kmemdup(crtc->state, sizeof(*crtc_state), GFP_KERNEL);
+	crtc_state = kmemdup(old_state, sizeof(*crtc_state), GFP_KERNEL);
 	if (!crtc_state)
 		return NULL;
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &crtc_state->base,
-						 crtc->state);
+						 old_state);
 
 	crtc_state->update_pipe = false;
 	crtc_state->disable_lp_wm = false;

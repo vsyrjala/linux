@@ -375,20 +375,21 @@ static void atmel_hlcdc_crtc_reset(struct drm_crtc *crtc)
 }
 
 static struct drm_crtc_state *
-atmel_hlcdc_crtc_duplicate_state(struct drm_crtc *crtc)
+atmel_hlcdc_crtc_duplicate_state(struct drm_crtc *crtc,
+				 struct drm_crtc_state *old_state)
 {
 	struct atmel_hlcdc_crtc_state *state, *cur;
 
-	if (WARN_ON(!crtc->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base,
-						 crtc->state);
+						 old_state);
 
-	cur = drm_crtc_state_to_atmel_hlcdc_crtc_state(crtc->state);
+	cur = drm_crtc_state_to_atmel_hlcdc_crtc_state(old_state);
 	state->output_mode = cur->output_mode;
 
 	return &state->base;

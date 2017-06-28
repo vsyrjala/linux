@@ -1104,7 +1104,8 @@ static void vop_crtc_reset(struct drm_crtc *crtc)
 		crtc->state->crtc = crtc;
 }
 
-static struct drm_crtc_state *vop_crtc_duplicate_state(struct drm_crtc *crtc)
+static struct drm_crtc_state *vop_crtc_duplicate_state(struct drm_crtc *crtc,
+						       struct drm_crtc_state *old_state)
 {
 	struct rockchip_crtc_state *rockchip_state;
 
@@ -1113,7 +1114,7 @@ static struct drm_crtc_state *vop_crtc_duplicate_state(struct drm_crtc *crtc)
 		return NULL;
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &rockchip_state->base,
-						 crtc->state);
+						 old_state);
 	return &rockchip_state->base;
 }
 

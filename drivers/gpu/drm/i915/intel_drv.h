@@ -1945,9 +1945,11 @@ int intel_digital_connector_atomic_set_property(struct drm_connector *connector,
 int intel_digital_connector_atomic_check(struct drm_connector *conn,
 					 struct drm_connector_state *new_state);
 struct drm_connector_state *
-intel_digital_connector_duplicate_state(struct drm_connector *connector);
+intel_digital_connector_duplicate_state(struct drm_connector *connector,
+					struct drm_connector_state *old_state);
 
-struct drm_crtc_state *intel_crtc_duplicate_state(struct drm_crtc *crtc);
+struct drm_crtc_state *intel_crtc_duplicate_state(struct drm_crtc *crtc,
+						  struct drm_crtc_state *old_state);
 void intel_crtc_destroy_state(struct drm_crtc *crtc,
 			       struct drm_crtc_state *state);
 struct drm_atomic_state *intel_atomic_state_alloc(struct drm_device *dev);
@@ -1996,7 +1998,8 @@ int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
 
 /* intel_atomic_plane.c */
 struct intel_plane_state *intel_create_plane_state(struct drm_plane *plane);
-struct drm_plane_state *intel_plane_duplicate_state(struct drm_plane *plane);
+struct drm_plane_state *intel_plane_duplicate_state(struct drm_plane *plane,
+						    struct drm_plane_state *old_state);
 void intel_plane_destroy_state(struct drm_plane *plane,
 			       struct drm_plane_state *state);
 extern const struct drm_plane_helper_funcs intel_plane_helper_funcs;

@@ -294,7 +294,7 @@ drm_atomic_get_crtc_state(struct drm_atomic_state *state,
 	if (ret)
 		return ERR_PTR(ret);
 
-	crtc_state = crtc->funcs->atomic_duplicate_state(crtc);
+	crtc_state = crtc->funcs->atomic_duplicate_state(crtc, crtc->state);
 	if (!crtc_state)
 		return ERR_PTR(-ENOMEM);
 
@@ -709,7 +709,8 @@ drm_atomic_get_plane_state(struct drm_atomic_state *state,
 	if (ret)
 		return ERR_PTR(ret);
 
-	plane_state = plane->funcs->atomic_duplicate_state(plane);
+	plane_state = plane->funcs->atomic_duplicate_state(plane,
+							   plane->state);
 	if (!plane_state)
 		return ERR_PTR(-ENOMEM);
 
@@ -1072,7 +1073,7 @@ drm_atomic_get_private_obj_state(struct drm_atomic_state *state,
 
 	p = __drm_atomic_state_private_obj(state, index);
 
-	obj_state = funcs->atomic_duplicate_state(obj);
+	obj_state = funcs->atomic_duplicate_state(obj, obj->state);
 	if (!obj_state)
 		return ERR_PTR(-ENOMEM);
 
@@ -1133,7 +1134,8 @@ drm_atomic_get_connector_state(struct drm_atomic_state *state,
 	if (c->state)
 		return c->state;
 
-	connector_state = connector->funcs->atomic_duplicate_state(connector);
+	connector_state = connector->funcs->atomic_duplicate_state(connector,
+								   connector->state);
 	if (!connector_state)
 		return ERR_PTR(-ENOMEM);
 

@@ -3406,17 +3406,18 @@ EXPORT_SYMBOL(__drm_atomic_helper_crtc_duplicate_state);
  * subclassed CRTC state structure.
  */
 struct drm_crtc_state *
-drm_atomic_helper_crtc_duplicate_state(struct drm_crtc *crtc)
+drm_atomic_helper_crtc_duplicate_state(struct drm_crtc *crtc,
+				       struct drm_crtc_state *old_state)
 {
 	struct drm_crtc_state *state;
 
-	if (WARN_ON(!crtc->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (state)
 		__drm_atomic_helper_crtc_duplicate_state(crtc, state,
-							 crtc->state);
+							 old_state);
 
 	return state;
 }
@@ -3506,17 +3507,18 @@ EXPORT_SYMBOL(__drm_atomic_helper_plane_duplicate_state);
  * subclassed plane state structure.
  */
 struct drm_plane_state *
-drm_atomic_helper_plane_duplicate_state(struct drm_plane *plane)
+drm_atomic_helper_plane_duplicate_state(struct drm_plane *plane,
+					struct drm_plane_state *old_state)
 {
 	struct drm_plane_state *state;
 
-	if (WARN_ON(!plane->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (state)
 		__drm_atomic_helper_plane_duplicate_state(plane, state,
-							  plane->state);
+							  old_state);
 
 	return state;
 }
@@ -3627,18 +3629,19 @@ EXPORT_SYMBOL(__drm_atomic_helper_connector_duplicate_state);
  * subclassed connector state structure.
  */
 struct drm_connector_state *
-drm_atomic_helper_connector_duplicate_state(struct drm_connector *connector)
+drm_atomic_helper_connector_duplicate_state(struct drm_connector *connector,
+					    struct drm_connector_state *old_state)
 {
 	struct drm_connector_state *state;
 
-	if (WARN_ON(!connector->state))
+	if (WARN_ON(!old_state))
 		return NULL;
 
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (state)
 		__drm_atomic_helper_connector_duplicate_state(connector,
 							      state,
-							      connector->state);
+							      old_state);
 
 	return state;
 }

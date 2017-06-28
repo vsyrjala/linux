@@ -86,20 +86,21 @@ static void malidp_plane_reset(struct drm_plane *plane)
 }
 
 static struct
-drm_plane_state *malidp_duplicate_plane_state(struct drm_plane *plane)
+drm_plane_state *malidp_duplicate_plane_state(struct drm_plane *plane,
+					      struct drm_plane_state *old_state)
 {
 	struct malidp_plane_state *state, *m_state;
 
-	if (!plane->state)
+	if (!old_state)
 		return NULL;
 
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
 
-	m_state = to_malidp_plane_state(plane->state);
+	m_state = to_malidp_plane_state(old_state);
 	__drm_atomic_helper_plane_duplicate_state(plane, &state->base,
-						  plane->state);
+						  old_state);
 	state->rotmem_size = m_state->rotmem_size;
 	state->format = m_state->format;
 	state->n_planes = m_state->n_planes;

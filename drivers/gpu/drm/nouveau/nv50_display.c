@@ -1005,14 +1005,15 @@ nv50_wndw_atomic_destroy_state(struct drm_plane *plane,
 }
 
 static struct drm_plane_state *
-nv50_wndw_atomic_duplicate_state(struct drm_plane *plane)
+nv50_wndw_atomic_duplicate_state(struct drm_plane *plane,
+				 struct drm_plane_state *old_state)
 {
-	struct nv50_wndw_atom *armw = nv50_wndw_atom(plane->state);
+	struct nv50_wndw_atom *armw = nv50_wndw_atom(old_state);
 	struct nv50_wndw_atom *asyw;
 	if (!(asyw = kmalloc(sizeof(*asyw), GFP_KERNEL)))
 		return NULL;
 	__drm_atomic_helper_plane_duplicate_state(plane, &asyw->state,
-						  plane->state);
+						  old_state);
 	asyw->interval = 1;
 	asyw->sema = armw->sema;
 	asyw->ntfy = armw->ntfy;
@@ -2258,14 +2259,15 @@ nv50_head_atomic_destroy_state(struct drm_crtc *crtc,
 }
 
 static struct drm_crtc_state *
-nv50_head_atomic_duplicate_state(struct drm_crtc *crtc)
+nv50_head_atomic_duplicate_state(struct drm_crtc *crtc,
+				 struct drm_crtc_state *old_state)
 {
-	struct nv50_head_atom *armh = nv50_head_atom(crtc->state);
+	struct nv50_head_atom *armh = nv50_head_atom(old_state);
 	struct nv50_head_atom *asyh;
 	if (!(asyh = kmalloc(sizeof(*asyh), GFP_KERNEL)))
 		return NULL;
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &asyh->state,
-						 crtc->state);
+						 old_state);
 	asyh->view = armh->view;
 	asyh->mode = armh->mode;
 	asyh->lut  = armh->lut;

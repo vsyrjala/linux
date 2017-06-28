@@ -180,7 +180,8 @@ struct drm_private_state_funcs {
 	 * Duplicated atomic state or NULL when obj->state is not
 	 * initialized or allocation failed.
 	 */
-	struct drm_private_state *(*atomic_duplicate_state)(struct drm_private_obj *obj);
+	struct drm_private_state *(*atomic_duplicate_state)(struct drm_private_obj *obj,
+							    struct drm_private_state *old_state);
 
 	/**
 	 * @atomic_destroy_state:

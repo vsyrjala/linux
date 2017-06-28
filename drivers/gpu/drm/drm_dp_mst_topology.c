@@ -2995,16 +2995,17 @@ static void drm_dp_destroy_connector_work(struct work_struct *work)
 }
 
 static struct drm_private_state *
-drm_dp_mst_duplicate_state(struct drm_private_obj *obj)
+drm_dp_mst_duplicate_state(struct drm_private_obj *obj,
+			   struct drm_private_state *old_state)
 {
 	struct drm_dp_mst_topology_state *state;
 
-	state = kmemdup(obj->state, sizeof(*state), GFP_KERNEL);
+	state = kmemdup(old_state, sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
 
 	__drm_atomic_helper_private_obj_duplicate_state(obj, &state->base,
-							obj->state);
+							old_state);
 
 	return &state->base;
 }

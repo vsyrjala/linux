@@ -2179,17 +2179,18 @@ intel_sdvo_connector_unregister(struct drm_connector *connector)
 }
 
 static struct drm_connector_state *
-intel_sdvo_connector_duplicate_state(struct drm_connector *connector)
+intel_sdvo_connector_duplicate_state(struct drm_connector *connector,
+				     struct drm_connector_state *old_state)
 {
 	struct intel_sdvo_connector_state *state;
 
-	state = kmemdup(connector->state, sizeof(*state), GFP_KERNEL);
+	state = kmemdup(old_state, sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
 
 	__drm_atomic_helper_connector_duplicate_state(connector,
 						      &state->base.base,
-						      connector->state);
+						      old_state);
 	return &state->base.base;
 }
 
