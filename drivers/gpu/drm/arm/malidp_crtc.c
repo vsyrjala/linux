@@ -417,23 +417,23 @@ static const struct drm_crtc_helper_funcs malidp_crtc_helper_funcs = {
 
 static struct drm_crtc_state *malidp_crtc_duplicate_state(struct drm_crtc *crtc)
 {
-	struct malidp_crtc_state *state, *old_state;
+	struct malidp_crtc_state *state, *old_mali_state;
 
 	if (WARN_ON(!crtc->state))
 		return NULL;
 
-	old_state = to_malidp_crtc_state(crtc->state);
+	old_mali_state = to_malidp_crtc_state(crtc->state);
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base,
 						 crtc->state);
-	memcpy(state->gamma_coeffs, old_state->gamma_coeffs,
+	memcpy(state->gamma_coeffs, old_mali_state->gamma_coeffs,
 	       sizeof(state->gamma_coeffs));
-	memcpy(state->coloradj_coeffs, old_state->coloradj_coeffs,
+	memcpy(state->coloradj_coeffs, old_mali_state->coloradj_coeffs,
 	       sizeof(state->coloradj_coeffs));
-	memcpy(&state->scaler_config, &old_state->scaler_config,
+	memcpy(&state->scaler_config, &old_mali_state->scaler_config,
 	       sizeof(state->scaler_config));
 	state->scaled_planes_mask = 0;
 
