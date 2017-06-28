@@ -405,6 +405,7 @@ struct intel_plane_state {
 	struct drm_plane_state base;
 	struct drm_rect clip;
 	struct i915_vma *vma;
+	u32 gtt_offset; /* GGTT offset, or bus address */
 
 	struct {
 		u32 offset;
@@ -1515,11 +1516,6 @@ void intel_mode_from_pipe_config(struct drm_display_mode *mode,
 
 int skl_update_scaler_crtc(struct intel_crtc_state *crtc_state);
 int skl_max_scale(struct intel_crtc *crtc, struct intel_crtc_state *crtc_state);
-
-static inline u32 intel_plane_ggtt_offset(const struct intel_plane_state *state)
-{
-	return i915_ggtt_offset(state->vma);
-}
 
 u32 skl_plane_ctl(const struct intel_crtc_state *crtc_state,
 		  const struct intel_plane_state *plane_state);
