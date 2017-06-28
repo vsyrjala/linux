@@ -3719,7 +3719,7 @@ skl_ddb_get_pipe_allocation_limits(struct drm_device *dev,
 	struct drm_atomic_state *state = cstate->base.state;
 	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct drm_crtc *for_crtc = cstate->base.crtc;
+	struct intel_crtc *crtc = to_intel_crtc(cstate->base.crtc);
 	unsigned int pipe_size, ddb_size;
 	int nth_active_pipe;
 
@@ -3749,16 +3749,19 @@ skl_ddb_get_pipe_allocation_limits(struct drm_device *dev,
 	 * we currently hold.
 	 */
 	if (!intel_state->active_pipe_changes) {
+		const struct intel_crtc_state *old_crtc_state =
+			intel_atomic_get_old_crtc_state(intel_state, crtc);
+
 		/*
 		 * alloc may be cleared by clear_intel_crtc_state,
 		 * copy from old state to be sure
 		 */
-		*alloc = to_intel_crtc_state(for_crtc->state)->wm.skl.ddb;
+		*alloc = old_crtc_state->wm.skl.ddb;
 		return;
 	}
 
 	nth_active_pipe = hweight32(intel_state->active_crtcs &
-				    (drm_crtc_mask(for_crtc) - 1));
+				    (drm_crtc_mask(&crtc->base) - 1));
 	pipe_size = ddb_size / hweight32(intel_state->active_crtcs);
 	alloc->start = nth_active_pipe * ddb_size / *num_active;
 	alloc->end = alloc->start + pipe_size;
@@ -4921,6 +4924,7 @@ skl_compute_wm(struct drm_atomic_state *state)
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *cstate;
+	struct drm_crtc_state *old_crtc_state;
 	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
 	struct skl_wm_values *results = &intel_state->wm_results;
 	struct drm_device *dev = state->dev;
@@ -4966,11 +4970,11 @@ skl_compute_wm(struct drm_atomic_state *state)
 	 * should allow skl_update_pipe_wm() to return failure in cases where
 	 * no suitable watermark values can be found.
 	 */
-	for_each_new_crtc_in_state(state, crtc, cstate, i) {
+	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, cstate, i) {
 		struct intel_crtc_state *intel_cstate =
 			to_intel_crtc_state(cstate);
 		const struct skl_pipe_wm *old_pipe_wm =
-			&to_intel_crtc_state(crtc->state)->wm.skl.optimal;
+			&to_intel_crtc_state(old_crtc_state)->wm.skl.optimal;
 
 		pipe_wm = &intel_cstate->wm.skl.optimal;
 		ret = skl_update_pipe_wm(cstate, old_pipe_wm, pipe_wm,
