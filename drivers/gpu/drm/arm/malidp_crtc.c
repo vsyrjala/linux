@@ -427,7 +427,8 @@ static struct drm_crtc_state *malidp_crtc_duplicate_state(struct drm_crtc *crtc)
 	if (!state)
 		return NULL;
 
-	__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base,
+						 crtc->state);
 	memcpy(state->gamma_coeffs, old_state->gamma_coeffs,
 	       sizeof(state->gamma_coeffs));
 	memcpy(state->coloradj_coeffs, old_state->coloradj_coeffs,

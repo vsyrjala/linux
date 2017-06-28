@@ -1112,7 +1112,8 @@ static struct drm_crtc_state *vop_crtc_duplicate_state(struct drm_crtc *crtc)
 	if (!rockchip_state)
 		return NULL;
 
-	__drm_atomic_helper_crtc_duplicate_state(crtc, &rockchip_state->base);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, &rockchip_state->base,
+						 crtc->state);
 	return &rockchip_state->base;
 }
 

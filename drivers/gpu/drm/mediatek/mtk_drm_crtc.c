@@ -134,7 +134,8 @@ static struct drm_crtc_state *mtk_drm_crtc_duplicate_state(struct drm_crtc *crtc
 	if (!state)
 		return NULL;
 
-	__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base,
+						 crtc->state);
 
 	WARN_ON(state->base.crtc != crtc);
 	state->base.crtc = crtc;

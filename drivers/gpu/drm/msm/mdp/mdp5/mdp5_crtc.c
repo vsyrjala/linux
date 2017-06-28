@@ -901,7 +901,8 @@ mdp5_crtc_duplicate_state(struct drm_crtc *crtc)
 	if (!mdp5_cstate)
 		return NULL;
 
-	__drm_atomic_helper_crtc_duplicate_state(crtc, &mdp5_cstate->base);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, &mdp5_cstate->base,
+						 crtc->state);
 
 	return &mdp5_cstate->base;
 }

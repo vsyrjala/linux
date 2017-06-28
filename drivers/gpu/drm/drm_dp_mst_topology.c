@@ -3003,7 +3003,8 @@ drm_dp_mst_duplicate_state(struct drm_private_obj *obj)
 	if (!state)
 		return NULL;
 
-	__drm_atomic_helper_private_obj_duplicate_state(obj, &state->base);
+	__drm_atomic_helper_private_obj_duplicate_state(obj, &state->base,
+							obj->state);
 
 	return &state->base;
 }

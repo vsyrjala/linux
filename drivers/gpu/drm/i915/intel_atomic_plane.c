@@ -83,7 +83,7 @@ intel_plane_duplicate_state(struct drm_plane *plane)
 
 	state = &intel_state->base;
 
-	__drm_atomic_helper_plane_duplicate_state(plane, state);
+	__drm_atomic_helper_plane_duplicate_state(plane, state, plane->state);
 
 	intel_state->vma = NULL;
 

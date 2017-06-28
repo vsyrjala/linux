@@ -3374,9 +3374,10 @@ EXPORT_SYMBOL(drm_atomic_helper_crtc_reset);
  * This is useful for drivers that subclass the CRTC state.
  */
 void __drm_atomic_helper_crtc_duplicate_state(struct drm_crtc *crtc,
-					      struct drm_crtc_state *state)
+					      struct drm_crtc_state *state,
+					      const struct drm_crtc_state *old_state)
 {
-	memcpy(state, crtc->state, sizeof(*state));
+	memcpy(state, old_state, sizeof(*state));
 
 	if (state->mode_blob)
 		drm_property_blob_get(state->mode_blob);
@@ -3414,7 +3415,8 @@ drm_atomic_helper_crtc_duplicate_state(struct drm_crtc *crtc)
 
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (state)
-		__drm_atomic_helper_crtc_duplicate_state(crtc, state);
+		__drm_atomic_helper_crtc_duplicate_state(crtc, state,
+							 crtc->state);
 
 	return state;
 }
@@ -3484,9 +3486,10 @@ EXPORT_SYMBOL(drm_atomic_helper_plane_reset);
  * drivers that subclass the plane state.
  */
 void __drm_atomic_helper_plane_duplicate_state(struct drm_plane *plane,
-					       struct drm_plane_state *state)
+					       struct drm_plane_state *state,
+					       const struct drm_plane_state *old_state)
 {
-	memcpy(state, plane->state, sizeof(*state));
+	memcpy(state, old_state, sizeof(*state));
 
 	if (state->fb)
 		drm_framebuffer_get(state->fb);
@@ -3512,7 +3515,8 @@ drm_atomic_helper_plane_duplicate_state(struct drm_plane *plane)
 
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (state)
-		__drm_atomic_helper_plane_duplicate_state(plane, state);
+		__drm_atomic_helper_plane_duplicate_state(plane, state,
+							  plane->state);
 
 	return state;
 }
@@ -3606,9 +3610,10 @@ EXPORT_SYMBOL(drm_atomic_helper_connector_reset);
  */
 void
 __drm_atomic_helper_connector_duplicate_state(struct drm_connector *connector,
-					    struct drm_connector_state *state)
+					    struct drm_connector_state *state,
+					    const struct drm_connector_state *old_state)
 {
-	memcpy(state, connector->state, sizeof(*state));
+	memcpy(state, old_state, sizeof(*state));
 	if (state->crtc)
 		drm_connector_get(connector);
 }
@@ -3631,7 +3636,9 @@ drm_atomic_helper_connector_duplicate_state(struct drm_connector *connector)
 
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (state)
-		__drm_atomic_helper_connector_duplicate_state(connector, state);
+		__drm_atomic_helper_connector_duplicate_state(connector,
+							      state,
+							      connector->state);
 
 	return state;
 }
@@ -3845,8 +3852,9 @@ EXPORT_SYMBOL(drm_atomic_helper_legacy_gamma_set);
  * This is useful for drivers that subclass the private state.
  */
 void __drm_atomic_helper_private_obj_duplicate_state(struct drm_private_obj *obj,
-						     struct drm_private_state *state)
+						     struct drm_private_state *state,
+						     const struct drm_private_state *old_state)
 {
-	memcpy(state, obj->state, sizeof(*state));
+	memcpy(state, old_state, sizeof(*state));
 }
 EXPORT_SYMBOL(__drm_atomic_helper_private_obj_duplicate_state);

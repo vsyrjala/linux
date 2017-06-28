@@ -288,7 +288,8 @@ struct drm_plane_state *ipu_plane_duplicate_state(struct drm_plane *plane)
 
 	state = kmalloc(sizeof(*state), GFP_KERNEL);
 	if (state)
-		__drm_atomic_helper_plane_duplicate_state(plane, &state->base);
+		__drm_atomic_helper_plane_duplicate_state(plane, &state->base,
+							  plane->state);
 
 	return &state->base;
 }
