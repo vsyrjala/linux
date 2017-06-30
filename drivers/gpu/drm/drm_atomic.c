@@ -197,12 +197,14 @@ void drm_atomic_state_default_clear(struct drm_atomic_state *state)
 	for (i = 0; i < state->num_private_objs; i++) {
 		struct __drm_private_objs_state *p =
 			__drm_atomic_state_private_obj(state, i);
-		void *obj_state = p->obj_state;
+		struct drm_private_obj *obj = p->ptr;
 
-		p->funcs->destroy_state(obj_state);
-		p->obj = NULL;
-		p->obj_state = NULL;
-		p->funcs = NULL;
+		if (WARN_ON(!obj))
+			continue;
+
+		obj->funcs->atomic_destroy_state(obj, p->state);
+		p->ptr = NULL;
+		p->state = NULL;
 	}
 	state->num_private_objs = 0;
 
@@ -1000,11 +1002,44 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
 }
 
 /**
+ * drm_atomic_private_obj_init - initialize private object
+ * @obj: private object
+ * @state: initial private object state
+ * @funcs: pointer to the struct of function pointers that identify the object
+ * type
+ *
+ * Initialize the private object, which can be embedded into any
+ * driver private object that needs its own atomic state.
+ */
+void
+drm_atomic_private_obj_init(struct drm_private_obj *obj,
+			    struct drm_private_state *state,
+			    const struct drm_private_state_funcs *funcs)
+{
+	memset(obj, 0, sizeof(*obj));
+
+	obj->state = state;
+	obj->funcs = funcs;
+}
+EXPORT_SYMBOL(drm_atomic_private_obj_init);
+
+/**
+ * drm_atomic_private_obj_fini - finalize private object
+ * @obj: private object
+ *
+ * Finalize the private object.
+ */
+void
+drm_atomic_private_obj_fini(struct drm_private_obj *obj)
+{
+	obj->funcs->atomic_destroy_state(obj, obj->state);
+}
+EXPORT_SYMBOL(drm_atomic_private_obj_fini);
+
+/**
  * drm_atomic_get_private_obj_state - get private object state
  * @state: global atomic state
  * @obj: private object to get the state for
- * @funcs: pointer to the struct of function pointers that identify the object
- * type
  *
  * This function returns the private object state for the given private object,
  * allocating the state if needed. It does not grab any locks as the caller is
@@ -1014,19 +1049,21 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
  *
  * Either the allocated state or the error code encoded into a pointer.
  */
-void *
-drm_atomic_get_private_obj_state(struct drm_atomic_state *state, void *obj,
-			      const struct drm_private_state_funcs *funcs)
+struct drm_private_state *
+drm_atomic_get_private_obj_state(struct drm_atomic_state *state,
+				 struct drm_private_obj *obj)
 {
+	const struct drm_private_state_funcs *funcs = obj->funcs;
 	struct __drm_private_objs_state *p;
+	struct drm_private_state *obj_state;
 	int index = state->num_private_objs;
 	int ret, i;
 
 	for (i = 0; i < state->num_private_objs; i++) {
 		p = __drm_atomic_state_private_obj(state, i);
 
-		if (obj == p->obj)
-			return p->obj_state;
+		if (obj == p->ptr)
+			return p->state;
 	}
 
 	ret = drm_dynarray_reserve(&state->private_objs, index);
@@ -1035,19 +1072,22 @@ drm_atomic_get_private_obj_state(struct drm_atomic_state *state, void *obj,
 
 	p = __drm_atomic_state_private_obj(state, index);
 
-	p->obj_state = funcs->duplicate_state(state, obj);
-	if (!p->obj_state)
+	obj_state = funcs->atomic_duplicate_state(obj);
+	if (!obj_state)
 		return ERR_PTR(-ENOMEM);
 
-	p->obj = obj;
-	p->funcs = funcs;
+	p->state = obj_state;
+	p->old_state = obj->state;
+	p->new_state = obj_state;
+	p->ptr = obj;
+	obj_state->state = state;
 
 	state->num_private_objs = index + 1;
 
-	DRM_DEBUG_ATOMIC("Added new private object state %p to %p\n",
-			 p->obj_state, state);
+	DRM_DEBUG_ATOMIC("Added new private object [%p] state %p to %p\n",
+			 obj, obj_state, state);
 
-	return p->obj_state;
+	return obj_state;
 }
 EXPORT_SYMBOL(drm_atomic_get_private_obj_state);
 
