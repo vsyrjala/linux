@@ -28,6 +28,7 @@
 
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
+#include <drm/drm_dynarray.h>
 #include <drm/drm_mode.h>
 #include <drm/drm_print.h>
 #include <linux/sync_file.h>
@@ -53,7 +54,7 @@ EXPORT_SYMBOL(__drm_crtc_commit_free);
  */
 void drm_atomic_state_default_release(struct drm_atomic_state *state)
 {
-	kfree(state->connectors);
+	drm_dynarray_fini(&state->connectors);
 	kfree(state->crtcs);
 	kfree(state->planes);
 	kfree(state->private_objs);
@@ -86,6 +87,9 @@ drm_atomic_state_init(struct drm_device *dev, struct drm_atomic_state *state)
 				sizeof(*state->planes), GFP_KERNEL);
 	if (!state->planes)
 		goto fail;
+
+	drm_dynarray_init(&state->connectors,
+			  sizeof(struct __drm_connectors_state));
 
 	state->dev = dev;
 
@@ -142,15 +146,17 @@ void drm_atomic_state_default_clear(struct drm_atomic_state *state)
 	DRM_DEBUG_ATOMIC("Clearing atomic state %p\n", state);
 
 	for (i = 0; i < state->num_connector; i++) {
-		struct drm_connector *connector = state->connectors[i].ptr;
+		struct __drm_connectors_state *c =
+			__drm_atomic_state_connector(state, i);
+		struct drm_connector *connector = c->ptr;
 
 		if (!connector)
 			continue;
 
 		connector->funcs->atomic_destroy_state(connector,
-						       state->connectors[i].state);
-		state->connectors[i].ptr = NULL;
-		state->connectors[i].state = NULL;
+						       c->state);
+		c->ptr = NULL;
+		c->state = NULL;
 		drm_connector_put(connector);
 	}
 
@@ -1064,6 +1070,7 @@ drm_atomic_get_connector_state(struct drm_atomic_state *state,
 	int ret, index;
 	struct drm_mode_config *config = &connector->dev->mode_config;
 	struct drm_connector_state *connector_state;
+	struct __drm_connectors_state *c;
 
 	WARN_ON(!state->acquire_ctx);
 
@@ -1073,34 +1080,28 @@ drm_atomic_get_connector_state(struct drm_atomic_state *state,
 
 	index = drm_connector_index(connector);
 
-	if (index >= state->num_connector) {
-		struct __drm_connnectors_state *c;
-		int alloc = max(index + 1, config->num_connector);
+	ret = drm_dynarray_reserve(&state->connectors,
+				   max(index, config->num_connector - 1));
+	if (ret)
+		return ERR_PTR(ret);
 
-		c = krealloc(state->connectors, alloc * sizeof(*state->connectors), GFP_KERNEL);
-		if (!c)
-			return ERR_PTR(-ENOMEM);
+	c = __drm_atomic_state_connector(state, index);
 
-		state->connectors = c;
-		memset(&state->connectors[state->num_connector], 0,
-		       sizeof(*state->connectors) * (alloc - state->num_connector));
-
-		state->num_connector = alloc;
-	}
-
-	if (state->connectors[index].state)
-		return state->connectors[index].state;
+	if (c->state)
+		return c->state;
 
 	connector_state = connector->funcs->atomic_duplicate_state(connector);
 	if (!connector_state)
 		return ERR_PTR(-ENOMEM);
 
 	drm_connector_get(connector);
-	state->connectors[index].state = connector_state;
-	state->connectors[index].old_state = connector->state;
-	state->connectors[index].new_state = connector_state;
-	state->connectors[index].ptr = connector;
+	c->state = connector_state;
+	c->old_state = connector->state;
+	c->new_state = connector_state;
+	c->ptr = connector;
 	connector_state->state = state;
+
+	state->num_connector = state->connectors.num_elems;
 
 	DRM_DEBUG_ATOMIC("Added [CONNECTOR:%d:%s] %p state to %p\n",
 			 connector->base.id, connector->name,
