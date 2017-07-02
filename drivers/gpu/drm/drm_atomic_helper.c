@@ -2297,7 +2297,7 @@ void drm_atomic_helper_swap_state(struct drm_atomic_state *state,
 		old_conn_state->state = state;
 		new_conn_state->state = NULL;
 
-		state->connectors[i].state = old_conn_state;
+		__drm_atomic_state_connector(state, i)->state = old_conn_state;
 		connector->state = new_conn_state;
 	}
 
@@ -2871,7 +2871,7 @@ int drm_atomic_helper_commit_duplicated_state(struct drm_atomic_state *state,
 		state->crtcs[i].old_state = crtc->state;
 
 	for_each_new_connector_in_state(state, connector, new_conn_state, i)
-		state->connectors[i].old_state = connector->state;
+		__drm_atomic_state_connector(state, i)->old_state = connector->state;
 
 	return drm_atomic_commit(state);
 }

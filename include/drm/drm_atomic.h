@@ -29,6 +29,7 @@
 #define DRM_ATOMIC_H_
 
 #include <drm/drm_crtc.h>
+#include <drm/drm_dynarray.h>
 
 /**
  * struct drm_crtc_commit - track modeset commits on a CRTC
@@ -149,7 +150,7 @@ struct __drm_crtcs_state {
 	unsigned last_vblank_count;
 };
 
-struct __drm_connnectors_state {
+struct __drm_connectors_state {
 	struct drm_connector *ptr;
 	struct drm_connector_state *state, *old_state, *new_state;
 };
@@ -226,7 +227,7 @@ struct drm_atomic_state {
 	struct __drm_planes_state *planes;
 	struct __drm_crtcs_state *crtcs;
 	int num_connector;
-	struct __drm_connnectors_state *connectors;
+	struct drm_dynarray connectors; /* struct __drm_connectors_state [] */;
 	int num_private_objs;
 	struct __drm_private_objs_state *private_objs;
 
@@ -240,6 +241,13 @@ struct drm_atomic_state {
 	 */
 	struct work_struct commit_work;
 };
+
+static inline struct __drm_connectors_state *
+__drm_atomic_state_connector(const struct drm_atomic_state *state,
+			     unsigned int index)
+{
+	return drm_dynarray_elem(&state->connectors, index);
+}
 
 void __drm_crtc_commit_free(struct kref *kref);
 
@@ -441,7 +449,7 @@ drm_atomic_get_existing_connector_state(struct drm_atomic_state *state,
 	if (index >= state->num_connector)
 		return NULL;
 
-	return state->connectors[index].state;
+	return __drm_atomic_state_connector(state, index)->state;
 }
 
 /**
@@ -461,7 +469,7 @@ drm_atomic_get_old_connector_state(struct drm_atomic_state *state,
 	if (index >= state->num_connector)
 		return NULL;
 
-	return state->connectors[index].old_state;
+	return __drm_atomic_state_connector(state, index)->old_state;
 }
 
 /**
@@ -481,7 +489,7 @@ drm_atomic_get_new_connector_state(struct drm_atomic_state *state,
 	if (index >= state->num_connector)
 		return NULL;
 
-	return state->connectors[index].new_state;
+	return __drm_atomic_state_connector(state, index)->new_state;
 }
 
 /**
@@ -573,9 +581,9 @@ void drm_state_dump(struct drm_device *dev, struct drm_printer *p);
  */
 #define for_each_connector_in_state(__state, connector, connector_state, __i) \
 	for ((__i) = 0;							\
-	     (__i) < (__state)->num_connector &&				\
-	     ((connector) = (__state)->connectors[__i].ptr,			\
-	     (connector_state) = (__state)->connectors[__i].state, 1); 	\
+	     (__i) < (__state)->num_connector &&			\
+		     ((connector) = __drm_atomic_state_connector(__state, __i)->ptr, \
+		      (connector_state) = __drm_atomic_state_connector(__state, __i)->state, 1); \
 	     (__i)++)							\
 		for_each_if (connector)
 
@@ -595,10 +603,10 @@ void drm_state_dump(struct drm_device *dev, struct drm_printer *p);
  */
 #define for_each_oldnew_connector_in_state(__state, connector, old_connector_state, new_connector_state, __i) \
 	for ((__i) = 0;								\
-	     (__i) < (__state)->num_connector &&				\
-	     ((connector) = (__state)->connectors[__i].ptr,			\
-	     (old_connector_state) = (__state)->connectors[__i].old_state,	\
-	     (new_connector_state) = (__state)->connectors[__i].new_state, 1); 	\
+	     (__i) < (__state)->num_connector &&			\
+		     ((connector) = __drm_atomic_state_connector(__state, __i)->ptr, \
+		      (old_connector_state) = __drm_atomic_state_connector(__state, __i)->old_state, \
+		      (new_connector_state) = __drm_atomic_state_connector(__state, __i)->new_state, 1); \
 	     (__i)++)							\
 		for_each_if (connector)
 
@@ -616,9 +624,9 @@ void drm_state_dump(struct drm_device *dev, struct drm_printer *p);
  */
 #define for_each_old_connector_in_state(__state, connector, old_connector_state, __i) \
 	for ((__i) = 0;								\
-	     (__i) < (__state)->num_connector &&				\
-	     ((connector) = (__state)->connectors[__i].ptr,			\
-	     (old_connector_state) = (__state)->connectors[__i].old_state, 1); 	\
+	     (__i) < (__state)->num_connector &&			\
+		     ((connector) = __drm_atomic_state_connector(__state, __i)->ptr, \
+		      (old_connector_state) = __drm_atomic_state_connector(__state, __i)->old_state, 1); \
 	     (__i)++)							\
 		for_each_if (connector)
 
@@ -637,8 +645,8 @@ void drm_state_dump(struct drm_device *dev, struct drm_printer *p);
 #define for_each_new_connector_in_state(__state, connector, new_connector_state, __i) \
 	for ((__i) = 0;								\
 	     (__i) < (__state)->num_connector &&				\
-	     ((connector) = (__state)->connectors[__i].ptr,			\
-	     (new_connector_state) = (__state)->connectors[__i].new_state, 1); 	\
+		     ((connector) = __drm_atomic_state_connector(__state, __i)->ptr, \
+		      (new_connector_state) = __drm_atomic_state_connector(__state, __i)->new_state, 1); \
 	     (__i)++)							\
 		for_each_if (connector)
 
