@@ -229,7 +229,7 @@ struct drm_atomic_state {
 	int num_connector;
 	struct drm_dynarray connectors; /* struct __drm_connectors_state [] */;
 	int num_private_objs;
-	struct __drm_private_objs_state *private_objs;
+	struct drm_dynarray private_objs; /* struct __drm_private_objs_state [] */;
 
 	struct drm_modeset_acquire_ctx *acquire_ctx;
 
@@ -247,6 +247,13 @@ __drm_atomic_state_connector(const struct drm_atomic_state *state,
 			     unsigned int index)
 {
 	return drm_dynarray_elem(&state->connectors, index);
+}
+
+static inline struct __drm_private_objs_state *
+__drm_atomic_state_private_obj(const struct drm_atomic_state *state,
+			       unsigned int index)
+{
+	return drm_dynarray_elem(&state->private_objs, index);
 }
 
 void __drm_crtc_commit_free(struct kref *kref);
@@ -832,9 +839,9 @@ void drm_state_dump(struct drm_device *dev, struct drm_printer *p);
 #define __for_each_private_obj(__state, obj, obj_state, __i, __funcs)	\
 	for ((__i) = 0;							\
 	     (__i) < (__state)->num_private_objs &&			\
-	     ((obj) = (__state)->private_objs[__i].obj,			\
-	      (__funcs) = (__state)->private_objs[__i].funcs,		\
-	      (obj_state) = (__state)->private_objs[__i].obj_state,	\
+		     ((obj) = __drm_atomic_state_private_obj(__state, __i)->obj, \
+		      (__funcs) = __drm_atomic_state_private_obj(__state, __i)->funcs, \
+		      (obj_state) = __drm_atomic_state_private_obj(__state, __i)->obj_state, \
 	      1);							\
 	     (__i)++)							\
 

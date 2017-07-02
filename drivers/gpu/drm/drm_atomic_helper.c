@@ -2331,7 +2331,7 @@ void drm_atomic_helper_swap_state(struct drm_atomic_state *state,
 	}
 
 	__for_each_private_obj(state, obj, obj_state, i, funcs)
-		funcs->swap_state(obj, &state->private_objs[i].obj_state);
+		funcs->swap_state(obj, &__drm_atomic_state_private_obj(state, i)->obj_state);
 }
 EXPORT_SYMBOL(drm_atomic_helper_swap_state);
 
