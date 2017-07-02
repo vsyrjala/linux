@@ -57,7 +57,7 @@ void drm_atomic_state_default_release(struct drm_atomic_state *state)
 	drm_dynarray_fini(&state->connectors);
 	kfree(state->crtcs);
 	kfree(state->planes);
-	kfree(state->private_objs);
+	drm_dynarray_fini(&state->private_objs);
 }
 EXPORT_SYMBOL(drm_atomic_state_default_release);
 
@@ -90,6 +90,8 @@ drm_atomic_state_init(struct drm_device *dev, struct drm_atomic_state *state)
 
 	drm_dynarray_init(&state->connectors,
 			  sizeof(struct __drm_connectors_state));
+	drm_dynarray_init(&state->private_objs,
+			  sizeof(struct __drm_private_objs_state));
 
 	state->dev = dev;
 
@@ -193,12 +195,14 @@ void drm_atomic_state_default_clear(struct drm_atomic_state *state)
 	}
 
 	for (i = 0; i < state->num_private_objs; i++) {
-		void *obj_state = state->private_objs[i].obj_state;
+		struct __drm_private_objs_state *p =
+			__drm_atomic_state_private_obj(state, i);
+		void *obj_state = p->obj_state;
 
-		state->private_objs[i].funcs->destroy_state(obj_state);
-		state->private_objs[i].obj = NULL;
-		state->private_objs[i].obj_state = NULL;
-		state->private_objs[i].funcs = NULL;
+		p->funcs->destroy_state(obj_state);
+		p->obj = NULL;
+		p->obj_state = NULL;
+		p->funcs = NULL;
 	}
 	state->num_private_objs = 0;
 
@@ -1014,36 +1018,36 @@ void *
 drm_atomic_get_private_obj_state(struct drm_atomic_state *state, void *obj,
 			      const struct drm_private_state_funcs *funcs)
 {
-	int index, num_objs, i;
-	size_t size;
-	struct __drm_private_objs_state *arr;
+	struct __drm_private_objs_state *p;
+	int index = state->num_private_objs;
+	int ret, i;
 
-	for (i = 0; i < state->num_private_objs; i++)
-		if (obj == state->private_objs[i].obj)
-			return state->private_objs[i].obj_state;
+	for (i = 0; i < state->num_private_objs; i++) {
+		p = __drm_atomic_state_private_obj(state, i);
 
-	num_objs = state->num_private_objs + 1;
-	size = sizeof(*state->private_objs) * num_objs;
-	arr = krealloc(state->private_objs, size, GFP_KERNEL);
-	if (!arr)
+		if (obj == p->obj)
+			return p->obj_state;
+	}
+
+	ret = drm_dynarray_reserve(&state->private_objs, index);
+	if (ret)
+		return ERR_PTR(ret);
+
+	p = __drm_atomic_state_private_obj(state, index);
+
+	p->obj_state = funcs->duplicate_state(state, obj);
+	if (!p->obj_state)
 		return ERR_PTR(-ENOMEM);
 
-	state->private_objs = arr;
-	index = state->num_private_objs;
-	memset(&state->private_objs[index], 0, sizeof(*state->private_objs));
+	p->obj = obj;
+	p->funcs = funcs;
 
-	state->private_objs[index].obj_state = funcs->duplicate_state(state, obj);
-	if (!state->private_objs[index].obj_state)
-		return ERR_PTR(-ENOMEM);
-
-	state->private_objs[index].obj = obj;
-	state->private_objs[index].funcs = funcs;
-	state->num_private_objs = num_objs;
+	state->num_private_objs = index + 1;
 
 	DRM_DEBUG_ATOMIC("Added new private object state %p to %p\n",
-			 state->private_objs[index].obj_state, state);
+			 p->obj_state, state);
 
-	return state->private_objs[index].obj_state;
+	return p->obj_state;
 }
 EXPORT_SYMBOL(drm_atomic_get_private_obj_state);
 
