@@ -2624,6 +2624,8 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 	if (IS_GEN9_LP(dev_priv))
 		pipe_config->lane_lat_optim_mask =
 			bxt_ddi_phy_get_lane_lat_optim_mask(encoder);
+
+	pipe_config->min_voltage = 0; /* FIXME */
 }
 
 static bool intel_ddi_compute_config(struct intel_encoder *encoder,
@@ -2649,6 +2651,8 @@ static bool intel_ddi_compute_config(struct intel_encoder *encoder,
 		pipe_config->lane_lat_optim_mask =
 			bxt_ddi_phy_calc_lane_lat_optim_mask(encoder,
 							     pipe_config->lane_count);
+
+	pipe_config->min_voltage = 0; /* FIXME */
 
 	return ret;
 

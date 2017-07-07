@@ -1425,6 +1425,19 @@ static int cnl_calc_cdclk(int min_cdclk)
 		return 168000;
 }
 
+static u8 cnl_calc_voltage(int cdclk)
+{
+	switch (cdclk) {
+	case 528000:
+		return 2;
+	case 336000:
+		return 1;
+	case 168000:
+	default:
+		return 0;
+	}
+}
+
 static void cnl_cdclk_pll_update(struct drm_i915_private *dev_priv,
 				 struct intel_cdclk_state *cdclk_state)
 {
@@ -1515,7 +1528,7 @@ static void cnl_set_cdclk(struct drm_i915_private *dev_priv,
 {
 	int cdclk = cdclk_state->cdclk;
 	int vco = cdclk_state->vco;
-	u32 val, divider, pcu_ack;
+	u32 val, divider;
 	int ret;
 
 	mutex_lock(&dev_priv->pcu_lock);
@@ -1546,19 +1559,6 @@ static void cnl_set_cdclk(struct drm_i915_private *dev_priv,
 		break;
 	}
 
-	switch (cdclk) {
-	case 528000:
-		pcu_ack = 2;
-		break;
-	case 336000:
-		pcu_ack = 1;
-		break;
-	case 168000:
-	default:
-		pcu_ack = 0;
-		break;
-	}
-
 	if (dev_priv->cdclk.hw.vco != 0 &&
 	    dev_priv->cdclk.hw.vco != vco)
 		cnl_cdclk_pll_disable(dev_priv);
@@ -1576,7 +1576,8 @@ static void cnl_set_cdclk(struct drm_i915_private *dev_priv,
 
 	/* inform PCU of the change */
 	mutex_lock(&dev_priv->pcu_lock);
-	sandybridge_pcode_write(dev_priv, SKL_PCODE_CDCLK_CONTROL, pcu_ack);
+	sandybridge_pcode_write(dev_priv, SKL_PCODE_CDCLK_CONTROL,
+				cdclk_state->voltage);
 	mutex_unlock(&dev_priv->pcu_lock);
 
 	intel_update_cdclk(dev_priv);
@@ -1690,17 +1691,34 @@ void cnl_uninit_cdclk(struct drm_i915_private *dev_priv)
 }
 
 /**
- * intel_cdclk_state_compare - Determine if two CDCLK states differ
+ * intel_cdclk_needs_modeset - Determine if two CDCLK states require a modeset on all pipes
  * @a: first CDCLK state
  * @b: second CDCLK state
  *
  * Returns:
- * True if the CDCLK states are identical, false if they differ.
+ * True if the CDCLK states require pipes to be off during reprogramming, false if not.
  */
-bool intel_cdclk_state_compare(const struct intel_cdclk_state *a,
+bool intel_cdclk_needs_modeset(const struct intel_cdclk_state *a,
 			       const struct intel_cdclk_state *b)
 {
-	return memcmp(a, b, sizeof(*a)) == 0;
+	return a->cdclk != b->cdclk ||
+		a->vco != b->vco ||
+		a->ref != b->ref;
+}
+
+/**
+ * intel_cdclk_changed - Determine if two CDCLK states are different
+ * @a: first CDCLK state
+ * @b: second CDCLK state
+ *
+ * Returns:
+ * True if the CDCLK states don't match, false if they do.
+ */
+bool intel_cdclk_changed(const struct intel_cdclk_state *a,
+			 const struct intel_cdclk_state *b)
+{
+	return intel_cdclk_needs_modeset(a, b) ||
+		a->voltage != b->voltage;
 }
 
 /**
@@ -1714,15 +1732,15 @@ bool intel_cdclk_state_compare(const struct intel_cdclk_state *a,
 void intel_set_cdclk(struct drm_i915_private *dev_priv,
 		     const struct intel_cdclk_state *cdclk_state)
 {
-	if (intel_cdclk_state_compare(&dev_priv->cdclk.hw, cdclk_state))
+	if (!intel_cdclk_changed(&dev_priv->cdclk.hw, cdclk_state))
 		return;
 
 	if (WARN_ON_ONCE(!dev_priv->display.set_cdclk))
 		return;
 
-	DRM_DEBUG_DRIVER("Changing CDCLK to %d kHz, VCO %d kHz, ref %d kHz\n",
+	DRM_DEBUG_DRIVER("Changing CDCLK to %d kHz, VCO %d kHz, ref %d kHz, voltage %d\n",
 			 cdclk_state->cdclk, cdclk_state->vco,
-			 cdclk_state->ref);
+			 cdclk_state->ref, cdclk_state->voltage);
 
 	dev_priv->display.set_cdclk(dev_priv, cdclk_state);
 }
@@ -1827,6 +1845,29 @@ static int intel_compute_min_cdclk(struct drm_atomic_state *state)
 		min_cdclk = max(intel_state->min_cdclk[pipe], min_cdclk);
 
 	return min_cdclk;
+}
+
+static u8 intel_compute_min_voltage(struct intel_atomic_state *state)
+{
+	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
+	struct intel_crtc *crtc;
+	struct intel_crtc_state *crtc_state;
+	u8 min_voltage;
+	int i;
+	enum pipe pipe;
+
+	memcpy(state->min_voltage, dev_priv->min_voltage,
+	       sizeof(state->min_voltage));
+
+	for_each_new_intel_crtc_in_state(state, crtc, crtc_state, i)
+		state->min_voltage[i] = crtc_state->min_voltage;
+
+	min_voltage = 0;
+	for_each_pipe(dev_priv, pipe)
+		min_voltage= max(state->min_voltage[pipe],
+				 min_voltage);
+
+	return min_voltage;
 }
 
 static int vlv_modeset_calc_cdclk(struct drm_atomic_state *state)
@@ -1975,6 +2016,9 @@ static int cnl_modeset_calc_cdclk(struct drm_atomic_state *state)
 
 	intel_state->cdclk.logical.vco = vco;
 	intel_state->cdclk.logical.cdclk = cdclk;
+	intel_state->cdclk.logical.voltage =
+		max(cnl_calc_voltage(cdclk),
+		    intel_compute_min_voltage(intel_state));
 
 	if (!intel_state->active_crtcs) {
 		cdclk = cnl_calc_cdclk(0);
@@ -1982,6 +2026,8 @@ static int cnl_modeset_calc_cdclk(struct drm_atomic_state *state)
 
 		intel_state->cdclk.actual.vco = vco;
 		intel_state->cdclk.actual.cdclk = cdclk;
+		intel_state->cdclk.actual.voltage =
+			cnl_calc_voltage(cdclk);
 	} else {
 		intel_state->cdclk.actual =
 			intel_state->cdclk.logical;
