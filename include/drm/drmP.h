@@ -183,15 +183,14 @@ struct pci_controller;
  * \param fmt printf() like format string.
  * \param arg arguments
  */
-#define DRM_DEV_ERROR_RATELIMITED(dev, fmt, ...)			\
-({									\
+#define DRM_DEV_ERROR_RATELIMITED(dev, fmt, ...) do {			\
 	static DEFINE_RATELIMIT_STATE(_rs,				\
 				      DEFAULT_RATELIMIT_INTERVAL,	\
 				      DEFAULT_RATELIMIT_BURST);		\
 									\
 	if (__ratelimit(&_rs))						\
 		DRM_DEV_ERROR(dev, fmt, ##__VA_ARGS__);			\
-})
+} while (0)
 #define DRM_ERROR_RATELIMITED(fmt, ...)					\
 	DRM_DEV_ERROR_RATELIMITED(NULL, fmt, ##__VA_ARGS__)
 
@@ -199,14 +198,23 @@ struct pci_controller;
 	drm_dev_printk(dev, KERN_INFO, DRM_UT_NONE, __func__, "", fmt,	\
 		       ##__VA_ARGS__)
 
-#define DRM_DEV_INFO_ONCE(dev, fmt, ...)				\
-({									\
+#define DRM_DEV_INFO_ONCE(dev, fmt, ...) do {				\
 	static bool __print_once __read_mostly;				\
 	if (!__print_once) {						\
 		__print_once = true;					\
 		DRM_DEV_INFO(dev, fmt, ##__VA_ARGS__);			\
 	}								\
-})
+} while (0)
+
+#define drm_dev_debug_printk(dev, category, fmt, ...) do {		\
+	if (drm_debug & category)					\
+		drm_dev_printk(dev, KERN_DEBUG, category, __func__, "", fmt, ##__VA_ARGS__); \
+} while (0)
+
+#define drm_debug_printk(category, fmt, ...) do {			\
+	if (drm_debug & category)					\
+		drm_printk(KERN_DEBUG, category, fmt, ##__VA_ARGS__);	\
+} while (0)
 
 /**
  * Debug output.
@@ -214,51 +222,43 @@ struct pci_controller;
  * \param fmt printf() like format string.
  * \param arg arguments
  */
-#define DRM_DEV_DEBUG(dev, fmt, args...)				\
-	drm_dev_printk(dev, KERN_DEBUG, DRM_UT_CORE, __func__, "", fmt,	\
-		       ##args)
-#define DRM_DEBUG(fmt, ...)						\
-	drm_printk(KERN_DEBUG, DRM_UT_CORE, fmt, ##__VA_ARGS__)
+#define DRM_DEV_DEBUG(dev, fmt, ...) \
+	drm_dev_debug_printk(dev, DRM_UT_CORE, fmt, ##__VA_ARGS__)
+#define DRM_DEBUG(fmt, ...) \
+	drm_debug_printk(DRM_UT_CORE, fmt, ##__VA_ARGS__)
 
-#define DRM_DEV_DEBUG_DRIVER(dev, fmt, args...)				\
-	drm_dev_printk(dev, KERN_DEBUG, DRM_UT_DRIVER, __func__, "",	\
-		       fmt, ##args)
-#define DRM_DEBUG_DRIVER(fmt, ...)					\
+#define DRM_DEV_DEBUG_DRIVER(dev, fmt, ...) \
+	drm_dev_debug_printk(dev, DRM_UT_DRIVER, __func__, "", fmt, ##__VA_ARGS__)
+#define DRM_DEBUG_DRIVER(fmt, ...) \
 	drm_printk(KERN_DEBUG, DRM_UT_DRIVER, fmt, ##__VA_ARGS__)
 
-#define DRM_DEV_DEBUG_KMS(dev, fmt, args...)				\
-	drm_dev_printk(dev, KERN_DEBUG, DRM_UT_KMS, __func__, "", fmt,	\
-		       ##args)
-#define DRM_DEBUG_KMS(fmt, ...)					\
-	drm_printk(KERN_DEBUG, DRM_UT_KMS, fmt, ##__VA_ARGS__)
+#define DRM_DEV_DEBUG_KMS(dev, fmt, ...) \
+	drm_dev_debug_printk(dev, DRM_UT_KMS, fmt, ##__VA_ARGS__)
+#define DRM_DEBUG_KMS(fmt, ...) \
+	drm_debug_printk(DRM_UT_KMS, fmt, ##__VA_ARGS__)
 
-#define DRM_DEV_DEBUG_PRIME(dev, fmt, args...)				\
-	drm_dev_printk(dev, KERN_DEBUG, DRM_UT_PRIME, __func__, "",	\
-		       fmt, ##args)
-#define DRM_DEBUG_PRIME(fmt, ...)					\
+#define DRM_DEV_DEBUG_PRIME(dev, fmt, ...) \
+	drm_dev_debug_printk(dev, DRM_UT_PRIME, fmt, ##__VA_ARGS__)
+#define DRM_DEBUG_PRIME(fmt, ...)\
 	drm_printk(KERN_DEBUG, DRM_UT_PRIME, fmt, ##__VA_ARGS__)
 
-#define DRM_DEV_DEBUG_ATOMIC(dev, fmt, args...)				\
-	drm_dev_printk(dev, KERN_DEBUG, DRM_UT_ATOMIC, __func__, "",	\
-		       fmt, ##args)
-#define DRM_DEBUG_ATOMIC(fmt, ...)					\
-	drm_printk(KERN_DEBUG, DRM_UT_ATOMIC, fmt, ##__VA_ARGS__)
+#define DRM_DEV_DEBUG_ATOMIC(dev, fmt, ...) \
+	drm_dev_debug_printk(dev, DRM_UT_ATOMIC, fmt, ##__VA_ARGS__)
+#define DRM_DEBUG_ATOMIC(fmt, ...) \
+	drm_debug_printk(DRM_UT_ATOMIC, fmt, ##__VA_ARGS__)
 
-#define DRM_DEV_DEBUG_VBL(dev, fmt, args...)				\
-	drm_dev_printk(dev, KERN_DEBUG, DRM_UT_VBL, __func__, "", fmt,	\
-		       ##args)
-#define DRM_DEBUG_VBL(fmt, ...)					\
-	drm_printk(KERN_DEBUG, DRM_UT_VBL, fmt, ##__VA_ARGS__)
+#define DRM_DEV_DEBUG_VBL(dev, fmt, ...) \
+	drm_dev_printk(dev, DRM_UT_VBL, fmt, ##__VA_ARGS__)
+#define DRM_DEBUG_VBL(fmt, ...)\
+	drm_debug_printk(DRM_UT_VBL, fmt, ##__VA_ARGS__)
 
-#define _DRM_DEV_DEFINE_DEBUG_RATELIMITED(dev, level, fmt, args...)	\
-({									\
+#define _DRM_DEV_DEFINE_DEBUG_RATELIMITED(dev, level, fmt, ...) do {	\
 	static DEFINE_RATELIMIT_STATE(_rs,				\
 				      DEFAULT_RATELIMIT_INTERVAL,	\
 				      DEFAULT_RATELIMIT_BURST);		\
 	if (__ratelimit(&_rs))						\
-		drm_dev_printk(dev, KERN_DEBUG, DRM_UT_ ## level,	\
-			       __func__, "", fmt, ##args);		\
-})
+		drm_dev_debug_printk(dev, DRM_UT_ ## level, fmt, ##__VA_ARGS__); \
+} while (0)
 
 /**
  * Rate limited debug output. Like DRM_DEBUG() but won't flood the log.
@@ -266,22 +266,22 @@ struct pci_controller;
  * \param fmt printf() like format string.
  * \param arg arguments
  */
-#define DRM_DEV_DEBUG_RATELIMITED(dev, fmt, args...)			\
-	DEV__DRM_DEFINE_DEBUG_RATELIMITED(dev, CORE, fmt, ##args)
-#define DRM_DEBUG_RATELIMITED(fmt, args...)				\
-	DRM_DEV_DEBUG_RATELIMITED(NULL, fmt, ##args)
-#define DRM_DEV_DEBUG_DRIVER_RATELIMITED(dev, fmt, args...)		\
-	_DRM_DEV_DEFINE_DEBUG_RATELIMITED(dev, DRIVER, fmt, ##args)
-#define DRM_DEBUG_DRIVER_RATELIMITED(fmt, args...)			\
-	DRM_DEV_DEBUG_DRIVER_RATELIMITED(NULL, fmt, ##args)
-#define DRM_DEV_DEBUG_KMS_RATELIMITED(dev, fmt, args...)		\
-	_DRM_DEV_DEFINE_DEBUG_RATELIMITED(dev, KMS, fmt, ##args)
-#define DRM_DEBUG_KMS_RATELIMITED(fmt, args...)				\
-	DRM_DEV_DEBUG_KMS_RATELIMITED(NULL, fmt, ##args)
-#define DRM_DEV_DEBUG_PRIME_RATELIMITED(dev, fmt, args...)		\
-	_DRM_DEV_DEFINE_DEBUG_RATELIMITED(dev, PRIME, fmt, ##args)
-#define DRM_DEBUG_PRIME_RATELIMITED(fmt, args...)			\
-	DRM_DEV_DEBUG_PRIME_RATELIMITED(NULL, fmt, ##args)
+#define DRM_DEV_DEBUG_RATELIMITED(dev, fmt, ...) \
+	DEV__DRM_DEFINE_DEBUG_RATELIMITED(dev, CORE, fmt, ##__VA_ARGS__)
+#define DRM_DEBUG_RATELIMITED(fmt, ...) \
+	DRM_DEV_DEBUG_RATELIMITED(NULL, fmt, ##__VA_ARGS__)
+#define DRM_DEV_DEBUG_DRIVER_RATELIMITED(dev, fmt, ...) \
+	_DRM_DEV_DEFINE_DEBUG_RATELIMITED(dev, DRIVER, fmt, ##__VA_ARGS__)
+#define DRM_DEBUG_DRIVER_RATELIMITED(fmt, ...) \
+	DRM_DEV_DEBUG_DRIVER_RATELIMITED(NULL, fmt, ##__VA_ARGS__)
+#define DRM_DEV_DEBUG_KMS_RATELIMITED(dev, fmt, ...) \
+	_DRM_DEV_DEFINE_DEBUG_RATELIMITED(dev, KMS, fmt, ##__VA_ARGS__)
+#define DRM_DEBUG_KMS_RATELIMITED(fmt, ...) \
+	DRM_DEV_DEBUG_KMS_RATELIMITED(NULL, fmt, ##__VA_ARGS__)
+#define DRM_DEV_DEBUG_PRIME_RATELIMITED(dev, fmt, ...) \
+	_DRM_DEV_DEFINE_DEBUG_RATELIMITED(dev, PRIME, fmt, ##__VA_ARGS__)
+#define DRM_DEBUG_PRIME_RATELIMITED(fmt, ...) \
+	DRM_DEV_DEBUG_PRIME_RATELIMITED(NULL, fmt, ##__VA_ARGS__)
 
 /* Format strings and argument splitters to simplify printing
  * various "complex" objects
