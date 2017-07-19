@@ -1322,13 +1322,21 @@ intel_engine_create_ring(struct intel_engine_cs *engine, int size)
 	INIT_LIST_HEAD(&ring->request_list);
 
 	ring->size = size;
-	/* Workaround an erratum on the i830 which causes a hang if
-	 * the TAIL pointer points to within the last 2 cachelines
+	/*
+	 * WA_RING_AVOID_LAST_CACHELINES:alm,bdg
+	 * Workaround an erratum on the i830/i845 which causes a hang
+	 * if the TAIL pointer points to within the last 2 cachelines
 	 * of the buffer.
+	 *
+	 * Actually i830 can also hang if an indirect promitive is
+	 * placed within the last 16 cachelines of the buffer. Just
+	 * avoid placing real commands on those cachelines.
 	 */
 	ring->effective_size = size;
-	if (IS_I830(engine->i915) || IS_I845G(engine->i915))
-		ring->effective_size -= 2 * CACHELINE_BYTES;
+	if (IS_I830(engine->i915))
+		ring->effective_size -= 16 * 32;
+	else if (IS_I845G(engine->i915))
+		ring->effective_size -= 2 * 32;
 
 	intel_ring_update_space(ring);
 
