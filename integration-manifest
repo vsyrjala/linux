@@ -1,0 +1,22 @@
+drm-intel drm-intel-fixes 31c1a7b8f966470ce136710a95afcf5822fecef8
+	drm/i915/cnl: Fix LSPCON support.
+drm-upstream drm-fixes 28eb46287916f7f3ceec874959693e3fc49a294a
+	Merge branch 'drm-fixes-4.13' of git://people.freedesktop.org/~agd5f/linux into drm-fixes
+drm-intel drm-intel-next-fixes 04941829b0049d2446c7042ab9686dd057d809a6
+	drm/i915: Hold RPM wakelock while initializing OA buffer
+drm-intel drm-intel-next-queued 636918f130296fac1ab195ba087688f91bd627f8
+	drm/i915: Mark the GT as busy before idling the previous request
+drm-upstream drm-next 8824c751eb61ebffb053c291199932845bac88b4
+	Merge tag 'omapdrm-4.14' of git://git.kernel.org/pub/scm/linux/kernel/git/tomba/linux into drm-next
+sound-upstream for-next 5a9a8eca7996d5947905f853ab0c6717b4f2b7a0
+	ALSA: usb-audio: don't retry snd_usb_ctl_msg after timeout
+sound-upstream for-linus 0b36f2bd28d040acedb52f4327eb2441afe4f514
+	ALSA: emu10k1: Fix forgotten user-copy conversion in init code
+drm-intel topic/core-for-CI 01cbe29aa8f8d7ffca23cf6e147a17529fae680e
+	e1000e: fix buffer overrun while the I219 is processing DMA transactions
+drm-misc drm-misc-next 36436f4e933b42616c8e9ba4907dccf1329cb318
+	drm: udl: constify usb_device_id
+drm-misc drm-misc-next-fixes 1ed134e6526b1b513a14fba938f6d96aa1c7f3dd
+	drm/vc4: Fix VBLANK handling in crtc->enable() path
+drm-misc drm-misc-fixes a0ffc51e20e90e0c1c2491de2b4b03f48b6caaba
+	drm/atomic: If the atomic check fails, return its value first
