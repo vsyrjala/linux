@@ -1147,7 +1147,7 @@ i830_emit_bb_start(struct drm_i915_gem_request *req,
 	*cs++ = MI_NOOP;
 	intel_ring_advance(req, cs);
 
-	if ((dispatch_flags & I915_DISPATCH_PINNED) == 0) {
+	if (0&&(dispatch_flags & I915_DISPATCH_PINNED) == 0) {
 		if (len > I830_BATCH_LIMIT)
 			return -ENOSPC;
 
