@@ -576,7 +576,9 @@ static bool intel_sdvo_read_response(struct intel_sdvo *intel_sdvo,
 	return true;
 
 log_fail:
-	DRM_DEBUG_KMS("%s: R: ... failed\n", SDVO_NAME(intel_sdvo));
+	DRM_DEBUG_KMS("%s: R: ... failed (%s %d)\n", SDVO_NAME(intel_sdvo),
+		      status < ARRAY_SIZE(cmd_status_names) ?
+		      cmd_status_names[status] : "???", status);
 	return false;
 }
 
