@@ -1503,9 +1503,16 @@ static int intel_hdmi_source_max_tmds_clock(struct intel_encoder *encoder)
 	return max_tmds_clock;
 }
 
+static bool intel_has_hdmi_sink(struct intel_hdmi *hdmi,
+				const struct drm_connector_state *conn_state)
+{
+	return hdmi->has_hdmi_sink &&
+		READ_ONCE(to_intel_digital_connector_state(conn_state)->force_audio) != HDMI_AUDIO_OFF_DVI;
+}
+
 static int hdmi_port_clock_limit(struct intel_hdmi *hdmi,
 				 bool respect_downstream_limits,
-				 bool force_dvi)
+				 bool has_hdmi_sink)
 {
 	struct intel_encoder *encoder = &hdmi_to_dig_port(hdmi)->base;
 	int max_tmds_clock = intel_hdmi_source_max_tmds_clock(encoder);
@@ -1521,7 +1528,7 @@ static int hdmi_port_clock_limit(struct intel_hdmi *hdmi,
 		if (info->max_tmds_clock)
 			max_tmds_clock = min(max_tmds_clock,
 					     info->max_tmds_clock);
-		else if (!hdmi->has_hdmi_sink || force_dvi)
+		else if (!has_hdmi_sink)
 			max_tmds_clock = min(max_tmds_clock, 165000);
 	}
 
@@ -1531,13 +1538,14 @@ static int hdmi_port_clock_limit(struct intel_hdmi *hdmi,
 static enum drm_mode_status
 hdmi_port_clock_valid(struct intel_hdmi *hdmi,
 		      int clock, bool respect_downstream_limits,
-		      bool force_dvi)
+		      bool has_hdmi_sink)
 {
 	struct drm_i915_private *dev_priv = to_i915(intel_hdmi_to_dev(hdmi));
 
 	if (clock < 25000)
 		return MODE_CLOCK_LOW;
-	if (clock > hdmi_port_clock_limit(hdmi, respect_downstream_limits, force_dvi))
+	if (clock > hdmi_port_clock_limit(hdmi, respect_downstream_limits,
+					  has_hdmi_sink))
 		return MODE_CLOCK_HIGH;
 
 	/* BXT DPLL can't generate 223-240 MHz */
@@ -1559,15 +1567,12 @@ intel_hdmi_mode_valid(struct drm_connector *connector,
 	struct drm_device *dev = intel_hdmi_to_dev(hdmi);
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	enum drm_mode_status status;
-	int clock;
+	int clock = mode->clock;
 	int max_dotclk = to_i915(connector->dev)->max_dotclk_freq;
-	bool force_dvi =
-		READ_ONCE(to_intel_digital_connector_state(connector->state)->force_audio) == HDMI_AUDIO_OFF_DVI;
+	bool has_hdmi_sink = intel_has_hdmi_sink(hdmi, connector->state);
 
 	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return MODE_NO_DBLESCAN;
-
-	clock = mode->clock;
 
 	if ((mode->flags & DRM_MODE_FLAG_3D_MASK) == DRM_MODE_FLAG_3D_FRAME_PACKING)
 		clock *= 2;
@@ -1582,18 +1587,18 @@ intel_hdmi_mode_valid(struct drm_connector *connector,
 		clock /= 2;
 
 	/* check if we can do 8bpc */
-	status = hdmi_port_clock_valid(hdmi, clock, true, force_dvi);
+	status = hdmi_port_clock_valid(hdmi, clock, true, has_hdmi_sink);
 
-	if (hdmi->has_hdmi_sink && !force_dvi) {
+	if (has_hdmi_sink) {
 		/* if we can't do 8bpc we may still be able to do 12bpc */
 		if (status != MODE_OK && !HAS_GMCH_DISPLAY(dev_priv))
 			status = hdmi_port_clock_valid(hdmi, clock * 3 / 2,
-						       true, force_dvi);
+						       true, has_hdmi_sink);
 
 		/* if we can't do 8,12bpc we may still be able to do 10bpc */
 		if (status != MODE_OK && INTEL_GEN(dev_priv) >= 11)
 			status = hdmi_port_clock_valid(hdmi, clock * 5 / 4,
-						       true, force_dvi);
+						       true, has_hdmi_sink);
 	}
 
 	return status;
@@ -1717,13 +1722,13 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	int clock_10bpc = clock_8bpc * 5 / 4;
 	int clock_12bpc = clock_8bpc * 3 / 2;
 	int desired_bpp;
-	bool force_dvi = intel_conn_state->force_audio == HDMI_AUDIO_OFF_DVI;
 
 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return false;
 
 	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
-	pipe_config->has_hdmi_sink = !force_dvi && intel_hdmi->has_hdmi_sink;
+	pipe_config->has_hdmi_sink = intel_has_hdmi_sink(intel_hdmi,
+							 conn_state);
 
 	if (pipe_config->has_hdmi_sink)
 		pipe_config->has_infoframe = true;
@@ -1771,16 +1776,16 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	 * to check that the higher clock still fits within limits.
 	 */
 	if (hdmi_deep_color_possible(pipe_config, 12) &&
-	    hdmi_port_clock_valid(intel_hdmi, clock_12bpc,
-				  true, force_dvi) == MODE_OK) {
+	    hdmi_port_clock_valid(intel_hdmi, clock_12bpc, true,
+				  pipe_config->has_hdmi_sink) == MODE_OK) {
 		DRM_DEBUG_KMS("picking bpc to 12 for HDMI output\n");
 		desired_bpp = 12*3;
 
 		/* Need to adjust the port link by 1.5x for 12bpc. */
 		pipe_config->port_clock = clock_12bpc;
 	} else if (hdmi_deep_color_possible(pipe_config, 10) &&
-		   hdmi_port_clock_valid(intel_hdmi, clock_10bpc,
-					 true, force_dvi) == MODE_OK) {
+		   hdmi_port_clock_valid(intel_hdmi, clock_10bpc, true,
+					 pipe_config->has_hdmi_sink) == MODE_OK) {
 		DRM_DEBUG_KMS("picking bpc to 10 for HDMI output\n");
 		desired_bpp = 10 * 3;
 
@@ -1799,7 +1804,7 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	}
 
 	if (hdmi_port_clock_valid(intel_hdmi, pipe_config->port_clock,
-				  false, force_dvi) != MODE_OK) {
+				  false, pipe_config->has_hdmi_sink) != MODE_OK) {
 		DRM_DEBUG_KMS("unsupported HDMI clock, rejecting mode\n");
 		return false;
 	}
