@@ -2238,25 +2238,12 @@ static void intel_ddi_pre_enable(struct intel_encoder *encoder,
 	}
 }
 
-static void intel_ddi_post_disable(struct intel_encoder *intel_encoder,
-				   const struct intel_crtc_state *old_crtc_state,
-				   const struct drm_connector_state *old_conn_state)
+static void intel_disable_ddi_buf(struct intel_encoder *encoder)
 {
-	struct drm_encoder *encoder = &intel_encoder->base;
-	struct drm_i915_private *dev_priv = to_i915(encoder->dev);
-	enum port port = intel_ddi_get_encoder_port(intel_encoder);
-	struct intel_digital_port *dig_port = enc_to_dig_port(encoder);
-	int type = intel_encoder->type;
-	uint32_t val;
+	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
+	enum port port = encoder->port;
 	bool wait = false;
-
-	/* old_crtc_state and old_conn_state are NULL when called from DP_MST */
-
-	if (type == INTEL_OUTPUT_DP || type == INTEL_OUTPUT_EDP) {
-		struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
-
-		intel_dp_sink_dpms(intel_dp, DRM_MODE_DPMS_OFF);
-	}
+	u32 val;
 
 	val = I915_READ(DDI_BUF_CTL(port));
 	if (val & DDI_BUF_CTL_ENABLE) {
@@ -2272,6 +2259,26 @@ static void intel_ddi_post_disable(struct intel_encoder *intel_encoder,
 
 	if (wait)
 		intel_wait_ddi_buf_idle(dev_priv, port);
+}
+
+static void intel_ddi_post_disable(struct intel_encoder *intel_encoder,
+				   const struct intel_crtc_state *old_crtc_state,
+				   const struct drm_connector_state *old_conn_state)
+{
+	struct drm_encoder *encoder = &intel_encoder->base;
+	struct drm_i915_private *dev_priv = to_i915(encoder->dev);
+	struct intel_digital_port *dig_port = enc_to_dig_port(encoder);
+	int type = intel_encoder->type;
+
+	/* old_crtc_state and old_conn_state are NULL when called from DP_MST */
+
+	if (type == INTEL_OUTPUT_DP || type == INTEL_OUTPUT_EDP) {
+		struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
+
+		intel_dp_sink_dpms(intel_dp, DRM_MODE_DPMS_OFF);
+	}
+
+	intel_disable_ddi_buf(intel_encoder);
 
 	if (type == INTEL_OUTPUT_HDMI) {
 		dig_port->set_infoframes(encoder, false,
