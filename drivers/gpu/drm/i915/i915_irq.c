@@ -1988,7 +1988,6 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 
 		I915_WRITE(VLV_IER, ier);
 		I915_WRITE(VLV_MASTER_IER, MASTER_INTERRUPT_ENABLE);
-		POSTING_READ(VLV_MASTER_IER);
 
 		if (gt_iir)
 			snb_gt_irq_handler(dev_priv, gt_iir);
@@ -2073,7 +2072,6 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 
 		I915_WRITE(VLV_IER, ier);
 		I915_WRITE(GEN8_MASTER_IRQ, GEN8_MASTER_IRQ_CONTROL);
-		POSTING_READ(GEN8_MASTER_IRQ);
 
 		gen8_gt_irq_handler(dev_priv, gt_iir);
 
