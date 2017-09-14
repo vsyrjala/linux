@@ -1935,7 +1935,6 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 		u32 iir, gt_iir, pm_iir;
 		u32 pipe_stats[I915_MAX_PIPES] = {};
 		u32 hotplug_status = 0;
-		u32 ier = 0;
 
 		gt_iir = I915_READ(GTIIR);
 		pm_iir = I915_READ(GEN6_PMIIR);
@@ -1960,7 +1959,6 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 		 * bits this time around.
 		 */
 		I915_WRITE(VLV_MASTER_IER, 0);
-		ier = I915_READ(VLV_IER);
 		I915_WRITE(VLV_IER, 0);
 
 		if (gt_iir)
@@ -1986,7 +1984,7 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 		if (iir)
 			I915_WRITE(VLV_IIR, iir);
 
-		I915_WRITE(VLV_IER, ier);
+		I915_WRITE(VLV_IER, dev_priv->irq_enable);
 		I915_WRITE(VLV_MASTER_IER, MASTER_INTERRUPT_ENABLE);
 
 		if (gt_iir)
@@ -2022,7 +2020,6 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 		u32 gt_iir[4] = {};
 		u32 pipe_stats[I915_MAX_PIPES] = {};
 		u32 hotplug_status = 0;
-		u32 ier = 0;
 
 		master_ctl = I915_READ(GEN8_MASTER_IRQ) & ~GEN8_MASTER_IRQ_CONTROL;
 		iir = I915_READ(VLV_IIR);
@@ -2046,7 +2043,6 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 		 * bits this time around.
 		 */
 		I915_WRITE(GEN8_MASTER_IRQ, 0);
-		ier = I915_READ(VLV_IER);
 		I915_WRITE(VLV_IER, 0);
 
 		gen8_gt_irq_ack(dev_priv, master_ctl, gt_iir);
@@ -2070,7 +2066,7 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 		if (iir)
 			I915_WRITE(VLV_IIR, iir);
 
-		I915_WRITE(VLV_IER, ier);
+		I915_WRITE(VLV_IER, dev_priv->irq_enable);
 		I915_WRITE(GEN8_MASTER_IRQ, GEN8_MASTER_IRQ_CONTROL);
 
 		gen8_gt_irq_handler(dev_priv, gt_iir);
@@ -2999,6 +2995,7 @@ static void vlv_display_irq_reset(struct drm_i915_private *dev_priv)
 
 	GEN3_IRQ_RESET(VLV_);
 	dev_priv->irq_mask = ~0;
+	dev_priv->irq_enable = 0;
 }
 
 static void vlv_display_irq_postinstall(struct drm_i915_private *dev_priv)
@@ -3026,6 +3023,7 @@ static void vlv_display_irq_postinstall(struct drm_i915_private *dev_priv)
 	WARN_ON(dev_priv->irq_mask != ~0);
 
 	dev_priv->irq_mask = ~enable_mask;
+	dev_priv->irq_enable = enable_mask;
 
 	GEN3_IRQ_INIT(VLV_, dev_priv->irq_mask, enable_mask);
 }
