@@ -2209,11 +2209,15 @@ static void intel_ddi_pre_enable(struct intel_encoder *encoder,
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	enum pipe pipe = crtc->pipe;
+
+	/*
+	 * conn_state is NULL when called from DP_MST. The main connector
+	 * associated with this port is never bound to a crtc for MST.
+	 */
 
 	WARN_ON(crtc_state->has_pch_encoder);
 
-	intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, true);
+	intel_set_cpu_fifo_underrun_reporting(dev_priv, crtc->pipe, true);
 
 	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_HDMI))
 		intel_ddi_pre_enable_hdmi(encoder, crtc_state, conn_state);
@@ -2251,12 +2255,7 @@ static void intel_ddi_post_disable_dp(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	struct intel_digital_port *dig_port = enc_to_dig_port(&encoder->base);
 	struct intel_dp *intel_dp = &dig_port->dp;
-	/*
-	 * old_crtc_state and old_conn_state are NULL when called from
-	 * DP_MST. The main connector associated with this port is never
-	 * bound to a crtc for MST.
-	 */
-	bool is_mst = !old_crtc_state;
+	bool is_mst = intel_crtc_has_type(old_crtc_state, INTEL_OUTPUT_DP_MST);
 
 	/*
 	 * Power down sink before disabling the port, otherwise we end
@@ -2300,12 +2299,11 @@ static void intel_ddi_post_disable(struct intel_encoder *encoder,
 				   const struct drm_connector_state *old_conn_state)
 {
 	/*
-	 * old_crtc_state and old_conn_state are NULL when called from
-	 * DP_MST. The main connector associated with this port is never
-	 * bound to a crtc for MST.
+	 * old_conn_state is NULL when called from DP_MST. The main connector
+	 * associated with this port is never bound to a crtc for MST.
 	 */
-	if (old_crtc_state &&
-	    intel_crtc_has_type(old_crtc_state, INTEL_OUTPUT_HDMI))
+
+	if (intel_crtc_has_type(old_crtc_state, INTEL_OUTPUT_HDMI))
 		intel_ddi_post_disable_hdmi(encoder,
 					    old_crtc_state, old_conn_state);
 	else
