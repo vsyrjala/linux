@@ -2290,9 +2290,7 @@ static void intel_ddi_post_disable(struct intel_encoder *encoder,
 				   const struct intel_crtc_state *old_crtc_state,
 				   const struct drm_connector_state *old_conn_state)
 {
-	/* old_crtc_state and old_conn_state are NULL when called from DP_MST */
-	if (old_crtc_state &&
-	    intel_crtc_has_type(old_crtc_state, INTEL_OUTPUT_HDMI))
+	if (intel_crtc_has_type(old_crtc_state, INTEL_OUTPUT_HDMI))
 		intel_ddi_post_disable_hdmi(encoder,
 					    old_crtc_state, old_conn_state);
 	else
