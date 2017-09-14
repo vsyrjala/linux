@@ -1778,14 +1778,14 @@ static void i9xx_pipestat_irq_ack(struct drm_i915_private *dev_priv,
 			continue;
 
 		reg = PIPESTAT(pipe);
-		pipe_stats[pipe] = I915_READ(reg) & status_mask;
+		pipe_stats[pipe] = I915_READ_FW(reg) & status_mask;
 		enable_mask = i915_pipestat_enable_mask(dev_priv, pipe);
 
 		/*
 		 * Clear the PIPE*STAT regs before the IIR
 		 */
 		if (pipe_stats[pipe])
-			I915_WRITE(reg, enable_mask | pipe_stats[pipe]);
+			I915_WRITE_FW(reg, enable_mask | pipe_stats[pipe]);
 	}
 	spin_unlock(&dev_priv->irq_lock);
 }
@@ -1880,10 +1880,10 @@ static void valleyview_pipestat_irq_handler(struct drm_i915_private *dev_priv,
 
 static u32 i9xx_hpd_irq_ack(struct drm_i915_private *dev_priv)
 {
-	u32 hotplug_status = I915_READ(PORT_HOTPLUG_STAT);
+	u32 hotplug_status = I915_READ_FW(PORT_HOTPLUG_STAT);
 
 	if (hotplug_status)
-		I915_WRITE(PORT_HOTPLUG_STAT, hotplug_status);
+		I915_WRITE_FW(PORT_HOTPLUG_STAT, hotplug_status);
 
 	return hotplug_status;
 }
@@ -1936,9 +1936,9 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 		u32 pipe_stats[I915_MAX_PIPES] = {};
 		u32 hotplug_status = 0;
 
-		gt_iir = I915_READ(GTIIR);
-		pm_iir = I915_READ(GEN6_PMIIR);
-		iir = I915_READ(VLV_IIR);
+		gt_iir = I915_READ_FW(GTIIR);
+		pm_iir = I915_READ_FW(GEN6_PMIIR);
+		iir = I915_READ_FW(VLV_IIR);
 
 		if (gt_iir == 0 && pm_iir == 0 && iir == 0)
 			break;
@@ -1958,13 +1958,13 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 		 * don't end up clearing all the VLV_IIR, GT_IIR, GEN6_PMIIR
 		 * bits this time around.
 		 */
-		I915_WRITE(VLV_MASTER_IER, 0);
-		I915_WRITE(VLV_IER, 0);
+		I915_WRITE_FW(VLV_MASTER_IER, 0);
+		I915_WRITE_FW(VLV_IER, 0);
 
 		if (gt_iir)
-			I915_WRITE(GTIIR, gt_iir);
+			I915_WRITE_FW(GTIIR, gt_iir);
 		if (pm_iir)
-			I915_WRITE(GEN6_PMIIR, pm_iir);
+			I915_WRITE_FW(GEN6_PMIIR, pm_iir);
 
 		if (iir & I915_DISPLAY_PORT_INTERRUPT)
 			hotplug_status = i9xx_hpd_irq_ack(dev_priv);
@@ -1982,10 +1982,10 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 		 * from PIPESTAT/PORT_HOTPLUG_STAT, hence clear it last.
 		 */
 		if (iir)
-			I915_WRITE(VLV_IIR, iir);
+			I915_WRITE_FW(VLV_IIR, iir);
 
-		I915_WRITE(VLV_IER, dev_priv->irq_enable);
-		I915_WRITE(VLV_MASTER_IER, MASTER_INTERRUPT_ENABLE);
+		I915_WRITE_FW(VLV_IER, dev_priv->irq_enable);
+		I915_WRITE_FW(VLV_MASTER_IER, MASTER_INTERRUPT_ENABLE);
 
 		if (gt_iir)
 			snb_gt_irq_handler(dev_priv, gt_iir);
@@ -2042,8 +2042,8 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 		 * don't end up clearing all the VLV_IIR and GEN8_MASTER_IRQ_CONTROL
 		 * bits this time around.
 		 */
-		I915_WRITE(GEN8_MASTER_IRQ, 0);
-		I915_WRITE(VLV_IER, 0);
+		I915_WRITE_FW(GEN8_MASTER_IRQ, 0);
+		I915_WRITE_FW(VLV_IER, 0);
 
 		gen8_gt_irq_ack(dev_priv, master_ctl, gt_iir);
 
@@ -2064,10 +2064,10 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 		 * from PIPESTAT/PORT_HOTPLUG_STAT, hence clear it last.
 		 */
 		if (iir)
-			I915_WRITE(VLV_IIR, iir);
+			I915_WRITE_FW(VLV_IIR, iir);
 
-		I915_WRITE(VLV_IER, dev_priv->irq_enable);
-		I915_WRITE(GEN8_MASTER_IRQ, GEN8_MASTER_IRQ_CONTROL);
+		I915_WRITE_FW(VLV_IER, dev_priv->irq_enable);
+		I915_WRITE_FW(GEN8_MASTER_IRQ, GEN8_MASTER_IRQ_CONTROL);
 
 		gen8_gt_irq_handler(dev_priv, gt_iir);
 
@@ -3682,7 +3682,7 @@ static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 		u32 pipe_stats[I915_MAX_PIPES] = {};
 		u16 iir;
 
-		iir = I915_READ16(IIR);
+		iir = I915_READ16_FW(IIR);
 		if (iir == 0)
 			break;
 
@@ -3692,7 +3692,7 @@ static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 		 * signalled in iir */
 		i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
 
-		I915_WRITE16(IIR, iir);
+		I915_WRITE16_FW(IIR, iir);
 
 		if (iir & I915_USER_INTERRUPT)
 			notify_ring(dev_priv->engine[RCS]);
@@ -3791,7 +3791,7 @@ static irqreturn_t i915_irq_handler(int irq, void *arg)
 		u32 hotplug_status = 0;
 		u32 iir;
 
-		iir = I915_READ(IIR);
+		iir = I915_READ_FW(IIR);
 		if (iir == 0)
 			break;
 
@@ -3805,7 +3805,7 @@ static irqreturn_t i915_irq_handler(int irq, void *arg)
 		 * signalled in iir */
 		i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
 
-		I915_WRITE(IIR, iir);
+		I915_WRITE_FW(IIR, iir);
 
 		if (iir & I915_USER_INTERRUPT)
 			notify_ring(dev_priv->engine[RCS]);
@@ -3951,7 +3951,7 @@ static irqreturn_t i965_irq_handler(int irq, void *arg)
 		u32 hotplug_status = 0;
 		u32 iir;
 
-		iir = I915_READ(IIR);
+		iir = I915_READ_FW(IIR);
 		if (iir == 0)
 			break;
 
@@ -3964,7 +3964,7 @@ static irqreturn_t i965_irq_handler(int irq, void *arg)
 		 * signalled in iir */
 		i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
 
-		I915_WRITE(IIR, iir);
+		I915_WRITE_FW(IIR, iir);
 
 		if (iir & I915_USER_INTERRUPT)
 			notify_ring(dev_priv->engine[RCS]);
