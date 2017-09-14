@@ -1736,7 +1736,7 @@ static void i9xx_pipestat_irq_reset(struct drm_i915_private *dev_priv)
 static void i9xx_pipestat_irq_ack(struct drm_i915_private *dev_priv,
 				  u32 iir, u32 pipe_stats[I915_MAX_PIPES])
 {
-	int pipe;
+	enum pipe pipe;
 
 	spin_lock(&dev_priv->irq_lock);
 
@@ -1969,9 +1969,9 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 		if (iir & I915_DISPLAY_PORT_INTERRUPT)
 			hotplug_status = i9xx_hpd_irq_ack(dev_priv);
 
-		/* Call regardless, as some status bits might not be
-		 * signalled in iir */
-		i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
+		if (iir & (I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT))
+			i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
 
 		if (iir & (I915_LPE_PIPE_A_INTERRUPT |
 			   I915_LPE_PIPE_B_INTERRUPT))
@@ -1995,7 +1995,9 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 		if (hotplug_status)
 			i9xx_hpd_irq_handler(dev_priv, hotplug_status);
 
-		valleyview_pipestat_irq_handler(dev_priv, pipe_stats);
+		if (iir & (I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT))
+			valleyview_pipestat_irq_handler(dev_priv, pipe_stats);
 	} while (0);
 
 	enable_rpm_wakeref_asserts(dev_priv);
@@ -2050,9 +2052,10 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 		if (iir & I915_DISPLAY_PORT_INTERRUPT)
 			hotplug_status = i9xx_hpd_irq_ack(dev_priv);
 
-		/* Call regardless, as some status bits might not be
-		 * signalled in iir */
-		i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
+		if (iir & (I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_C_EVENT_INTERRUPT))
+			i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
 
 		if (iir & (I915_LPE_PIPE_A_INTERRUPT |
 			   I915_LPE_PIPE_B_INTERRUPT |
@@ -2074,7 +2077,10 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 		if (hotplug_status)
 			i9xx_hpd_irq_handler(dev_priv, hotplug_status);
 
-		valleyview_pipestat_irq_handler(dev_priv, pipe_stats);
+		if (iir & (I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_C_EVENT_INTERRUPT))
+			valleyview_pipestat_irq_handler(dev_priv, pipe_stats);
 	} while (0);
 
 	enable_rpm_wakeref_asserts(dev_priv);
@@ -3688,9 +3694,9 @@ static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 
 		ret = IRQ_HANDLED;
 
-		/* Call regardless, as some status bits might not be
-		 * signalled in iir */
-		i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
+		if (iir & (I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT))
+			i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
 
 		I915_WRITE16_FW(IIR, iir);
 
@@ -3700,7 +3706,9 @@ static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 		if (iir & I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT)
 			DRM_DEBUG("Command parser error, iir 0x%08x\n", iir);
 
-		i8xx_pipestat_irq_handler(dev_priv, iir, pipe_stats);
+		if (iir & (I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT))
+			i8xx_pipestat_irq_handler(dev_priv, iir, pipe_stats);
 	} while (0);
 
 	enable_rpm_wakeref_asserts(dev_priv);
@@ -3801,9 +3809,9 @@ static irqreturn_t i915_irq_handler(int irq, void *arg)
 		    iir & I915_DISPLAY_PORT_INTERRUPT)
 			hotplug_status = i9xx_hpd_irq_ack(dev_priv);
 
-		/* Call regardless, as some status bits might not be
-		 * signalled in iir */
-		i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
+		if (iir & (I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT))
+			i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
 
 		I915_WRITE_FW(IIR, iir);
 
@@ -3816,7 +3824,10 @@ static irqreturn_t i915_irq_handler(int irq, void *arg)
 		if (hotplug_status)
 			i9xx_hpd_irq_handler(dev_priv, hotplug_status);
 
-		i915_pipestat_irq_handler(dev_priv, iir, pipe_stats);
+		if (iir & (I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
+			   I915_ASLE_INTERRUPT))
+			i915_pipestat_irq_handler(dev_priv, iir, pipe_stats);
 	} while (0);
 
 	enable_rpm_wakeref_asserts(dev_priv);
@@ -3960,9 +3971,9 @@ static irqreturn_t i965_irq_handler(int irq, void *arg)
 		if (iir & I915_DISPLAY_PORT_INTERRUPT)
 			hotplug_status = i9xx_hpd_irq_ack(dev_priv);
 
-		/* Call regardless, as some status bits might not be
-		 * signalled in iir */
-		i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
+		if (iir & (I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT))
+			i9xx_pipestat_irq_ack(dev_priv, iir, pipe_stats);
 
 		I915_WRITE_FW(IIR, iir);
 
@@ -3978,7 +3989,10 @@ static irqreturn_t i965_irq_handler(int irq, void *arg)
 		if (hotplug_status)
 			i9xx_hpd_irq_handler(dev_priv, hotplug_status);
 
-		i965_pipestat_irq_handler(dev_priv, iir, pipe_stats);
+		if (iir & (I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
+			   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
+			   I915_ASLE_INTERRUPT))
+			i965_pipestat_irq_handler(dev_priv, iir, pipe_stats);
 	} while (0);
 
 	enable_rpm_wakeref_asserts(dev_priv);
