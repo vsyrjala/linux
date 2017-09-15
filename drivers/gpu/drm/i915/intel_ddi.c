@@ -807,7 +807,7 @@ static void intel_prepare_dp_ddi_buffers(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	u32 iboost_bit = 0;
 	int i, n_entries;
-	enum port port = intel_ddi_get_encoder_port(encoder);
+	enum port port = encoder->port;
 	const struct ddi_buf_trans *ddi_translations;
 
 	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_ANALOG))
@@ -844,7 +844,7 @@ static void intel_prepare_hdmi_ddi_buffers(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	u32 iboost_bit = 0;
 	int n_entries;
-	enum port port = intel_ddi_get_encoder_port(encoder);
+	enum port port = encoder->port;
 	const struct ddi_buf_trans *ddi_translations;
 
 	ddi_translations = intel_ddi_get_buf_trans_hdmi(dev_priv, &n_entries);
@@ -1455,7 +1455,7 @@ static void bxt_ddi_clock_get(struct intel_encoder *encoder,
 				struct intel_crtc_state *pipe_config)
 {
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
-	enum port port = intel_ddi_get_encoder_port(encoder);
+	enum port port = encoder->port;
 	uint32_t dpll = port;
 
 	pipe_config->port_clock = bxt_calc_pll_link(dev_priv, dpll);
@@ -1631,7 +1631,7 @@ bool intel_ddi_connector_get_hw_state(struct intel_connector *intel_connector)
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_encoder *encoder = intel_connector->encoder;
 	int type = intel_connector->base.connector_type;
-	enum port port = intel_ddi_get_encoder_port(encoder);
+	enum port port = encoder->port;
 	enum pipe pipe = 0;
 	enum transcoder cpu_transcoder;
 	uint32_t tmp;
@@ -1690,7 +1690,7 @@ bool intel_ddi_get_hw_state(struct intel_encoder *encoder,
 {
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	enum port port = intel_ddi_get_encoder_port(encoder);
+	enum port port = encoder->port;
 	u32 tmp;
 	int i;
 	bool ret;
@@ -1975,7 +1975,7 @@ static void cnl_ddi_vswing_sequence(struct intel_encoder *encoder,
 				    int level, int type)
 {
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
-	enum port port = intel_ddi_get_encoder_port(encoder);
+	enum port port = encoder->port;
 	int width, rate, ln;
 	u32 val;
 
@@ -2094,7 +2094,7 @@ static void intel_ddi_clk_select(struct intel_encoder *encoder,
 				 const struct intel_shared_dpll *pll)
 {
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
-	enum port port = intel_ddi_get_encoder_port(encoder);
+	enum port port = encoder->port;
 	uint32_t val;
 
 	if (WARN_ON(!pll))
@@ -2152,7 +2152,7 @@ static void intel_ddi_pre_enable_dp(struct intel_encoder *encoder,
 {
 	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
-	enum port port = intel_ddi_get_encoder_port(encoder);
+	enum port port = encoder->port;
 	struct intel_digital_port *dig_port = enc_to_dig_port(&encoder->base);
 	bool is_mst = intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DP_MST);
 	int level = intel_ddi_dp_level(intel_dp);
@@ -2189,7 +2189,7 @@ static void intel_ddi_pre_enable_hdmi(struct intel_encoder *encoder,
 	struct intel_digital_port *intel_dig_port = enc_to_dig_port(&encoder->base);
 	struct intel_hdmi *intel_hdmi = &intel_dig_port->hdmi;
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
-	enum port port = intel_ddi_get_encoder_port(encoder);
+	enum port port = encoder->port;
 	int level = intel_ddi_hdmi_level(dev_priv, port);
 	struct intel_digital_port *dig_port = enc_to_dig_port(&encoder->base);
 
@@ -2633,7 +2633,7 @@ static bool intel_ddi_compute_config(struct intel_encoder *encoder,
 				     struct drm_connector_state *conn_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
-	int port = intel_ddi_get_encoder_port(encoder);
+	enum port port = encoder->port;
 	int ret;
 
 	if (port == PORT_A)
