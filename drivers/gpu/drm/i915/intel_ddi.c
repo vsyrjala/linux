@@ -762,41 +762,38 @@ cnl_get_buf_trans_edp(struct drm_i915_private *dev_priv, int *n_entries)
 
 static int intel_ddi_hdmi_level(struct drm_i915_private *dev_priv, enum port port)
 {
-	int n_hdmi_entries;
-	int hdmi_level;
-	int hdmi_default_entry;
+	int n_entries, level, default_entry;
 
-	hdmi_level = dev_priv->vbt.ddi_port_info[port].hdmi_level_shift;
+	level = dev_priv->vbt.ddi_port_info[port].hdmi_level_shift;
 
 	if (IS_CANNONLAKE(dev_priv)) {
-		cnl_get_buf_trans_hdmi(dev_priv, &n_hdmi_entries);
-		hdmi_default_entry = n_hdmi_entries - 1;
+		cnl_get_buf_trans_hdmi(dev_priv, &n_entries);
+		default_entry = n_entries - 1;
 	} else if (IS_GEN9_LP(dev_priv)) {
-		bxt_get_buf_trans_hdmi(dev_priv, &n_hdmi_entries);
-		hdmi_default_entry = n_hdmi_entries - 1;
+		bxt_get_buf_trans_hdmi(dev_priv, &n_entries);
+		default_entry = n_entries - 1;
 	} else if (IS_GEN9_BC(dev_priv)) {
-		intel_ddi_get_buf_trans_hdmi(dev_priv, &n_hdmi_entries);
-		hdmi_default_entry = 8;
+		intel_ddi_get_buf_trans_hdmi(dev_priv, &n_entries);
+		default_entry = 8;
 	} else if (IS_BROADWELL(dev_priv)) {
-		intel_ddi_get_buf_trans_hdmi(dev_priv, &n_hdmi_entries);
-		hdmi_default_entry = 7;
+		intel_ddi_get_buf_trans_hdmi(dev_priv, &n_entries);
+		default_entry = 7;
 	} else if (IS_HASWELL(dev_priv)) {
-		intel_ddi_get_buf_trans_hdmi(dev_priv, &n_hdmi_entries);
-		hdmi_default_entry = 6;
+		intel_ddi_get_buf_trans_hdmi(dev_priv, &n_entries);
+		default_entry = 6;
 	} else {
 		WARN(1, "ddi translation table missing\n");
 		return 0;
 	}
 
 	/* Choose a good default if VBT is badly populated */
-	if (hdmi_level == HDMI_LEVEL_SHIFT_UNKNOWN ||
-	    hdmi_level >= n_hdmi_entries)
-		hdmi_level = hdmi_default_entry;
+	if (level == HDMI_LEVEL_SHIFT_UNKNOWN || level >= n_entries)
+		level = default_entry;
 
-	if (WARN_ON_ONCE(hdmi_level >= n_hdmi_entries))
-		hdmi_level = n_hdmi_entries - 1;
+	if (WARN_ON_ONCE(level >= n_entries))
+		level = n_entries - 1;
 
-	return hdmi_level;
+	return level;
 }
 
 /*
@@ -842,20 +839,20 @@ static void intel_prepare_dp_ddi_buffers(struct intel_encoder *encoder,
  * HDMI/DVI use cases.
  */
 static void intel_prepare_hdmi_ddi_buffers(struct intel_encoder *encoder,
-					   int hdmi_level)
+					   int level)
 {
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	u32 iboost_bit = 0;
-	int n_hdmi_entries;
+	int n_entries;
 	enum port port = intel_ddi_get_encoder_port(encoder);
-	const struct ddi_buf_trans *ddi_translations_hdmi;
+	const struct ddi_buf_trans *ddi_translations;
 
-	ddi_translations_hdmi = intel_ddi_get_buf_trans_hdmi(dev_priv, &n_hdmi_entries);
+	ddi_translations = intel_ddi_get_buf_trans_hdmi(dev_priv, &n_entries);
 
-	if (WARN_ON_ONCE(!ddi_translations_hdmi))
+	if (WARN_ON_ONCE(!ddi_translations))
 		return;
-	if (WARN_ON_ONCE(hdmi_level >= n_hdmi_entries))
-		hdmi_level = n_hdmi_entries - 1;
+	if (WARN_ON_ONCE(level >= n_entries))
+		level = n_entries - 1;
 
 	/* If we're boosting the current, set bit 31 of trans1 */
 	if (IS_GEN9_BC(dev_priv) &&
@@ -864,9 +861,9 @@ static void intel_prepare_hdmi_ddi_buffers(struct intel_encoder *encoder,
 
 	/* Entry 9 is for HDMI: */
 	I915_WRITE(DDI_BUF_TRANS_LO(port, 9),
-		   ddi_translations_hdmi[hdmi_level].trans1 | iboost_bit);
+		   ddi_translations[level].trans1 | iboost_bit);
 	I915_WRITE(DDI_BUF_TRANS_HI(port, 9),
-		   ddi_translations_hdmi[hdmi_level].trans2);
+		   ddi_translations[level].trans2);
 }
 
 static void intel_wait_ddi_buf_idle(struct drm_i915_private *dev_priv,
@@ -1810,7 +1807,7 @@ static void _skl_ddi_set_iboost(struct drm_i915_private *dev_priv,
 }
 
 static void skl_ddi_set_iboost(struct intel_encoder *encoder,
-			       u32 level, int type)
+			       int level, int type)
 {
 	struct intel_digital_port *intel_dig_port = enc_to_dig_port(&encoder->base);
 	struct drm_i915_private *dev_priv = to_i915(intel_dig_port->base.base.dev);
@@ -1913,7 +1910,7 @@ u8 intel_ddi_dp_voltage_max(struct intel_encoder *encoder)
 }
 
 static void cnl_ddi_vswing_program(struct drm_i915_private *dev_priv,
-				    u32 level, enum port port, int type)
+				   int level, enum port port, int type)
 {
 	const struct cnl_ddi_buf_trans *ddi_translations = NULL;
 	int n_entries, ln;
@@ -2070,7 +2067,7 @@ u32 bxt_signal_levels(struct intel_dp *intel_dp)
 	struct intel_digital_port *dport = dp_to_dig_port(intel_dp);
 	struct drm_i915_private *dev_priv = to_i915(dport->base.base.dev);
 	struct intel_encoder *encoder = &dport->base;
-	u32 level = intel_ddi_dp_level(intel_dp);
+	int level = intel_ddi_dp_level(intel_dp);
 
 	if (IS_CANNONLAKE(dev_priv))
 		cnl_ddi_vswing_sequence(encoder, level, encoder->type);
@@ -2085,7 +2082,7 @@ uint32_t ddi_signal_levels(struct intel_dp *intel_dp)
 	struct intel_digital_port *dport = dp_to_dig_port(intel_dp);
 	struct drm_i915_private *dev_priv = to_i915(dport->base.base.dev);
 	struct intel_encoder *encoder = &dport->base;
-	uint32_t level = intel_ddi_dp_level(intel_dp);
+	int level = intel_ddi_dp_level(intel_dp);
 
 	if (IS_GEN9_BC(dev_priv))
 		skl_ddi_set_iboost(encoder, level, encoder->type);
@@ -2158,7 +2155,7 @@ static void intel_ddi_pre_enable_dp(struct intel_encoder *encoder,
 	enum port port = intel_ddi_get_encoder_port(encoder);
 	struct intel_digital_port *dig_port = enc_to_dig_port(&encoder->base);
 	bool is_mst = intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DP_MST);
-	uint32_t level = intel_ddi_dp_level(intel_dp);
+	int level = intel_ddi_dp_level(intel_dp);
 
 	WARN_ON(is_mst && (port == PORT_A || port == PORT_E));
 
