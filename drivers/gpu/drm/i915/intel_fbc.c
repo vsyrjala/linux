@@ -887,7 +887,7 @@ static void intel_fbc_get_reg_params(struct intel_crtc *crtc,
 	params->vma = cache->vma;
 
 	params->crtc.pipe = crtc->pipe;
-	params->crtc.plane = crtc->plane;
+	params->crtc.plane = to_intel_plane(crtc->base.primary)->plane;
 	params->crtc.fence_y_offset = get_crtc_fence_y_offset(crtc);
 
 	params->fb.format = cache->fb.format;
@@ -1083,7 +1083,7 @@ void intel_fbc_choose_crtc(struct drm_i915_private *dev_priv,
 		if (fbc_on_pipe_a_only(dev_priv) && crtc->pipe != PIPE_A)
 			continue;
 
-		if (fbc_on_plane_a_only(dev_priv) && crtc->plane != PLANE_A)
+		if (fbc_on_plane_a_only(dev_priv) && plane->plane != PLANE_A)
 			continue;
 
 		crtc_state = intel_atomic_get_new_crtc_state(state, crtc);
