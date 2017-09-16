@@ -796,7 +796,7 @@ struct intel_crtc_state {
 struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
-	enum plane plane;
+	enum i9xx_plane_id plane;
 	/*
 	 * Whether the crtc and the connected output pipeline is active. Implies
 	 * that crtc->enabled is set, i.e. the current mode configuration has
@@ -849,7 +849,7 @@ struct intel_crtc {
 
 struct intel_plane {
 	struct drm_plane base;
-	u8 plane;
+	enum i9xx_plane_id plane;
 	enum plane_id id;
 	enum pipe pipe;
 	bool can_scale;
@@ -1136,7 +1136,7 @@ intel_get_crtc_for_pipe(struct drm_i915_private *dev_priv, enum pipe pipe)
 }
 
 static inline struct intel_crtc *
-intel_get_crtc_for_plane(struct drm_i915_private *dev_priv, enum plane plane)
+intel_get_crtc_for_plane(struct drm_i915_private *dev_priv, enum i9xx_plane_id plane)
 {
 	return dev_priv->plane_to_crtc_mapping[plane];
 }

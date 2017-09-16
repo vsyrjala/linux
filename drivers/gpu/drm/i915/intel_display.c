@@ -3223,17 +3223,17 @@ int i9xx_check_plane_surface(struct intel_plane_state *plane_state)
 	return 0;
 }
 
-static void i9xx_update_primary_plane(struct intel_plane *primary,
-				      const struct intel_crtc_state *crtc_state,
-				      const struct intel_plane_state *plane_state)
+static void i9xx_update_plane(struct intel_plane *plane,
+			      const struct intel_crtc_state *crtc_state,
+			      const struct intel_plane_state *plane_state)
 {
-	struct drm_i915_private *dev_priv = to_i915(primary->base.dev);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	const struct drm_framebuffer *fb = plane_state->base.fb;
-	enum plane plane = primary->plane;
+	enum i9xx_plane_id plane_id = plane->plane;
 	u32 linear_offset;
 	u32 dspcntr = plane_state->ctl;
-	i915_reg_t reg = DSPCNTR(plane);
+	i915_reg_t reg = DSPCNTR(plane_id);
 	int x = plane_state->main.x;
 	int y = plane_state->main.y;
 	unsigned long irqflags;
@@ -3254,34 +3254,34 @@ static void i9xx_update_primary_plane(struct intel_plane *primary,
 		/* pipesrc and dspsize control the size that is scaled from,
 		 * which should always be the user's requested size.
 		 */
-		I915_WRITE_FW(DSPSIZE(plane),
+		I915_WRITE_FW(DSPSIZE(plane_id),
 			      ((crtc_state->pipe_src_h - 1) << 16) |
 			      (crtc_state->pipe_src_w - 1));
-		I915_WRITE_FW(DSPPOS(plane), 0);
-	} else if (IS_CHERRYVIEW(dev_priv) && plane == PLANE_B) {
-		I915_WRITE_FW(PRIMSIZE(plane),
+		I915_WRITE_FW(DSPPOS(plane_id), 0);
+	} else if (IS_CHERRYVIEW(dev_priv) && plane_id == PLANE_B) {
+		I915_WRITE_FW(PRIMSIZE(plane_id),
 			      ((crtc_state->pipe_src_h - 1) << 16) |
 			      (crtc_state->pipe_src_w - 1));
-		I915_WRITE_FW(PRIMPOS(plane), 0);
-		I915_WRITE_FW(PRIMCNSTALPHA(plane), 0);
+		I915_WRITE_FW(PRIMPOS(plane_id), 0);
+		I915_WRITE_FW(PRIMCNSTALPHA(plane_id), 0);
 	}
 
 	I915_WRITE_FW(reg, dspcntr);
 
-	I915_WRITE_FW(DSPSTRIDE(plane), fb->pitches[0]);
+	I915_WRITE_FW(DSPSTRIDE(plane_id), fb->pitches[0]);
 	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
-		I915_WRITE_FW(DSPSURF(plane),
+		I915_WRITE_FW(DSPSURF(plane_id),
 			      intel_plane_ggtt_offset(plane_state) +
 			      crtc->dspaddr_offset);
-		I915_WRITE_FW(DSPOFFSET(plane), (y << 16) | x);
+		I915_WRITE_FW(DSPOFFSET(plane_id), (y << 16) | x);
 	} else if (INTEL_GEN(dev_priv) >= 4) {
-		I915_WRITE_FW(DSPSURF(plane),
+		I915_WRITE_FW(DSPSURF(plane_id),
 			      intel_plane_ggtt_offset(plane_state) +
 			      crtc->dspaddr_offset);
-		I915_WRITE_FW(DSPTILEOFF(plane), (y << 16) | x);
-		I915_WRITE_FW(DSPLINOFF(plane), linear_offset);
+		I915_WRITE_FW(DSPTILEOFF(plane_id), (y << 16) | x);
+		I915_WRITE_FW(DSPLINOFF(plane_id), linear_offset);
 	} else {
-		I915_WRITE_FW(DSPADDR(plane),
+		I915_WRITE_FW(DSPADDR(plane_id),
 			      intel_plane_ggtt_offset(plane_state) +
 			      crtc->dspaddr_offset);
 	}
@@ -3290,31 +3290,31 @@ static void i9xx_update_primary_plane(struct intel_plane *primary,
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
-static void i9xx_disable_primary_plane(struct intel_plane *primary,
-				       struct intel_crtc *crtc)
+static void i9xx_disable_plane(struct intel_plane *plane,
+			       struct intel_crtc *crtc)
 {
-	struct drm_i915_private *dev_priv = to_i915(primary->base.dev);
-	enum plane plane = primary->plane;
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	enum i9xx_plane_id plane_id = plane->plane;
 	unsigned long irqflags;
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
-	I915_WRITE_FW(DSPCNTR(plane), 0);
-	if (INTEL_INFO(dev_priv)->gen >= 4)
-		I915_WRITE_FW(DSPSURF(plane), 0);
+	I915_WRITE_FW(DSPCNTR(plane_id), 0);
+	if (INTEL_GEN(dev_priv) >= 4)
+		I915_WRITE_FW(DSPSURF(plane_id), 0);
 	else
-		I915_WRITE_FW(DSPADDR(plane), 0);
-	POSTING_READ_FW(DSPCNTR(plane));
+		I915_WRITE_FW(DSPADDR(plane_id), 0);
+	POSTING_READ_FW(DSPCNTR(plane_id));
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
-static bool i9xx_plane_get_hw_state(struct intel_plane *primary)
+static bool i9xx_plane_get_hw_state(struct intel_plane *plane)
 {
-	struct drm_i915_private *dev_priv = to_i915(primary->base.dev);
-	enum plane plane = primary->plane;
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	enum i9xx_plane_id plane_id = plane->plane;
 
-	return I915_READ(DSPCNTR(plane)) & DISPLAY_PLANE_ENABLE;
+	return I915_READ(DSPCNTR(plane_id)) & DISPLAY_PLANE_ENABLE;
 }
 
 static u32
@@ -13191,9 +13191,9 @@ intel_primary_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 	 * port is hooked to pipe B. Hence we want plane A feeding pipe B.
 	 */
 	if (HAS_FBC(dev_priv) && INTEL_GEN(dev_priv) < 4)
-		primary->plane = (enum plane) !pipe;
+		primary->plane = (enum i9xx_plane_id) !pipe;
 	else
-		primary->plane = (enum plane) pipe;
+		primary->plane = (enum i9xx_plane_id) pipe;
 	primary->id = PLANE_PRIMARY;
 	primary->frontbuffer_bit = INTEL_FRONTBUFFER_PRIMARY(pipe);
 	primary->check_plane = intel_check_primary_plane;
@@ -13222,16 +13222,16 @@ intel_primary_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 		num_formats = ARRAY_SIZE(i965_primary_formats);
 		modifiers = i9xx_format_modifiers;
 
-		primary->update_plane = i9xx_update_primary_plane;
-		primary->disable_plane = i9xx_disable_primary_plane;
+		primary->update_plane = i9xx_update_plane;
+		primary->disable_plane = i9xx_disable_plane;
 		primary->get_hw_state = i9xx_plane_get_hw_state;
 	} else {
 		intel_primary_formats = i8xx_primary_formats;
 		num_formats = ARRAY_SIZE(i8xx_primary_formats);
 		modifiers = i9xx_format_modifiers;
 
-		primary->update_plane = i9xx_update_primary_plane;
-		primary->disable_plane = i9xx_disable_primary_plane;
+		primary->update_plane = i9xx_update_plane;
+		primary->disable_plane = i9xx_disable_plane;
 		primary->get_hw_state = i9xx_plane_get_hw_state;
 	}
 
@@ -13315,7 +13315,7 @@ intel_cursor_plane_create(struct drm_i915_private *dev_priv,
 	cursor->can_scale = false;
 	cursor->max_downscale = 1;
 	cursor->pipe = pipe;
-	cursor->plane = pipe;
+	cursor->plane = (enum i9xx_plane_id) pipe;
 	cursor->id = PLANE_CURSOR;
 	cursor->frontbuffer_bit = INTEL_FRONTBUFFER_CURSOR(pipe);
 
@@ -14689,11 +14689,11 @@ void i830_disable_pipe(struct drm_i915_private *dev_priv, enum pipe pipe)
 }
 
 static bool intel_plane_mapping_ok(struct intel_crtc *crtc,
-				   struct intel_plane *primary)
+				   struct intel_plane *plane)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	enum plane plane = primary->plane;
-	u32 val = I915_READ(DSPCNTR(plane));
+	enum i9xx_plane_id plane_id = plane->plane;
+	u32 val = I915_READ(DSPCNTR(plane_id));
 
 	return (val & DISPLAY_PLANE_ENABLE) == 0 ||
 		(val & DISPPLANE_SEL_PIPE_MASK) == DISPPLANE_SEL_PIPE(crtc->pipe);
