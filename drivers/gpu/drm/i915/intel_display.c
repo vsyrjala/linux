@@ -3236,6 +3236,10 @@ static void i9xx_update_plane(struct intel_plane *plane,
 	i915_reg_t reg = DSPCNTR(plane_id);
 	int x = plane_state->main.x;
 	int y = plane_state->main.y;
+	int crtc_x = plane_state->base.dst.x1;
+	int crtc_y = plane_state->base.dst.y1;
+	int crtc_w = drm_rect_width(&plane_state->base.dst);
+	int crtc_h = drm_rect_height(&plane_state->base.dst);
 	unsigned long irqflags;
 
 	linear_offset = intel_fb_xy_to_linear(x, y, plane_state, 0);
@@ -3251,18 +3255,18 @@ static void i9xx_update_plane(struct intel_plane *plane,
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	if (INTEL_GEN(dev_priv) < 4) {
-		/* pipesrc and dspsize control the size that is scaled from,
-		 * which should always be the user's requested size.
+		/*
+		 * PLANE_A doesn't actually have a full window
+		 * generator but let's assume we still need to
+		 * program whatever is there.
 		 */
+		I915_WRITE_FW(DSPPOS(plane_id), (crtc_y << 16) | crtc_x);
 		I915_WRITE_FW(DSPSIZE(plane_id),
-			      ((crtc_state->pipe_src_h - 1) << 16) |
-			      (crtc_state->pipe_src_w - 1));
-		I915_WRITE_FW(DSPPOS(plane_id), 0);
+			      ((crtc_h - 1) << 16) | (crtc_w - 1));
 	} else if (IS_CHERRYVIEW(dev_priv) && plane_id == PLANE_B) {
+		I915_WRITE_FW(PRIMPOS(plane_id), (crtc_y << 16) | crtc_x);
 		I915_WRITE_FW(PRIMSIZE(plane_id),
-			      ((crtc_state->pipe_src_h - 1) << 16) |
-			      (crtc_state->pipe_src_w - 1));
-		I915_WRITE_FW(PRIMPOS(plane_id), 0);
+			      ((crtc_h - 1) << 16) | (crtc_w - 1));
 		I915_WRITE_FW(PRIMCNSTALPHA(plane_id), 0);
 	}
 
@@ -12737,6 +12741,15 @@ skl_max_scale(struct intel_crtc *intel_crtc, struct intel_crtc_state *crtc_state
 	return max_scale;
 }
 
+static bool intel_primary_plane_has_windowing(struct intel_plane *plane)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+
+	return INTEL_GEN(dev_priv) >= 9 ||
+		(IS_CHERRYVIEW(dev_priv) && plane->plane == PLANE_B) ||
+		(INTEL_GEN(dev_priv) < 4 && plane->plane != PLANE_A);
+}
+
 static int
 intel_check_primary_plane(struct intel_plane *plane,
 			  struct intel_crtc_state *crtc_state,
@@ -12746,16 +12759,14 @@ intel_check_primary_plane(struct intel_plane *plane,
 	struct drm_crtc *crtc = state->base.crtc;
 	int min_scale = DRM_PLANE_HELPER_NO_SCALING;
 	int max_scale = DRM_PLANE_HELPER_NO_SCALING;
-	bool can_position = false;
+	bool can_position = intel_primary_plane_has_windowing(plane);
 	int ret;
 
-	if (INTEL_GEN(dev_priv) >= 9) {
-		/* use scaler when colorkey is not required */
-		if (state->ckey.flags == I915_SET_COLORKEY_NONE) {
-			min_scale = 1;
-			max_scale = skl_max_scale(to_intel_crtc(crtc), crtc_state);
-		}
-		can_position = true;
+	/* use scaler when colorkey is not required */
+	if (INTEL_GEN(dev_priv) >= 9 &&
+	    state->ckey.flags == I915_SET_COLORKEY_NONE) {
+		min_scale = 1;
+		max_scale = skl_max_scale(to_intel_crtc(crtc), crtc_state);
 	}
 
 	ret = drm_plane_helper_check_state(&state->base,
