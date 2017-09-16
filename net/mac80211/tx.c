@@ -1770,15 +1770,21 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
 	struct ieee80211_tx_data tx;
 	struct sk_buff *skb2;
 
-	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP)
+	rcu_read_lock();
+
+	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP) {
+		rcu_read_unlock();
 		return false;
+	}
 
 	info->band = band;
 	info->control.vif = vif;
 	info->hw_queue = vif->hw_queue[skb_get_queue_mapping(skb)];
 
-	if (invoke_tx_handlers(&tx))
+	if (invoke_tx_handlers(&tx)) {
+		rcu_read_unlock();
 		return false;
+	}
 
 	if (sta) {
 		if (tx.sta)
@@ -1792,8 +1798,11 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
 	if (WARN_ON(skb2 != skb || !skb_queue_empty(&tx.skbs))) {
 		ieee80211_free_txskb(hw, skb2);
 		ieee80211_purge_tx_queue(hw, &tx.skbs);
+		rcu_read_unlock();
 		return false;
 	}
+
+	rcu_read_unlock();
 
 	return true;
 }
@@ -1818,14 +1827,18 @@ static bool ieee80211_tx(struct ieee80211_sub_if_data *sdata,
 		return true;
 	}
 
+	rcu_read_lock();
+
 	/* initialises tx */
 	led_len = skb->len;
 	res_prepare = ieee80211_tx_prepare(sdata, &tx, sta, skb);
 
 	if (unlikely(res_prepare == TX_DROP)) {
 		ieee80211_free_txskb(&local->hw, skb);
+		rcu_read_unlock();
 		return true;
 	} else if (unlikely(res_prepare == TX_QUEUED)) {
+		rcu_read_unlock();
 		return true;
 	}
 
@@ -1835,15 +1848,21 @@ static bool ieee80211_tx(struct ieee80211_sub_if_data *sdata,
 		info->hw_queue =
 			sdata->vif.hw_queue[skb_get_queue_mapping(skb)];
 
-	if (invoke_tx_handlers_early(&tx))
+	if (invoke_tx_handlers_early(&tx)) {
+		rcu_read_unlock();
 		return false;
+	}
 
-	if (ieee80211_queue_skb(local, sdata, tx.sta, tx.skb))
+	if (ieee80211_queue_skb(local, sdata, tx.sta, tx.skb)) {
+		rcu_read_unlock();
 		return true;
+	}
 
 	if (!invoke_tx_handlers_late(&tx))
 		result = __ieee80211_tx(local, &tx.skbs, led_len,
 					tx.sta, txpending);
+
+	rcu_read_unlock();
 
 	return result;
 }
@@ -3411,6 +3430,8 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
 	ieee80211_tx_result r;
 	struct ieee80211_vif *vif;
 
+	rcu_read_lock();
+
 	spin_lock_bh(&fq->lock);
 
 	if (test_bit(IEEE80211_TXQ_STOP, &txqi->flags))
@@ -3512,6 +3533,8 @@ begin:
 	IEEE80211_SKB_CB(skb)->control.vif = vif;
 out:
 	spin_unlock_bh(&fq->lock);
+
+	rcu_read_unlock();
 
 	return skb;
 }
