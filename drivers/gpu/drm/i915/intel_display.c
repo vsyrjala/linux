@@ -13386,14 +13386,13 @@ static int intel_crtc_init(struct drm_i915_private *dev_priv, enum pipe pipe)
 		goto fail;
 
 	intel_crtc->pipe = pipe;
-	intel_crtc->plane = primary->plane;
 
 	/* initialize shared scalers */
 	intel_crtc_init_scalers(intel_crtc, crtc_state);
 
 	BUG_ON(pipe >= ARRAY_SIZE(dev_priv->plane_to_crtc_mapping) ||
-	       dev_priv->plane_to_crtc_mapping[intel_crtc->plane] != NULL);
-	dev_priv->plane_to_crtc_mapping[intel_crtc->plane] = intel_crtc;
+	       dev_priv->plane_to_crtc_mapping[primary->plane] != NULL);
+	dev_priv->plane_to_crtc_mapping[primary->plane] = intel_crtc;
 	dev_priv->pipe_to_crtc_mapping[intel_crtc->pipe] = intel_crtc;
 
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);

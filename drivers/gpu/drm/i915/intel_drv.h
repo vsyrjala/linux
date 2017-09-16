@@ -793,7 +793,6 @@ struct intel_crtc_state {
 struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
-	enum old_plane_id plane;
 	/*
 	 * Whether the crtc and the connected output pipeline is active. Implies
 	 * that crtc->enabled is set, i.e. the current mode configuration has
