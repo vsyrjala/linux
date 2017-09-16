@@ -305,7 +305,7 @@ static inline bool transcoder_is_dsi(enum transcoder transcoder)
 
 /*
  * Global legacy plane identifier. Valid only for primary/sprite
- * planes on pre-g4x, and only for primary planes on g4x+.
+ * planes on pre-g4x, and only for primary planes on g4x-bdw.
  */
 enum old_plane_id {
 	PLANE_A,
