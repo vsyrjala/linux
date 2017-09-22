@@ -955,6 +955,12 @@ static void intel_sdvo_dump_hdmi_buf(struct intel_sdvo *intel_sdvo)
 }
 #endif
 
+static bool intel_sdvo_set_hdmi_buf_av_split(struct intel_sdvo *intel_sdvo,
+					     u8 if_index)
+{
+	return intel_sdvo_write_cmd(intel_sdvo, SDVO_CMD_SET_HBUF_AV_SPLIT, &if_index, 1);
+}
+
 static bool intel_sdvo_write_infoframe(struct intel_sdvo *intel_sdvo,
 				       unsigned if_index, uint8_t tx_rate,
 				       const uint8_t *data, unsigned length)
@@ -1028,6 +1034,32 @@ static bool intel_sdvo_set_avi_infoframe(struct intel_sdvo *intel_sdvo,
 		return false;
 
 	return intel_sdvo_write_infoframe(intel_sdvo, SDVO_HBUF_INDEX_AVI_IF,
+					  SDVO_HBUF_TX_VSYNC,
+					  sdvo_data, sizeof(sdvo_data));
+}
+
+static bool intel_sdvo_set_spd_infoframe(struct intel_sdvo *intel_sdvo,
+					 const struct intel_crtc_state *pipe_config,
+					 unsigned if_index)
+{
+	uint8_t sdvo_data[HDMI_INFOFRAME_SIZE(SPD)];
+	union hdmi_infoframe frame;
+	int ret;
+	ssize_t len;
+
+	ret = hdmi_spd_infoframe_init(&frame.spd, "Intel", "Integrated gfx");
+	if (ret < 0) {
+		DRM_ERROR("couldn't fill SPD infoframe\n");
+		return false;
+	}
+
+	frame.spd.sdi = HDMI_SPD_SDI_PC;
+
+	len = hdmi_infoframe_pack(&frame, sdvo_data, sizeof(sdvo_data));
+	if (len < 0)
+		return false;
+
+	return intel_sdvo_write_infoframe(intel_sdvo, if_index,
 					  SDVO_HBUF_TX_VSYNC,
 					  sdvo_data, sizeof(sdvo_data));
 }
@@ -1343,8 +1375,17 @@ static void intel_sdvo_pre_enable(struct intel_encoder *intel_encoder,
 					   crtc_state->limited_color_range ?
 					   SDVO_COLORIMETRY_RGB220 :
 					   SDVO_COLORIMETRY_RGB256);
+		intel_sdvo_set_hdmi_buf_av_split(intel_sdvo, SDVO_HBUF_INDEX_GP(0));
 		intel_sdvo_set_avi_infoframe(intel_sdvo,
 					     crtc_state, conn_state);
+		/*
+		 * FIXME SPD doesn't seem to work, at least on one SiI1392.
+		 * No errors from the SDVO encoder, but the display doesn't
+		 * show the SPD information. Not sure why. AVI and ELD work
+		 * fine.
+		 */
+		intel_sdvo_set_spd_infoframe(intel_sdvo, crtc_state,
+					     SDVO_HBUF_INDEX_GP(0));
 		intel_sdvo_set_pixel_replication(intel_sdvo,
 						 !!(adjusted_mode->flags &
 						    DRM_MODE_FLAG_DBLCLK));
