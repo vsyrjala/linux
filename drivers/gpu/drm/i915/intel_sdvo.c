@@ -1378,7 +1378,7 @@ static void intel_sdvo_pre_enable(struct intel_encoder *intel_encoder,
 
 	if (crtc_state->has_audio) {
 		WARN_ON_ONCE(INTEL_GEN(dev_priv) < 4);
-		sdvox |= SDVO_AUDIO_ENABLE;
+		sdvox |= HDMI_AUDIO_ENABLE;
 	}
 
 	if (INTEL_GEN(dev_priv) >= 4) {
@@ -1520,7 +1520,7 @@ static void intel_sdvo_get_config(struct intel_encoder *encoder,
 	if (sdvox & HDMI_COLOR_RANGE_16_235)
 		pipe_config->limited_color_range = true;
 
-	if (sdvox & SDVO_AUDIO_ENABLE)
+	if (sdvox & HDMI_AUDIO_ENABLE)
 		pipe_config->has_audio = true;
 
 	if (intel_sdvo_get_value(intel_sdvo, SDVO_CMD_GET_ENCODE,
