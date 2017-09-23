@@ -5024,10 +5024,7 @@ static void intel_crtc_dpms_overlay_disable(struct intel_crtc *intel_crtc)
 static void
 intel_post_enable_primary(struct drm_crtc *crtc)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int pipe = intel_crtc->pipe;
 
 	/*
 	 * FIXME IPS should be fine as long as one plane is
@@ -5036,39 +5033,13 @@ intel_post_enable_primary(struct drm_crtc *crtc)
 	 * versa.
 	 */
 	hsw_enable_ips(intel_crtc);
-
-	/*
-	 * Gen2 reports pipe underruns whenever all planes are disabled.
-	 * So don't enable underrun reporting before at least some planes
-	 * are enabled.
-	 * FIXME: Need to fix the logic to work when we turn off all planes
-	 * but leave the pipe running.
-	 */
-	if (IS_GEN2(dev_priv))
-		intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, true);
-
-	/* Underruns don't always raise interrupts, so check manually. */
-	intel_check_cpu_fifo_underruns(dev_priv);
-	intel_check_pch_fifo_underruns(dev_priv);
 }
 
 /* FIXME move all this to pre_plane_update() with proper state tracking */
 static void
 intel_pre_disable_primary(struct drm_crtc *crtc)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int pipe = intel_crtc->pipe;
-
-	/*
-	 * Gen2 reports pipe underruns whenever all planes are disabled.
-	 * So diasble underrun reporting before all the planes get disabled.
-	 * FIXME: Need to fix the logic to work when we turn off all planes
-	 * but leave the pipe running.
-	 */
-	if (IS_GEN2(dev_priv))
-		intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, false);
 
 	/*
 	 * FIXME IPS should be fine as long as one plane is
@@ -5127,6 +5098,15 @@ static void intel_post_plane_update(struct intel_atomic_state *old_state,
 	struct intel_plane_state *new_primary_state =
 		intel_atomic_get_new_plane_state(old_state, primary);
 
+	/*
+	 * Gen2 reports pipe underruns whenever all planes are disabled.
+	 * So don't enable underrun reporting before at least some planes
+	 * are enabled.
+	 */
+	if (IS_GEN2(dev_priv) &&
+	    intel_planes_enabling(old_crtc_state, new_crtc_state, ~0))
+		intel_set_cpu_fifo_underrun_reporting(dev_priv, crtc->pipe, true);
+
 	intel_frontbuffer_flip(dev_priv, new_crtc_state->fb_bits);
 
 	if (new_crtc_state->update_wm_post && new_crtc_state->base.active)
@@ -5139,6 +5119,10 @@ static void intel_post_plane_update(struct intel_atomic_state *old_state,
 					  BIT(PLANE_PRIMARY)))
 			intel_post_enable_primary(&crtc->base);
 	}
+
+	/* Underruns don't always raise interrupts, so check manually. */
+	intel_check_cpu_fifo_underruns(dev_priv);
+	intel_check_pch_fifo_underruns(dev_priv);
 }
 
 static bool intel_planes_disabling(const struct intel_crtc_state *old_crtc_state,
@@ -5200,7 +5184,7 @@ static void intel_pre_plane_update(struct intel_atomic_state *old_state,
 	 * watermark programming here.
 	 */
 	if (needs_modeset(new_crtc_state))
-		return;
+		goto out;
 
 	/*
 	 * For platforms that support atomic watermarks, program the
@@ -5220,6 +5204,15 @@ static void intel_pre_plane_update(struct intel_atomic_state *old_state,
 		dev_priv->display.initial_watermarks(old_state, new_crtc_state);
 	else if (new_crtc_state->update_wm_pre)
 		intel_update_watermarks(crtc);
+
+ out:
+	/*
+	 * Gen2 reports pipe underruns whenever all planes are disabled.
+	 * So diasble underrun reporting before all the planes get disabled.
+	 */
+	if (IS_GEN2(dev_priv) &&
+	    intel_planes_disabling(old_crtc_state, new_crtc_state, ~0))
+		intel_set_cpu_fifo_underrun_reporting(dev_priv, crtc->pipe, false);
 }
 
 static void intel_crtc_disable_planes(struct drm_crtc *crtc, unsigned plane_mask)
