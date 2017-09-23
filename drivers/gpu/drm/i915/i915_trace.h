@@ -28,7 +28,7 @@ TRACE_EVENT(intel_cpu_fifo_underrun,
 
 	    TP_fast_assign(
 			   __entry->pipe = pipe;
-			   __entry->frame = dev_priv->drm.driver->get_vblank_counter(&dev_priv->drm, pipe);
+			   __entry->frame = intel_crtc_get_vblank_counter(intel_get_crtc_for_pipe(dev_priv, pipe));
 			   __entry->scanline = intel_get_crtc_scanline(intel_get_crtc_for_pipe(dev_priv, pipe));
 			   ),
 
@@ -50,7 +50,7 @@ TRACE_EVENT(intel_pch_fifo_underrun,
 	    TP_fast_assign(
 			   enum pipe pipe = pch_transcoder;
 			   __entry->pipe = pipe;
-			   __entry->frame = dev_priv->drm.driver->get_vblank_counter(&dev_priv->drm, pipe);
+			   __entry->frame = intel_crtc_get_vblank_counter(intel_get_crtc_for_pipe(dev_priv, pipe));
 			   __entry->scanline = intel_get_crtc_scanline(intel_get_crtc_for_pipe(dev_priv, pipe));
 			   ),
 
@@ -74,7 +74,7 @@ TRACE_EVENT(intel_memory_cxsr,
 			   enum pipe pipe;
 			   for_each_pipe(dev_priv, pipe) {
 				   __entry->frame[pipe] =
-					   dev_priv->drm.driver->get_vblank_counter(&dev_priv->drm, pipe);
+					   intel_crtc_get_vblank_counter(intel_get_crtc_for_pipe(dev_priv, pipe));
 				   __entry->scanline[pipe] =
 					   intel_get_crtc_scanline(intel_get_crtc_for_pipe(dev_priv, pipe));
 			   }
@@ -113,8 +113,7 @@ TRACE_EVENT(g4x_wm,
 
 	    TP_fast_assign(
 			   __entry->pipe = crtc->pipe;
-			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
-										       crtc->pipe);
+			   __entry->frame = intel_crtc_get_vblank_counter(crtc);
 			   __entry->scanline = intel_get_crtc_scanline(crtc);
 			   __entry->primary = wm->pipe[crtc->pipe].plane[PLANE_PRIMARY];
 			   __entry->sprite = wm->pipe[crtc->pipe].plane[PLANE_SPRITE0];
@@ -158,8 +157,7 @@ TRACE_EVENT(vlv_wm,
 
 	    TP_fast_assign(
 			   __entry->pipe = crtc->pipe;
-			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
-										       crtc->pipe);
+			   __entry->frame = intel_crtc_get_vblank_counter(crtc);
 			   __entry->scanline = intel_get_crtc_scanline(crtc);
 			   __entry->level = wm->level;
 			   __entry->cxsr = wm->cxsr;
@@ -193,8 +191,7 @@ TRACE_EVENT(vlv_fifo_size,
 
 	    TP_fast_assign(
 			   __entry->pipe = crtc->pipe;
-			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
-										       crtc->pipe);
+			   __entry->frame = intel_crtc_get_vblank_counter(crtc);
 			   __entry->scanline = intel_get_crtc_scanline(crtc);
 			   __entry->sprite0_start = sprite0_start;
 			   __entry->sprite1_start = sprite1_start;
@@ -225,8 +222,7 @@ TRACE_EVENT(intel_update_plane,
 	    TP_fast_assign(
 			   __entry->pipe = crtc->pipe;
 			   __entry->name = plane->name;
-			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
-										       crtc->pipe);
+			   __entry->frame = intel_crtc_get_vblank_counter(crtc);
 			   __entry->scanline = intel_get_crtc_scanline(crtc);
 			   memcpy(__entry->src, &plane->state->src, sizeof(__entry->src));
 			   memcpy(__entry->dst, &plane->state->dst, sizeof(__entry->dst));
@@ -253,8 +249,7 @@ TRACE_EVENT(intel_disable_plane,
 	    TP_fast_assign(
 			   __entry->pipe = crtc->pipe;
 			   __entry->name = plane->name;
-			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
-										       crtc->pipe);
+			   __entry->frame = intel_crtc_get_vblank_counter(crtc);
 			   __entry->scanline = intel_get_crtc_scanline(crtc);
 			   ),
 
@@ -279,8 +274,7 @@ TRACE_EVENT(i915_pipe_update_start,
 
 	    TP_fast_assign(
 			   __entry->pipe = crtc->pipe;
-			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
-										       crtc->pipe);
+			   __entry->frame = intel_crtc_get_vblank_counter(crtc);
 			   __entry->scanline = intel_get_crtc_scanline(crtc);
 			   __entry->min = crtc->debug.min_vbl;
 			   __entry->max = crtc->debug.max_vbl;
