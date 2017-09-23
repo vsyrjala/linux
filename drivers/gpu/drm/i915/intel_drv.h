@@ -1195,6 +1195,14 @@ hdmi_to_dig_port(struct intel_hdmi *intel_hdmi)
 }
 
 static inline struct intel_plane_state *
+intel_atomic_get_old_plane_state(struct intel_atomic_state *state,
+				 struct intel_plane *plane)
+{
+	return to_intel_plane_state(drm_atomic_get_old_plane_state(&state->base,
+								   &plane->base));
+}
+
+static inline struct intel_plane_state *
 intel_atomic_get_new_plane_state(struct intel_atomic_state *state,
 				 struct intel_plane *plane)
 {
