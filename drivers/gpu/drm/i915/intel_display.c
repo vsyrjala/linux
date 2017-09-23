@@ -14759,12 +14759,51 @@ static bool has_pch_trancoder(struct drm_i915_private *dev_priv,
 		(HAS_PCH_LPT_H(dev_priv) && pch_transcoder == PIPE_A);
 }
 
+static void
+intel_sanitize_fifo_underrun_reporting(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		to_intel_crtc_state(crtc->base.state);
+
+	if (!crtc_state->base.active && !HAS_GMCH_DISPLAY(dev_priv))
+		return;
+
+	/*
+	 * We start out with underrun reporting disabled to avoid races.
+	 * For correct bookkeeping mark this on active crtcs.
+	 *
+	 * Also on gmch platforms we dont have any hardware bits to
+	 * disable the underrun reporting. Which means we need to start
+	 * out with underrun reporting disabled also on inactive pipes,
+	 * since otherwise we'll complain about the garbage we read when
+	 * e.g. coming up after runtime pm.
+	 *
+	 * No protection against concurrent access is required - at
+	 * worst a fifo underrun happens which also sets this to false.
+	 */
+	crtc->cpu_fifo_underrun_disabled = true;
+
+	/*
+	 * We track the PCH trancoder underrun reporting state
+	 * within the crtc. With crtc for pipe A housing the underrun
+	 * reporting state for PCH transcoder A, crtc for pipe B housing
+	 * it for PCH transcoder B, etc. LPT-H has only PCH transcoder A,
+	 * and marking underrun reporting as disabled for the non-existing
+	 * PCH transcoders B and C would prevent enabling the south
+	 * error interrupt (see cpt_can_enable_serr_int()).
+	 */
+	if (has_pch_trancoder(dev_priv, crtc->pipe))
+		crtc->pch_fifo_underrun_disabled = true;
+}
+
 static void intel_sanitize_crtc(struct intel_crtc *crtc,
 				struct drm_modeset_acquire_ctx *ctx)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	enum transcoder cpu_transcoder = crtc->config->cpu_transcoder;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		to_intel_crtc_state(crtc->base.state);
+	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
 
 	/* Clear any frame start delays used for debugging left by the BIOS */
 	if (!transcoder_is_dsi(cpu_transcoder)) {
@@ -14782,7 +14821,7 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc,
 		drm_crtc_vblank_on(&crtc->base);
 
 		/* Disable everything but the primary plane */
-		for_each_intel_plane_on_crtc(dev, crtc, plane) {
+		for_each_intel_plane_on_crtc(&dev_priv->drm, crtc, plane) {
 			if (plane->base.type == DRM_PLANE_TYPE_PRIMARY)
 				continue;
 
@@ -14812,36 +14851,9 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc,
 
 	/* Adjust the state of the output pipe according to whether we
 	 * have active connectors/encoders. */
-	if (crtc->active && !intel_crtc_has_encoders(crtc))
+	if (crtc_state->base.active && !intel_crtc_has_encoders(crtc))
 		intel_crtc_disable_noatomic(&crtc->base, ctx);
 
-	if (crtc->active || HAS_GMCH_DISPLAY(dev_priv)) {
-		/*
-		 * We start out with underrun reporting disabled to avoid races.
-		 * For correct bookkeeping mark this on active crtcs.
-		 *
-		 * Also on gmch platforms we dont have any hardware bits to
-		 * disable the underrun reporting. Which means we need to start
-		 * out with underrun reporting disabled also on inactive pipes,
-		 * since otherwise we'll complain about the garbage we read when
-		 * e.g. coming up after runtime pm.
-		 *
-		 * No protection against concurrent access is required - at
-		 * worst a fifo underrun happens which also sets this to false.
-		 */
-		crtc->cpu_fifo_underrun_disabled = true;
-		/*
-		 * We track the PCH trancoder underrun reporting state
-		 * within the crtc. With crtc for pipe A housing the underrun
-		 * reporting state for PCH transcoder A, crtc for pipe B housing
-		 * it for PCH transcoder B, etc. LPT-H has only PCH transcoder A,
-		 * and marking underrun reporting as disabled for the non-existing
-		 * PCH transcoders B and C would prevent enabling the south
-		 * error interrupt (see cpt_can_enable_serr_int()).
-		 */
-		if (has_pch_trancoder(dev_priv, crtc->pipe))
-			crtc->pch_fifo_underrun_disabled = true;
-	}
 }
 
 static void intel_sanitize_encoder(struct intel_encoder *encoder)
@@ -15110,7 +15122,6 @@ intel_modeset_setup_hw_state(struct drm_device *dev,
 			     struct drm_modeset_acquire_ctx *ctx)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	enum pipe pipe;
 	struct intel_crtc *crtc;
 	struct intel_encoder *encoder;
 	int i;
@@ -15124,11 +15135,14 @@ intel_modeset_setup_hw_state(struct drm_device *dev,
 		intel_sanitize_encoder(encoder);
 	}
 
-	for_each_pipe(dev_priv, pipe) {
-		crtc = intel_get_crtc_for_pipe(dev_priv, pipe);
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
+		intel_sanitize_fifo_underrun_reporting(crtc);
+	}
 
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		intel_sanitize_crtc(crtc, ctx);
-		intel_dump_pipe_config(crtc, crtc->config,
+		intel_dump_pipe_config(crtc,
+				       to_intel_crtc_state(crtc->base.state),
 				       "[setup_hw_state]");
 	}
 
