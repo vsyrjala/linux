@@ -5104,11 +5104,24 @@ intel_pre_disable_primary_noatomic(struct drm_crtc *crtc)
 		intel_wait_for_vblank(dev_priv, pipe);
 }
 
+static bool intel_planes_enabling(const struct intel_crtc_state *old_crtc_state,
+				  const struct intel_crtc_state *new_crtc_state,
+				  unsigned int planes_mask)
+{
+	unsigned int old_planes = old_crtc_state->active_planes & planes_mask;
+	unsigned int new_planes = new_crtc_state->active_planes & planes_mask;
+
+	return new_planes != 0 &&
+		(old_planes == 0 || needs_modeset(new_crtc_state));
+}
+
 static void intel_post_plane_update(struct intel_atomic_state *old_state,
 				    struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_plane *primary = to_intel_plane(crtc->base.primary);
+	struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(old_state, crtc);
 	struct intel_crtc_state *new_crtc_state =
 		intel_atomic_get_new_crtc_state(old_state, crtc);
 	struct intel_plane_state *new_primary_state =
@@ -5120,16 +5133,23 @@ static void intel_post_plane_update(struct intel_atomic_state *old_state,
 		intel_update_watermarks(crtc);
 
 	if (new_primary_state) {
-		struct intel_plane_state *old_primary_state =
-			intel_atomic_get_old_plane_state(old_state, primary);
-
 		intel_fbc_post_update(crtc);
 
-		if (new_primary_state->base.visible &&
-		    (needs_modeset(new_crtc_state) ||
-		     !old_primary_state->base.visible))
+		if (intel_planes_enabling(old_crtc_state, new_crtc_state,
+					  BIT(PLANE_PRIMARY)))
 			intel_post_enable_primary(&crtc->base);
 	}
+}
+
+static bool intel_planes_disabling(const struct intel_crtc_state *old_crtc_state,
+				   const struct intel_crtc_state *new_crtc_state,
+				   unsigned int planes_mask)
+{
+	unsigned int old_planes = old_crtc_state->active_planes & planes_mask;
+	unsigned int new_planes = new_crtc_state->active_planes & planes_mask;
+
+	return old_planes != 0 &&
+		(new_planes == 0 || needs_modeset(new_crtc_state));
 }
 
 static void intel_pre_plane_update(struct intel_atomic_state *old_state,
@@ -5143,16 +5163,12 @@ static void intel_pre_plane_update(struct intel_atomic_state *old_state,
 		intel_atomic_get_new_crtc_state(old_state, crtc);
 	struct intel_plane_state *new_primary_state =
 		intel_atomic_get_new_plane_state(old_state, primary);
-	bool modeset = needs_modeset(new_crtc_state);
 
 	if (new_primary_state) {
-		struct intel_plane_state *old_primary_state =
-			intel_atomic_get_old_plane_state(old_state, primary);
-
 		intel_fbc_pre_update(crtc, new_crtc_state, new_primary_state);
 
-		if (old_primary_state->base.visible &&
-		    (modeset || !new_primary_state->base.visible))
+		if (intel_planes_disabling(old_crtc_state, new_crtc_state,
+					   BIT(PLANE_PRIMARY)))
 			intel_pre_disable_primary(&crtc->base);
 	}
 
