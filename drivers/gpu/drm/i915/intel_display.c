@@ -146,7 +146,7 @@ static void ironlake_pfit_disable(struct intel_crtc *crtc, bool force);
 static void ironlake_pfit_enable(struct intel_crtc *crtc);
 static void intel_modeset_setup_hw_state(struct drm_device *dev,
 					 struct drm_modeset_acquire_ctx *ctx);
-static void intel_pre_disable_primary_noatomic(struct drm_crtc *crtc);
+static void intel_pre_disable_primary_noatomic(struct intel_crtc *crtc);
 
 struct intel_limit {
 	struct {
@@ -2862,7 +2862,7 @@ intel_find_initial_plane_obj(struct intel_crtc *intel_crtc,
 	intel_set_plane_visible(to_intel_crtc_state(crtc_state),
 				to_intel_plane_state(plane_state),
 				false);
-	intel_pre_disable_primary_noatomic(&intel_crtc->base);
+	intel_pre_disable_primary_noatomic(intel_crtc);
 	trace_intel_disable_plane(primary, intel_crtc);
 	intel_plane->disable_plane(intel_plane, intel_crtc);
 
@@ -5022,42 +5022,35 @@ static void intel_crtc_dpms_overlay_disable(struct intel_crtc *intel_crtc)
  * completely hide the primary plane.
  */
 static void
-intel_post_enable_primary(struct drm_crtc *crtc)
+intel_post_enable_primary(struct intel_crtc *crtc)
 {
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-
 	/*
 	 * FIXME IPS should be fine as long as one plane is
 	 * enabled, but in practice it seems to have problems
 	 * when going from primary only to sprite only and vice
 	 * versa.
 	 */
-	hsw_enable_ips(intel_crtc);
+	hsw_enable_ips(crtc);
 }
 
 /* FIXME move all this to pre_plane_update() with proper state tracking */
 static void
-intel_pre_disable_primary(struct drm_crtc *crtc)
+intel_pre_disable_primary(struct intel_crtc *crtc)
 {
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-
 	/*
 	 * FIXME IPS should be fine as long as one plane is
 	 * enabled, but in practice it seems to have problems
 	 * when going from primary only to sprite only and vice
 	 * versa.
 	 */
-	hsw_disable_ips(intel_crtc);
+	hsw_disable_ips(crtc);
 }
 
 /* FIXME get rid of this and use pre_plane_update */
 static void
-intel_pre_disable_primary_noatomic(struct drm_crtc *crtc)
+intel_pre_disable_primary_noatomic(struct intel_crtc *crtc)
 {
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	int pipe = intel_crtc->pipe;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
 	intel_pre_disable_primary(crtc);
 
@@ -5072,7 +5065,7 @@ intel_pre_disable_primary_noatomic(struct drm_crtc *crtc)
 	 */
 	if (HAS_GMCH_DISPLAY(dev_priv) &&
 	    intel_set_memory_cxsr(dev_priv, false))
-		intel_wait_for_vblank(dev_priv, pipe);
+		intel_wait_for_vblank(dev_priv, crtc->pipe);
 }
 
 static bool intel_planes_enabling(const struct intel_crtc_state *old_crtc_state,
@@ -5117,7 +5110,7 @@ static void intel_post_plane_update(struct intel_atomic_state *old_state,
 
 		if (intel_planes_enabling(old_crtc_state, new_crtc_state,
 					  BIT(PLANE_PRIMARY)))
-			intel_post_enable_primary(&crtc->base);
+			intel_post_enable_primary(crtc);
 	}
 
 	/* Underruns don't always raise interrupts, so check manually. */
@@ -5153,7 +5146,7 @@ static void intel_pre_plane_update(struct intel_atomic_state *old_state,
 
 		if (intel_planes_disabling(old_crtc_state, new_crtc_state,
 					   BIT(PLANE_PRIMARY)))
-			intel_pre_disable_primary(&crtc->base);
+			intel_pre_disable_primary(crtc);
 	}
 
 	/*
@@ -5986,7 +5979,7 @@ static void intel_crtc_disable_noatomic(struct drm_crtc *crtc,
 		return;
 
 	if (crtc->primary->state->visible) {
-		intel_pre_disable_primary_noatomic(crtc);
+		intel_pre_disable_primary_noatomic(intel_crtc);
 
 		intel_crtc_disable_planes(crtc, 1 << drm_plane_index(crtc->primary));
 		crtc->primary->state->visible = false;
