@@ -3907,7 +3907,7 @@ static int intel_dp_sink_crc_stop(struct intel_dp *intel_dp)
 	}
 
  out:
-	hsw_enable_ips(intel_crtc);
+	hsw_enable_ips(intel_crtc->config);
 	return ret;
 }
 
@@ -3934,11 +3934,12 @@ static int intel_dp_sink_crc_start(struct intel_dp *intel_dp)
 			return ret;
 	}
 
-	hsw_disable_ips(intel_crtc);
+	/* FIXME do this properly like we for pipe crcs */
+	hsw_disable_ips(intel_crtc->config);
 
 	if (drm_dp_dpcd_writeb(&intel_dp->aux, DP_TEST_SINK,
 			       buf | DP_TEST_SINK_START) < 0) {
-		hsw_enable_ips(intel_crtc);
+		hsw_enable_ips(intel_crtc->config);
 		return -EIO;
 	}
 

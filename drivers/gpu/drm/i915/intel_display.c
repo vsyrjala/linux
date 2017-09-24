@@ -4930,12 +4930,12 @@ static void ironlake_pfit_enable(struct intel_crtc *crtc)
 	}
 }
 
-void hsw_enable_ips(struct intel_crtc *crtc)
+void hsw_enable_ips(const struct intel_crtc_state *new_crtc_state)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	if (!crtc->config->ips_enabled)
+	if (!new_crtc_state->ips_enabled)
 		return;
 
 	/*
@@ -4969,12 +4969,12 @@ void hsw_enable_ips(struct intel_crtc *crtc)
 	}
 }
 
-void hsw_disable_ips(struct intel_crtc *crtc)
+void hsw_disable_ips(const struct intel_crtc_state *old_crtc_state)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct intel_crtc *crtc = to_intel_crtc(old_crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	if (!crtc->config->ips_enabled)
+	if (!old_crtc_state->ips_enabled)
 		return;
 
 	assert_plane_enabled(dev_priv, crtc->plane);
@@ -5011,40 +5011,6 @@ static void intel_crtc_dpms_overlay_disable(struct intel_crtc *intel_crtc)
 	 */
 }
 
-/**
- * intel_post_enable_primary - Perform operations after enabling primary plane
- * @crtc: the CRTC whose primary plane was just enabled
- *
- * Performs potentially sleeping operations that must be done after the primary
- * plane is enabled, such as updating FBC and IPS.  Note that this may be
- * called due to an explicit primary plane update, or due to an implicit
- * re-enable that is caused when a sprite plane is updated to no longer
- * completely hide the primary plane.
- */
-static void
-intel_post_enable_primary(struct intel_crtc *crtc)
-{
-	/*
-	 * FIXME IPS should be fine as long as one plane is
-	 * enabled, but in practice it seems to have problems
-	 * when going from primary only to sprite only and vice
-	 * versa.
-	 */
-	hsw_enable_ips(crtc);
-}
-
-/* FIXME move all this to pre_plane_update() with proper state tracking */
-static void
-intel_pre_disable_primary(struct intel_crtc *crtc)
-{
-	/*
-	 * FIXME IPS should be fine as long as one plane is
-	 * enabled, but in practice it seems to have problems
-	 * when going from primary only to sprite only and vice
-	 * versa.
-	 */
-	hsw_disable_ips(crtc);
-}
 
 /* FIXME get rid of this and use pre_plane_update */
 static void
@@ -5052,7 +5018,7 @@ intel_pre_disable_primary_noatomic(struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
-	intel_pre_disable_primary(crtc);
+	hsw_disable_ips(to_intel_crtc_state(crtc->base.state));
 
 	/*
 	 * Vblank time updates from the shadow to live plane control register
@@ -5105,13 +5071,18 @@ static void intel_post_plane_update(struct intel_atomic_state *old_state,
 	if (new_crtc_state->update_wm_post && new_crtc_state->base.active)
 		intel_update_watermarks(crtc);
 
-	if (new_primary_state) {
+	if (new_primary_state)
 		intel_fbc_post_update(crtc);
 
-		if (intel_planes_enabling(old_crtc_state, new_crtc_state,
-					  BIT(PLANE_PRIMARY)))
-			intel_post_enable_primary(crtc);
-	}
+	/*
+	 * FIXME IPS should be fine as long as one plane is
+	 * enabled, but in practice it seems to have problems
+	 * when going from primary only to sprite only and vice
+	 * versa.
+	 */
+	if (intel_planes_enabling(old_crtc_state, new_crtc_state,
+				  BIT(PLANE_PRIMARY)))
+		hsw_enable_ips(new_crtc_state);
 
 	/* Underruns don't always raise interrupts, so check manually. */
 	intel_check_cpu_fifo_underruns(dev_priv);
@@ -5141,13 +5112,18 @@ static void intel_pre_plane_update(struct intel_atomic_state *old_state,
 	struct intel_plane_state *new_primary_state =
 		intel_atomic_get_new_plane_state(old_state, primary);
 
-	if (new_primary_state) {
+	if (new_primary_state)
 		intel_fbc_pre_update(crtc, new_crtc_state, new_primary_state);
 
-		if (intel_planes_disabling(old_crtc_state, new_crtc_state,
-					   BIT(PLANE_PRIMARY)))
-			intel_pre_disable_primary(crtc);
-	}
+	/*
+	 * FIXME IPS should be fine as long as one plane is
+	 * enabled, but in practice it seems to have problems
+	 * when going from primary only to sprite only and vice
+	 * versa.
+	 */
+	if (intel_planes_disabling(old_crtc_state, new_crtc_state,
+				   BIT(PLANE_PRIMARY)))
+		hsw_disable_ips(old_crtc_state);
 
 	/*
 	 * Vblank time updates from the shadow to live plane control register

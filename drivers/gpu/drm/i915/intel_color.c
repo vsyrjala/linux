@@ -356,31 +356,36 @@ static void i9xx_load_luts(struct drm_crtc_state *crtc_state)
 /* Loads the legacy palette/gamma unit for the CRTC on Haswell. */
 static void haswell_load_luts(struct drm_crtc_state *crtc_state)
 {
-	struct drm_crtc *crtc = crtc_state->crtc;
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct intel_crtc_state *intel_crtc_state =
+	struct intel_crtc_state *new_crtc_state =
 		to_intel_crtc_state(crtc_state);
+	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_atomic_state *old_state =
+		to_intel_atomic_state(crtc_state->state);
+	const struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(old_state, crtc);
 	bool reenable_ips = false;
 
 	/*
 	 * Workaround : Do not read or write the pipe palette/gamma data while
 	 * GAMMA_MODE is configured for split gamma and IPS_CTL has IPS enabled.
+	 *
+	 * FIXME: integrate this into the normal pre/post plane update logic
 	 */
-	if (IS_HASWELL(dev_priv) && intel_crtc_state->ips_enabled &&
-	    (intel_crtc_state->gamma_mode == GAMMA_MODE_MODE_SPLIT)) {
-		hsw_disable_ips(intel_crtc);
+	if (IS_HASWELL(dev_priv) &&
+	    old_crtc_state->ips_enabled &&
+	    new_crtc_state->gamma_mode == GAMMA_MODE_MODE_SPLIT) {
+		hsw_disable_ips(old_crtc_state);
 		reenable_ips = true;
 	}
 
-	intel_crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
-	I915_WRITE(GAMMA_MODE(intel_crtc->pipe), GAMMA_MODE_MODE_8BIT);
+	new_crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
+	I915_WRITE(GAMMA_MODE(crtc->pipe), GAMMA_MODE_MODE_8BIT);
 
-	i9xx_load_luts(crtc_state);
+	i9xx_load_luts(&new_crtc_state->base);
 
 	if (reenable_ips)
-		hsw_enable_ips(intel_crtc);
+		hsw_enable_ips(new_crtc_state);
 }
 
 static void bdw_load_degamma_lut(struct drm_crtc_state *state)
