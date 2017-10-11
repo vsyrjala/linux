@@ -1,0 +1,28 @@
+drm-intel drm-intel-fixes 72872c99b6dbc80362965cd30489c849f0663140
+	drm/i915: Check PIN_NONFAULT overlaps in evict_for_node
+drm-upstream drm-fixes baf7c1f7e8f28c83f64a8c229a9357da47c0367a
+	Merge tag 'drm-misc-fixes-2017-10-05' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm-intel drm-intel-next-fixes 426ca2cb69cda59f32c251d1f3e111aee8c42814
+	Merge tag 'gvt-fixes-2017-09-06' of https://github.com/01org/gvt-linux into drm-intel-next-fixes
+drm-intel drm-intel-next-queued 37d933fc1728e998d929d0ff5113dcb14ce31293
+	drm/i915: Introduce separate status variable for RC6 and LLC ring frequency setup
+drm-upstream drm-next bb7a9c8d712f37385a706a594d6edf6e6d2669d0
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-next 19b592dae895aad10b84246b0e12caad04e9eb0d
+	ALSA: seq: Add sanity check for user-space pointer delivery
+sound-upstream for-linus 71105998845fb012937332fe2e806d443c09e026
+	ALSA: seq: Fix use-after-free at creating a port
+drm-intel topic/core-for-CI feb185ca85d51ac15d7b5e017f5952fa86c17742
+	x86/mm/64: Fix reboot interaction with CR4.PCIDE
+drm-misc drm-misc-next 7c0f24a4c49c336ba82a429ef2fed0008efa9422
+	Merge tag 'regmap-poll-field' of git://git.kernel.org/pub/scm/linux/kernel/git/broonie/regmap into drm-misc-next
+drm-misc drm-misc-next-fixes f44d85389e17b2e960620c1c6d89bda978a11f2b
+	drm: rename u32 in __u32 in uapi
+drm-misc drm-misc-fixes f7974880cf869ddbd0ba9a8e2ab11dff4a667f96
+	sync_file: Return consistent status in SYNC_IOC_FILE_INFO
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
