@@ -11545,6 +11545,26 @@ verify_crtc_state(struct drm_crtc *crtc,
 }
 
 static void
+verify_plane_state(struct intel_atomic_state *state,
+		   struct intel_crtc *crtc)
+{
+	struct intel_plane *plane;
+	const struct intel_plane_state *old_plane_state;
+	const struct intel_plane_state *new_plane_state;
+	int i;
+
+	for_each_oldnew_intel_plane_in_state(state, plane,
+					     old_plane_state,
+					     new_plane_state, i) {
+		if (old_plane_state->base.crtc != &crtc->base &&
+		    new_plane_state->base.crtc != &crtc->base)
+			continue;
+
+		assert_plane(plane, new_plane_state->base.visible);
+	}
+}
+
+static void
 verify_single_dpll_state(struct drm_i915_private *dev_priv,
 			 struct intel_shared_dpll *pll,
 			 struct drm_crtc *crtc,
@@ -11638,6 +11658,8 @@ intel_modeset_verify_crtc(struct drm_crtc *crtc,
 	verify_wm_state(crtc, new_state);
 	verify_connector_state(crtc->dev, state, crtc);
 	verify_crtc_state(crtc, old_state, new_state);
+	verify_plane_state(to_intel_atomic_state(state),
+			   to_intel_crtc(crtc));
 	verify_shared_dpll_state(crtc->dev, crtc, old_state, new_state);
 }
 
