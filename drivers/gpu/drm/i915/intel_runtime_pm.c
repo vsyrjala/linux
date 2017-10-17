@@ -705,6 +705,8 @@ static void gen9_dc_off_power_well_enable(struct drm_i915_private *dev_priv,
 	gen9_set_dc_state(dev_priv, DC_STATE_DISABLE);
 
 	dev_priv->display.get_cdclk(dev_priv, &cdclk_state);
+	/* Can't read this out :( */
+	cdclk_state.voltage = dev_priv->cdclk.hw.voltage;
 	WARN_ON(intel_cdclk_changed(&dev_priv->cdclk.hw, &cdclk_state));
 
 	gen9_assert_dbuf_enabled(dev_priv);

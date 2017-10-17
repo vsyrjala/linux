@@ -1488,6 +1488,12 @@ static void cnl_get_cdclk(struct drm_i915_private *dev_priv,
 	}
 
 	cdclk_state->cdclk = DIV_ROUND_CLOSEST(cdclk_state->vco, div);
+
+	/*
+	 * Can't read this out :( Let's assume it's
+	 * at least what the CDCLK frequency requires.
+	 */
+	cdclk_state->voltage = cnl_calc_voltage(cdclk_state->cdclk);
 }
 
 static void cnl_cdclk_pll_disable(struct drm_i915_private *dev_priv)
@@ -1581,6 +1587,9 @@ static void cnl_set_cdclk(struct drm_i915_private *dev_priv,
 	mutex_unlock(&dev_priv->pcu_lock);
 
 	intel_update_cdclk(dev_priv);
+
+	/* Can't read this out :( Let's assume it just worked. */
+	dev_priv->cdclk.hw.voltage = cdclk_state->voltage;
 }
 
 static int cnl_cdclk_pll_vco(struct drm_i915_private *dev_priv, int cdclk)
