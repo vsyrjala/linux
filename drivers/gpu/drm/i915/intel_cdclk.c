@@ -648,6 +648,21 @@ static int bdw_calc_cdclk(int min_cdclk)
 		return 337500;
 }
 
+static u8 bdw_calc_voltage(int cdclk)
+{
+	switch (cdclk) {
+	default:
+	case 337500:
+		return 2;
+	case 450000:
+		return 0;
+	case 540000:
+		return 1;
+	case 675000:
+		return 3;
+	}
+}
+
 static void bdw_get_cdclk(struct drm_i915_private *dev_priv,
 			  struct intel_cdclk_state *cdclk_state)
 {
@@ -666,13 +681,19 @@ static void bdw_get_cdclk(struct drm_i915_private *dev_priv,
 		cdclk_state->cdclk = 337500;
 	else
 		cdclk_state->cdclk = 675000;
+
+	/*
+	 * Can't read this out :( Let's assume it's
+	 * at least what the CDCLK frequency requires.
+	 */
+	cdclk_state->voltage = bdw_calc_voltage(cdclk_state->cdclk);
 }
 
 static void bdw_set_cdclk(struct drm_i915_private *dev_priv,
 			  const struct intel_cdclk_state *cdclk_state)
 {
 	int cdclk = cdclk_state->cdclk;
-	uint32_t val, data;
+	uint32_t val;
 	int ret;
 
 	if (WARN((I915_READ(LCPLL_CTL) &
@@ -713,19 +734,15 @@ static void bdw_set_cdclk(struct drm_i915_private *dev_priv,
 		/* fall through */
 	case 337500:
 		val |= LCPLL_CLK_FREQ_337_5_BDW;
-		data = 2;
 		break;
 	case 450000:
 		val |= LCPLL_CLK_FREQ_450;
-		data = 0;
 		break;
 	case 540000:
 		val |= LCPLL_CLK_FREQ_54O_BDW;
-		data = 1;
 		break;
 	case 675000:
 		val |= LCPLL_CLK_FREQ_675_BDW;
-		data = 3;
 		break;
 	}
 
@@ -740,16 +757,13 @@ static void bdw_set_cdclk(struct drm_i915_private *dev_priv,
 		DRM_ERROR("Switching back to LCPLL failed\n");
 
 	mutex_lock(&dev_priv->pcu_lock);
-	sandybridge_pcode_write(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ, data);
+	sandybridge_pcode_write(dev_priv, HSW_PCODE_DE_WRITE_FREQ_REQ,
+				cdclk_state->voltage);
 	mutex_unlock(&dev_priv->pcu_lock);
 
 	I915_WRITE(CDCLK_FREQ, DIV_ROUND_CLOSEST(cdclk, 1000) - 1);
 
 	intel_update_cdclk(dev_priv);
-
-	WARN(cdclk != dev_priv->cdclk.hw.cdclk,
-	     "cdclk requested %d kHz but got %d kHz\n",
-	     cdclk, dev_priv->cdclk.hw.cdclk);
 }
 
 static int skl_calc_cdclk(int min_cdclk, int vco)
@@ -1919,11 +1933,13 @@ static int bdw_modeset_calc_cdclk(struct drm_atomic_state *state)
 	cdclk = bdw_calc_cdclk(min_cdclk);
 
 	intel_state->cdclk.logical.cdclk = cdclk;
+	intel_state->cdclk.logical.voltage = bdw_calc_voltage(cdclk);
 
 	if (!intel_state->active_crtcs) {
 		cdclk = bdw_calc_cdclk(0);
 
 		intel_state->cdclk.actual.cdclk = cdclk;
+		intel_state->cdclk.actual.voltage = bdw_calc_voltage(cdclk);
 	} else {
 		intel_state->cdclk.actual =
 			intel_state->cdclk.logical;
