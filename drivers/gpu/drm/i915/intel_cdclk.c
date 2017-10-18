@@ -789,6 +789,24 @@ static int skl_calc_cdclk(int min_cdclk, int vco)
 	}
 }
 
+static u8 skl_calc_voltage(int cdclk)
+{
+	switch (cdclk) {
+	default:
+	case 308571:
+	case 337500:
+		return 0;
+	case 450000:
+	case 432000:
+		return 1;
+	case 540000:
+		return 2;
+	case 617143:
+	case 675000:
+		return 3;
+	}
+}
+
 static void skl_dpll0_update(struct drm_i915_private *dev_priv,
 			     struct intel_cdclk_state *cdclk_state)
 {
@@ -839,7 +857,7 @@ static void skl_get_cdclk(struct drm_i915_private *dev_priv,
 	cdclk_state->cdclk = cdclk_state->ref;
 
 	if (cdclk_state->vco == 0)
-		return;
+		goto out;
 
 	cdctl = I915_READ(CDCLK_CTL);
 
@@ -880,6 +898,13 @@ static void skl_get_cdclk(struct drm_i915_private *dev_priv,
 			break;
 		}
 	}
+
+ out:
+	/*
+	 * Can't read this out :( Let's assume it's
+	 * at least what the CDCLK frequency requires.
+	 */
+	cdclk_state->voltage = skl_calc_voltage(cdclk_state->cdclk);
 }
 
 /* convert from kHz to .1 fixpoint MHz with -1MHz offset */
@@ -964,7 +989,7 @@ static void skl_set_cdclk(struct drm_i915_private *dev_priv,
 {
 	int cdclk = cdclk_state->cdclk;
 	int vco = cdclk_state->vco;
-	u32 freq_select, pcu_ack;
+	u32 freq_select;
 	int ret;
 
 	mutex_lock(&dev_priv->pcu_lock);
@@ -988,21 +1013,17 @@ static void skl_set_cdclk(struct drm_i915_private *dev_priv,
 	case 308571:
 	case 337500:
 		freq_select = CDCLK_FREQ_337_308;
-		pcu_ack = 0;
 		break;
 	case 450000:
 	case 432000:
 		freq_select = CDCLK_FREQ_450_432;
-		pcu_ack = 1;
 		break;
 	case 540000:
 		freq_select = CDCLK_FREQ_540;
-		pcu_ack = 2;
 		break;
 	case 617143:
 	case 675000:
 		freq_select = CDCLK_FREQ_675_617;
-		pcu_ack = 3;
 		break;
 	}
 
@@ -1018,7 +1039,8 @@ static void skl_set_cdclk(struct drm_i915_private *dev_priv,
 
 	/* inform PCU of the change */
 	mutex_lock(&dev_priv->pcu_lock);
-	sandybridge_pcode_write(dev_priv, SKL_PCODE_CDCLK_CONTROL, pcu_ack);
+	sandybridge_pcode_write(dev_priv, SKL_PCODE_CDCLK_CONTROL,
+				cdclk_state->voltage);
 	mutex_unlock(&dev_priv->pcu_lock);
 
 	intel_update_cdclk(dev_priv);
@@ -1097,6 +1119,7 @@ void skl_init_cdclk(struct drm_i915_private *dev_priv)
 	if (cdclk_state.vco == 0)
 		cdclk_state.vco = 8100000;
 	cdclk_state.cdclk = skl_calc_cdclk(0, cdclk_state.vco);
+	cdclk_state.voltage = skl_calc_voltage(cdclk_state.cdclk);
 
 	skl_set_cdclk(dev_priv, &cdclk_state);
 }
@@ -1114,6 +1137,7 @@ void skl_uninit_cdclk(struct drm_i915_private *dev_priv)
 
 	cdclk_state.cdclk = cdclk_state.ref;
 	cdclk_state.vco = 0;
+	cdclk_state.voltage = skl_calc_voltage(cdclk_state.cdclk);
 
 	skl_set_cdclk(dev_priv, &cdclk_state);
 }
@@ -1970,12 +1994,14 @@ static int skl_modeset_calc_cdclk(struct drm_atomic_state *state)
 
 	intel_state->cdclk.logical.vco = vco;
 	intel_state->cdclk.logical.cdclk = cdclk;
+	intel_state->cdclk.logical.voltage = skl_calc_voltage(cdclk);
 
 	if (!intel_state->active_crtcs) {
 		cdclk = skl_calc_cdclk(0, vco);
 
 		intel_state->cdclk.actual.vco = vco;
 		intel_state->cdclk.actual.cdclk = cdclk;
+		intel_state->cdclk.actual.voltage = skl_calc_voltage(cdclk);
 	} else {
 		intel_state->cdclk.actual =
 			intel_state->cdclk.logical;
