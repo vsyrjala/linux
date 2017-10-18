@@ -1666,6 +1666,13 @@ static void cnl_set_cdclk(struct drm_i915_private *dev_priv,
 	mutex_unlock(&dev_priv->pcu_lock);
 
 	intel_update_cdclk(dev_priv);
+
+	/*
+	 * Can't read this out :( Can't rely on .get_cdclk() since it
+	 * doesn't know about DDI voltage requirements. So let's just
+	 * assume everything is as expected.
+	 */
+	dev_priv->cdclk.hw.voltage = cdclk_state->voltage;
 }
 
 static int cnl_cdclk_pll_vco(struct drm_i915_private *dev_priv, int cdclk)
@@ -1935,6 +1942,29 @@ static int intel_compute_min_cdclk(struct drm_atomic_state *state)
 	return min_cdclk;
 }
 
+static u8 intel_compute_min_voltage(struct intel_atomic_state *state)
+{
+	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
+	struct intel_crtc *crtc;
+	struct intel_crtc_state *crtc_state;
+	u8 min_voltage;
+	int i;
+	enum pipe pipe;
+
+	memcpy(state->min_voltage, dev_priv->min_voltage,
+	       sizeof(state->min_voltage));
+
+	for_each_new_intel_crtc_in_state(state, crtc, crtc_state, i)
+		state->min_voltage[i] = crtc_state->min_voltage;
+
+	min_voltage = 0;
+	for_each_pipe(dev_priv, pipe)
+		min_voltage = max(state->min_voltage[pipe],
+				  min_voltage);
+
+	return min_voltage;
+}
+
 static int vlv_modeset_calc_cdclk(struct drm_atomic_state *state)
 {
 	struct drm_i915_private *dev_priv = to_i915(state->dev);
@@ -2091,7 +2121,9 @@ static int cnl_modeset_calc_cdclk(struct drm_atomic_state *state)
 
 	intel_state->cdclk.logical.vco = vco;
 	intel_state->cdclk.logical.cdclk = cdclk;
-	intel_state->cdclk.logical.voltage = cnl_calc_voltage(cdclk);
+	intel_state->cdclk.logical.voltage =
+		max(cnl_calc_voltage(cdclk),
+		    intel_compute_min_voltage(intel_state));
 
 	if (!intel_state->active_crtcs) {
 		cdclk = cnl_calc_cdclk(0);

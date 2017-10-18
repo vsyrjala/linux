@@ -5938,6 +5938,7 @@ static void intel_crtc_disable_noatomic(struct drm_crtc *crtc,
 
 	dev_priv->active_crtcs &= ~(1 << intel_crtc->pipe);
 	dev_priv->min_cdclk[intel_crtc->pipe] = 0;
+	dev_priv->min_voltage[intel_crtc->pipe] = 0;
 }
 
 /*
@@ -11304,6 +11305,8 @@ intel_pipe_config_compare(struct drm_i915_private *dev_priv,
 	PIPE_CONF_CHECK_CLOCK_FUZZY(base.adjusted_mode.crtc_clock);
 	PIPE_CONF_CHECK_CLOCK_FUZZY(port_clock);
 
+	PIPE_CONF_CHECK_I(min_voltage);
+
 #undef PIPE_CONF_CHECK_X
 #undef PIPE_CONF_CHECK_I
 #undef PIPE_CONF_CHECK_P
@@ -12532,6 +12535,8 @@ static int intel_atomic_commit(struct drm_device *dev,
 	if (intel_state->modeset) {
 		memcpy(dev_priv->min_cdclk, intel_state->min_cdclk,
 		       sizeof(intel_state->min_cdclk));
+		memcpy(dev_priv->min_voltage, intel_state->min_voltage,
+		       sizeof(intel_state->min_voltage));
 		dev_priv->active_crtcs = intel_state->active_crtcs;
 		dev_priv->cdclk.logical = intel_state->cdclk.logical;
 		dev_priv->cdclk.actual = intel_state->cdclk.actual;
@@ -15042,6 +15047,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 		}
 
 		dev_priv->min_cdclk[crtc->pipe] = min_cdclk;
+		dev_priv->min_voltage[crtc->pipe] = crtc_state->min_voltage;
 
 		intel_pipe_config_sanity_check(dev_priv, crtc_state);
 	}

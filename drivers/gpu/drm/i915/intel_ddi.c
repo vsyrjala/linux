@@ -2525,6 +2525,15 @@ bool intel_ddi_is_audio_enabled(struct drm_i915_private *dev_priv,
 	return false;
 }
 
+void intel_ddi_compute_min_voltage(struct drm_i915_private *dev_priv,
+				   struct intel_crtc_state *crtc_state)
+{
+	if (INTEL_GEN(dev_priv) >= 10 && crtc_state->port_clock > 594000)
+		crtc_state->min_voltage = 2;
+	else
+		crtc_state->min_voltage = 0;
+}
+
 void intel_ddi_get_config(struct intel_encoder *encoder,
 			  struct intel_crtc_state *pipe_config)
 {
@@ -2624,6 +2633,8 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 	if (IS_GEN9_LP(dev_priv))
 		pipe_config->lane_lat_optim_mask =
 			bxt_ddi_phy_get_lane_lat_optim_mask(encoder);
+
+	intel_ddi_compute_min_voltage(dev_priv, pipe_config);
 }
 
 static bool intel_ddi_compute_config(struct intel_encoder *encoder,
@@ -2649,6 +2660,8 @@ static bool intel_ddi_compute_config(struct intel_encoder *encoder,
 		pipe_config->lane_lat_optim_mask =
 			bxt_ddi_phy_calc_lane_lat_optim_mask(encoder,
 							     pipe_config->lane_count);
+
+	intel_ddi_compute_min_voltage(dev_priv, pipe_config);
 
 	return ret;
 
