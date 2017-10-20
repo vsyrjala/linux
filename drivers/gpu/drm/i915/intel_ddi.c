@@ -2545,6 +2545,9 @@ bool intel_ddi_is_audio_enabled(struct drm_i915_private *dev_priv,
 void intel_ddi_compute_min_voltage_level(struct drm_i915_private *dev_priv,
 					 struct intel_crtc_state *crtc_state)
 {
+	if (IS_GEN9_BC(dev_priv) && crtc_state->port_clock > 200000)
+		crtc_state->min_voltage_level = 3;
+
 	if (IS_CANNONLAKE(dev_priv) && crtc_state->port_clock > 594000)
 		crtc_state->min_voltage_level = 2;
 }

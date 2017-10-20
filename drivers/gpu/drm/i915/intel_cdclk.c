@@ -1049,6 +1049,12 @@ static void skl_set_cdclk(struct drm_i915_private *dev_priv,
 	mutex_unlock(&dev_priv->pcu_lock);
 
 	intel_update_cdclk(dev_priv);
+
+	/*
+	 * Can't read out the voltage :( So let's
+	 * just assume everything is as expected.
+	 */
+	dev_priv->cdclk.hw.voltage_level = cdclk_state->voltage_level;
 }
 
 static void skl_sanitize_cdclk(struct drm_i915_private *dev_priv)
@@ -1995,8 +2001,12 @@ static u8 cnl_compute_min_voltage_level(struct intel_atomic_state *state)
 
 	min_voltage_level = 0;
 	for_each_pipe(dev_priv, pipe)
+	{
+		DRM_DEBUG_KMS("pipe %c min voltage %d\n",
+			      pipe_name(pipe), state->min_voltage_level[pipe]);
 		min_voltage_level = max(state->min_voltage_level[pipe],
 					min_voltage_level);
+	}
 
 	return min_voltage_level;
 }
@@ -2087,7 +2097,8 @@ static int skl_modeset_calc_cdclk(struct drm_atomic_state *state)
 	intel_state->cdclk.logical.vco = vco;
 	intel_state->cdclk.logical.cdclk = cdclk;
 	intel_state->cdclk.logical.voltage_level =
-		skl_calc_voltage_level(cdclk);
+		max(skl_calc_voltage_level(cdclk),
+		    cnl_compute_min_voltage_level(intel_state));
 
 	if (!intel_state->active_crtcs) {
 		cdclk = skl_calc_cdclk(0, vco);
