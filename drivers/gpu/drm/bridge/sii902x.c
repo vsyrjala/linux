@@ -274,7 +274,7 @@ static void sii902x_bridge_mode_set(struct drm_bridge *bridge,
 		return;
 	}
 
-	ret = hdmi_avi_infoframe_pack(&frame, buf, sizeof(buf));
+	ret = hdmi_avi_infoframe_check_and_pack(&frame, buf, sizeof(buf));
 	if (ret < 0) {
 		DRM_ERROR("failed to pack AVI infoframe: %d\n", ret);
 		return;

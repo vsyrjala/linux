@@ -58,7 +58,7 @@ static int sun4i_hdmi_setup_avi_infoframes(struct sun4i_hdmi *hdmi,
 		return ret;
 	}
 
-	ret = hdmi_avi_infoframe_pack(&frame, buffer, sizeof(buffer));
+	ret = hdmi_avi_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (ret < 0) {
 		DRM_ERROR("Failed to pack infoframes\n");
 		return ret;

@@ -428,7 +428,7 @@ static void hdmi_core_write_avi_infoframe(struct hdmi_core_data *core,
 	unsigned vic;
 	unsigned yq, cn, pr;
 
-	hdmi_avi_infoframe_pack(frame, data, sizeof(data));
+	hdmi_avi_infoframe_check_and_pack(frame, data, sizeof(data));
 
 	print_hex_dump_debug("AVI: ", DUMP_PREFIX_NONE, 16, 1, data,
 		HDMI_INFOFRAME_SIZE(AVI), false);

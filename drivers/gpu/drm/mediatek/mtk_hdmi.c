@@ -982,7 +982,7 @@ static int mtk_hdmi_setup_avi_infoframe(struct mtk_hdmi *hdmi,
 		return err;
 	}
 
-	err = hdmi_avi_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_avi_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		dev_err(hdmi->dev, "Failed to pack AVI infoframe: %zd\n", err);
 		return err;
@@ -1007,7 +1007,7 @@ static int mtk_hdmi_setup_spd_infoframe(struct mtk_hdmi *hdmi,
 		return err;
 	}
 
-	err = hdmi_spd_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_spd_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		dev_err(hdmi->dev, "Failed to pack SDP infoframe: %zd\n", err);
 		return err;
@@ -1036,7 +1036,7 @@ static int mtk_hdmi_setup_audio_infoframe(struct mtk_hdmi *hdmi)
 	frame.channels = mtk_hdmi_aud_get_chnl_count(
 					hdmi->aud_param.aud_input_chan_type);
 
-	err = hdmi_audio_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_audio_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		dev_err(hdmi->dev, "Failed to pack audio infoframe: %zd\n",
 			err);
@@ -1062,7 +1062,7 @@ static int mtk_hdmi_setup_vendor_specific_infoframe(struct mtk_hdmi *hdmi,
 		return err;
 	}
 
-	err = hdmi_vendor_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_vendor_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		dev_err(hdmi->dev, "Failed to pack vendor infoframe: %zd\n",
 			err);

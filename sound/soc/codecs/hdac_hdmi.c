@@ -379,7 +379,7 @@ static int hdac_hdmi_setup_audio_infoframe(struct hdac_ext_device *hdac,
 		frame.channels = channels;
 		frame.channel_allocation = ca;
 
-		ret = hdmi_audio_infoframe_pack(&frame, buffer, sizeof(buffer));
+		ret = hdmi_audio_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 		if (ret < 0)
 			return ret;
 

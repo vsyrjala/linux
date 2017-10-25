@@ -895,7 +895,7 @@ static int anx78xx_send_video_infoframe(struct anx78xx *anx78xx,
 	u8 buffer[HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE];
 	int err;
 
-	err = hdmi_avi_infoframe_pack(frame, buffer, sizeof(buffer));
+	err = hdmi_avi_infoframe_check_and_pack(frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		DRM_ERROR("Failed to pack AVI infoframe: %d\n", err);
 		return err;

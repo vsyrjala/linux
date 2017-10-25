@@ -1019,7 +1019,7 @@ static bool intel_sdvo_set_avi_infoframe(struct intel_sdvo *intel_sdvo,
 				HDMI_QUANTIZATION_RANGE_FULL;
 	}
 
-	len = hdmi_infoframe_pack(&frame, sdvo_data, sizeof(sdvo_data));
+	len = hdmi_infoframe_check_and_pack(&frame, sdvo_data, sizeof(sdvo_data));
 	if (len < 0)
 		return false;
 

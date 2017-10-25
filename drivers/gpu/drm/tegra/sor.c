@@ -1915,7 +1915,7 @@ tegra_sor_hdmi_setup_avi_infoframe(struct tegra_sor *sor,
 		return err;
 	}
 
-	err = hdmi_avi_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_avi_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		dev_err(sor->dev, "failed to pack AVI infoframe: %d\n", err);
 		return err;

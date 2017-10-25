@@ -786,7 +786,7 @@ static void hdmi_reg_infoframes(struct hdmi_context *hdata)
 	ret = drm_hdmi_avi_infoframe_from_display_mode(&frm.avi,
 			&hdata->current_mode, false);
 	if (!ret)
-		ret = hdmi_avi_infoframe_pack(&frm.avi, buf, sizeof(buf));
+		ret = hdmi_avi_infoframe_check_and_pack(&frm.avi, buf, sizeof(buf));
 	if (ret > 0) {
 		hdmi_reg_writeb(hdata, HDMI_AVI_CON, HDMI_AVI_CON_EVERY_VSYNC);
 		hdmi_reg_write_buf(hdata, HDMI_AVI_HEADER0, buf, ret);
@@ -797,7 +797,7 @@ static void hdmi_reg_infoframes(struct hdmi_context *hdata)
 	ret = drm_hdmi_vendor_infoframe_from_display_mode(&frm.vendor.hdmi,
 			&hdata->connector, &hdata->current_mode);
 	if (!ret)
-		ret = hdmi_vendor_infoframe_pack(&frm.vendor.hdmi, buf,
+		ret = hdmi_vendor_infoframe_check_and_pack(&frm.vendor.hdmi, buf,
 				sizeof(buf));
 	if (ret > 0) {
 		hdmi_reg_writeb(hdata, HDMI_VSI_CON, HDMI_VSI_CON_EVERY_VSYNC);
@@ -808,7 +808,7 @@ static void hdmi_reg_infoframes(struct hdmi_context *hdata)
 	ret = hdmi_audio_infoframe_init(&frm.audio);
 	if (!ret) {
 		frm.audio.channels = 2;
-		ret = hdmi_audio_infoframe_pack(&frm.audio, buf, sizeof(buf));
+		ret = hdmi_audio_infoframe_check_and_pack(&frm.audio, buf, sizeof(buf));
 	}
 	if (ret > 0) {
 		hdmi_reg_writeb(hdata, HDMI_AUI_CON, HDMI_AUI_CON_EVERY_VSYNC);

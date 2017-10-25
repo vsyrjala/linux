@@ -1149,7 +1149,7 @@ static void sii8620_set_infoframes(struct sii8620 *ctx)
 	frm.avi.colorimetry = HDMI_COLORIMETRY_ITU_709;
 	frm.avi.video_code = ctx->video_code;
 	if (!ret)
-		ret = hdmi_avi_infoframe_pack(&frm.avi, buf, ARRAY_SIZE(buf));
+		ret = hdmi_avi_infoframe_check_and_pack(&frm.avi, buf, ARRAY_SIZE(buf));
 	if (ret > 0)
 		sii8620_write_buf(ctx, REG_TPI_AVI_CHSUM, buf + 3, ret - 3);
 	sii8620_write(ctx, REG_PKT_FILTER_0,

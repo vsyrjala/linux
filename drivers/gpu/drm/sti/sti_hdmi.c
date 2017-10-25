@@ -445,7 +445,7 @@ static int hdmi_avi_infoframe_config(struct sti_hdmi *hdmi)
 	infoframe.quantization_range = HDMI_QUANTIZATION_RANGE_DEFAULT;
 	infoframe.colorimetry = HDMI_COLORIMETRY_NONE;
 
-	ret = hdmi_avi_infoframe_pack(&infoframe, buffer, sizeof(buffer));
+	ret = hdmi_avi_infoframe_check_and_pack(&infoframe, buffer, sizeof(buffer));
 	if (ret < 0) {
 		DRM_ERROR("failed to pack AVI infoframe: %d\n", ret);
 		return ret;
@@ -477,7 +477,7 @@ static int hdmi_audio_infoframe_config(struct sti_hdmi *hdmi)
 			 audio->enabled ? "enable" : "disable");
 	if (audio->enabled) {
 		/* set audio parameters stored*/
-		ret = hdmi_audio_infoframe_pack(&audio->cea, buffer,
+		ret = hdmi_audio_infoframe_check_and_pack(&audio->cea, buffer,
 						sizeof(buffer));
 		if (ret < 0) {
 			DRM_ERROR("failed to pack audio infoframe: %d\n", ret);
@@ -528,7 +528,7 @@ static int hdmi_vendor_infoframe_config(struct sti_hdmi *hdmi)
 		return 0;
 	}
 
-	ret = hdmi_vendor_infoframe_pack(&infoframe, buffer, sizeof(buffer));
+	ret = hdmi_vendor_infoframe_check_and_pack(&infoframe, buffer, sizeof(buffer));
 	if (ret < 0) {
 		DRM_ERROR("failed to pack VS infoframe: %d\n", ret);
 		return ret;

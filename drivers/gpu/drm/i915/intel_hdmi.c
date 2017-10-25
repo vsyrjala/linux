@@ -445,7 +445,7 @@ static void intel_write_infoframe(struct drm_encoder *encoder,
 	ssize_t len;
 
 	/* see comment above for the reason for this offset */
-	len = hdmi_infoframe_pack(frame, buffer + 1, sizeof(buffer) - 1);
+	len = hdmi_infoframe_check_and_pack(frame, buffer + 1, sizeof(buffer) - 1);
 	if (len < 0)
 		return;
 

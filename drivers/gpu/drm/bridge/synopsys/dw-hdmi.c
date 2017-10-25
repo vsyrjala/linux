@@ -1449,7 +1449,7 @@ static void hdmi_config_vendor_specific_infoframe(struct dw_hdmi *hdmi,
 		 */
 		return;
 
-	err = hdmi_vendor_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_vendor_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		dev_err(hdmi->dev, "Failed to pack vendor infoframe: %zd\n",
 			err);

@@ -1681,7 +1681,7 @@ static void dce_v8_0_afmt_setmode(struct drm_encoder *encoder,
 		return;
 	}
 
-	err = hdmi_avi_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_avi_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		DRM_ERROR("failed to pack AVI infoframe: %zd\n", err);
 		return;

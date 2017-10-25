@@ -84,7 +84,7 @@ static int zx_hdmi_infoframe_trans(struct zx_hdmi *hdmi,
 
 	hdmi_writeb(hdmi, TPI_INFO_FSEL, fsel);
 
-	num = hdmi_infoframe_pack(frame, buffer, ZX_HDMI_INFOFRAME_SIZE);
+	num = hdmi_infoframe_check_and_pack(frame, buffer, ZX_HDMI_INFOFRAME_SIZE);
 	if (num < 0) {
 		DRM_DEV_ERROR(hdmi->dev, "failed to pack infoframe: %d\n", num);
 		return num;

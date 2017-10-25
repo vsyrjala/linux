@@ -2751,7 +2751,7 @@ nv50_hdmi_enable(struct drm_encoder *encoder, struct drm_display_mode *mode)
 	if (!ret) {
 		/* We have an AVI InfoFrame, populate it to the display */
 		args.pwr.avi_infoframe_length
-			= hdmi_infoframe_pack(&avi_frame, args.infoframes, 17);
+			= hdmi_infoframe_check_and_pack(&avi_frame, args.infoframes, 17);
 	}
 
 	ret = drm_hdmi_vendor_infoframe_from_display_mode(&vendor_frame.vendor.hdmi,
@@ -2759,7 +2759,7 @@ nv50_hdmi_enable(struct drm_encoder *encoder, struct drm_display_mode *mode)
 	if (!ret) {
 		/* We have a Vendor InfoFrame, populate it to the display */
 		args.pwr.vendor_infoframe_length
-			= hdmi_infoframe_pack(&vendor_frame,
+			= hdmi_infoframe_check_and_pack(&vendor_frame,
 					      args.infoframes
 					      + args.pwr.avi_infoframe_length,
 					      17);

@@ -533,7 +533,7 @@ static int radeon_audio_set_avi_packet(struct drm_encoder *encoder,
 		}
 	}
 
-	err = hdmi_avi_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_avi_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		DRM_ERROR("failed to pack AVI infoframe: %d\n", err);
 		return err;

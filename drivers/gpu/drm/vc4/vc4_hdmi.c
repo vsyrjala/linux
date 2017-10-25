@@ -372,7 +372,7 @@ static void vc4_hdmi_write_infoframe(struct drm_encoder *encoder,
 		    VC4_HDMI_RAM_PACKET_ENABLE),
 		  "Packet RAM has to be on to store the packet.");
 
-	len = hdmi_infoframe_pack(frame, buffer, sizeof(buffer));
+	len = hdmi_infoframe_check_and_pack(frame, buffer, sizeof(buffer));
 	if (len < 0)
 		return;
 

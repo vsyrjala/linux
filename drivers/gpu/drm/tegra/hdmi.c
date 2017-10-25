@@ -749,7 +749,7 @@ static void tegra_hdmi_setup_avi_infoframe(struct tegra_hdmi *hdmi,
 		return;
 	}
 
-	err = hdmi_avi_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_avi_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		dev_err(hdmi->dev, "failed to pack AVI infoframe: %zd\n", err);
 		return;
@@ -791,7 +791,7 @@ static void tegra_hdmi_setup_audio_infoframe(struct tegra_hdmi *hdmi)
 
 	frame.channels = hdmi->audio_channels;
 
-	err = hdmi_audio_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_audio_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		dev_err(hdmi->dev, "failed to pack audio infoframe: %zd\n",
 			err);
@@ -834,7 +834,7 @@ static void tegra_hdmi_setup_stereo_infoframe(struct tegra_hdmi *hdmi)
 	hdmi_vendor_infoframe_init(&frame);
 	frame.s3d_struct = HDMI_3D_STRUCTURE_FRAME_PACKING;
 
-	err = hdmi_vendor_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_vendor_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		dev_err(hdmi->dev, "failed to pack vendor infoframe: %zd\n",
 			err);

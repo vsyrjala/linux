@@ -173,7 +173,7 @@ int msm_hdmi_audio_update(struct hdmi *hdmi)
 		acr_pkt_ctrl |= HDMI_ACR_PKT_CTRL_SEND;
 
 		/* configure infoframe: */
-		hdmi_audio_infoframe_pack(info, buf, sizeof(buf));
+		hdmi_audio_infoframe_check_and_pack(info, buf, sizeof(buf));
 		hdmi_write(hdmi, REG_HDMI_AUDIO_INFO0,
 				(buf[3] <<  0) | (buf[4] <<  8) |
 				(buf[5] << 16) | (buf[6] << 24));

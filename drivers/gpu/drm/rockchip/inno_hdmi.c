@@ -259,7 +259,7 @@ static int inno_hdmi_upload_frame(struct inno_hdmi *hdmi, int setup_rc,
 		u8 packed_frame[HDMI_MAXIMUM_INFO_FRAME_SIZE];
 		ssize_t rc, i;
 
-		rc = hdmi_infoframe_pack(frame, packed_frame,
+		rc = hdmi_infoframe_check_and_pack(frame, packed_frame,
 					 sizeof(packed_frame));
 		if (rc < 0)
 			return rc;

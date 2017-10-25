@@ -269,7 +269,7 @@ static void adv7511_set_config_csc(struct adv7511 *adv7511,
 	regmap_update_bits(adv7511->regmap, ADV7511_REG_HDCP_HDMI_CFG,
 			   ADV7511_HDMI_CFG_MODE_MASK, mode);
 
-	hdmi_avi_infoframe_pack(&config.avi_infoframe, infoframe,
+	hdmi_avi_infoframe_check_and_pack(&config.avi_infoframe, infoframe,
 				sizeof(infoframe));
 
 	/* The AVI infoframe id is not configurable */

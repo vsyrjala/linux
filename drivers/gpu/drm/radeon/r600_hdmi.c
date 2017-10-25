@@ -439,7 +439,7 @@ void r600_hdmi_update_audio_settings(struct drm_encoder *encoder)
 
 	frame.channels = audio.channels;
 
-	err = hdmi_audio_infoframe_pack(&frame, buffer, sizeof(buffer));
+	err = hdmi_audio_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
 		DRM_ERROR("failed to pack audio infoframe\n");
 		return;

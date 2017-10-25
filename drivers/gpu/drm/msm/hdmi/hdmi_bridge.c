@@ -103,7 +103,7 @@ static void msm_hdmi_config_avi_infoframe(struct hdmi *hdmi)
 
 	drm_hdmi_avi_infoframe_from_display_mode(&frame.avi, mode, false);
 
-	len = hdmi_infoframe_pack(&frame, buffer, sizeof(buffer));
+	len = hdmi_infoframe_check_and_pack(&frame, buffer, sizeof(buffer));
 	if (len < 0) {
 		dev_err(&hdmi->pdev->dev,
 			"failed to configure avi infoframe\n");
