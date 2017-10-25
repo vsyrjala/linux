@@ -320,6 +320,18 @@ struct drm_tv_connector_state {
 };
 
 /**
+ * struct drm_infoframe_state - Infoframe related state
+ * @avi: AVI infofraame
+ * @spd: SPD infofraame
+ * @hdmi: HDMI vendor specific infofraame
+ */
+struct drm_infoframe_state {
+	struct hdmi_avi_infoframe avi;
+	struct hdmi_spd_infoframe spd;
+	struct hdmi_vendor_infoframe hdmi;
+};
+
+/**
  * struct drm_connector_state - mutable connector state
  * @connector: backpointer to the connector
  * @best_encoder: can be used by helpers and drivers to select the encoder
@@ -355,6 +367,8 @@ struct drm_connector_state {
 	struct drm_crtc_commit *commit;
 
 	struct drm_tv_connector_state tv;
+
+	struct drm_infoframe_state infoframe;
 
 	/**
 	 * @picture_aspect_ratio: Connector property to control the
