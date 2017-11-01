@@ -1319,8 +1319,7 @@ static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	struct intel_atomic_state *state =
 		to_intel_atomic_state(crtc_state->base.state);
 	struct g4x_wm_state *wm_state = &crtc_state->wm.g4x.optimal;
-	int num_active_planes = hweight32(crtc_state->active_planes &
-					  ~BIT(PLANE_CURSOR));
+	unsigned int active_planes = crtc_state->active_planes & ~BIT(PLANE_CURSOR);
 	const struct g4x_pipe_wm *raw;
 	const struct intel_plane_state *old_plane_state;
 	const struct intel_plane_state *new_plane_state;
@@ -1361,7 +1360,7 @@ static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	wm_state->sr.cursor = raw->plane[PLANE_CURSOR];
 	wm_state->sr.fbc = raw->fbc;
 
-	wm_state->cxsr = num_active_planes == BIT(PLANE_PRIMARY);
+	wm_state->cxsr = active_planes == BIT(PLANE_PRIMARY);
 
 	level = G4X_WM_LEVEL_HPLL;
 
