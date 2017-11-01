@@ -1326,34 +1326,14 @@ static bool g4x_compute_fbc_en(const struct g4x_wm_state *wm_state,
 	return true;
 }
 
-static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
+static int _g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
-	struct intel_atomic_state *state =
-		to_intel_atomic_state(crtc_state->base.state);
 	struct g4x_wm_state *wm_state = &crtc_state->wm.g4x.optimal;
 	unsigned int active_planes = crtc_state->active_planes & ~BIT(PLANE_CURSOR);
 	const struct g4x_pipe_wm *raw;
-	const struct intel_plane_state *old_plane_state;
-	const struct intel_plane_state *new_plane_state;
-	struct intel_plane *plane;
 	enum plane_id plane_id;
-	int i, level;
-	unsigned int dirty = 0;
-
-	for_each_oldnew_intel_plane_in_state(state, plane,
-					     old_plane_state,
-					     new_plane_state, i) {
-		if (new_plane_state->base.crtc != &crtc->base &&
-		    old_plane_state->base.crtc != &crtc->base)
-			continue;
-
-		if (g4x_raw_plane_wm_compute(crtc_state, new_plane_state))
-			dirty |= BIT(plane->id);
-	}
-
-	if (!dirty)
-		return 0;
+	int level;
 
 	level = G4X_WM_LEVEL_NORMAL;
 	if (!g4x_raw_crtc_wm_is_valid(crtc_state, level))
@@ -1404,6 +1384,34 @@ static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	wm_state->fbc_en = g4x_compute_fbc_en(wm_state, level - 1);
 
 	return 0;
+}
+
+static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct intel_atomic_state *state =
+		to_intel_atomic_state(crtc_state->base.state);
+	const struct intel_plane_state *old_plane_state;
+	const struct intel_plane_state *new_plane_state;
+	struct intel_plane *plane;
+	unsigned int dirty = 0;
+	int i;
+
+	for_each_oldnew_intel_plane_in_state(state, plane,
+					     old_plane_state,
+					     new_plane_state, i) {
+		if (new_plane_state->base.crtc != &crtc->base &&
+		    old_plane_state->base.crtc != &crtc->base)
+			continue;
+
+		if (g4x_raw_plane_wm_compute(crtc_state, new_plane_state))
+			dirty |= BIT(plane->id);
+	}
+
+	if (!dirty)
+		return 0;
+
+	return _g4x_compute_pipe_wm(crtc_state);
 }
 
 static int g4x_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
