@@ -74,6 +74,8 @@ static struct intel_hdmi *intel_attached_hdmi(struct drm_connector *connector)
 static u32 g4x_infoframe_index(unsigned int type)
 {
 	switch (type) {
+	case HDMI_PACKET_TYPE_GAMUT_METADATA:
+		return VIDEO_DIP_SELECT_GAMUT;
 	case HDMI_INFOFRAME_TYPE_AVI:
 		return VIDEO_DIP_SELECT_AVI;
 	case HDMI_INFOFRAME_TYPE_SPD:
@@ -89,6 +91,10 @@ static u32 g4x_infoframe_index(unsigned int type)
 static u32 g4x_infoframe_enable(unsigned int type)
 {
 	switch (type) {
+	case HDMI_PACKET_TYPE_GENERAL_CONTROL:
+		return VIDEO_DIP_ENABLE_GCP;
+	case HDMI_PACKET_TYPE_GAMUT_METADATA:
+		return VIDEO_DIP_ENABLE_GAMUT;
 	case HDMI_INFOFRAME_TYPE_AVI:
 		return VIDEO_DIP_ENABLE_AVI;
 	case HDMI_INFOFRAME_TYPE_SPD:
@@ -104,6 +110,10 @@ static u32 g4x_infoframe_enable(unsigned int type)
 static u32 hsw_infoframe_enable(unsigned int type)
 {
 	switch (type) {
+	case HDMI_PACKET_TYPE_GENERAL_CONTROL:
+		return VIDEO_DIP_ENABLE_GCP_HSW;
+	case HDMI_PACKET_TYPE_GAMUT_METADATA:
+		return VIDEO_DIP_ENABLE_GMP_HSW;
 	case DP_SDP_VSC:
 		return VIDEO_DIP_ENABLE_VSC_HSW;
 	case HDMI_INFOFRAME_TYPE_AVI:
@@ -125,6 +135,8 @@ hsw_dip_data_reg(struct drm_i915_private *dev_priv,
 		 int i)
 {
 	switch (type) {
+	case HDMI_PACKET_TYPE_GAMUT_METADATA:
+		return HSW_TVIDEO_DIP_GMP_DATA(cpu_transcoder, i);
 	case DP_SDP_VSC:
 		return HSW_TVIDEO_DIP_VSC_DATA(cpu_transcoder, i);
 	case HDMI_INFOFRAME_TYPE_AVI:
