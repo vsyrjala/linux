@@ -834,6 +834,8 @@ static const char *hdmi_infoframe_type_get_name(enum hdmi_infoframe_type type)
 		return "Source Product Description (SPD)";
 	case HDMI_INFOFRAME_TYPE_AUDIO:
 		return "Audio";
+	case HDMI_INFOFRAME_TYPE_MPEG:
+		return "MPEG Source";
 	}
 	return "Reserved";
 }
@@ -1367,6 +1369,9 @@ void hdmi_infoframe_log(const char *level,
 		break;
 	case HDMI_INFOFRAME_TYPE_VENDOR:
 		hdmi_vendor_any_infoframe_log(level, dev, &frame->vendor);
+		break;
+	case HDMI_INFOFRAME_TYPE_MPEG:
+		/* FIXME */
 		break;
 	}
 }
