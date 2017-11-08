@@ -11041,6 +11041,41 @@ intel_compare_link_m_n(const struct intel_link_m_n *m_n,
 	return false;
 }
 
+static bool
+intel_compare_infoframe(const union hdmi_infoframe *a,
+			const union hdmi_infoframe *b)
+{
+	return memcmp(a, b, sizeof(*a)) == 0;
+}
+
+static void
+pipe_config_infoframe_err(struct drm_i915_private *dev_priv,
+			  bool adjust, const char *name,
+			  const union hdmi_infoframe *a,
+			  const union hdmi_infoframe *b)
+{
+	unsigned int category;
+	const char *level;
+
+	if (adjust) {
+		level = KERN_DEBUG;
+		category = DRM_UT_KMS;
+	} else {
+		level = KERN_ERR;
+		category = DRM_UT_NONE;
+	}
+
+	if (category != DRM_UT_NONE &&
+	    (drm_debug & category) == 0)
+		return;
+
+	drm_printk(level, category, "mismatch in %s infoframe", name);
+	drm_printk(level, category, "expected:");
+	hdmi_infoframe_log(level, dev_priv->drm.dev, a);
+	drm_printk(level, category, "found");
+	hdmi_infoframe_log(level, dev_priv->drm.dev, b);
+}
+
 static void __printf(3, 4)
 pipe_config_err(bool adjust, const char *name, const char *format, ...)
 {
@@ -11200,7 +11235,16 @@ intel_pipe_config_compare(struct drm_i915_private *dev_priv,
 		ret = false; \
 	}
 
-#define PIPE_CONF_QUIRK(quirk)	\
+#define PIPE_CONF_CHECK_INFOFRAME(name) \
+	if (!intel_compare_infoframe(&current_config->infoframes.name, \
+				     &pipe_config->infoframes.name)) { \
+		pipe_config_infoframe_err(dev_priv, adjust, __stringify(name), \
+					  &current_config->infoframes.name, \
+					  &pipe_config->infoframes.name); \
+		ret = false; \
+	}
+
+#define PIPE_CONF_QUIRK(quirk) \
 	((current_config->quirks | pipe_config->quirks) & (quirk))
 
 	PIPE_CONF_CHECK_I(cpu_transcoder);
@@ -11318,6 +11362,12 @@ intel_pipe_config_compare(struct drm_i915_private *dev_priv,
 	PIPE_CONF_CHECK_CLOCK_FUZZY(port_clock);
 
 	PIPE_CONF_CHECK_I(min_voltage_level);
+
+	PIPE_CONF_CHECK_X(infoframes.enable);
+	PIPE_CONF_CHECK_X(infoframes.gcp);
+	PIPE_CONF_CHECK_INFOFRAME(avi);
+	PIPE_CONF_CHECK_INFOFRAME(spd);
+	PIPE_CONF_CHECK_INFOFRAME(hdmi);
 
 #undef PIPE_CONF_CHECK_X
 #undef PIPE_CONF_CHECK_I
