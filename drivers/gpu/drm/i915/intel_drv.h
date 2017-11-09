@@ -790,6 +790,10 @@ struct intel_crtc_state {
 	/* bitmask of visible planes (enum plane_id) */
 	u8 active_planes;
 
+	struct {
+		u32 enable;
+	} infoframes;
+
 	/* HDMI scrambling status */
 	bool hdmi_scrambling;
 
