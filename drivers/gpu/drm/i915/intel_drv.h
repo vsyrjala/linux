@@ -1073,7 +1073,7 @@ struct intel_digital_port {
 			       bool enable,
 			       const struct intel_crtc_state *crtc_state,
 			       const struct drm_connector_state *conn_state);
-	bool (*infoframe_enabled)(struct intel_encoder *encoder,
+	u32 (*infoframes_enabled)(struct intel_encoder *encoder,
 				  const struct intel_crtc_state *pipe_config);
 };
 
@@ -1688,6 +1688,8 @@ void intel_hdmi_handle_sink_scrambling(struct intel_encoder *intel_encoder,
 				       bool scrambling);
 void intel_dp_dual_mode_set_tmds_output(struct intel_hdmi *hdmi, bool enable);
 void intel_infoframe_init(struct intel_digital_port *intel_dig_port);
+u32 intel_hdmi_infoframes_enabled(struct intel_encoder *encoder,
+				  const struct intel_crtc_state *crtc_state);
 
 
 /* intel_lvds.c */
