@@ -890,6 +890,10 @@ struct intel_crtc_state {
 	u8 active_planes;
 	u8 nv12_planes;
 
+	struct {
+		u32 enable;
+	} infoframes;
+
 	/* HDMI scrambling status */
 	bool hdmi_scrambling;
 
