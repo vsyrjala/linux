@@ -306,7 +306,8 @@ static void hsw_psr_setup_vsc(struct intel_dp *intel_dp,
 		psr_vsc.sdp_header.HB3 = 0x8;
 	}
 
-	intel_dig_port->write_infoframe(&intel_dig_port->base.base, crtc_state,
+	intel_dig_port->write_infoframe(&intel_dig_port->base,
+					crtc_state,
 					DP_SDP_VSC, &psr_vsc, sizeof(psr_vsc));
 }
 

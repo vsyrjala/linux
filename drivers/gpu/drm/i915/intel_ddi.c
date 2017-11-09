@@ -2629,7 +2629,7 @@ static void intel_ddi_pre_enable_hdmi(struct intel_encoder *encoder,
 	if (IS_GEN9_BC(dev_priv))
 		skl_ddi_set_iboost(encoder, level, INTEL_OUTPUT_HDMI);
 
-	intel_dig_port->set_infoframes(&encoder->base,
+	intel_dig_port->set_infoframes(encoder,
 				       crtc_state->has_infoframe,
 				       crtc_state, conn_state);
 }
@@ -2725,7 +2725,7 @@ static void intel_ddi_post_disable_hdmi(struct intel_encoder *encoder,
 
 	intel_disable_ddi_buf(encoder);
 
-	dig_port->set_infoframes(&encoder->base, false,
+	dig_port->set_infoframes(encoder, false,
 				 old_crtc_state, old_conn_state);
 
 	intel_display_power_put(dev_priv, dig_port->ddi_io_power_domain);
@@ -3063,7 +3063,7 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 		pipe_config->has_hdmi_sink = true;
 		intel_dig_port = enc_to_dig_port(&encoder->base);
 
-		if (intel_dig_port->infoframe_enabled(&encoder->base, pipe_config))
+		if (intel_dig_port->infoframe_enabled(encoder, pipe_config))
 			pipe_config->has_infoframe = true;
 
 		if ((temp & TRANS_DDI_HDMI_SCRAMBLING_MASK) ==
