@@ -472,6 +472,8 @@ void lspcon_set_infoframes(struct intel_encoder *encoder,
 		return;
 	}
 
+	/* FIXME precompute infoframes */
+
 	ret = drm_hdmi_avi_infoframe_from_display_mode(&frame.avi,
 						       mode, is_hdmi2_sink);
 	if (ret < 0) {

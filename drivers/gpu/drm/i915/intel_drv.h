@@ -933,6 +933,10 @@ struct intel_crtc_state {
 
 	struct {
 		u32 enable;
+		u32 gcp;
+		union hdmi_infoframe avi;
+		union hdmi_infoframe spd;
+		union hdmi_infoframe hdmi;
 	} infoframes;
 
 	/* HDMI scrambling status */
@@ -1985,6 +1989,7 @@ void intel_dp_dual_mode_set_tmds_output(struct intel_hdmi *hdmi, bool enable);
 void intel_infoframe_init(struct intel_digital_port *intel_dig_port);
 u32 intel_hdmi_infoframes_enabled(struct intel_encoder *encoder,
 				  const struct intel_crtc_state *crtc_state);
+u32 intel_hdmi_infoframe_enable(unsigned int type);
 
 /* intel_lvds.c */
 bool intel_lvds_port_enabled(struct drm_i915_private *dev_priv,
