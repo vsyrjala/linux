@@ -3064,6 +3064,7 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 		intel_dig_port = enc_to_dig_port(&encoder->base);
 
 		pipe_config->infoframes.enable |=
+			intel_hdmi_infoframe_enable(HDMI_PACKET_TYPE_NULL) |
 			intel_hdmi_infoframes_enabled(encoder, pipe_config);
 
 		if (pipe_config->infoframes.enable)
