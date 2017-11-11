@@ -14518,15 +14518,24 @@ static void intel_init_quirks(struct drm_device *dev)
 static void i915_disable_vga(struct drm_i915_private *dev_priv)
 {
 	struct pci_dev *pdev = dev_priv->drm.pdev;
-	u8 sr1;
 	i915_reg_t vga_reg = i915_vgacntrl_reg(dev_priv);
+	u8 tmp;
 
 	/* WaEnableVGAAccessThroughIOPort:ctg,elk,ilk,snb,ivb,vlv,hsw */
-	vga_get_uninterruptible(pdev, VGA_RSRC_LEGACY_IO);
-	outb(SR01, VGA_SR_INDEX);
-	sr1 = inb(VGA_SR_DATA);
-	outb(sr1 | 1<<5, VGA_SR_DATA);
-	vga_put(pdev, VGA_RSRC_LEGACY_IO);
+	if (INTEL_GEN(dev_priv) >= 5 || IS_G4X(dev_priv)) {
+		vga_get_uninterruptible(pdev, VGA_RSRC_LEGACY_IO);
+		outb(SR01, VGA_SR_INDEX);
+		tmp = inb(VGA_SR_DATA);
+		tmp |= SR01_SCREEN_OFF;
+		outb(tmp, VGA_SR_DATA);
+		vga_put(pdev, VGA_RSRC_LEGACY_IO);
+	} else {
+		I915_WRITE8(_MMIO(VGA_SR_INDEX), SR01);
+		tmp = I915_READ8(_MMIO(VGA_SR_DATA));
+		tmp |= SR01_SCREEN_OFF;
+		I915_WRITE8(_MMIO(VGA_SR_DATA), tmp);
+	}
+
 	udelay(300);
 
 	I915_WRITE(vga_reg, VGA_DISP_DISABLE);

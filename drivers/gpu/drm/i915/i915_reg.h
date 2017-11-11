@@ -396,7 +396,8 @@ static inline bool i915_mmio_reg_valid(i915_reg_t reg)
 #define   VGA_MSR_CGA_MODE (1<<0)
 
 #define VGA_SR_INDEX 0x3c4
-#define SR01			1
+#define  SR01			0x01
+#define   SR01_SCREEN_OFF	(1 << 5)
 #define VGA_SR_DATA 0x3c5
 
 #define VGA_AR_INDEX 0x3c0
