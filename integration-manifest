@@ -1,0 +1,28 @@
+drm-upstream drm-fixes 60ccb31bd680469ee0db92b0b6594d79bd13ff87
+	Merge tag 'drm-intel-fixes-2017-11-08' of git://anongit.freedesktop.org/drm/drm-intel into drm-fixes
+drm-misc drm-misc-fixes 44419ce7d77e03692ed8fe799688d8dc43f9266e
+	drm/rockchip: analogix_dp: Use mutex rather than spinlock
+drm-intel drm-intel-fixes 423a8a942e95493b73228ba6a3f176dcc7f35fa9
+	drm/i915: Deconstruct struct sgt_dma initialiser
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm-upstream drm-next e7e62c7ef382f5db0de5e492e558efc9c3d60943
+	drm/mode_object: fix documentation for object lookups.
+drm-misc drm-misc-next-fixes a9386bb051931778436db3dd6e3a163f7db92b56
+	Merge tag 'drm-misc-next-fixes-2017-11-08' of git://anongit.freedesktop.org/drm/drm-misc into drm-next
+drm-intel drm-intel-next-fixes e8c49fa96838101435b9e4884d49b30da7a4e0c6
+	drm/i915: Reorder context-close to avoid calling i915_vma_close() under RCU
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next b5e821bb86071bb37624bafe9e4e8f345be89f45
+	drm/cma-helper: Remove drm_fb_cma_debugfs_show()
+drm-intel drm-intel-next-queued 10bf0a38c4084c14c57df5d635a5ba0867a3c260
+	drm/i915: Handle locking better in i915_sink_crc.
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus 75ee94b20b46459e3d29f5ac2c3af3cebdeef777
+	ALSA: hda - fix headset mic problem for Dell machines with alc274
+sound-upstream for-next 3f1185d6c9d3fe91aa85ec8d3f4d71207452c458
+	ALSA: fix kernel-doc build warning
+drm-intel topic/core-for-CI 6fdcd04508c92fd588a30cc3a1c9e2c9be451230
+	e1000e: fix buffer overrun while the I219 is processing DMA transactions
