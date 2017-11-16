@@ -447,9 +447,9 @@ bool intel_set_memory_cxsr(struct drm_i915_private *dev_priv, bool enable)
 	mutex_lock(&dev_priv->wm.wm_mutex);
 	ret = _intel_set_memory_cxsr(dev_priv, enable);
 	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
-		dev_priv->wm.vlv.cxsr = enable;
+		dev_priv->wm.vlv.sr.enable = enable;
 	else if (IS_G4X(dev_priv))
-		dev_priv->wm.g4x.cxsr = enable;
+		dev_priv->wm.g4x.sr.enable = enable;
 	mutex_unlock(&dev_priv->wm.wm_mutex);
 
 	return ret;
@@ -951,7 +951,7 @@ static void g4x_write_wm_values(struct drm_i915_private *dev_priv,
 		   FW_WM(wm->pipe[PIPE_A].plane[PLANE_CURSOR], CURSORA) |
 		   FW_WM(wm->pipe[PIPE_A].plane[PLANE_SPRITE0], SPRITEA));
 	I915_WRITE(DSPFW3,
-		   (wm->hpll_en ? DSPFW_HPLL_SR_EN : 0) |
+		   (wm->hpll.enable ? DSPFW_HPLL_SR_EN : 0) |
 		   FW_WM(wm->sr.cursor, CURSOR_SR) |
 		   FW_WM(wm->hpll.cursor, HPLL_CURSOR) |
 		   FW_WM(wm->hpll.plane, HPLL_SR));
@@ -1295,14 +1295,14 @@ static void g4x_invalidate_wms(struct intel_crtc *crtc,
 	}
 
 	if (level <= G4X_WM_LEVEL_SR) {
-		wm_state->cxsr = false;
+		wm_state->sr.enable = false;
 		wm_state->sr.cursor = USHRT_MAX;
 		wm_state->sr.plane = USHRT_MAX;
 		wm_state->sr.fbc = USHRT_MAX;
 	}
 
 	if (level <= G4X_WM_LEVEL_HPLL) {
-		wm_state->hpll_en = false;
+		wm_state->hpll.enable = false;
 		wm_state->hpll.cursor = USHRT_MAX;
 		wm_state->hpll.plane = USHRT_MAX;
 		wm_state->hpll.fbc = USHRT_MAX;
@@ -1352,7 +1352,7 @@ static int _g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	wm_state->sr.cursor = raw->plane[PLANE_CURSOR];
 	wm_state->sr.fbc = raw->fbc;
 
-	wm_state->cxsr = active_planes == BIT(PLANE_PRIMARY);
+	wm_state->sr.enable = active_planes == BIT(PLANE_PRIMARY);
 
 	level = G4X_WM_LEVEL_HPLL;
 	if (!g4x_raw_crtc_wm_is_valid(crtc_state, level))
@@ -1363,7 +1363,7 @@ static int _g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	wm_state->hpll.cursor = raw->plane[PLANE_CURSOR];
 	wm_state->hpll.fbc = raw->fbc;
 
-	wm_state->hpll_en = wm_state->cxsr;
+	wm_state->hpll.enable = wm_state->sr.enable;
 
 	level++;
 
@@ -1429,14 +1429,14 @@ static int g4x_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 	if (!new_crtc_state->base.active || drm_atomic_crtc_needs_modeset(&new_crtc_state->base)) {
 		*intermediate = *optimal;
 
-		intermediate->cxsr = false;
-		intermediate->hpll_en = false;
+		intermediate->sr.enable = false;
+		intermediate->hpll.enable = false;
 		goto out;
 	}
 
-	intermediate->cxsr = optimal->cxsr && active->cxsr &&
+	intermediate->sr.enable = optimal->sr.enable && active->sr.enable &&
 		!new_crtc_state->disable_cxsr;
-	intermediate->hpll_en = optimal->hpll_en && active->hpll_en &&
+	intermediate->hpll.enable = optimal->hpll.enable && active->hpll.enable &&
 		!new_crtc_state->disable_cxsr;
 	intermediate->fbc_en = optimal->fbc_en && active->fbc_en;
 
@@ -1467,17 +1467,17 @@ static int g4x_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 		 g4x_plane_fifo_size(PLANE_PRIMARY, G4X_WM_LEVEL_SR) ||
 		 intermediate->sr.cursor >
 		 g4x_plane_fifo_size(PLANE_CURSOR, G4X_WM_LEVEL_SR)) &&
-		intermediate->cxsr);
-	WARN_ON((intermediate->sr.plane >
+		intermediate->sr.enable);
+	WARN_ON((intermediate->hpll.plane >
 		 g4x_plane_fifo_size(PLANE_PRIMARY, G4X_WM_LEVEL_HPLL) ||
-		 intermediate->sr.cursor >
+		 intermediate->hpll.cursor >
 		 g4x_plane_fifo_size(PLANE_CURSOR, G4X_WM_LEVEL_HPLL)) &&
-		intermediate->hpll_en);
+		intermediate->hpll.enable);
 
 	WARN_ON(intermediate->sr.fbc > g4x_fbc_fifo_size(1) &&
-		intermediate->fbc_en && intermediate->cxsr);
+		intermediate->fbc_en && intermediate->sr.enable);
 	WARN_ON(intermediate->hpll.fbc > g4x_fbc_fifo_size(2) &&
-		intermediate->fbc_en && intermediate->hpll_en);
+		intermediate->fbc_en && intermediate->hpll.enable);
 
 out:
 	/*
@@ -1496,8 +1496,8 @@ static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 	struct intel_crtc *crtc;
 	int num_active_crtcs = 0;
 
-	wm->cxsr = true;
-	wm->hpll_en = true;
+	wm->sr.enable = true;
+	wm->hpll.enable = true;
 	wm->fbc_en = true;
 
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
@@ -1506,10 +1506,10 @@ static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 		if (!crtc->active)
 			continue;
 
-		if (!wm_state->cxsr)
-			wm->cxsr = false;
-		if (!wm_state->hpll_en)
-			wm->hpll_en = false;
+		if (!wm_state->sr.enable)
+			wm->sr.enable = false;
+		if (!wm_state->hpll.enable)
+			wm->hpll.enable = false;
 		if (!wm_state->fbc_en)
 			wm->fbc_en = false;
 
@@ -1517,8 +1517,8 @@ static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 	}
 
 	if (num_active_crtcs != 1) {
-		wm->cxsr = false;
-		wm->hpll_en = false;
+		wm->sr.enable = false;
+		wm->hpll.enable = false;
 		wm->fbc_en = false;
 	}
 
@@ -1527,9 +1527,9 @@ static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 		enum pipe pipe = crtc->pipe;
 
 		wm->pipe[pipe] = wm_state->wm;
-		if (crtc->active && wm->cxsr)
+		if (crtc->active && wm->sr.enable)
 			wm->sr = wm_state->sr;
-		if (crtc->active && wm->hpll_en)
+		if (crtc->active && wm->hpll.enable)
 			wm->hpll = wm_state->hpll;
 	}
 }
@@ -1544,12 +1544,12 @@ static void g4x_program_watermarks(struct drm_i915_private *dev_priv)
 	if (memcmp(old_wm, &new_wm, sizeof(new_wm)) == 0)
 		return;
 
-	if (is_disabling(old_wm->cxsr, new_wm.cxsr, true))
+	if (is_disabling(old_wm->sr.enable, new_wm.sr.enable, true))
 		_intel_set_memory_cxsr(dev_priv, false);
 
 	g4x_write_wm_values(dev_priv, &new_wm);
 
-	if (is_enabling(old_wm->cxsr, new_wm.cxsr, true))
+	if (is_enabling(old_wm->sr.enable, new_wm.sr.enable, true))
 		_intel_set_memory_cxsr(dev_priv, true);
 
 	*old_wm = new_wm;
@@ -1750,6 +1750,7 @@ static void vlv_invalidate_wms(struct intel_crtc *crtc,
 		for_each_plane_id_on_crtc(crtc, plane_id)
 			wm_state->wm[level].plane[plane_id] = USHRT_MAX;
 
+		wm_state->sr[level].enable = false;
 		wm_state->sr[level].cursor = USHRT_MAX;
 		wm_state->sr[level].plane = USHRT_MAX;
 	}
@@ -1857,12 +1858,6 @@ static int _vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 
 	/* initially allow all levels */
 	wm_state->num_levels = intel_wm_num_levels(dev_priv);
-	/*
-	 * Note that enabling cxsr with no primary/sprite planes
-	 * enabled can wedge the pipe. Hence we only allow cxsr
-	 * with exactly one enabled primary/sprite plane.
-	 */
-	wm_state->cxsr = crtc->pipe != PIPE_C && num_active_planes == 1;
 
 	for (level = 0; level < wm_state->num_levels; level++) {
 		const struct g4x_pipe_wm *raw = &crtc_state->wm.vlv.raw[level];
@@ -1876,6 +1871,14 @@ static int _vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 				vlv_invert_wm_value(raw->plane[plane_id],
 						    fifo_state->plane[plane_id]);
 		}
+
+		/*
+		 * Note that enabling cxsr with no primary/sprite planes
+		 * enabled can wedge the pipe. Hence we only allow cxsr
+		 * with exactly one enabled primary/sprite plane.
+		 */
+		wm_state->sr[level].enable =
+			crtc->pipe != PIPE_C && num_active_planes == 1;
 
 		wm_state->sr[level].plane =
 			vlv_invert_wm_value(max3(raw->plane[PLANE_PRIMARY],
@@ -2075,13 +2078,12 @@ static int vlv_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 	if (!new_crtc_state->base.active || drm_atomic_crtc_needs_modeset(&new_crtc_state->base)) {
 		*intermediate = *optimal;
 
-		intermediate->cxsr = false;
+		for (level = 0; level < intermediate->num_levels; level++)
+			intermediate->sr[level].enable = false;
 		goto out;
 	}
 
 	intermediate->num_levels = min(optimal->num_levels, active->num_levels);
-	intermediate->cxsr = optimal->cxsr && active->cxsr &&
-		!new_crtc_state->disable_cxsr;
 
 	for (level = 0; level < intermediate->num_levels; level++) {
 		enum plane_id plane_id;
@@ -2091,6 +2093,11 @@ static int vlv_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 				min(optimal->wm[level].plane[plane_id],
 				    active->wm[level].plane[plane_id]);
 		}
+
+		intermediate->sr[level].enable =
+			optimal->sr[level].enable &&
+			active->sr[level].enable &&
+			!new_crtc_state->disable_cxsr;
 
 		intermediate->sr[level].plane = min(optimal->sr[level].plane,
 						    active->sr[level].plane);
@@ -2118,7 +2125,7 @@ static void vlv_merge_wm(struct drm_i915_private *dev_priv,
 	int num_active_crtcs = 0;
 
 	wm->level = dev_priv->wm.max_level;
-	wm->cxsr = true;
+	wm->sr.enable = true;
 
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		const struct vlv_wm_state *wm_state = &crtc->wm.active.vlv;
@@ -2126,15 +2133,15 @@ static void vlv_merge_wm(struct drm_i915_private *dev_priv,
 		if (!crtc->active)
 			continue;
 
-		if (!wm_state->cxsr)
-			wm->cxsr = false;
+		if (!wm_state->sr[VLV_WM_LEVEL_PM2].enable)
+			wm->sr.enable = false;
 
 		num_active_crtcs++;
 		wm->level = min_t(int, wm->level, wm_state->num_levels - 1);
 	}
 
 	if (num_active_crtcs != 1)
-		wm->cxsr = false;
+		wm->sr.enable = false;
 
 	if (num_active_crtcs > 1)
 		wm->level = VLV_WM_LEVEL_PM2;
@@ -2144,7 +2151,7 @@ static void vlv_merge_wm(struct drm_i915_private *dev_priv,
 		enum pipe pipe = crtc->pipe;
 
 		wm->pipe[pipe] = wm_state->wm[wm->level];
-		if (crtc->active && wm->cxsr)
+		if (crtc->active && wm->sr.enable)
 			wm->sr = wm_state->sr[wm->level];
 
 		wm->ddl[pipe].plane[PLANE_PRIMARY] = DDL_PRECISION_HIGH | 2;
@@ -2170,12 +2177,12 @@ static void vlv_program_watermarks(struct drm_i915_private *dev_priv)
 	if (is_disabling(old_wm->level, new_wm.level, VLV_WM_LEVEL_PM5))
 		chv_set_memory_pm5(dev_priv, false);
 
-	if (is_disabling(old_wm->cxsr, new_wm.cxsr, true))
+	if (is_disabling(old_wm->sr.enable, new_wm.sr.enable, true))
 		_intel_set_memory_cxsr(dev_priv, false);
 
 	vlv_write_wm_values(dev_priv, &new_wm);
 
-	if (is_enabling(old_wm->cxsr, new_wm.cxsr, true))
+	if (is_enabling(old_wm->sr.enable, new_wm.sr.enable, true))
 		_intel_set_memory_cxsr(dev_priv, true);
 
 	if (is_enabling(old_wm->level, new_wm.level, VLV_WM_LEVEL_PM5))
@@ -5875,10 +5882,12 @@ static void g4x_read_wm_values(struct drm_i915_private *dev_priv,
 	wm->pipe[PIPE_A].plane[PLANE_SPRITE0] = _FW_WM(tmp, SPRITEA);
 
 	tmp = I915_READ(DSPFW3);
-	wm->hpll_en = tmp & DSPFW_HPLL_SR_EN;
+	wm->hpll.enable = tmp & DSPFW_HPLL_SR_EN;
 	wm->sr.cursor = _FW_WM(tmp, CURSOR_SR);
 	wm->hpll.cursor = _FW_WM(tmp, HPLL_CURSOR);
 	wm->hpll.plane = _FW_WM(tmp, HPLL_SR);
+
+	wm->sr.enable = I915_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
 }
 
 static void vlv_read_wm_values(struct drm_i915_private *dev_priv,
@@ -5952,6 +5961,8 @@ static void vlv_read_wm_values(struct drm_i915_private *dev_priv,
 		wm->pipe[PIPE_A].plane[PLANE_SPRITE0] |= _FW_WM(tmp, SPRITEA_HI) << 8;
 		wm->pipe[PIPE_A].plane[PLANE_PRIMARY] |= _FW_WM(tmp, PLANEA_HI) << 8;
 	}
+
+	wm->sr.enable = I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN;
 }
 
 #undef _FW_WM
@@ -5964,8 +5975,6 @@ void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 
 	g4x_read_wm_values(dev_priv, wm);
 
-	wm->cxsr = I915_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
-
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		struct intel_crtc_state *crtc_state =
 			to_intel_crtc_state(crtc->base.state);
@@ -5975,8 +5984,8 @@ void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 		enum plane_id plane_id;
 		int level, max_level;
 
-		active->cxsr = wm->cxsr;
-		active->hpll_en = wm->hpll_en;
+		active->sr.enable = wm->sr.enable;
+		active->hpll.enable = wm->hpll.enable;
 		active->fbc_en = wm->fbc_en;
 
 		active->sr = wm->sr;
@@ -5987,9 +5996,9 @@ void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 				wm->pipe[pipe].plane[plane_id];
 		}
 
-		if (wm->cxsr && wm->hpll_en)
+		if (wm->sr.enable && wm->hpll.enable)
 			max_level = G4X_WM_LEVEL_HPLL;
-		else if (wm->cxsr)
+		else if (wm->sr.enable)
 			max_level = G4X_WM_LEVEL_SR;
 		else
 			max_level = G4X_WM_LEVEL_NORMAL;
@@ -6038,12 +6047,12 @@ void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 			      wm->pipe[pipe].plane[PLANE_SPRITE0]);
 	}
 
-	DRM_DEBUG_KMS("Initial SR watermarks: plane=%d, cursor=%d fbc=%d\n",
-		      wm->sr.plane, wm->sr.cursor, wm->sr.fbc);
-	DRM_DEBUG_KMS("Initial HPLL watermarks: plane=%d, SR cursor=%d fbc=%d\n",
-		      wm->hpll.plane, wm->hpll.cursor, wm->hpll.fbc);
-	DRM_DEBUG_KMS("Initial SR=%s HPLL=%s FBC=%s\n",
-		      yesno(wm->cxsr), yesno(wm->hpll_en), yesno(wm->fbc_en));
+	DRM_DEBUG_KMS("Initial SR watermarks: enable=%s, plane=%d, cursor=%d fbc=%s/%d\n",
+		      yesno(wm->sr.enable), wm->sr.plane,
+		      wm->sr.cursor, yesno(wm->fbc_en), wm->sr.fbc);
+	DRM_DEBUG_KMS("Initial HPLL watermarks: enable=%s, plane=%d, cursor=%d fbc=%s/%d\n",
+		      yesno(wm->hpll.enable), wm->hpll.plane,
+		      wm->hpll.cursor, yesno(wm->fbc_en), wm->hpll.fbc);
 }
 
 void g4x_wm_sanitize(struct drm_i915_private *dev_priv)
@@ -6101,7 +6110,6 @@ void vlv_wm_get_hw_state(struct drm_i915_private *dev_priv)
 
 	vlv_read_wm_values(dev_priv, wm);
 
-	wm->cxsr = I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN;
 	wm->level = VLV_WM_LEVEL_PM2;
 
 	if (IS_CHERRYVIEW(dev_priv)) {
@@ -6151,12 +6159,12 @@ void vlv_wm_get_hw_state(struct drm_i915_private *dev_priv)
 		vlv_get_fifo_size(crtc_state);
 
 		active->num_levels = wm->level + 1;
-		active->cxsr = wm->cxsr;
 
 		for (level = 0; level < active->num_levels; level++) {
 			struct g4x_pipe_wm *raw =
 				&crtc_state->wm.vlv.raw[level];
 
+			active->sr[level].enable = wm->sr.enable;
 			active->sr[level].plane = wm->sr.plane;
 			active->sr[level].cursor = wm->sr.cursor;
 
@@ -6186,8 +6194,8 @@ void vlv_wm_get_hw_state(struct drm_i915_private *dev_priv)
 			      wm->pipe[pipe].plane[PLANE_SPRITE1]);
 	}
 
-	DRM_DEBUG_KMS("Initial watermarks: SR plane=%d, SR cursor=%d level=%d cxsr=%d\n",
-		      wm->sr.plane, wm->sr.cursor, wm->level, wm->cxsr);
+	DRM_DEBUG_KMS("Initial SR watermarks: enable=%s, plane=%d, SR cursor=%d, level=%d\n",
+		      yesno(wm->sr.enable), wm->sr.plane, wm->sr.cursor, wm->level);
 }
 
 void vlv_wm_sanitize(struct drm_i915_private *dev_priv)

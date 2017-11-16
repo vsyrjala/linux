@@ -678,7 +678,6 @@ struct vlv_wm_state {
 	struct g4x_pipe_wm wm[NUM_VLV_WM_LEVELS];
 	struct g4x_sr_wm sr[NUM_VLV_WM_LEVELS];
 	u8 num_levels;
-	bool cxsr;
 };
 
 struct vlv_fifo_state {
@@ -696,8 +695,6 @@ struct g4x_wm_state {
 	struct g4x_pipe_wm wm;
 	struct g4x_sr_wm sr;
 	struct g4x_sr_wm hpll;
-	bool cxsr;
-	bool hpll_en;
 	bool fbc_en;
 };
 

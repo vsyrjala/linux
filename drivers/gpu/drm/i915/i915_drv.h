@@ -1071,6 +1071,7 @@ struct g4x_sr_wm {
 	u16 plane;
 	u16 cursor;
 	u16 fbc;
+	bool enable;
 };
 
 struct vlv_wm_ddl_values {
@@ -1082,15 +1083,12 @@ struct vlv_wm_values {
 	struct g4x_sr_wm sr;
 	struct vlv_wm_ddl_values ddl[3];
 	u8 level;
-	bool cxsr;
 };
 
 struct g4x_wm_values {
 	struct g4x_pipe_wm pipe[2];
 	struct g4x_sr_wm sr;
 	struct g4x_sr_wm hpll;
-	bool cxsr;
-	bool hpll_en;
 	bool fbc_en;
 };
 

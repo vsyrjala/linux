@@ -108,9 +108,9 @@ TRACE_EVENT(g4x_wm,
 			     __field(u16, hpll_plane)
 			     __field(u16, hpll_cursor)
 			     __field(u16, hpll_fbc)
-			     __field(bool, cxsr)
-			     __field(bool, hpll)
-			     __field(bool, fbc)
+			     __field(bool, sr_en)
+			     __field(bool, hpll_en)
+			     __field(bool, fbc_en)
 			     ),
 
 	    TP_fast_assign(
@@ -127,17 +127,17 @@ TRACE_EVENT(g4x_wm,
 			   __entry->hpll_plane = wm->hpll.plane;
 			   __entry->hpll_cursor = wm->hpll.cursor;
 			   __entry->hpll_fbc = wm->hpll.fbc;
-			   __entry->cxsr = wm->cxsr;
-			   __entry->hpll = wm->hpll_en;
-			   __entry->fbc = wm->fbc_en;
+			   __entry->sr_en = wm->sr.enable;
+			   __entry->hpll_en = wm->hpll.enable;
+			   __entry->fbc_en = wm->fbc_en;
 			   ),
 
 	    TP_printk("pipe %c, frame=%u, scanline=%u, wm %d/%d/%d, sr %s/%d/%d/%d, hpll %s/%d/%d/%d, fbc %s",
 		      pipe_name(__entry->pipe), __entry->frame, __entry->scanline,
 		      __entry->primary, __entry->sprite, __entry->cursor,
-		      yesno(__entry->cxsr), __entry->sr_plane, __entry->sr_cursor, __entry->sr_fbc,
-		      yesno(__entry->hpll), __entry->hpll_plane, __entry->hpll_cursor, __entry->hpll_fbc,
-		      yesno(__entry->fbc))
+		      yesno(__entry->sr_en), __entry->sr_plane, __entry->sr_cursor, __entry->sr_fbc,
+		      yesno(__entry->hpll_en), __entry->hpll_plane, __entry->hpll_cursor, __entry->hpll_fbc,
+		      yesno(__entry->fbc_en))
 );
 
 TRACE_EVENT(vlv_wm,
@@ -149,13 +149,13 @@ TRACE_EVENT(vlv_wm,
 			     __field(u32, frame)
 			     __field(u32, scanline)
 			     __field(u32, level)
-			     __field(u32, cxsr)
 			     __field(u32, primary)
 			     __field(u32, sprite0)
 			     __field(u32, sprite1)
 			     __field(u32, cursor)
 			     __field(u32, sr_plane)
 			     __field(u32, sr_cursor)
+			     __field(bool, sr_en)
 			     ),
 
 	    TP_fast_assign(
@@ -164,20 +164,20 @@ TRACE_EVENT(vlv_wm,
 										       crtc->pipe);
 			   __entry->scanline = intel_get_crtc_scanline(crtc);
 			   __entry->level = wm->level;
-			   __entry->cxsr = wm->cxsr;
 			   __entry->primary = wm->pipe[crtc->pipe].plane[PLANE_PRIMARY];
 			   __entry->sprite0 = wm->pipe[crtc->pipe].plane[PLANE_SPRITE0];
 			   __entry->sprite1 = wm->pipe[crtc->pipe].plane[PLANE_SPRITE1];
 			   __entry->cursor = wm->pipe[crtc->pipe].plane[PLANE_CURSOR];
 			   __entry->sr_plane = wm->sr.plane;
 			   __entry->sr_cursor = wm->sr.cursor;
+			   __entry->sr_en = wm->sr.enable;
 			   ),
 
-	    TP_printk("pipe %c, frame=%u, scanline=%u, level=%d, cxsr=%d, wm %d/%d/%d/%d, sr %d/%d",
+	    TP_printk("pipe %c, frame=%u, scanline=%u, level=%d, wm %d/%d/%d/%d, sr %s/%d/%d",
 		      pipe_name(__entry->pipe), __entry->frame,
-		      __entry->scanline, __entry->level, __entry->cxsr,
+		      __entry->scanline, __entry->level,
 		      __entry->primary, __entry->sprite0, __entry->sprite1, __entry->cursor,
-		      __entry->sr_plane, __entry->sr_cursor)
+		      yesno(__entry->sr_en), __entry->sr_plane, __entry->sr_cursor)
 );
 
 TRACE_EVENT(vlv_fifo_size,
