@@ -1309,6 +1309,25 @@ static void g4x_invalidate_wms(struct intel_crtc *crtc,
 	}
 }
 
+static bool g4x_compute_sr_wm(struct intel_crtc_state *crtc_state,
+			      struct g4x_sr_wm *sr, int level)
+{
+	const struct g4x_pipe_wm *raw = &crtc_state->wm.g4x.raw[level];
+	unsigned int active_planes =
+		crtc_state->active_planes & ~BIT(PLANE_CURSOR);
+
+	if (!g4x_raw_crtc_wm_is_valid(crtc_state, level))
+		return false;
+
+	sr->plane = raw->plane[PLANE_PRIMARY];
+	sr->cursor = raw->plane[PLANE_CURSOR];
+	sr->fbc = raw->fbc;
+
+	sr->enable = active_planes == BIT(PLANE_PRIMARY);
+
+	return true;
+}
+
 static bool g4x_compute_fbc_en(const struct g4x_wm_state *wm_state,
 			       int level)
 {
@@ -1330,47 +1349,29 @@ static int _g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct g4x_wm_state *wm_state = &crtc_state->wm.g4x.optimal;
-	unsigned int active_planes = crtc_state->active_planes & ~BIT(PLANE_CURSOR);
 	const struct g4x_pipe_wm *raw;
 	enum plane_id plane_id;
 	int level;
 
 	level = G4X_WM_LEVEL_NORMAL;
 	if (!g4x_raw_crtc_wm_is_valid(crtc_state, level))
-		goto out;
+		return -EINVAL;
 
 	raw = &crtc_state->wm.g4x.raw[level];
 	for_each_plane_id_on_crtc(crtc, plane_id)
 		wm_state->wm.plane[plane_id] = raw->plane[plane_id];
 
 	level = G4X_WM_LEVEL_SR;
-	if (!g4x_raw_crtc_wm_is_valid(crtc_state, level))
+	if (!g4x_compute_sr_wm(crtc_state, &wm_state->sr, level))
 		goto out;
-
-	raw = &crtc_state->wm.g4x.raw[level];
-	wm_state->sr.plane = raw->plane[PLANE_PRIMARY];
-	wm_state->sr.cursor = raw->plane[PLANE_CURSOR];
-	wm_state->sr.fbc = raw->fbc;
-
-	wm_state->sr.enable = active_planes == BIT(PLANE_PRIMARY);
 
 	level = G4X_WM_LEVEL_HPLL;
-	if (!g4x_raw_crtc_wm_is_valid(crtc_state, level))
+	if (!g4x_compute_sr_wm(crtc_state, &wm_state->hpll, level))
 		goto out;
-
-	raw = &crtc_state->wm.g4x.raw[level];
-	wm_state->hpll.plane = raw->plane[PLANE_PRIMARY];
-	wm_state->hpll.cursor = raw->plane[PLANE_CURSOR];
-	wm_state->hpll.fbc = raw->fbc;
-
-	wm_state->hpll.enable = wm_state->sr.enable;
 
 	level++;
 
  out:
-	if (level == G4X_WM_LEVEL_NORMAL)
-		return -EINVAL;
-
 	/* invalidate the higher levels */
 	g4x_invalidate_wms(crtc, wm_state, level);
 
