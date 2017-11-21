@@ -929,6 +929,20 @@ static int drm_atomic_plane_check(struct drm_plane *plane,
 	return 0;
 }
 
+static const u16 rotate_angle[] = {
+	0,
+	90,
+	180,
+	270,
+};
+
+static const char * const reflect_str[] = {
+	"",
+	"+X",
+	"+Y",
+	"+X+Y",
+};
+
 static void drm_atomic_plane_print_state(struct drm_printer *p,
 		const struct drm_plane_state *state)
 {
@@ -943,7 +957,9 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
 		drm_framebuffer_print_info(p, 2, state->fb);
 	drm_printf(p, "\tcrtc-pos=" DRM_RECT_FMT "\n", DRM_RECT_ARG(&dest));
 	drm_printf(p, "\tsrc-pos=" DRM_RECT_FP_FMT "\n", DRM_RECT_FP_ARG(&src));
-	drm_printf(p, "\trotation=%x\n", state->rotation);
+	drm_printf(p, "\trotation=%d%s\n",
+		   rotate_angle[ilog2(state->rotation & DRM_MODE_ROTATE_MASK)],
+		   reflect_str[(state->rotation & DRM_MODE_REFLECT_MASK) >> 4]);
 
 	if (plane->funcs->atomic_print_state)
 		plane->funcs->atomic_print_state(p, state);
