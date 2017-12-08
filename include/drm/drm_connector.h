@@ -157,6 +157,8 @@ struct drm_hdmi_info {
 
 	/** @y420_dc_modes: bitmap of deep color support index */
 	u8 y420_dc_modes;
+
+	u8 colorimetry;
 };
 
 /**
