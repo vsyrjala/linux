@@ -3837,6 +3837,8 @@ drm_parse_hdr_metadata_block(struct drm_connector *connector, const u8 *db)
 {
 	uint16_t len;
 
+	return;
+
 	len = cea_db_payload_len(db);
 	connector->hdr_panel_metadata->eotf = eotf_supported(db);
 	connector->hdr_panel_metadata->type = hdr_metadata_type(db);
