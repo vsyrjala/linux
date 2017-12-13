@@ -2816,16 +2816,6 @@ add_detailed_modes(struct drm_connector *connector, struct edid *edid,
 #define COLORIMETRY_DATA_BLOCK		0x5
 #define HDR_STATIC_METADATA_BLOCK	0x6
 
-/* HDR Metadata Block: Bit fields */
-#define SUPPORTED_EOTF_MASK            0x3f
-#define TRADITIONAL_GAMMA_SDR          (0x1 << 0)
-#define TRADITIONAL_GAMMA_HDR          (0x1 << 1)
-#define SMPTE_ST2084                   (0x1 << 2)
-#define FUTURE_EOTF                    (0x1 << 3)
-#define RESERVED_EOTF                  (0x3 << 4)
-
-#define STATIC_METADATA_TYPE1          (0x1 << 0)
-
 /*
  * Search EDID for CEA extension block.
  */
@@ -3810,26 +3800,16 @@ static bool cea_db_is_hdmi_hdr_metadata_block(const u8 *db)
 
 static uint16_t eotf_supported(const u8 *edid_ext)
 {
-	uint16_t val = 0;
-
-	if (edid_ext[2] & TRADITIONAL_GAMMA_SDR)
-		val |= TRADITIONAL_GAMMA_SDR;
-	if (edid_ext[2] & TRADITIONAL_GAMMA_HDR)
-		val |= TRADITIONAL_GAMMA_HDR;
-	if (edid_ext[2] & SMPTE_ST2084)
-		val |= SMPTE_ST2084;
-
-	return val;
+	return edid_ext[2] &
+		(BIT(HDMI_EOTF_TRADITIONAL_GAMMA_SDR) |
+		 BIT(HDMI_EOTF_TRADITIONAL_GAMMA_HDR) |
+		 BIT(HDMI_EOTF_SMPTE_ST2084));
 }
 
 static uint16_t hdr_metadata_type(const u8 *edid_ext)
 {
-	uint16_t val = 0;
-
-	if (edid_ext[3] & STATIC_METADATA_TYPE1)
-		val |= STATIC_METADATA_TYPE1;
-
-	return val;
+	return edid_ext[3] &
+		BIT(HDMI_STATIC_METADATA_TYPE1);
 }
 
 static void
@@ -3840,18 +3820,15 @@ drm_parse_hdr_metadata_block(struct drm_connector *connector, const u8 *db)
 	return;
 
 	len = cea_db_payload_len(db);
-	connector->hdr_panel_metadata->eotf = eotf_supported(db);
-	connector->hdr_panel_metadata->type = hdr_metadata_type(db);
+	connector->hdr_metadata.eotf = eotf_supported(db);
+	connector->hdr_metadata.metadata_type = hdr_metadata_type(db);
 
-	if (len == 6) {
-		connector->hdr_panel_metadata->max_cll = db[4];
-		connector->hdr_panel_metadata->max_fall = db[5];
-		connector->hdr_panel_metadata->min_cll = db[6];
-	} else if (len == 5) {
-		connector->hdr_panel_metadata->max_cll = db[4];
-		connector->hdr_panel_metadata->max_fall = db[5];
-	} else if (len == 4)
-		connector->hdr_panel_metadata->max_cll = db[4];
+	if (len >= 6)
+		;//connector->hdr_metadata.min_cll = db[6];
+	if (len >= 5)
+		connector->hdr_metadata.max_fall = db[5];
+	if (len >= 4)
+		connector->hdr_metadata.max_cll = db[4];
 
 }
 
@@ -4891,23 +4868,24 @@ drm_hdmi_infoframe_set_hdr_metadata(struct hdmi_drm_infoframe *frame,
 	if (err < 0)
 		return err;
 
+	DRM_DEBUG_KMS("type = %x\n", frame->type);
+
 	hdr_source_metadata = (struct hdr_static_metadata *)hdr_metadata;
 
 	frame->length = sizeof(struct hdr_static_metadata);
 
-
 	frame->eotf = hdr_source_metadata->eotf;
-	frame->type = hdr_source_metadata->type;
+	frame->metadata_type = hdr_source_metadata->metadata_type;
 
 	for (i = 0; i < 3; i++) {
-		frame->display_primaries_x[i] =
-			hdr_source_metadata->display_primaries_x[i];
-		frame->display_primaries_y[i] =
-			hdr_source_metadata->display_primaries_y[i];
+		frame->display_primaries[i].x =
+			hdr_source_metadata->display_primaries[i].x;
+		frame->display_primaries[i].y =
+			hdr_source_metadata->display_primaries[i].y;
 	}
 
-	frame->white_point_x = hdr_source_metadata->white_point_x;
-	frame->white_point_y = hdr_source_metadata->white_point_y;
+	frame->white_point.x = hdr_source_metadata->white_point.x;
+	frame->white_point.y = hdr_source_metadata->white_point.y;
 
 	frame->max_mastering_display_luminance =
 		hdr_source_metadata->max_mastering_display_luminance;
@@ -4917,6 +4895,10 @@ drm_hdmi_infoframe_set_hdr_metadata(struct hdmi_drm_infoframe *frame,
 	frame->max_cll = hdr_source_metadata->max_cll;
 	frame->max_fall = hdr_source_metadata->max_fall;
 
+	DRM_DEBUG_KMS("sika\n");
+	hdmi_infoframe_log(KERN_CRIT, NULL,
+			   (union hdmi_infoframe*)frame);
+	DRM_DEBUG_KMS("sika 2\n");
 	return 0;
 }
 EXPORT_SYMBOL(drm_hdmi_infoframe_set_hdr_metadata);
@@ -5007,6 +4989,10 @@ drm_hdmi_avi_infoframe_quant_range(struct hdmi_avi_infoframe *frame,
 				   bool rgb_quant_range_selectable,
 				   bool is_hdmi2_sink)
 {
+	DRM_DEBUG_KMS("quant %d %d qs=%d\n",
+		      rgb_quant_range, drm_default_rgb_quant_range(mode),
+		      rgb_quant_range_selectable);
+
 	/*
 	 * CEA-861:
 	 * "A Source shall not send a non-zero Q value that does not correspond

@@ -430,6 +430,7 @@ ssize_t hdmi_drm_infoframe_pack(struct hdmi_drm_infoframe *frame, void *buffer,
 {
 	u8 *ptr = buffer;
 	size_t length;
+	int i;
 
 	length = HDMI_INFOFRAME_HEADER_SIZE + frame->length;
 
@@ -446,44 +447,31 @@ ssize_t hdmi_drm_infoframe_pack(struct hdmi_drm_infoframe *frame, void *buffer,
 	/* start infoframe payload */
 	ptr += HDMI_INFOFRAME_HEADER_SIZE;
 
-	ptr[0] = frame->eotf;
-	ptr[1] = frame->metadata_type;
+	*ptr++ = frame->eotf;
+	*ptr++ = frame->metadata_type;
 
-	ptr[2] = frame->display_primaries_x[0] & 0xff;
-	ptr[3] = frame->display_primaries_x[0] >> 8;
+	for (i = 0; i < 3; i++) {
+		*ptr++ = frame->display_primaries[i].x & 0xff;
+		*ptr++ = frame->display_primaries[i].x >> 8;
+	}
 
-	ptr[4] = frame->display_primaries_x[1] & 0xff;
-	ptr[5] = frame->display_primaries_x[1] >> 8;
+	*ptr++ = frame->white_point.x & 0xff;
+	*ptr++ = frame->white_point.x >> 8;
 
-	ptr[6] = frame->display_primaries_x[2] & 0xff;
-	ptr[7] = frame->display_primaries_x[2] >> 8;
+	*ptr++ = frame->white_point.y & 0xff;
+	*ptr++ = frame->white_point.y >> 8;
 
-	ptr[9] = frame->display_primaries_y[0] & 0xff;
-	ptr[10] = frame->display_primaries_y[0] >> 8;
+	*ptr++ = frame->max_mastering_display_luminance & 0xff;
+	*ptr++ = frame->max_mastering_display_luminance >> 8;
 
-	ptr[11] = frame->display_primaries_y[1] & 0xff;
-	ptr[12] = frame->display_primaries_y[1] >> 8;
+	*ptr++ = frame->min_mastering_display_luminance & 0xff;
+	*ptr++ = frame->min_mastering_display_luminance >> 8;
 
-	ptr[13] = frame->display_primaries_y[2] & 0xff;
-	ptr[14] = frame->display_primaries_y[2] >> 8;
+	*ptr++ = frame->max_cll & 0xff;
+	*ptr++ = frame->max_cll >> 8;
 
-	ptr[15] = frame->white_point_x & 0xff;
-	ptr[16] = frame->white_point_x >> 8;
-
-	ptr[17] = frame->white_point_y & 0xff;
-	ptr[18] = frame->white_point_y >> 8;
-
-	ptr[19] = frame->max_mastering_display_luminance & 0xff;
-	ptr[20] = frame->max_mastering_display_luminance >> 8;
-
-	ptr[21] = frame->min_mastering_display_luminance & 0xff;
-	ptr[22] = frame->min_mastering_display_luminance >> 8;
-
-	ptr[23] = frame->max_cll & 0xff;
-	ptr[24] = frame->max_cll >> 8;
-
-	ptr[25] = frame->max_fall & 0xff;
-	ptr[26] = frame->max_fall >> 8;
+	*ptr++ = frame->max_fall & 0xff;
+	*ptr++ = frame->max_fall >> 8;
 
 	hdmi_infoframe_set_checksum(buffer, length);
 
@@ -541,7 +529,7 @@ hdmi_infoframe_pack(union hdmi_infoframe *frame, void *buffer, size_t size)
 							buffer, size);
 		break;
 	default:
-		WARN(1, "Bad infoframe type %d\n", frame->any.type);
+		WARN(1, "Bad infoframe type 0x%x\n", frame->any.type);
 		length = -EINVAL;
 	}
 
@@ -1025,14 +1013,15 @@ static void hdmi_drm_infoframe_log(const char *level,
 	hdmi_infoframe_log_header(level, dev,
 			(struct hdmi_any_infoframe *)frame);
 	hdmi_log("length: %d\n", frame->length);
+	hdmi_log("metadata type: %d\n", frame->metadata_type);
 	hdmi_log("eotf: %d\n", frame->eotf);
-	for (i = 0; i <= 2; i++) {
-		hdmi_log("x[%d]: %d\n", i, frame->display_primaries_x[i]);
-		hdmi_log("y[%d]: %d\n", i, frame->display_primaries_y[i]);
+	for (i = 0; i < 3; i++) {
+		hdmi_log("x[%d]: %d\n", i, frame->display_primaries[i].x);
+		hdmi_log("y[%d]: %d\n", i, frame->display_primaries[i].y);
 	}
 
-	hdmi_log("white point x: %d\n", frame->white_point_x);
-	hdmi_log("white point y: %d\n", frame->white_point_y);
+	hdmi_log("white point x: %d\n", frame->white_point.x);
+	hdmi_log("white point y: %d\n", frame->white_point.y);
 
 	hdmi_log("max_mastering_display_luminance: %d\n",
 			frame->max_mastering_display_luminance);

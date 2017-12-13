@@ -138,6 +138,16 @@ enum hdmi_content_type {
 	HDMI_CONTENT_TYPE_GAME,
 };
 
+enum hdmi_metadata_type {
+	HDMI_STATIC_METADATA_TYPE1 = 1,
+};
+
+enum hdmi_eotf {
+	HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
+	HDMI_EOTF_TRADITIONAL_GAMMA_HDR,
+	HDMI_EOTF_SMPTE_ST2084,
+};
+
 struct hdmi_avi_infoframe {
 	enum hdmi_infoframe_type type;
 	unsigned char version;
@@ -165,12 +175,14 @@ struct hdmi_drm_infoframe {
 	enum hdmi_infoframe_type type;
 	unsigned char version;
 	unsigned char length;
-	uint16_t eotf;
-	uint16_t metadata_type;
-	uint16_t display_primaries_x[3];
-	uint16_t display_primaries_y[3];
-	uint16_t white_point_x;
-	uint16_t white_point_y;
+	enum hdmi_eotf eotf;
+	enum hdmi_metadata_type metadata_type;
+	struct {
+		uint16_t x, y;
+	} display_primaries[3];
+	struct {
+		uint16_t x, y;
+	} white_point;
 	uint16_t max_mastering_display_luminance;
 	uint16_t min_mastering_display_luminance;
 	uint16_t max_fall;

@@ -622,23 +622,31 @@ int intel_color_check(struct drm_crtc *crtc,
 		sizeof(struct drm_color_lut);
 
 	/*
-	 * We allow both degamma & gamma luts at the right size or
-	 * NULL.
-	 */
-	if ((!crtc_state->degamma_lut ||
-	     crtc_state->degamma_lut->length == degamma_length) &&
-	    (!crtc_state->gamma_lut ||
-	     crtc_state->gamma_lut->length == gamma_length))
-		return 0;
-
-	/*
-	 * We also allow no degamma lut/ctm and a gamma lut at the legacy
+	 * We allow no degamma lut/ctm and a gamma lut at the legacy
 	 * size (256 entries).
 	 */
 	if (crtc_state_is_legacy_gamma(crtc_state))
 		return 0;
 
-	return -EINVAL;
+	/*
+	 * We allow both degamma & gamma luts at the right size or
+	 * NULL.
+	 */
+	if (crtc_state->degamma_lut &&
+	    crtc_state->degamma_lut->length != degamma_length) {
+		DRM_DEBUG_KMS("invalid degamma LUT size %zu (expected %zu)\n",
+			      crtc_state->degamma_lut->length, degamma_length);
+		return -EINVAL;
+	}
+
+	if (crtc_state->gamma_lut &&
+	    crtc_state->gamma_lut->length != gamma_length) {
+		DRM_DEBUG_KMS("invalid gamma LUT size %zu (expected %zu)\n",
+			      crtc_state->gamma_lut->length, gamma_length);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 void intel_color_init(struct drm_crtc *crtc)
@@ -665,7 +673,7 @@ void intel_color_init(struct drm_crtc *crtc)
 	}
 
 	/* Enable color management support when we have degamma & gamma LUTs. */
-	if (INTEL_INFO(dev_priv)->color.degamma_lut_size != 0 &&
+	if (INTEL_INFO(dev_priv)->color.degamma_lut_size != 0 ||
 	    INTEL_INFO(dev_priv)->color.gamma_lut_size != 0)
 		drm_crtc_enable_color_mgmt(crtc,
 					   INTEL_INFO(dev_priv)->color.degamma_lut_size,

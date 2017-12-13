@@ -1183,14 +1183,13 @@ static int drm_atomic_connector_set_property(struct drm_connector *connector,
 		 */
 		if (state->link_status != DRM_LINK_STATUS_GOOD)
 			state->link_status = val;
-		} else if (property == config->hdr_source_metadata_property) {
-			ret = drm_atomic_replace_property_blob_from_id(dev,
-					&state->hdr_source_metadata_blob_ptr,
-					val,
-					-1,
-					&replaced);
-			state->hdr_metadata_changed |= replaced;
-			return ret;
+	} else if (property == config->hdr_source_metadata_property) {
+		ret = drm_atomic_replace_property_blob_from_id(dev,
+							       &state->hdr_source_metadata_blob_ptr,
+							       val,
+							       -1,
+							       &replaced);
+		return ret;
 	} else if (property == config->aspect_ratio_property) {
 		state->picture_aspect_ratio = val;
 	} else if (property == connector->scaling_mode_property) {

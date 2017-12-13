@@ -4089,12 +4089,21 @@ enum {
 #define   EDP_PSR_PERF_CNT_MASK		0xffffff
 
 #define EDP_PSR_DEBUG_CTL		_MMIO(dev_priv->psr_mmio_base + 0x60)
-#define   EDP_PSR_DEBUG_MASK_MAX_SLEEP         (1<<28)
-#define   EDP_PSR_DEBUG_MASK_LPSP              (1<<27)
-#define   EDP_PSR_DEBUG_MASK_MEMUP             (1<<26)
-#define   EDP_PSR_DEBUG_MASK_HPD               (1<<25)
-#define   EDP_PSR_DEBUG_MASK_DISP_REG_WRITE    (1<<16)
-#define   EDP_PSR_DEBUG_EXIT_ON_PIXEL_UNDERRUN (1<<15)
+#define   EDP_PSR_DEBUG_MASK_MAX_SLEEP           (1<<28)
+#define   EDP_PSR_DEBUG_MASK_LPSP                (1<<27)
+#define   EDP_PSR_DEBUG_MASK_MEMUP               (1<<26)
+#define   EDP_PSR_DEBUG_MASK_HPD                 (1<<25)
+#define   EDP_PSR_DEBUG_MASK_FBC_MODIFY          (1<<24)
+#define   EDP_PSR_DEBUG_MASK_FLIP_PENDING        (1<<23)
+#define   EDP_PSR_DEBUG_MASK_HDCP_ENABLE         (1<<22)
+#define   EDP_PSR_DEBUG_MASK_SPRITE_ENABLE       (1<<21)
+#define   EDP_PSR_DEBUG_MASK_CURSOR_MOVE         (1<<20)
+#define   EDP_PSR_DEBUG_MASK_VBLANK_VSYNC_INT_EN (1<<19)
+#define   EDP_PSR_DEBUG_MASK_DPST_PHASEIN_EN     (1<<18)
+#define   EDP_PSR_DEBUG_MASK_KVMR_SESSION_EN     (1<<17)
+#define   EDP_PSR_DEBUG_MASK_DISP_REG_WRITE      (1<<16)
+#define   EDP_PSR_DEBUG_ENTRY_COMPLETION         (1<<1)
+#define   EDP_PSR_DEBUG_REDUCE_COUNT             (1<<0)
 
 #define EDP_PSR2_CTL			_MMIO(0x6f900)
 #define   EDP_PSR2_ENABLE		(1<<31)
@@ -4448,6 +4457,7 @@ enum {
 #define   VIDEO_DIP_FREQ_2VSYNC		(2 << 16)
 #define   VIDEO_DIP_FREQ_MASK		(3 << 16)
 /* HSW and later: */
+#define   VIDEO_DIP_ENABLE_DRM_GLK	(1 << 28)
 #define   VIDEO_DIP_ENABLE_VSC_HSW	(1 << 20)
 #define   VIDEO_DIP_ENABLE_GCP_HSW	(1 << 16)
 #define   VIDEO_DIP_ENABLE_AVI_HSW	(1 << 12)
@@ -7431,6 +7441,8 @@ enum {
 #define _HSW_VIDEO_DIP_SPD_DATA_A	0x602A0
 #define _HSW_VIDEO_DIP_GMP_DATA_A	0x602E0
 #define _HSW_VIDEO_DIP_VSC_DATA_A	0x60320
+#define _GLK_VIDEO_DIP_DRM_DATA_A	0x60440
+
 #define _HSW_VIDEO_DIP_AVI_ECC_A	0x60240
 #define _HSW_VIDEO_DIP_VS_ECC_A		0x60280
 #define _HSW_VIDEO_DIP_SPD_ECC_A	0x602C0
@@ -7444,6 +7456,8 @@ enum {
 #define _HSW_VIDEO_DIP_SPD_DATA_B	0x612A0
 #define _HSW_VIDEO_DIP_GMP_DATA_B	0x612E0
 #define _HSW_VIDEO_DIP_VSC_DATA_B	0x61320
+#define _GLK_VIDEO_DIP_DRM_DATA_B	0x61440
+
 #define _HSW_VIDEO_DIP_BVI_ECC_B	0x61240
 #define _HSW_VIDEO_DIP_VS_ECC_B		0x61280
 #define _HSW_VIDEO_DIP_SPD_ECC_B	0x612C0
@@ -7457,6 +7471,7 @@ enum {
 #define HSW_TVIDEO_DIP_SPD_DATA(trans, i)	_MMIO_TRANS2(trans, _HSW_VIDEO_DIP_SPD_DATA_A + (i) * 4)
 #define HSW_TVIDEO_DIP_GCP(trans)		_MMIO_TRANS2(trans, _HSW_VIDEO_DIP_GCP_A)
 #define HSW_TVIDEO_DIP_VSC_DATA(trans, i)	_MMIO_TRANS2(trans, _HSW_VIDEO_DIP_VSC_DATA_A + (i) * 4)
+#define GLK_TVIDEO_DIP_DRM_DATA(trans, i)	_MMIO_TRANS2(trans, _GLK_VIDEO_DIP_DRM_DATA_A + (i) * 4)
 
 #define _HSW_STEREO_3D_CTL_A		0x70020
 #define   S3D_ENABLE			(1<<31)

@@ -983,8 +983,7 @@ struct drm_connector {
 	struct work_struct free_work;
 
 	/* HDR metdata */
-	struct hdr_static_metadata *hdr_panel_metadata;
-	struct hdr_static_metadata *hdr_source_metadata;
+	struct hdr_static_metadata hdr_metadata;
 };
 
 #define obj_to_connector(x) container_of(x, struct drm_connector, base)
