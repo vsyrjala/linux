@@ -2798,6 +2798,79 @@ intel_ddi_init_dp_connector(struct intel_digital_port *intel_dig_port)
 	return connector;
 }
 
+static int intel_ddi_hdmi_reset_scrambling(struct intel_encoder *encoder,
+					   struct drm_modeset_acquire_ctx *ctx)
+{
+	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
+	struct intel_hdmi *hdmi = enc_to_intel_hdmi(&encoder->base);
+	struct intel_connector *connector = hdmi->attached_connector;
+	struct drm_connector_state *conn_state;
+	struct intel_crtc_state *crtc_state;
+	struct intel_crtc *crtc;
+	int ret;
+
+	if (!connector || connector->base.status != connector_status_connected)
+		return 0;
+
+	ret = drm_modeset_lock(&dev_priv->drm.mode_config.connection_mutex, ctx);
+	if (ret)
+		return ret;
+
+	conn_state = connector->base.state;
+
+	crtc = to_intel_crtc(conn_state->crtc);
+	if (!crtc)
+		return 0;
+
+	ret = drm_modeset_lock(&crtc->base.mutex, ctx);
+	if (ret)
+		return ret;
+
+	crtc_state = to_intel_crtc_state(crtc->base.state);
+
+	WARN_ON(!intel_crtc_has_type(crtc_state, INTEL_OUTPUT_HDMI));
+
+	if (!crtc_state->base.active)
+		return 0;
+
+	if (!crtc_state->hdmi_high_tmds_clock_ratio &&
+	    !crtc_state->hdmi_scrambling)
+		return 0;
+
+	if (conn_state->commit &&
+	    !try_wait_for_completion(&conn_state->commit->hw_done))
+		return 0;
+
+	intel_hdmi_handle_sink_scrambling(encoder, &connector->base,
+					  crtc_state->hdmi_high_tmds_clock_ratio,
+					  crtc_state->hdmi_scrambling);
+
+	return 0;
+}
+
+static void intel_ddi_post_hotplug(struct intel_encoder *encoder)
+{
+	struct drm_modeset_acquire_ctx ctx;
+	int ret;
+
+	drm_modeset_acquire_init(&ctx, 0);
+
+	for (;;) {
+		ret = intel_ddi_hdmi_reset_scrambling(encoder, &ctx);
+
+		if (ret == -EDEADLK) {
+			drm_modeset_backoff(&ctx);
+			continue;
+		}
+
+		break;
+	}
+
+	drm_modeset_drop_locks(&ctx);
+	drm_modeset_acquire_fini(&ctx);
+	WARN(ret, "Acquiring modeset locks failed with %i\n", ret);
+}
+
 static struct intel_connector *
 intel_ddi_init_hdmi_connector(struct intel_digital_port *intel_dig_port)
 {
@@ -2908,6 +2981,8 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 	drm_encoder_init(&dev_priv->drm, encoder, &intel_ddi_funcs,
 			 DRM_MODE_ENCODER_TMDS, "DDI %c", port_name(port));
 
+	if (init_hdmi)
+		intel_encoder->post_hotplug = intel_ddi_post_hotplug;
 	intel_encoder->compute_output_type = intel_ddi_compute_output_type;
 	intel_encoder->compute_config = intel_ddi_compute_config;
 	intel_encoder->enable = intel_enable_ddi;
