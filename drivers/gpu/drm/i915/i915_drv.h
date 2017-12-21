@@ -813,6 +813,7 @@ struct intel_gmbus {
 #define GMBUS_FORCE_BIT_RETRY (1U << 31)
 	u32 force_bit;
 	u32 reg0;
+	enum port scdc_port;
 	i915_reg_t gpio_reg;
 	struct i2c_algo_bit_data bit_algo;
 	struct drm_i915_private *dev_priv;
@@ -3069,6 +3070,9 @@ static inline void bdw_disable_pipe_irq(struct drm_i915_private *dev_priv,
 {
 	bdw_update_pipe_irq(dev_priv, pipe, bits, 0);
 }
+void bdw_update_port_irq(struct drm_i915_private *dev_priv,
+			 uint32_t interrupt_mask,
+			 uint32_t enabled_irq_mask);
 void ibx_display_interrupt_update(struct drm_i915_private *dev_priv,
 				  uint32_t interrupt_mask,
 				  uint32_t enabled_irq_mask);
@@ -3690,6 +3694,7 @@ static inline bool intel_gmbus_is_forced_bit(struct i2c_adapter *adapter)
 {
 	return container_of(adapter, struct intel_gmbus, adapter)->force_bit;
 }
+void intel_gmbus_set_scdc_port(struct i2c_adapter *adapter, enum port port);
 extern void intel_i2c_reset(struct drm_i915_private *dev_priv);
 
 /* intel_bios.c */

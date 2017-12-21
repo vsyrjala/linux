@@ -1771,7 +1771,9 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 static void
 intel_hdmi_unset_edid(struct drm_connector *connector)
 {
+	struct drm_i915_private *dev_priv = to_i915(connector->dev);
 	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
+	struct i2c_adapter *adapter;
 
 	intel_hdmi->has_hdmi_sink = false;
 	intel_hdmi->has_audio = false;
@@ -1782,6 +1784,9 @@ intel_hdmi_unset_edid(struct drm_connector *connector)
 
 	kfree(to_intel_connector(connector)->detect_edid);
 	to_intel_connector(connector)->detect_edid = NULL;
+
+	adapter = intel_gmbus_get_adapter(dev_priv, intel_hdmi->ddc_bus);
+	intel_gmbus_set_scdc_port(adapter, PORT_NONE);
 }
 
 static void
@@ -1831,6 +1836,45 @@ intel_hdmi_dp_dual_mode_detect(struct drm_connector *connector, bool has_edid)
 		      hdmi->dp_dual_mode.max_tmds_clock);
 }
 
+static struct intel_encoder *
+get_encoder(struct drm_i915_private *dev_priv, enum port port)
+{
+	struct intel_encoder *encoder;
+
+	for_each_intel_encoder(&dev_priv->drm, encoder) {
+		if (encoder->port == port)
+			return encoder;
+	}
+
+	return NULL;
+}
+
+void
+intel_hdmi_scdc_read_request(struct drm_i915_private *dev_priv, enum port port)
+{
+	struct intel_encoder *encoder = get_encoder(dev_priv, port);
+	struct intel_hdmi *hdmi = enc_to_intel_hdmi(&encoder->base);
+	struct i2c_adapter *adapter = intel_gmbus_get_adapter(dev_priv, hdmi->ddc_bus);
+	u8 buf[2] = {}, status = 0;
+	int ret;
+
+	DRM_DEBUG_KMS("SCDC read request for prot %c\n", port_name(port));
+
+	/* First read the update flags */
+	ret = drm_scdc_read(adapter, 0x10, buf, 2);
+	if (ret)
+		DRM_ERROR("SCDC update flags read failed\n");
+	else
+		DRM_DEBUG_KMS("SCDC read request %*ph\n", 2, buf);
+
+	/* Then read something else. The sink will interpret this as an ack. */
+	ret = drm_scdc_readb(adapter, SCDC_SCRAMBLER_STATUS, &status);
+	if (ret)
+		DRM_ERROR("SCDC scramnlind status read failed");
+	else
+		DRM_DEBUG_KMS("SCDC scramnlind status %x\n", status);
+}
+
 static bool
 intel_hdmi_set_edid(struct drm_connector *connector)
 {
@@ -1854,6 +1898,18 @@ intel_hdmi_set_edid(struct drm_connector *connector)
 	}
 
 	intel_hdmi_dp_dual_mode_detect(connector, edid != NULL);
+
+	/*
+	 * FIXME runtime PM will mess this up. Need to track the
+	 * state somewhere where we can restore it, or maybe just
+	 * enable the interrupt when the port is enabled (would
+	 * that be sufficient?).
+	 */
+	if (connector->display_info.hdmi.scdc.read_request) {
+		struct intel_encoder *encoder = &hdmi_to_dig_port(intel_hdmi)->base;
+
+		intel_gmbus_set_scdc_port(adapter, encoder->port);
+	}
 
 	intel_display_power_put(dev_priv, POWER_DOMAIN_GMBUS);
 

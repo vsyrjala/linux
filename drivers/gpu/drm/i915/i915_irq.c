@@ -494,9 +494,9 @@ void gen9_disable_guc_interrupts(struct drm_i915_private *dev_priv)
  * @interrupt_mask: mask of interrupt bits to update
  * @enabled_irq_mask: mask of interrupt bits to enable
  */
-static void bdw_update_port_irq(struct drm_i915_private *dev_priv,
-				uint32_t interrupt_mask,
-				uint32_t enabled_irq_mask)
+void bdw_update_port_irq(struct drm_i915_private *dev_priv,
+			 uint32_t interrupt_mask,
+			 uint32_t enabled_irq_mask)
 {
 	uint32_t new_val;
 	uint32_t old_val;
@@ -2352,6 +2352,18 @@ static void spt_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 		gmbus_irq_handler(dev_priv);
 }
 
+static void cnp_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
+{
+	if (pch_iir & SDE_SCDC_READ_REQUEST_B_CNP)
+		intel_hdmi_scdc_read_request(dev_priv, PORT_B);
+	if (pch_iir & SDE_SCDC_READ_REQUEST_C_CNP)
+		intel_hdmi_scdc_read_request(dev_priv, PORT_C);
+	if (pch_iir & SDE_SCDC_READ_REQUEST_D_CNP)
+		intel_hdmi_scdc_read_request(dev_priv, PORT_D);
+
+	spt_irq_handler(dev_priv, pch_iir);
+}
+
 static void ilk_hpd_irq_handler(struct drm_i915_private *dev_priv,
 				u32 hotplug_trigger,
 				const u32 hpd[HPD_NUM_PINS])
@@ -2589,6 +2601,13 @@ gen8_de_irq_handler(struct drm_i915_private *dev_priv, u32 master_ctl)
 				found = true;
 			}
 
+			if (IS_GEMINILAKE(dev_priv) &&
+			    iir & GLK_SCDC_READ_REQUEST_PORT_B)
+				intel_hdmi_scdc_read_request(dev_priv, PORT_B);
+			if (IS_GEMINILAKE(dev_priv) &&
+			    iir & GLK_SCDC_READ_REQUEST_PORT_C)
+				intel_hdmi_scdc_read_request(dev_priv, PORT_C);
+
 			if (IS_GEN9_LP(dev_priv)) {
 				tmp_mask = iir & BXT_DE_PORT_HOTPLUG_MASK;
 				if (tmp_mask) {
@@ -2665,8 +2684,9 @@ gen8_de_irq_handler(struct drm_i915_private *dev_priv, u32 master_ctl)
 			I915_WRITE(SDEIIR, iir);
 			ret = IRQ_HANDLED;
 
-			if (HAS_PCH_SPT(dev_priv) || HAS_PCH_KBP(dev_priv) ||
-			    HAS_PCH_CNP(dev_priv))
+			if (HAS_PCH_CNP(dev_priv))
+				cnp_irq_handler(dev_priv, iir);
+			else if (HAS_PCH_SPT(dev_priv) || HAS_PCH_KBP(dev_priv))
 				spt_irq_handler(dev_priv, iir);
 			else
 				cpt_irq_handler(dev_priv, iir);
@@ -3638,6 +3658,10 @@ static void gen8_de_irq_postinstall(struct drm_i915_private *dev_priv)
 		de_port_enables |= BXT_DE_PORT_HOTPLUG_MASK;
 	else if (IS_BROADWELL(dev_priv))
 		de_port_enables |= GEN8_PORT_DP_A_HOTPLUG;
+
+	if (IS_GEMINILAKE(dev_priv))
+		de_port_enables |= GLK_SCDC_READ_REQUEST_PORT_C |
+			GLK_SCDC_READ_REQUEST_PORT_B;
 
 	for_each_pipe(dev_priv, pipe) {
 		dev_priv->de_irq_mask[pipe] = ~de_pipe_masked;

@@ -1787,6 +1787,8 @@ void intel_hdmi_handle_sink_scrambling(struct intel_encoder *intel_encoder,
 				       bool scrambling);
 void intel_dp_dual_mode_set_tmds_output(struct intel_hdmi *hdmi, bool enable);
 void intel_infoframe_init(struct intel_digital_port *intel_dig_port);
+void intel_hdmi_scdc_read_request(struct drm_i915_private *dev_priv,
+				  enum port port);
 
 
 /* intel_lvds.c */

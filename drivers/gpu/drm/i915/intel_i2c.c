@@ -250,6 +250,74 @@ static void set_data(void *data, int state_high)
 	POSTING_READ(bus->gpio_reg);
 }
 
+static void glk_update_scdc_interrupt(struct drm_i915_private *dev_priv,
+				      enum port port, bool enable)
+{
+	u32 bit;
+
+	DRM_DEBUG_KMS("SCDC interrupt for port %c -> %s\n",
+		      port_name(port), yesno(enable));
+
+	switch (port) {
+	case PORT_C:
+		bit = GLK_SCDC_READ_REQUEST_PORT_C;
+		break;
+	case PORT_B:
+		bit = GLK_SCDC_READ_REQUEST_PORT_B;
+		break;
+	default:
+		MISSING_CASE(port);
+		return;
+	}
+
+	bdw_update_port_irq(dev_priv, bit,
+			    enable ? bit : 0);
+}
+
+static void cnp_update_scdc_interrupt(struct drm_i915_private *dev_priv,
+				      enum port port, bool enable)
+{
+	u32 bit;
+
+	DRM_DEBUG_KMS("SCDC interrupt for port %c -> %s\n",
+		      port_name(port), yesno(enable));
+
+	switch (port) {
+	case PORT_D:
+		bit = SDE_SCDC_READ_REQUEST_D_CNP;
+		break;
+	case PORT_C:
+		bit = SDE_SCDC_READ_REQUEST_C_CNP;
+		break;
+	case PORT_B:
+		bit = SDE_SCDC_READ_REQUEST_B_CNP;
+		break;
+	default:
+		return;
+	}
+
+	ibx_display_interrupt_update(dev_priv, bit,
+				     enable ? bit : 0);
+}
+
+static void update_scdc_interrupt(struct intel_gmbus *bus, bool enable)
+{
+	struct drm_i915_private *dev_priv = bus->dev_priv;
+	enum port port = bus->scdc_port;
+
+	if (port == PORT_NONE)
+		return;
+
+	spin_lock_irq(&dev_priv->irq_lock);
+
+	if (IS_GEMINILAKE(dev_priv))
+		glk_update_scdc_interrupt(dev_priv, port, enable);
+	else if (HAS_PCH_CNP(dev_priv))
+		cnp_update_scdc_interrupt(dev_priv, port, enable);
+
+	spin_unlock_irq(&dev_priv->irq_lock);
+}
+
 static int
 intel_gpio_pre_xfer(struct i2c_adapter *adapter)
 {
@@ -259,6 +327,9 @@ intel_gpio_pre_xfer(struct i2c_adapter *adapter)
 	struct drm_i915_private *dev_priv = bus->dev_priv;
 
 	intel_i2c_reset(dev_priv);
+
+	if (bus->scdc_port != PORT_NONE)
+		update_scdc_interrupt(bus, false);
 
 	if (IS_PINEVIEW(dev_priv))
 		pnv_gmbus_clock_gating(dev_priv, false);
@@ -282,6 +353,9 @@ intel_gpio_post_xfer(struct i2c_adapter *adapter)
 
 	if (IS_PINEVIEW(dev_priv))
 		pnv_gmbus_clock_gating(dev_priv, true);
+
+	if (bus->scdc_port != PORT_NONE)
+		update_scdc_interrupt(bus, true);
 }
 
 static void
@@ -295,6 +369,7 @@ intel_gpio_setup(struct intel_gmbus *bus, unsigned int pin)
 	bus->gpio_reg = _MMIO(dev_priv->gpio_mmio_base +
 			      i915_mmio_reg_offset(get_gmbus_pin(dev_priv, pin)->reg));
 	bus->adapter.algo_data = algo;
+	bus->scdc_port = PORT_NONE;
 	algo->setsda = set_data;
 	algo->setscl = set_clock;
 	algo->getsda = get_data;
@@ -852,6 +927,24 @@ void intel_gmbus_set_speed(struct i2c_adapter *adapter, int speed)
 	struct intel_gmbus *bus = to_intel_gmbus(adapter);
 
 	bus->reg0 = (bus->reg0 & ~(0x3 << 8)) | speed;
+}
+
+void intel_gmbus_set_scdc_port(struct i2c_adapter *adapter, enum port port)
+{
+	struct intel_gmbus *bus = to_intel_gmbus(adapter);
+	struct drm_i915_private *dev_priv = bus->dev_priv;
+
+	mutex_lock(&dev_priv->gmbus_mutex);
+
+	if (port == PORT_NONE)
+		update_scdc_interrupt(bus, false);
+
+	bus->scdc_port = port;
+
+	if (port != PORT_NONE)
+		update_scdc_interrupt(bus, true);
+
+	mutex_unlock(&dev_priv->gmbus_mutex);
 }
 
 void intel_gmbus_force_bit(struct i2c_adapter *adapter, bool force_bit)
