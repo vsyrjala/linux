@@ -170,8 +170,8 @@ static void vc4_dpi_encoder_enable(struct drm_encoder *encoder)
 	u32 dpi_c = DPI_ENABLE | DPI_OUTPUT_ENABLE_MODE;
 	int ret;
 
-	if (dpi->connector->display_info.num_bus_formats) {
-		u32 bus_format = dpi->connector->display_info.bus_formats[0];
+	if (dpi->connector->static_display_info.num_bus_formats) {
+		u32 bus_format = dpi->connector->static_display_info.bus_formats[0];
 
 		switch (bus_format) {
 		case MEDIA_BUS_FMT_RGB888_1X24:

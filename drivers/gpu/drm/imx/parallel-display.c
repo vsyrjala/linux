@@ -118,7 +118,7 @@ static int imx_pd_encoder_atomic_check(struct drm_encoder *encoder,
 				       struct drm_connector_state *conn_state)
 {
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
-	struct drm_display_info *di = &conn_state->connector->display_info;
+	struct drm_static_display_info *di = &conn_state->connector->static_display_info;
 	struct imx_parallel_display *imxpd = enc_to_imxpd(encoder);
 
 	if (!imxpd->bus_format && di->num_bus_formats) {

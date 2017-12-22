@@ -152,9 +152,9 @@ static int panel_simple_get_fixed_modes(struct panel_simple *panel)
 	connector->display_info.width_mm = panel->desc->size.width;
 	connector->display_info.height_mm = panel->desc->size.height;
 	if (panel->desc->bus_format)
-		drm_display_info_set_bus_formats(&connector->display_info,
+		drm_display_info_set_bus_formats(&connector->static_display_info,
 						 &panel->desc->bus_format, 1);
-	connector->display_info.bus_flags = panel->desc->bus_flags;
+	connector->static_display_info.bus_flags = panel->desc->bus_flags;
 
 	return num;
 }

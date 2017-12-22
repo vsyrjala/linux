@@ -102,7 +102,7 @@ static void rcar_du_encoder_mode_set(struct drm_encoder *encoder,
 				     struct drm_connector_state *conn_state)
 {
 	struct rcar_du_encoder *renc = to_rcar_encoder(encoder);
-	struct drm_display_info *info = &conn_state->connector->display_info;
+	struct drm_static_display_info *info = &conn_state->connector->static_display_info;
 	enum rcar_lvds_mode mode;
 
 	rcar_du_crtc_route_output(crtc_state->crtc, renc->output);

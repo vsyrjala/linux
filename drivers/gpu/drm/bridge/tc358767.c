@@ -1193,7 +1193,7 @@ static int tc_bridge_attach(struct drm_bridge *bridge)
 	if (tc->panel)
 		drm_panel_attach(tc->panel, &tc->connector);
 
-	drm_display_info_set_bus_formats(&tc->connector.display_info,
+	drm_display_info_set_bus_formats(&tc->connector.static_display_info,
 					 &bus_format, 1);
 	drm_mode_connector_attach_encoder(&tc->connector, tc->bridge.encoder);
 

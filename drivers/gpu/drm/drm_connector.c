@@ -237,7 +237,7 @@ int drm_connector_init(struct drm_device *dev,
 	mutex_init(&connector->mutex);
 	connector->edid_blob_ptr = NULL;
 	connector->status = connector_status_unknown;
-	connector->display_info.panel_orientation =
+	connector->static_display_info.panel_orientation =
 		DRM_MODE_PANEL_ORIENTATION_UNKNOWN;
 
 	drm_connector_get_cmdline_mode(connector);
@@ -366,7 +366,7 @@ void drm_connector_cleanup(struct drm_connector *connector)
 	ida_simple_remove(&dev->mode_config.connector_ida,
 			  connector->index);
 
-	kfree(connector->display_info.bus_formats);
+	kfree(connector->static_display_info.bus_formats);
 	drm_mode_object_unregister(dev, &connector->base);
 	kfree(connector->name);
 	connector->name = NULL;
@@ -674,7 +674,7 @@ static const struct drm_prop_enum_list drm_link_status_enum_list[] = {
 
 /**
  * drm_display_info_set_bus_formats - set the supported bus formats
- * @info: display info to store bus formats in
+ * @info: fixed display info to store bus formats in
  * @formats: array containing the supported bus formats
  * @num_formats: the number of entries in the fmts array
  *
@@ -682,7 +682,7 @@ static const struct drm_prop_enum_list drm_link_status_enum_list[] = {
  * See MEDIA_BUS_FMT_* definitions in include/uapi/linux/media-bus-format.h for
  * a full list of available formats.
  */
-int drm_display_info_set_bus_formats(struct drm_display_info *info,
+int drm_display_info_set_bus_formats(struct drm_static_display_info *info,
 				     const u32 *formats,
 				     unsigned int num_formats)
 {
@@ -1460,7 +1460,7 @@ int drm_connector_init_panel_orientation_property(
 	struct drm_connector *connector, int width, int height)
 {
 	struct drm_device *dev = connector->dev;
-	struct drm_display_info *info = &connector->display_info;
+	struct drm_static_display_info *info = &connector->static_display_info;
 	struct drm_property *prop;
 	int orientation_quirk;
 

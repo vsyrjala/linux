@@ -299,7 +299,7 @@ imx_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 
 	if (!bus_format) {
 		struct drm_connector *connector = connector_state->connector;
-		struct drm_display_info *di = &connector->display_info;
+		struct drm_static_display_info *di = &connector->static_display_info;
 
 		if (di->num_bus_formats)
 			bus_format = di->bus_formats[0];
@@ -358,7 +358,7 @@ static int imx_ldb_encoder_atomic_check(struct drm_encoder *encoder,
 {
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc_state);
 	struct imx_ldb_channel *imx_ldb_ch = enc_to_imx_ldb_ch(encoder);
-	struct drm_display_info *di = &conn_state->connector->display_info;
+	struct drm_static_display_info *di = &conn_state->connector->static_display_info;
 	u32 bus_format = imx_ldb_ch->bus_format;
 
 	/* Bus format description in DT overrides connector display info. */

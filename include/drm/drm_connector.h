@@ -206,52 +206,11 @@ enum drm_panel_orientation {
 };
 
 /**
- * struct drm_display_info - runtime data about the connected sink
+ * struct drm_static_display_info - data about the connected sink
  *
- * Describes a given display (e.g. CRT or flat panel) and its limitations. For
- * fixed display sinks like built-in panels there's not much difference between
- * this and &struct drm_connector. But for sinks with a real cable this
- * structure is meant to describe all the things at the other end of the cable.
- *
- * For sinks which provide an EDID this can be filled out by calling
- * drm_add_edid_modes().
+ * Static data (as in not parsed from EDID) about the connected sink.
  */
-struct drm_display_info {
-	/**
-	 * @name: Name of the display.
-	 */
-	char name[DRM_DISPLAY_INFO_LEN];
-
-	/**
-	 * @width_mm: Physical width in mm.
-	 */
-        unsigned int width_mm;
-	/**
-	 * @height_mm: Physical height in mm.
-	 */
-	unsigned int height_mm;
-
-	/**
-	 * @pixel_clock: Maximum pixel clock supported by the sink, in units of
-	 * 100Hz. This mismatches the clock in &drm_display_mode (which is in
-	 * kHZ), because that's what the EDID uses as base unit.
-	 */
-	unsigned int pixel_clock;
-	/**
-	 * @bpc: Maximum bits per color channel. Used by HDMI and DP outputs.
-	 */
-	unsigned int bpc;
-
-	/**
-	 * @subpixel_order: Subpixel order of LCD panels.
-	 */
-	enum subpixel_order subpixel_order;
-
-#define DRM_COLOR_FORMAT_RGB444		(1<<0)
-#define DRM_COLOR_FORMAT_YCRCB444	(1<<1)
-#define DRM_COLOR_FORMAT_YCRCB422	(1<<2)
-#define DRM_COLOR_FORMAT_YCRCB420	(1<<3)
-
+struct drm_static_display_info {
 	/**
 	 * @panel_orientation: Read only connector property for built-in panels,
 	 * indicating the orientation of the panel vs the device's casing.
@@ -260,14 +219,6 @@ struct drm_display_info {
 	 * fb to compensate and gets exported as prop to userspace.
 	 */
 	int panel_orientation;
-
-	/**
-	 * @color_formats: HDMI Color formats, selects between RGB and YCrCb
-	 * modes. Used DRM_COLOR_FORMAT\_ defines, which are _not_ the same ones
-	 * as used to describe the pixel format in framebuffers, and also don't
-	 * match the formats in @bus_formats which are shared with v4l.
-	 */
-	u32 color_formats;
 
 	/**
 	 * @bus_formats: Pixel data format on the wire, somewhat redundant with
@@ -296,6 +247,63 @@ struct drm_display_info {
 	 * the pixel data on the bus, using DRM_BUS_FLAGS\_ defines.
 	 */
 	u32 bus_flags;
+
+};
+
+/**
+ * struct drm_display_info - Dynamic data about the connected sink
+ *
+ * Describes a given display (e.g. CRT or flat panel) and its limitations. For
+ * fixed display sinks like built-in panels there's not much difference between
+ * this and &struct drm_connector. But for sinks with a real cable this
+ * structure is meant to describe all the things at the other end of the cable.
+ *
+ * For sinks which provide an EDID this can be filled out by calling
+ * drm_add_edid_modes().
+ */
+struct drm_display_info {
+	/**
+	 * @name: Name of the display.
+	 */
+	char name[DRM_DISPLAY_INFO_LEN];
+
+	/**
+	 * @width_mm: Physical width in mm.
+	 */
+	unsigned int width_mm;
+	/**
+	 * @height_mm: Physical height in mm.
+	 */
+	unsigned int height_mm;
+
+	/**
+	 * @pixel_clock: Maximum pixel clock supported by the sink, in units of
+	 * 100Hz. This mismatches the clock in &drm_display_mode (which is in
+	 * kHZ), because that's what the EDID uses as base unit.
+	 */
+	unsigned int pixel_clock;
+	/**
+	 * @bpc: Maximum bits per color channel. Used by HDMI and DP outputs.
+	 */
+	unsigned int bpc;
+
+	/**
+	 * @subpixel_order: Subpixel order of LCD panels.
+	 */
+	enum subpixel_order subpixel_order;
+
+#define DRM_COLOR_FORMAT_RGB444		(1<<0)
+#define DRM_COLOR_FORMAT_YCRCB444	(1<<1)
+#define DRM_COLOR_FORMAT_YCRCB422	(1<<2)
+#define DRM_COLOR_FORMAT_YCRCB420	(1<<3)
+
+	/**
+	 * @color_formats: HDMI Color formats, selects between RGB and YCrCb
+	 * modes. Used DRM_COLOR_FORMAT\_ defines, which are _not_ the same ones
+	 * as used to describe the pixel format in framebuffers, and also don't
+	 * match the formats in @bus_formats which are shared with v4l.
+	 */
+	u32 color_formats;
 
 	/**
 	 * @max_tmds_clock: Maximum TMDS clock rate supported by the
@@ -335,7 +343,7 @@ struct drm_display_info {
 	bool non_desktop;
 };
 
-int drm_display_info_set_bus_formats(struct drm_display_info *info,
+int drm_display_info_set_bus_formats(struct drm_static_display_info *info,
 				     const u32 *formats,
 				     unsigned int num_formats);
 
@@ -851,15 +859,23 @@ struct drm_connector {
 	struct list_head probed_modes;
 
 	/**
-	 * @display_info: Display information is filled from EDID information
-	 * when a display is detected. For non hot-pluggable displays such as
-	 * flat panels in embedded systems, the driver should initialize the
-	 * &drm_display_info.width_mm and &drm_display_info.height_mm fields
-	 * with the physical size of the display.
+	 * @static_display_info: Display information is filled by the driver
+	 *
+	 * Protected by &drm_mode_config.mutex.
+	 */
+	struct drm_static_display_info static_display_info;
+	/**
+	 * @display_info: Dynamic display information is filled from EDID
+	 * information when a display is detected. For non hot-pluggable
+	 * displays such as flat panels in embedded systems, the driver
+	 * should initialize the &drm_display_info.width_mm and
+	 * &drm_display_info.height_mm fields with the physical size of
+	 * the display.
 	 *
 	 * Protected by &drm_mode_config.mutex.
 	 */
 	struct drm_display_info display_info;
+
 	const struct drm_connector_funcs *funcs;
 
 	struct drm_property_blob *edid_blob_ptr;

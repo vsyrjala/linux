@@ -411,19 +411,19 @@ static int ili9322_init(struct drm_panel *panel, struct ili9322 *ili)
 	 */
 	if (ili->conf->dclk_active_high) {
 		reg = ILI9322_POL_DCLK;
-		connector->display_info.bus_flags |=
+		connector->static_display_info.bus_flags |=
 			DRM_BUS_FLAG_PIXDATA_POSEDGE;
 	} else {
 		reg = 0;
-		connector->display_info.bus_flags |=
+		connector->static_display_info.bus_flags |=
 			DRM_BUS_FLAG_PIXDATA_NEGEDGE;
 	}
 	if (ili->conf->de_active_high) {
 		reg |= ILI9322_POL_DE;
-		connector->display_info.bus_flags |=
+		connector->static_display_info.bus_flags |=
 			DRM_BUS_FLAG_DE_HIGH;
 	} else {
-		connector->display_info.bus_flags |=
+		connector->static_display_info.bus_flags |=
 			DRM_BUS_FLAG_DE_LOW;
 	}
 	if (ili->conf->hsync_active_high)

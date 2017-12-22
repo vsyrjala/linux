@@ -101,8 +101,8 @@ static void mxsfb_set_bus_fmt(struct mxsfb_drm_private *mxsfb)
 
 	reg = readl(mxsfb->base + LCDC_CTRL);
 
-	if (mxsfb->connector.display_info.num_bus_formats)
-		bus_format = mxsfb->connector.display_info.bus_formats[0];
+	if (mxsfb->connector.static_display_info.num_bus_formats)
+		bus_format = mxsfb->connector.static_display_info.bus_formats[0];
 
 	reg &= ~CTRL_BUS_WIDTH_MASK;
 	switch (bus_format) {
@@ -199,7 +199,7 @@ static int mxsfb_reset_block(void __iomem *reset_addr)
 static void mxsfb_crtc_mode_set_nofb(struct mxsfb_drm_private *mxsfb)
 {
 	struct drm_display_mode *m = &mxsfb->pipe.crtc.state->adjusted_mode;
-	const u32 bus_flags = mxsfb->connector.display_info.bus_flags;
+	const u32 bus_flags = mxsfb->connector.static_display_info.bus_flags;
 	u32 vdctrl0, vsync_pulse_len, hsync_pulse_len;
 	int err;
 

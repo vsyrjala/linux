@@ -2433,7 +2433,7 @@ static void drm_setup_crtc_rotation(struct drm_fb_helper *fb_helper,
 
 	fb_crtc->rotation = DRM_MODE_ROTATE_0;
 
-	switch (connector->display_info.panel_orientation) {
+	switch (connector->static_display_info.panel_orientation) {
 	case DRM_MODE_PANEL_ORIENTATION_BOTTOM_UP:
 		rotation = DRM_MODE_ROTATE_180;
 		break;

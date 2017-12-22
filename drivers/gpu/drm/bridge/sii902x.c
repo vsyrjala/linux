@@ -174,7 +174,7 @@ static int sii902x_get_modes(struct drm_connector *connector)
 		kfree(edid);
 	}
 
-	ret = drm_display_info_set_bus_formats(&connector->display_info,
+	ret = drm_display_info_set_bus_formats(&connector->static_display_info,
 					       &bus_format, 1);
 	if (ret)
 		return ret;
