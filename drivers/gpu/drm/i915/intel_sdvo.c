@@ -2516,7 +2516,7 @@ intel_sdvo_dvi_init(struct intel_sdvo *intel_sdvo, int device)
 		 * Some SDVO devices have one-shot hotplug interrupts.
 		 * Ensure that they get re-enabled when an interrupt happens.
 		 */
-		intel_encoder->hot_plug = intel_sdvo_enable_hotplug;
+		intel_encoder->pre_hotplug = intel_sdvo_enable_hotplug;
 		intel_sdvo_enable_hotplug(intel_encoder);
 	} else {
 		intel_connector->polled = DRM_CONNECTOR_POLL_CONNECT | DRM_CONNECTOR_POLL_DISCONNECT;

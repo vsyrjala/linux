@@ -381,10 +381,12 @@ static void i915_hotplug_work_func(struct work_struct *work)
 		if (hpd_event_bits & (1 << intel_encoder->hpd_pin)) {
 			DRM_DEBUG_KMS("Connector %s (pin %i) received hotplug event.\n",
 				      connector->name, intel_encoder->hpd_pin);
-			if (intel_encoder->hot_plug)
-				intel_encoder->hot_plug(intel_encoder);
+			if (intel_encoder->pre_hotplug)
+				intel_encoder->pre_hotplug(intel_encoder);
 			if (intel_hpd_irq_event(dev, connector))
 				changed = true;
+			if (intel_encoder->post_hotplug)
+				intel_encoder->post_hotplug(intel_encoder);
 		}
 	}
 	drm_connector_list_iter_end(&conn_iter);

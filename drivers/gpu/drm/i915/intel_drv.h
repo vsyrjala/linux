@@ -215,7 +215,8 @@ struct intel_encoder {
 	enum intel_output_type type;
 	enum port port;
 	unsigned int cloneable;
-	void (*hot_plug)(struct intel_encoder *);
+	void (*pre_hotplug)(struct intel_encoder *encoder);
+	void (*post_hotplug)(struct intel_encoder *encoder);
 	enum intel_output_type (*compute_output_type)(struct intel_encoder *,
 						      struct intel_crtc_state *,
 						      struct drm_connector_state *);
