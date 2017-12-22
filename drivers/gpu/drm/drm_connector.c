@@ -1368,7 +1368,7 @@ EXPORT_SYMBOL(drm_mode_connector_set_tile_property);
  * Zero on success, negative errno on failure.
  */
 int drm_mode_connector_update_edid_property(struct drm_connector *connector,
-					    const struct edid *edid)
+					    struct edid *edid)
 {
 	struct drm_device *dev = connector->dev;
 	size_t size = 0;
@@ -1389,7 +1389,7 @@ int drm_mode_connector_update_edid_property(struct drm_connector *connector,
 	 * duplicate it rather than attempt to ensure some arbitrary
 	 * ordering of calls.
 	 */
-	if (edid)
+	if (edid && drm_edid_is_valid(edid))
 		drm_add_display_info(connector, edid);
 	else
 		drm_reset_display_info(connector);
