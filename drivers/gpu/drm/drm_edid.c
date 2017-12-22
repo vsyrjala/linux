@@ -4443,36 +4443,17 @@ drm_reset_display_info(struct drm_connector *connector)
 {
 	struct drm_display_info *info = &connector->display_info;
 
-	info->width_mm = 0;
-	info->height_mm = 0;
-
-	info->bpc = 0;
-	info->color_formats = 0;
-	info->cea_rev = 0;
-	info->max_tmds_clock = 0;
-	info->dvi_dual = false;
-	info->has_hdmi_infoframe = false;
-
-	info->non_desktop = 0;
+	memset(info, 0, sizeof(*info));
 }
 EXPORT_SYMBOL_GPL(drm_reset_display_info);
 
 u32 drm_add_display_info(struct drm_connector *connector, const struct edid *edid)
 {
 	struct drm_display_info *info = &connector->display_info;
-
 	u32 quirks = edid_get_quirks(edid);
 
 	info->width_mm = edid->width_cm * 10;
 	info->height_mm = edid->height_cm * 10;
-
-	/* driver figures it out in this case */
-	info->bpc = 0;
-	info->color_formats = 0;
-	info->cea_rev = 0;
-	info->max_tmds_clock = 0;
-	info->dvi_dual = false;
-	info->has_hdmi_infoframe = false;
 
 	info->non_desktop = !!(quirks & EDID_QUIRK_NON_DESKTOP);
 
@@ -4683,6 +4664,8 @@ int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
 {
 	int num_modes = 0;
 	u32 quirks;
+
+	drm_reset_display_info(connector);
 
 	if (edid == NULL) {
 		clear_eld(connector);
