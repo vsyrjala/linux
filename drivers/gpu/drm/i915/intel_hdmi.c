@@ -1773,7 +1773,7 @@ intel_hdmi_unset_edid(struct drm_connector *connector)
 {
 	struct drm_i915_private *dev_priv = to_i915(connector->dev);
 	struct intel_hdmi *intel_hdmi = intel_attached_hdmi(connector);
-	struct i2c_adapter *adapter;
+	struct i2c_adapter *i2c;
 
 	intel_hdmi->has_hdmi_sink = false;
 	intel_hdmi->has_audio = false;
@@ -1785,8 +1785,8 @@ intel_hdmi_unset_edid(struct drm_connector *connector)
 	kfree(to_intel_connector(connector)->detect_edid);
 	to_intel_connector(connector)->detect_edid = NULL;
 
-	adapter = intel_gmbus_get_adapter(dev_priv, intel_hdmi->ddc_bus);
-	intel_gmbus_set_scdc_port(adapter, PORT_NONE);
+	i2c = intel_gmbus_get_adapter(dev_priv, intel_hdmi->ddc_bus);
+	intel_gmbus_set_scdc_port(i2c, PORT_NONE);
 }
 
 static void
@@ -1908,7 +1908,7 @@ intel_hdmi_set_edid(struct drm_connector *connector)
 	if (connector->display_info.hdmi.scdc.read_request) {
 		struct intel_encoder *encoder = &hdmi_to_dig_port(intel_hdmi)->base;
 
-		intel_gmbus_set_scdc_port(adapter, encoder->port);
+		intel_gmbus_set_scdc_port(i2c, encoder->port);
 	}
 
 	intel_display_power_put(dev_priv, POWER_DOMAIN_GMBUS);
