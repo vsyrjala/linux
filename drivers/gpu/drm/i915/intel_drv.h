@@ -2041,15 +2041,11 @@ int intel_sprite_set_colorkey_ioctl(struct drm_device *dev, void *data,
 				    struct drm_file *file_priv);
 void intel_pipe_update_start(const struct intel_crtc_state *new_crtc_state);
 void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state);
-void skl_update_plane(struct intel_plane *plane,
-		      const struct intel_crtc_state *crtc_state,
-		      const struct intel_plane_state *plane_state);
-void skl_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc);
-bool skl_plane_get_hw_state(struct intel_plane *plane);
-bool skl_plane_has_ccs(struct drm_i915_private *dev_priv,
-		       enum pipe pipe, enum plane_id plane_id);
 struct intel_plane *intel_plane_alloc(void);
 void intel_plane_free(struct intel_plane *plane);
+struct intel_plane *
+skl_universal_plane_create(struct drm_i915_private *dev_priv,
+			   enum pipe pipe, enum plane_id plane_id);
 
 
 /* intel_tv.c */
