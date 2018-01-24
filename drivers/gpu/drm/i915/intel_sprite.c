@@ -1453,7 +1453,6 @@ intel_sprite_plane_create(struct drm_i915_private *dev_priv,
 
 	if (INTEL_GEN(dev_priv) >= 9) {
 		intel_plane->can_scale = true;
-		state->scaler_id = -1;
 
 		intel_plane->update_plane = skl_update_plane;
 		intel_plane->disable_plane = skl_disable_plane;
