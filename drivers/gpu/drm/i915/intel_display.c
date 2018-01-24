@@ -13259,6 +13259,7 @@ intel_primary_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 	struct intel_plane_state *state = NULL;
 	const uint32_t *intel_primary_formats;
 	unsigned int supported_rotations;
+	unsigned int possible_crtcs;
 	unsigned int num_formats;
 	const uint64_t *modifiers;
 	int ret;
@@ -13341,23 +13342,25 @@ intel_primary_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 		primary->get_hw_state = i9xx_plane_get_hw_state;
 	}
 
+	possible_crtcs = BIT(pipe);
+
 	if (INTEL_GEN(dev_priv) >= 9)
 		ret = drm_universal_plane_init(&dev_priv->drm, &primary->base,
-					       0, &intel_plane_funcs,
+					       possible_crtcs, &intel_plane_funcs,
 					       intel_primary_formats, num_formats,
 					       modifiers,
 					       DRM_PLANE_TYPE_PRIMARY,
 					       "plane 1%c", pipe_name(pipe));
 	else if (INTEL_GEN(dev_priv) >= 5 || IS_G4X(dev_priv))
 		ret = drm_universal_plane_init(&dev_priv->drm, &primary->base,
-					       0, &intel_plane_funcs,
+					       possible_crtcs, &intel_plane_funcs,
 					       intel_primary_formats, num_formats,
 					       modifiers,
 					       DRM_PLANE_TYPE_PRIMARY,
 					       "primary %c", pipe_name(pipe));
 	else
 		ret = drm_universal_plane_init(&dev_priv->drm, &primary->base,
-					       0, &intel_plane_funcs,
+					       possible_crtcs, &intel_plane_funcs,
 					       intel_primary_formats, num_formats,
 					       modifiers,
 					       DRM_PLANE_TYPE_PRIMARY,
@@ -13417,6 +13420,7 @@ intel_cursor_plane_create(struct drm_i915_private *dev_priv,
 {
 	struct intel_plane *cursor = NULL;
 	struct intel_plane_state *state = NULL;
+	unsigned int possible_crtcs;
 	int ret;
 
 	cursor = kzalloc(sizeof(*cursor), GFP_KERNEL);
@@ -13458,8 +13462,10 @@ intel_cursor_plane_create(struct drm_i915_private *dev_priv,
 	if (IS_I845G(dev_priv) || IS_I865G(dev_priv) || HAS_CUR_FBC(dev_priv))
 		cursor->cursor.size = ~0;
 
+	possible_crtcs = BIT(pipe);
+
 	ret = drm_universal_plane_init(&dev_priv->drm, &cursor->base,
-				       0, &intel_cursor_plane_funcs,
+				       possible_crtcs, &intel_cursor_plane_funcs,
 				       intel_cursor_formats,
 				       ARRAY_SIZE(intel_cursor_formats),
 				       cursor_format_modifiers,
