@@ -622,18 +622,18 @@ static void drm_atomic_crtc_print_state(struct drm_printer *p,
 	struct drm_crtc *crtc = state->crtc;
 
 	drm_printf(p, "crtc[%u]: %s\n", crtc->base.id, crtc->name);
-	drm_printf(p, "\tenable=%d\n", state->enable);
-	drm_printf(p, "\tactive=%d\n", state->active);
-	drm_printf(p, "\tplanes_changed=%d\n", state->planes_changed);
-	drm_printf(p, "\tmode_changed=%d\n", state->mode_changed);
-	drm_printf(p, "\tactive_changed=%d\n", state->active_changed);
-	drm_printf(p, "\tconnectors_changed=%d\n", state->connectors_changed);
-	drm_printf(p, "\tcolor_mgmt_changed=%d\n", state->color_mgmt_changed);
-	drm_printf(p, "\tplane_mask=%x\n", state->plane_mask);
-	drm_printf(p, "\tconnector_mask=%x\n", state->connector_mask);
-	drm_printf(p, "\tencoder_mask=%x\n", state->encoder_mask);
-	drm_printf(p, "\tmode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(&state->mode));
-	drm_printf(p, "\tadjusted_mode: " DRM_MODE_FMT "\n",
+	drm_printf(p, "\tenable = %d\n", state->enable);
+	drm_printf(p, "\tactive = %d\n", state->active);
+	drm_printf(p, "\tplanes_changed = %d\n", state->planes_changed);
+	drm_printf(p, "\tmode_changed = %d\n", state->mode_changed);
+	drm_printf(p, "\tactive_changed = %d\n", state->active_changed);
+	drm_printf(p, "\tconnectors_changed = %d\n", state->connectors_changed);
+	drm_printf(p, "\tcolor_mgmt_changed = %d\n", state->color_mgmt_changed);
+	drm_printf(p, "\tplane_mask = %x\n", state->plane_mask);
+	drm_printf(p, "\tconnector_mask = %x\n", state->connector_mask);
+	drm_printf(p, "\tencoder_mask = %x\n", state->encoder_mask);
+	drm_printf(p, "\tmode = " DRM_MODE_FMT "\n", DRM_MODE_ARG(&state->mode));
+	drm_printf(p, "\tadjusted_mode = " DRM_MODE_FMT "\n",
 		   DRM_MODE_ARG(&state->adjusted_mode));
 
 	if (crtc->funcs->atomic_print_state)
@@ -953,17 +953,17 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
 	struct drm_rect dest = drm_plane_state_dest(state);
 
 	drm_printf(p, "plane[%u]: %s\n", plane->base.id, plane->name);
-	drm_printf(p, "\tcrtc=%s\n", state->crtc ? state->crtc->name : "(null)");
-	drm_printf(p, "\tfb=%u\n", state->fb ? state->fb->base.id : 0);
+	drm_printf(p, "\tcrtc = %s\n", state->crtc ? state->crtc->name : "(null)");
+	drm_printf(p, "\tfb = %u\n", state->fb ? state->fb->base.id : 0);
 	if (state->fb)
 		drm_framebuffer_print_info(p, 2, state->fb);
-	drm_printf(p, "\tcrtc-pos=" DRM_RECT_FMT "\n", DRM_RECT_ARG(&dest));
-	drm_printf(p, "\tclipped crtc-pos=" DRM_RECT_FMT "\n",
+	drm_printf(p, "\tcrtc-pos = " DRM_RECT_FMT "\n", DRM_RECT_ARG(&dest));
+	drm_printf(p, "\tclipped crtc-pos = " DRM_RECT_FMT "\n",
 		   DRM_RECT_ARG(&state->dst));
-	drm_printf(p, "\tsrc-pos=" DRM_RECT_FP_FMT "\n", DRM_RECT_FP_ARG(&src));
-	drm_printf(p, "\tclipped src-pos=" DRM_RECT_FP_FMT "\n",
+	drm_printf(p, "\tsrc-pos = " DRM_RECT_FP_FMT "\n", DRM_RECT_FP_ARG(&src));
+	drm_printf(p, "\tclipped src-pos = " DRM_RECT_FP_FMT "\n",
 		   DRM_RECT_FP_ARG(&state->src));
-	drm_printf(p, "\trotation=%d%s\n",
+	drm_printf(p, "\trotation = %d%s\n",
 		   rotate_angle[ilog2(state->rotation & DRM_MODE_ROTATE_MASK)],
 		   reflect_str[(state->rotation & DRM_MODE_REFLECT_MASK) >> 4]);
 
@@ -1268,7 +1268,7 @@ static void drm_atomic_connector_print_state(struct drm_printer *p,
 	struct drm_connector *connector = state->connector;
 
 	drm_printf(p, "connector[%u]: %s\n", connector->base.id, connector->name);
-	drm_printf(p, "\tcrtc=%s\n", state->crtc ? state->crtc->name : "(null)");
+	drm_printf(p, "\tcrtc = %s\n", state->crtc ? state->crtc->name : "(null)");
 
 	if (connector->funcs->atomic_print_state)
 		connector->funcs->atomic_print_state(p, state);

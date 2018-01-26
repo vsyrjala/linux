@@ -411,8 +411,8 @@ void drm_gem_cma_print_info(struct drm_printer *p, unsigned int indent,
 {
 	const struct drm_gem_cma_object *cma_obj = to_drm_gem_cma_obj(obj);
 
-	drm_printf_indent(p, indent, "paddr=%pad\n", &cma_obj->paddr);
-	drm_printf_indent(p, indent, "vaddr=%p\n", cma_obj->vaddr);
+	drm_printf_indent(p, indent, "paddr = %pad\n", &cma_obj->paddr);
+	drm_printf_indent(p, indent, "vaddr = %p\n", cma_obj->vaddr);
 }
 EXPORT_SYMBOL(drm_gem_cma_print_info);
 

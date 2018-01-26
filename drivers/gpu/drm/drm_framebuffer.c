@@ -980,21 +980,21 @@ void drm_framebuffer_print_info(struct drm_printer *p, unsigned int indent,
 	unsigned int i;
 
 	drm_printf_indent(p, indent, "allocated by = %s\n", fb->comm);
-	drm_printf_indent(p, indent, "refcount=%u\n",
+	drm_printf_indent(p, indent, "refcount = %u\n",
 			  drm_framebuffer_read_refcount(fb));
-	drm_printf_indent(p, indent, "format=%s\n",
+	drm_printf_indent(p, indent, "format = %s\n",
 			  drm_get_format_name(fb->format->format, &format_name));
-	drm_printf_indent(p, indent, "modifier=0x%llx\n", fb->modifier);
-	drm_printf_indent(p, indent, "size=%ux%u\n", fb->width, fb->height);
+	drm_printf_indent(p, indent, "modifier = 0x%llx\n", fb->modifier);
+	drm_printf_indent(p, indent, "size = %ux%u\n", fb->width, fb->height);
 	drm_printf_indent(p, indent, "layers:\n");
 
 	for (i = 0; i < fb->format->num_planes; i++) {
-		drm_printf_indent(p, indent + 1, "size[%u]=%dx%d\n", i,
+		drm_printf_indent(p, indent + 1, "size[%u] = %dx%d\n", i,
 				  drm_framebuffer_plane_width(fb->width, fb, i),
 				  drm_framebuffer_plane_height(fb->height, fb, i));
-		drm_printf_indent(p, indent + 1, "pitch[%u]=%u\n", i, fb->pitches[i]);
-		drm_printf_indent(p, indent + 1, "offset[%u]=%u\n", i, fb->offsets[i]);
-		drm_printf_indent(p, indent + 1, "obj[%u]:%s\n", i,
+		drm_printf_indent(p, indent + 1, "pitch[%u] = %u\n", i, fb->pitches[i]);
+		drm_printf_indent(p, indent + 1, "offset[%u] = %u\n", i, fb->offsets[i]);
+		drm_printf_indent(p, indent + 1, "obj[%u] = %s\n", i,
 				  fb->obj[i] ? "" : "(null)");
 		if (fb->obj[i])
 			drm_gem_print_info(p, indent + 2, fb->obj[i]);

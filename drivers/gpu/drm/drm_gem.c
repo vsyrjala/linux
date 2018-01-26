@@ -1045,13 +1045,13 @@ EXPORT_SYMBOL(drm_gem_mmap);
 void drm_gem_print_info(struct drm_printer *p, unsigned int indent,
 			const struct drm_gem_object *obj)
 {
-	drm_printf_indent(p, indent, "name=%d\n", obj->name);
-	drm_printf_indent(p, indent, "refcount=%u\n",
+	drm_printf_indent(p, indent, "name = %d\n", obj->name);
+	drm_printf_indent(p, indent, "refcount = %u\n",
 			  kref_read(&obj->refcount));
-	drm_printf_indent(p, indent, "start=%08lx\n",
+	drm_printf_indent(p, indent, "start = %08lx\n",
 			  drm_vma_node_start(&obj->vma_node));
-	drm_printf_indent(p, indent, "size=%zu\n", obj->size);
-	drm_printf_indent(p, indent, "imported=%s\n",
+	drm_printf_indent(p, indent, "size = %zu\n", obj->size);
+	drm_printf_indent(p, indent, "imported = %s\n",
 			  obj->import_attach ? "yes" : "no");
 
 	if (obj->dev->driver->gem_print_info)
