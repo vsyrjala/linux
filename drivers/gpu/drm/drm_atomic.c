@@ -616,8 +616,8 @@ static int drm_atomic_crtc_check(struct drm_crtc *crtc,
 	return 0;
 }
 
-static void drm_atomic_crtc_print_state(struct drm_printer *p,
-		const struct drm_crtc_state *state)
+void drm_atomic_crtc_print_base_state(struct drm_printer *p,
+				      const struct drm_crtc_state *state)
 {
 	struct drm_crtc *crtc = state->crtc;
 
@@ -635,9 +635,18 @@ static void drm_atomic_crtc_print_state(struct drm_printer *p,
 	drm_printf(p, "\tmode = " DRM_MODE_FMT "\n", DRM_MODE_ARG(&state->mode));
 	drm_printf(p, "\tadjusted_mode = " DRM_MODE_FMT "\n",
 		   DRM_MODE_ARG(&state->adjusted_mode));
+}
+EXPORT_SYMBOL(drm_atomic_crtc_print_base_state);
+
+static void drm_atomic_crtc_print_state(struct drm_printer *p,
+					const struct drm_crtc_state *state)
+{
+	struct drm_crtc *crtc = state->crtc;
 
 	if (crtc->funcs->atomic_print_state)
 		crtc->funcs->atomic_print_state(p, state);
+	else
+		drm_atomic_crtc_print_base_state(p, state);
 }
 
 /**
@@ -945,8 +954,8 @@ static const char * const reflect_str[] = {
 	"+X+Y",
 };
 
-static void drm_atomic_plane_print_state(struct drm_printer *p,
-		const struct drm_plane_state *state)
+void drm_atomic_plane_print_base_state(struct drm_printer *p,
+				       const struct drm_plane_state *state)
 {
 	struct drm_plane *plane = state->plane;
 	struct drm_rect src  = drm_plane_state_src(state);
@@ -968,9 +977,18 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
 	drm_printf(p, "\trotation = %d%s\n",
 		   rotate_angle[ilog2(state->rotation & DRM_MODE_ROTATE_MASK)],
 		   reflect_str[(state->rotation & DRM_MODE_REFLECT_MASK) >> 4]);
+}
+EXPORT_SYMBOL(drm_atomic_plane_print_base_state);
+
+static void drm_atomic_plane_print_state(struct drm_printer *p,
+					 const struct drm_plane_state *state)
+{
+	struct drm_plane *plane = state->plane;
 
 	if (plane->funcs->atomic_print_state)
 		plane->funcs->atomic_print_state(p, state);
+	else
+		drm_atomic_plane_print_base_state(p, state);
 }
 
 /**
@@ -1264,8 +1282,8 @@ static int drm_atomic_connector_set_property(struct drm_connector *connector,
 	return 0;
 }
 
-static void drm_atomic_connector_print_state(struct drm_printer *p,
-		const struct drm_connector_state *state)
+void drm_atomic_connector_print_base_state(struct drm_printer *p,
+					   const struct drm_connector_state *state)
 {
 	struct drm_connector *connector = state->connector;
 
@@ -1273,9 +1291,18 @@ static void drm_atomic_connector_print_state(struct drm_printer *p,
 	drm_printf(p, "\tcrtc = CRTC[%d:%s]\n",
 		   state->crtc ? state->crtc->base.id : 0,
 		   state->crtc ? state->crtc->name : "(null)");
+}
+EXPORT_SYMBOL(drm_atomic_connector_print_base_state);
+
+static void drm_atomic_connector_print_state(struct drm_printer *p,
+					     const struct drm_connector_state *state)
+{
+	struct drm_connector *connector = state->connector;
 
 	if (connector->funcs->atomic_print_state)
 		connector->funcs->atomic_print_state(p, state);
+	else
+		drm_atomic_connector_print_base_state(p, state);
 }
 
 /**

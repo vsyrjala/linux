@@ -944,6 +944,8 @@ mdp5_crtc_atomic_print_state(struct drm_printer *p,
 	struct mdp5_pipeline *pipeline = &mdp5_cstate->pipeline;
 	struct mdp5_kms *mdp5_kms = get_kms(state->crtc);
 
+	drm_atomic_crtc_print_base_state(p, state);
+
 	if (WARN_ON(!pipeline))
 		return;
 

@@ -168,6 +168,8 @@ mdp5_plane_atomic_print_state(struct drm_printer *p,
 	struct mdp5_plane_state *pstate = to_mdp5_plane_state(state);
 	struct mdp5_kms *mdp5_kms = get_kms(state->plane);
 
+	drm_atomic_plane_print_base_state(p, state);
+
 	drm_printf(p, "\thwpipe=%s\n", pstate->hwpipe ?
 			pstate->hwpipe->name : "(null)");
 	if (mdp5_kms->caps & MDP_CAP_SRC_SPLIT)

@@ -660,6 +660,9 @@ struct drm_crtc_funcs {
 	 *
 	 * If driver subclasses &struct drm_crtc_state, it should implement
 	 * this optional hook for printing additional driver specific state.
+	 * drm_atomic_crtc_print_base_state() can be called in the hook to
+	 * print the base state. That is also which will be called if the
+	 * driver doesn't implement the hook.
 	 *
 	 * Do not call this directly, use drm_atomic_crtc_print_state()
 	 * instead.

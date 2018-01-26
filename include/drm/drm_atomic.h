@@ -600,6 +600,12 @@ int __must_check drm_atomic_commit(struct drm_atomic_state *state);
 int __must_check drm_atomic_nonblocking_commit(struct drm_atomic_state *state);
 
 void drm_state_dump(struct drm_device *dev, struct drm_printer *p);
+void drm_atomic_crtc_print_base_state(struct drm_printer *p,
+				      const struct drm_crtc_state *state);
+void drm_atomic_plane_print_base_state(struct drm_printer *p,
+				       const struct drm_plane_state *state);
+void drm_atomic_connector_print_base_state(struct drm_printer *p,
+					   const struct drm_connector_state *state);
 
 /**
  * for_each_oldnew_connector_in_state - iterate over all connectors in an atomic update
