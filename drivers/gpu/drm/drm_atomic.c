@@ -956,7 +956,11 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
 	if (state->fb)
 		drm_framebuffer_print_info(p, 2, state->fb);
 	drm_printf(p, "\tcrtc-pos=" DRM_RECT_FMT "\n", DRM_RECT_ARG(&dest));
+	drm_printf(p, "\tclipped crtc-pos=" DRM_RECT_FMT "\n",
+		   DRM_RECT_ARG(&state->dst));
 	drm_printf(p, "\tsrc-pos=" DRM_RECT_FP_FMT "\n", DRM_RECT_FP_ARG(&src));
+	drm_printf(p, "\tclipped src-pos=" DRM_RECT_FP_FMT "\n",
+		   DRM_RECT_FP_ARG(&state->src));
 	drm_printf(p, "\trotation=%d%s\n",
 		   rotate_angle[ilog2(state->rotation & DRM_MODE_ROTATE_MASK)],
 		   reflect_str[(state->rotation & DRM_MODE_REFLECT_MASK) >> 4]);
