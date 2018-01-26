@@ -10573,8 +10573,8 @@ static void intel_crtc_print_state(struct drm_printer *p,
 	drm_atomic_crtc_print_base_state(p, &crtc_state->base);
 
 	snprintf_output_types(buf, sizeof(buf), crtc_state->output_types);
-	DRM_DEBUG_KMS("\toutput_types = %s (0x%x)\n",
-		      buf, crtc_state->output_types);
+	drm_printf(p, "\toutput_types = %s (0x%x)\n",
+		   buf, crtc_state->output_types);
 
 	drm_printf(p, "\tcpu_transcoder = %s, pipe bpp = %i, dithering = %i\n",
 		   transcoder_name(crtc_state->cpu_transcoder),
@@ -11963,7 +11963,7 @@ static int intel_atomic_check(struct drm_device *dev,
 
 	ret = drm_atomic_helper_check_modeset(dev, state);
 	if (ret)
-		return ret;
+		goto out;
 
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, crtc_state, i) {
 		struct intel_crtc_state *pipe_config =
@@ -11986,14 +11986,11 @@ static int intel_atomic_check(struct drm_device *dev,
 
 		ret = drm_atomic_add_affected_connectors(state, crtc);
 		if (ret)
-			return ret;
+			goto out;
 
 		ret = intel_modeset_pipe_config(crtc, pipe_config);
-		if (ret) {
-			intel_dump_pipe_config(to_intel_crtc(crtc),
-					       pipe_config, "[failed]");
-			return ret;
-		}
+		if (ret)
+			goto out;
 
 		if (i915_modparams.fastboot &&
 		    intel_pipe_config_compare(dev_priv,
@@ -12008,28 +12005,39 @@ static int intel_atomic_check(struct drm_device *dev,
 
 		ret = drm_atomic_add_affected_planes(state, crtc);
 		if (ret)
-			return ret;
-
-		intel_dump_pipe_config(to_intel_crtc(crtc), pipe_config,
-				       needs_modeset(crtc_state) ?
-				       "[modeset]" : "[fastset]");
+			goto out;
 	}
 
 	if (any_ms) {
 		ret = intel_modeset_checks(state);
 
 		if (ret)
-			return ret;
+			goto out;
 	} else {
 		intel_state->cdclk.logical = dev_priv->cdclk.logical;
 	}
 
 	ret = drm_atomic_helper_check_planes(dev, state);
 	if (ret)
-		return ret;
+		goto out;
 
 	intel_fbc_choose_crtc(dev_priv, intel_state);
-	return calc_watermark_data(state);
+	ret = calc_watermark_data(state);
+
+ out:
+	if (any_ms) {
+		for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, crtc_state, i) {
+			struct intel_crtc_state *pipe_config =
+				to_intel_crtc_state(crtc_state);
+
+			intel_dump_pipe_config(to_intel_crtc(crtc), pipe_config,
+					       ret ? "[failed]" :
+					       needs_modeset(crtc_state) ?
+					       "[modeset]" : "[fastset]");
+		}
+	}
+
+	return ret;
 }
 
 static int intel_atomic_prepare_commit(struct drm_device *dev,
