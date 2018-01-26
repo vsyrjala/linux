@@ -621,7 +621,7 @@ static void drm_atomic_crtc_print_state(struct drm_printer *p,
 {
 	struct drm_crtc *crtc = state->crtc;
 
-	drm_printf(p, "crtc[%u]: %s\n", crtc->base.id, crtc->name);
+	drm_printf(p, "CRTC[%d:%s]:\n", crtc->base.id, crtc->name);
 	drm_printf(p, "\tenable = %d\n", state->enable);
 	drm_printf(p, "\tactive = %d\n", state->active);
 	drm_printf(p, "\tplanes_changed = %d\n", state->planes_changed);
@@ -952,9 +952,11 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
 	struct drm_rect src  = drm_plane_state_src(state);
 	struct drm_rect dest = drm_plane_state_dest(state);
 
-	drm_printf(p, "plane[%u]: %s\n", plane->base.id, plane->name);
-	drm_printf(p, "\tcrtc = %s\n", state->crtc ? state->crtc->name : "(null)");
-	drm_printf(p, "\tfb = %u\n", state->fb ? state->fb->base.id : 0);
+	drm_printf(p, "PLANE[%d:%s]:\n", plane->base.id, plane->name);
+	drm_printf(p, "\tcrtc = CRTC[%d:%s]\n",
+		   state->crtc ? state->crtc->base.id : 0,
+		   state->crtc ? state->crtc->name : "(null)");
+	drm_printf(p, "\tfb = FB[%u]\n", state->fb ? state->fb->base.id : 0);
 	if (state->fb)
 		drm_framebuffer_print_info(p, 2, state->fb);
 	drm_printf(p, "\tcrtc-pos = " DRM_RECT_FMT "\n", DRM_RECT_ARG(&dest));
@@ -1267,8 +1269,10 @@ static void drm_atomic_connector_print_state(struct drm_printer *p,
 {
 	struct drm_connector *connector = state->connector;
 
-	drm_printf(p, "connector[%u]: %s\n", connector->base.id, connector->name);
-	drm_printf(p, "\tcrtc = %s\n", state->crtc ? state->crtc->name : "(null)");
+	drm_printf(p, "CONNECTOR[%d:%s]:\n", connector->base.id, connector->name);
+	drm_printf(p, "\tcrtc = CRTC[%d:%s]\n",
+		   state->crtc ? state->crtc->base.id : 0,
+		   state->crtc ? state->crtc->name : "(null)");
 
 	if (connector->funcs->atomic_print_state)
 		connector->funcs->atomic_print_state(p, state);

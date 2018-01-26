@@ -1011,7 +1011,7 @@ static int drm_framebuffer_info(struct seq_file *m, void *data)
 
 	mutex_lock(&dev->mode_config.fb_lock);
 	drm_for_each_fb(fb, dev) {
-		drm_printf(&p, "framebuffer[%u]:\n", fb->base.id);
+		drm_printf(&p, "FB[%u]:\n", fb->base.id);
 		drm_framebuffer_print_info(&p, 1, fb);
 	}
 	mutex_unlock(&dev->mode_config.fb_lock);
