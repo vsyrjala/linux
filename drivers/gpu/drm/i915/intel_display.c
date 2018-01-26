@@ -11272,16 +11272,15 @@ static void intel_pipe_config_sanity_check(struct drm_i915_private *dev_priv,
 	}
 }
 
-static void verify_wm_state(struct drm_crtc *crtc,
+static void verify_wm_state(struct intel_crtc *crtc,
 			    struct drm_crtc_state *new_state)
 {
-	struct drm_i915_private *dev_priv = to_i915(crtc->dev);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct skl_ddb_allocation hw_ddb, *sw_ddb;
 	struct skl_pipe_wm hw_wm, *sw_wm;
 	struct skl_plane_wm *hw_plane_wm, *sw_plane_wm;
 	struct skl_ddb_entry *hw_ddb_entry, *sw_ddb_entry;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	const enum pipe pipe = intel_crtc->pipe;
+	const enum pipe pipe = crtc->pipe;
 	int plane, level, max_level = ilk_wm_max_level(dev_priv);
 
 	if (INTEL_GEN(dev_priv) < 9 || !new_state->active)
@@ -11637,7 +11636,7 @@ intel_modeset_verify_crtc(struct drm_crtc *crtc,
 	    !to_intel_crtc_state(new_state)->update_pipe)
 		return;
 
-	verify_wm_state(crtc, new_state);
+	verify_wm_state(to_intel_crtc(crtc), new_state);
 	verify_connector_state(crtc->dev, state, crtc);
 	verify_crtc_state(crtc, old_state, new_state);
 	verify_shared_dpll_state(crtc->dev, crtc, old_state, new_state);
