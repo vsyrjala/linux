@@ -557,7 +557,7 @@ static int intel_lid_notify(struct notifier_block *nb, unsigned long val,
 	 * the vga plane.
 	 */
 	if (!HAS_PCH_SPLIT(dev_priv))
-		intel_display_resume(dev);
+		intel_display_resume(dev_priv);
 
 	dev_priv->modeset_restore = MODESET_DONE;
 

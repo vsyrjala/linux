@@ -5293,9 +5293,8 @@ void skl_pipe_wm_get_hw_state(struct drm_crtc *crtc,
 	out->linetime = I915_READ(PIPE_WM_LINETIME(pipe));
 }
 
-void skl_wm_get_hw_state(struct drm_device *dev)
+void skl_wm_get_hw_state(struct drm_i915_private *dev_priv)
 {
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct skl_wm_values *hw = &dev_priv->wm.skl_hw;
 	struct skl_ddb_allocation *ddb = &dev_priv->wm.skl_hw.ddb;
 	struct drm_crtc *crtc;
@@ -5303,7 +5302,7 @@ void skl_wm_get_hw_state(struct drm_device *dev)
 	struct intel_crtc_state *cstate;
 
 	skl_ddb_get_hw_state(dev_priv, ddb);
-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+	list_for_each_entry(crtc, &dev_priv->drm.mode_config.crtc_list, head) {
 		intel_crtc = to_intel_crtc(crtc);
 		cstate = to_intel_crtc_state(crtc->state);
 
@@ -5481,9 +5480,8 @@ static void vlv_read_wm_values(struct drm_i915_private *dev_priv,
 #undef _FW_WM
 #undef _FW_WM_VLV
 
-void g4x_wm_get_hw_state(struct drm_device *dev)
+void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 {
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct g4x_wm_values *wm = &dev_priv->wm.g4x;
 	struct intel_crtc *crtc;
 
@@ -5491,7 +5489,7 @@ void g4x_wm_get_hw_state(struct drm_device *dev)
 
 	wm->cxsr = I915_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
 
-	for_each_intel_crtc(dev, crtc) {
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		struct intel_crtc_state *crtc_state =
 			to_intel_crtc_state(crtc->base.state);
 		struct g4x_wm_state *active = &crtc->wm.active.g4x;
@@ -5622,9 +5620,8 @@ void g4x_wm_sanitize(struct drm_i915_private *dev_priv)
 	mutex_unlock(&dev_priv->wm.wm_mutex);
 }
 
-void vlv_wm_get_hw_state(struct drm_device *dev)
+void vlv_wm_get_hw_state(struct drm_i915_private *dev_priv)
 {
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct vlv_wm_values *wm = &dev_priv->wm.vlv;
 	struct intel_crtc *crtc;
 	u32 val;
@@ -5668,7 +5665,7 @@ void vlv_wm_get_hw_state(struct drm_device *dev)
 		mutex_unlock(&dev_priv->pcu_lock);
 	}
 
-	for_each_intel_crtc(dev, crtc) {
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		struct intel_crtc_state *crtc_state =
 			to_intel_crtc_state(crtc->base.state);
 		struct vlv_wm_state *active = &crtc->wm.active.vlv;
@@ -5785,15 +5782,14 @@ static void ilk_init_lp_watermarks(struct drm_i915_private *dev_priv)
 	 */
 }
 
-void ilk_wm_get_hw_state(struct drm_device *dev)
+void ilk_wm_get_hw_state(struct drm_i915_private *dev_priv)
 {
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct ilk_wm_values *hw = &dev_priv->wm.hw;
 	struct drm_crtc *crtc;
 
 	ilk_init_lp_watermarks(dev_priv);
 
-	for_each_crtc(dev, crtc)
+	for_each_crtc(&dev_priv->drm, crtc)
 		ilk_pipe_wm_get_hw_state(crtc);
 
 	hw->wm_lp[0] = I915_READ(WM1_LP_ILK);

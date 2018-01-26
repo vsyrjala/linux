@@ -144,7 +144,7 @@ static void intel_crtc_init_scalers(struct intel_crtc *crtc,
 static void skylake_pfit_enable(struct intel_crtc *crtc);
 static void ironlake_pfit_disable(struct intel_crtc *crtc, bool force);
 static void ironlake_pfit_enable(struct intel_crtc *crtc);
-static void intel_modeset_setup_hw_state(struct drm_device *dev,
+static void intel_modeset_setup_hw_state(struct drm_i915_private *dev_priv,
 					 struct drm_modeset_acquire_ctx *ctx);
 static void intel_pre_disable_primary_noatomic(struct drm_crtc *crtc);
 
@@ -3553,7 +3553,7 @@ u32 glk_plane_color_ctl(const struct intel_crtc_state *crtc_state,
 }
 
 static int
-__intel_display_resume(struct drm_device *dev,
+__intel_display_resume(struct drm_i915_private *dev_priv,
 		       struct drm_atomic_state *state,
 		       struct drm_modeset_acquire_ctx *ctx)
 {
@@ -3561,8 +3561,8 @@ __intel_display_resume(struct drm_device *dev,
 	struct drm_crtc *crtc;
 	int i, ret;
 
-	intel_modeset_setup_hw_state(dev, ctx);
-	i915_redisable_vga(to_i915(dev));
+	intel_modeset_setup_hw_state(dev_priv, ctx);
+	i915_redisable_vga(dev_priv);
 
 	if (!state)
 		return 0;
@@ -3582,7 +3582,7 @@ __intel_display_resume(struct drm_device *dev,
 	}
 
 	/* ignore any reset values/BIOS leftovers in the WM registers */
-	if (!HAS_GMCH_DISPLAY(to_i915(dev)))
+	if (!HAS_GMCH_DISPLAY(dev_priv))
 		to_intel_atomic_state(state)->skip_intermediate_wm = true;
 
 	ret = drm_atomic_helper_commit_duplicated_state(state, ctx);
@@ -3674,7 +3674,7 @@ void intel_finish_reset(struct drm_i915_private *dev_priv)
 	/* reset doesn't touch the display */
 	if (!gpu_reset_clobbers_display(dev_priv)) {
 		/* for testing only restore the display */
-		ret = __intel_display_resume(dev, state, ctx);
+		ret = __intel_display_resume(dev_priv, state, ctx);
 		if (ret)
 			DRM_ERROR("Restoring old state failed with %i\n", ret);
 	} else {
@@ -3694,7 +3694,7 @@ void intel_finish_reset(struct drm_i915_private *dev_priv)
 			dev_priv->display.hpd_irq_setup(dev_priv);
 		spin_unlock_irq(&dev_priv->irq_lock);
 
-		ret = __intel_display_resume(dev, state, ctx);
+		ret = __intel_display_resume(dev_priv, state, ctx);
 		if (ret)
 			DRM_ERROR("Restoring old state failed with %i\n", ret);
 
@@ -10406,12 +10406,12 @@ static const struct drm_crtc_helper_funcs intel_helper_funcs = {
 	.atomic_check = intel_crtc_atomic_check,
 };
 
-static void intel_modeset_update_connector_atomic_state(struct drm_device *dev)
+static void intel_modeset_update_connector_atomic_state(struct drm_i915_private *dev_priv)
 {
 	struct intel_connector *connector;
 	struct drm_connector_list_iter conn_iter;
 
-	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_connector_list_iter_begin(&dev_priv->drm, &conn_iter);
 	for_each_intel_connector_iter(connector, &conn_iter) {
 		if (connector->base.state->crtc)
 			drm_connector_unreference(&connector->base);
@@ -14603,7 +14603,7 @@ int intel_modeset_init(struct drm_device *dev)
 	intel_setup_outputs(dev_priv);
 
 	drm_modeset_lock_all(dev);
-	intel_modeset_setup_hw_state(dev, dev->mode_config.acquire_ctx);
+	intel_modeset_setup_hw_state(dev_priv, dev->mode_config.acquire_ctx);
 	drm_modeset_unlock_all(dev);
 
 	for_each_intel_crtc(dev, crtc) {
@@ -14945,9 +14945,8 @@ static void readout_plane_state(struct intel_crtc *crtc)
 	}
 }
 
-static void intel_modeset_readout_hw_state(struct drm_device *dev)
+static void intel_modeset_readout_hw_state(struct drm_i915_private *dev_priv)
 {
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	enum pipe pipe;
 	struct intel_crtc *crtc;
 	struct intel_encoder *encoder;
@@ -14957,7 +14956,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 
 	dev_priv->active_crtcs = 0;
 
-	for_each_intel_crtc(dev, crtc) {
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		struct intel_crtc_state *crtc_state =
 			to_intel_crtc_state(crtc->base.state);
 
@@ -14987,7 +14986,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 		pll->on = pll->funcs.get_hw_state(dev_priv, pll,
 						  &pll->state.hw_state);
 		pll->state.crtc_mask = 0;
-		for_each_intel_crtc(dev, crtc) {
+		for_each_intel_crtc(&dev_priv->drm, crtc) {
 			struct intel_crtc_state *crtc_state =
 				to_intel_crtc_state(crtc->base.state);
 
@@ -15001,7 +15000,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 			      pll->name, pll->state.crtc_mask, pll->on);
 	}
 
-	for_each_intel_encoder(dev, encoder) {
+	for_each_intel_encoder(&dev_priv->drm, encoder) {
 		pipe = 0;
 
 		if (encoder->get_hw_state(encoder, &pipe)) {
@@ -15022,7 +15021,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 			      pipe_name(pipe));
 	}
 
-	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_connector_list_iter_begin(&dev_priv->drm, &conn_iter);
 	for_each_intel_connector_iter(connector, &conn_iter) {
 		if (connector->get_hw_state(connector)) {
 			connector->base.dpms = DRM_MODE_DPMS_ON;
@@ -15053,7 +15052,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 	}
 	drm_connector_list_iter_end(&conn_iter);
 
-	for_each_intel_crtc(dev, crtc) {
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		struct intel_crtc_state *crtc_state =
 			to_intel_crtc_state(crtc->base.state);
 		int min_cdclk = 0;
@@ -15135,33 +15134,32 @@ static void intel_early_display_was(struct drm_i915_private *dev_priv)
  * and sanitizes it to the current state
  */
 static void
-intel_modeset_setup_hw_state(struct drm_device *dev,
+intel_modeset_setup_hw_state(struct drm_i915_private *dev_priv,
 			     struct drm_modeset_acquire_ctx *ctx)
 {
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_crtc *crtc;
 	struct intel_encoder *encoder;
 	int i;
 
 	intel_early_display_was(dev_priv);
-	intel_modeset_readout_hw_state(dev);
+	intel_modeset_readout_hw_state(dev_priv);
 
 	/* HW state is read out, now we need to sanitize this mess. */
 	get_encoder_power_domains(dev_priv);
 
 	intel_sanitize_plane_mapping(dev_priv);
 
-	for_each_intel_encoder(dev, encoder) {
+	for_each_intel_encoder(&dev_priv->drm, encoder) {
 		intel_sanitize_encoder(encoder);
 	}
 
-	for_each_intel_crtc(dev, crtc) {
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		intel_sanitize_crtc(crtc, ctx);
 		intel_dump_pipe_config(crtc, crtc->config,
 				       "[setup_hw_state]");
 	}
 
-	intel_modeset_update_connector_atomic_state(dev);
+	intel_modeset_update_connector_atomic_state(dev_priv);
 
 	for (i = 0; i < dev_priv->num_shared_dpll; i++) {
 		struct intel_shared_dpll *pll = &dev_priv->shared_dplls[i];
@@ -15176,18 +15174,18 @@ intel_modeset_setup_hw_state(struct drm_device *dev,
 	}
 
 	if (IS_G4X(dev_priv)) {
-		g4x_wm_get_hw_state(dev);
+		g4x_wm_get_hw_state(dev_priv);
 		g4x_wm_sanitize(dev_priv);
 	} else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
-		vlv_wm_get_hw_state(dev);
+		vlv_wm_get_hw_state(dev_priv);
 		vlv_wm_sanitize(dev_priv);
 	} else if (INTEL_GEN(dev_priv) >= 9) {
-		skl_wm_get_hw_state(dev);
+		skl_wm_get_hw_state(dev_priv);
 	} else if (HAS_PCH_SPLIT(dev_priv)) {
-		ilk_wm_get_hw_state(dev);
+		ilk_wm_get_hw_state(dev_priv);
 	}
 
-	for_each_intel_crtc(dev, crtc) {
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		u64 put_domains;
 
 		put_domains = modeset_get_crtc_power_domains(&crtc->base, crtc->config);
@@ -15201,9 +15199,8 @@ intel_modeset_setup_hw_state(struct drm_device *dev,
 	intel_fbc_init_pipe_state(dev_priv);
 }
 
-void intel_display_resume(struct drm_device *dev)
+void intel_display_resume(struct drm_i915_private *dev_priv)
 {
-	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct drm_atomic_state *state = dev_priv->modeset_restore_state;
 	struct drm_modeset_acquire_ctx ctx;
 	int ret;
@@ -15215,7 +15212,7 @@ void intel_display_resume(struct drm_device *dev)
 	drm_modeset_acquire_init(&ctx, 0);
 
 	while (1) {
-		ret = drm_modeset_lock_all_ctx(dev, &ctx);
+		ret = drm_modeset_lock_all_ctx(&dev_priv->drm, &ctx);
 		if (ret != -EDEADLK)
 			break;
 
@@ -15223,7 +15220,7 @@ void intel_display_resume(struct drm_device *dev)
 	}
 
 	if (!ret)
-		ret = __intel_display_resume(dev, state, &ctx);
+		ret = __intel_display_resume(dev_priv, state, &ctx);
 
 	intel_enable_ipc(dev_priv);
 	drm_modeset_drop_locks(&ctx);

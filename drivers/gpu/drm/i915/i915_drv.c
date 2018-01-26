@@ -1744,7 +1744,7 @@ static int i915_drm_resume(struct drm_device *dev)
 
 	intel_dp_mst_resume(dev);
 
-	intel_display_resume(dev);
+	intel_display_resume(dev_priv);
 
 	drm_kms_helper_poll_enable(dev);
 
