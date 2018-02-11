@@ -603,11 +603,17 @@ int intel_color_check(struct intel_crtc_state *crtc_state)
 	if (gamma_lut && drm_color_lut_size(gamma_lut) != gamma_length)
 		return -EINVAL;
 
+	if (HAS_GMCH_DISPLAY(dev_priv)) {
+		crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
+		return 0;
+	}
+
 	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
 		crtc_state->gamma_mode = GAMMA_MODE_MODE_10BIT;
-	else if (INTEL_GEN(dev_priv) >= 9 || IS_BROADWELL(dev_priv) ||
-		 IS_HASWELL(dev_priv))
+	else if (INTEL_GEN(dev_priv) >= 8 || IS_HASWELL(dev_priv))
 		crtc_state->gamma_mode = GAMMA_MODE_MODE_SPLIT;
+	else
+		crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
 
 	return 0;
 }
