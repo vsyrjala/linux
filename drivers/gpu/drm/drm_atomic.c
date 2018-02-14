@@ -413,6 +413,7 @@ drm_atomic_replace_property_blob_from_id(struct drm_device *dev,
 					 struct drm_property_blob **blob,
 					 uint64_t blob_id,
 					 ssize_t expected_size,
+					 ssize_t expected_size_mod,
 					 bool *replaced)
 {
 	struct drm_property_blob *new_blob = NULL;
@@ -422,7 +423,13 @@ drm_atomic_replace_property_blob_from_id(struct drm_device *dev,
 		if (new_blob == NULL)
 			return -EINVAL;
 
-		if (expected_size > 0 && expected_size != new_blob->length) {
+		if (expected_size > 0 &&
+		    new_blob->length != expected_size) {
+			drm_property_blob_put(new_blob);
+			return -EINVAL;
+		}
+		if (expected_size_mod > 0 &&
+		    new_blob->length % expected_size_mod != 0) {
 			drm_property_blob_put(new_blob);
 			return -EINVAL;
 		}
@@ -470,7 +477,7 @@ int drm_atomic_crtc_set_property(struct drm_crtc *crtc,
 		ret = drm_atomic_replace_property_blob_from_id(dev,
 					&state->degamma_lut,
 					val,
-					-1,
+					-1, sizeof(struct drm_color_lut),
 					&replaced);
 		state->color_mgmt_changed |= replaced;
 		return ret;
@@ -478,7 +485,7 @@ int drm_atomic_crtc_set_property(struct drm_crtc *crtc,
 		ret = drm_atomic_replace_property_blob_from_id(dev,
 					&state->ctm,
 					val,
-					sizeof(struct drm_color_ctm),
+					sizeof(struct drm_color_ctm), -1,
 					&replaced);
 		state->color_mgmt_changed |= replaced;
 		return ret;
@@ -486,7 +493,7 @@ int drm_atomic_crtc_set_property(struct drm_crtc *crtc,
 		ret = drm_atomic_replace_property_blob_from_id(dev,
 					&state->gamma_lut,
 					val,
-					-1,
+					-1, sizeof(struct drm_color_lut),
 					&replaced);
 		state->color_mgmt_changed |= replaced;
 		return ret;
