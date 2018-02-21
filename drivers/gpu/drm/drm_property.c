@@ -150,9 +150,9 @@ struct drm_property *drm_property_create_enum(struct drm_device *dev, int flags,
 		return NULL;
 
 	for (i = 0; i < num_values; i++) {
-		ret = drm_property_add_enum(property, i,
-				      props[i].type,
-				      props[i].name);
+		ret = drm_property_add_enum(property,
+					    props[i].type,
+					    props[i].name);
 		if (ret) {
 			drm_property_destroy(dev, property);
 			return NULL;
@@ -190,7 +190,7 @@ struct drm_property *drm_property_create_bitmask(struct drm_device *dev,
 					 uint64_t supported_bits)
 {
 	struct drm_property *property;
-	int i, ret, index = 0;
+	int i, ret;
 	int num_values = hweight64(supported_bits);
 
 	flags |= DRM_MODE_PROP_BITMASK;
@@ -202,12 +202,7 @@ struct drm_property *drm_property_create_bitmask(struct drm_device *dev,
 		if (!(supported_bits & (1ULL << props[i].type)))
 			continue;
 
-		if (WARN_ON(index >= num_values)) {
-			drm_property_destroy(dev, property);
-			return NULL;
-		}
-
-		ret = drm_property_add_enum(property, index++,
+		ret = drm_property_add_enum(property,
 				      props[i].type,
 				      props[i].name);
 		if (ret) {
@@ -369,10 +364,11 @@ EXPORT_SYMBOL(drm_property_create_bool);
  * Returns:
  * Zero on success, error code on failure.
  */
-int drm_property_add_enum(struct drm_property *property, int index,
+int drm_property_add_enum(struct drm_property *property,
 			  uint64_t value, const char *name)
 {
 	struct drm_property_enum *prop_enum;
+	int index = 0;
 
 	if (!drm_property_type_is(property, DRM_MODE_PROP_ENUM) &&
 	    !drm_property_type_is(property, DRM_MODE_PROP_BITMASK))
@@ -393,8 +389,12 @@ int drm_property_add_enum(struct drm_property *property, int index,
 				prop_enum->name[DRM_PROP_NAME_LEN-1] = '\0';
 				return 0;
 			}
+			index++;
 		}
 	}
+
+	if (WARN_ON(index >= property->num_values))
+		return -EINVAL;
 
 	prop_enum = kzalloc(sizeof(struct drm_property_enum), GFP_KERNEL);
 	if (!prop_enum)

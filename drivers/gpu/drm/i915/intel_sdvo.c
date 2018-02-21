@@ -2772,7 +2772,7 @@ static bool intel_sdvo_tv_create_property(struct intel_sdvo *intel_sdvo,
 
 	for (i = 0; i < intel_sdvo_connector->format_supported_num; i++)
 		drm_property_add_enum(
-				intel_sdvo_connector->tv_format, i,
+				intel_sdvo_connector->tv_format,
 				i, tv_format_names[intel_sdvo_connector->tv_format_supported[i]]);
 
 	intel_sdvo_connector->base.base.state->tv.mode = intel_sdvo_connector->tv_format_supported[0];

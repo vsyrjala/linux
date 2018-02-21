@@ -258,7 +258,7 @@ struct drm_property *drm_property_create_object(struct drm_device *dev,
 						int flags, const char *name, uint32_t type);
 struct drm_property *drm_property_create_bool(struct drm_device *dev, int flags,
 					      const char *name);
-int drm_property_add_enum(struct drm_property *property, int index,
+int drm_property_add_enum(struct drm_property *property,
 			  uint64_t value, const char *name);
 void drm_property_destroy(struct drm_device *dev, struct drm_property *property);
 
