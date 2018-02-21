@@ -374,8 +374,8 @@ int drm_property_add_enum(struct drm_property *property, int index,
 {
 	struct drm_property_enum *prop_enum;
 
-	if (!(drm_property_type_is(property, DRM_MODE_PROP_ENUM) ||
-			drm_property_type_is(property, DRM_MODE_PROP_BITMASK)))
+	if (!drm_property_type_is(property, DRM_MODE_PROP_ENUM) &&
+	    !drm_property_type_is(property, DRM_MODE_PROP_BITMASK))
 		return -EINVAL;
 
 	/*
@@ -383,7 +383,7 @@ int drm_property_add_enum(struct drm_property *property, int index,
 	 * from 0 to 63
 	 */
 	if (drm_property_type_is(property, DRM_MODE_PROP_BITMASK) &&
-			(value > 63))
+	    value > 63)
 		return -EINVAL;
 
 	if (!list_empty(&property->enum_list)) {
