@@ -162,6 +162,13 @@ struct drm_crtc_state {
 	struct drm_property_blob *mode_blob;
 
 	/**
+	 * @gamma_mode:
+	 *
+	 * FIXME
+	 */
+	struct drm_property_blob *gamma_mode;
+
+	/**
 	 * @degamma_lut:
 	 *
 	 * Lookup table for converting framebuffer pixel data before apply the

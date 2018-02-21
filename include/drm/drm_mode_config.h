@@ -727,6 +727,11 @@ struct drm_mode_config {
 	 */
 	struct drm_property *aspect_ratio_property;
 	/**
+	 * @gamma_mode_property: Optional CRTC property to enumerate and
+	 * select the mode of the crtc gamma/degmama LUTs.
+	 */
+	struct drm_property *gamma_mode_property;
+	/**
 	 * @degamma_lut_property: Optional CRTC property to set the LUT used to
 	 * convert the framebuffer's colors to linear gamma.
 	 */

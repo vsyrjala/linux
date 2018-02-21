@@ -162,6 +162,84 @@ void drm_crtc_enable_color_mgmt(struct drm_crtc *crtc,
 }
 EXPORT_SYMBOL(drm_crtc_enable_color_mgmt);
 
+void drm_crtc_attach_gamma_mode_property(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_mode_config *config = &dev->mode_config;
+
+	if (!config->gamma_mode_property)
+		return;
+
+	drm_object_attach_property(&crtc->base,
+				   config->gamma_mode_property, 0);
+}
+EXPORT_SYMBOL(drm_crtc_attach_gamma_mode_property);
+
+int drm_color_create_gamma_mode_property(struct drm_device *dev,
+					 int num_values)
+{
+	struct drm_mode_config *config = &dev->mode_config;
+	struct drm_property *prop;
+
+	prop = drm_property_create(dev,
+				   DRM_MODE_PROP_ENUM |
+				   DRM_MODE_PROP_BLOB,
+				   "GAMMA_MODE", num_values);
+	if (!prop)
+		return -ENOMEM;
+
+	config->gamma_mode_property = prop;
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_color_create_gamma_mode_property);
+
+int drm_color_add_gamma_mode_range(struct drm_device *dev,
+				   const char *name,
+				   const struct drm_color_lut_range *ranges,
+				   size_t length)
+{
+	struct drm_mode_config *config = &dev->mode_config;
+	struct drm_property_blob *blob;
+	struct drm_property *prop;
+	int num_ranges = length / sizeof(ranges[0]);
+	int i, ret, num_types_0;
+
+	if (WARN_ON(length == 0 || length % sizeof(ranges[0]) != 0))
+		return -EINVAL;
+
+	num_types_0 = hweight8(ranges[0].flags & (DRM_MODE_LUT_GAMMA |
+						  DRM_MODE_LUT_DEGAMMA));
+	if (num_types_0 == 0)
+		return -EINVAL;
+
+	for (i = 1; i < num_ranges; i++) {
+		int num_types = hweight8(ranges[i].flags & (DRM_MODE_LUT_GAMMA |
+							    DRM_MODE_LUT_DEGAMMA));
+
+		/* either all ranges have DEGAMMA|GAMMA or none have it */
+		if (num_types_0 != num_types)
+			return -EINVAL;
+	}
+
+	prop = config->gamma_mode_property;
+	if (!prop)
+		return -EINVAL;
+
+	blob = drm_property_create_blob(dev, length, ranges);
+	if (IS_ERR(blob))
+		return PTR_ERR(blob);
+
+	ret = drm_property_add_enum(prop, blob->base.id, name);
+	if (ret) {
+		drm_property_blob_put(blob);
+		return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_color_add_gamma_mode_range);
+
 /**
  * drm_mode_crtc_set_gamma_size - set the gamma table size
  * @crtc: CRTC to set the gamma table size for

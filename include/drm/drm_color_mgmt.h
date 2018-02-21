@@ -42,4 +42,12 @@ static inline int drm_color_lut_size(const struct drm_property_blob *blob)
 	return blob->length / sizeof(struct drm_color_lut);
 }
 
+int drm_color_create_gamma_mode_property(struct drm_device *dev,
+					 int num_values);
+void drm_crtc_attach_gamma_mode_property(struct drm_crtc *crtc);
+int drm_color_add_gamma_mode_range(struct drm_device *dev,
+				   const char *name,
+				   const struct drm_color_lut_range *ranges,
+				   size_t length);
+
 #endif
