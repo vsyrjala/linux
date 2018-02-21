@@ -5058,10 +5058,27 @@ intel_pre_disable_primary_noatomic(struct drm_crtc *crtc)
 static bool hsw_pre_update_disable_ips(const struct intel_crtc_state *old_crtc_state,
 				       const struct intel_crtc_state *new_crtc_state)
 {
+	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+
 	if (!old_crtc_state->ips_enabled)
 		return false;
 
 	if (needs_modeset(&new_crtc_state->base))
+		return true;
+
+	/*
+	 * Workaround : Do not read or write the pipe palette/gamma data while
+	 * GAMMA_MODE is configured for split gamma and IPS_CTL has IPS enabled.
+	 *
+	 * Checking old_crtc_state here because we currently reprogram the
+	 * LUT before GAMMA_MODE, which is actually the wrong thing to do
+	 * since GAMMA_MODE is double buffered while the LUT is single buffered.
+	 */
+	if (IS_HASWELL(dev_priv) &&
+	    (new_crtc_state->base.color_mgmt_changed ||
+	     new_crtc_state->update_pipe) &&
+	    old_crtc_state->gamma_mode == GAMMA_MODE_MODE_SPLIT)
 		return true;
 
 	return !new_crtc_state->ips_enabled;
@@ -10424,7 +10441,7 @@ static int intel_crtc_atomic_check(struct drm_crtc *crtc,
 			return ret;
 	}
 
-	if (crtc_state->color_mgmt_changed) {
+	if (mode_changed || crtc_state->color_mgmt_changed) {
 		ret = intel_color_check(pipe_config);
 		if (ret)
 			return ret;

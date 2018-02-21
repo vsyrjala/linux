@@ -347,32 +347,6 @@ static void i9xx_load_luts(struct intel_crtc_state *crtc_state)
 	i9xx_load_luts_internal(crtc_state, crtc_state->base.gamma_lut);
 }
 
-/* Loads the legacy palette/gamma unit for the CRTC on Haswell. */
-static void haswell_load_luts(struct intel_crtc_state *crtc_state)
-{
-	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
-	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	bool reenable_ips = false;
-
-	/*
-	 * Workaround : Do not read or write the pipe palette/gamma data while
-	 * GAMMA_MODE is configured for split gamma and IPS_CTL has IPS enabled.
-	 */
-	if (IS_HASWELL(dev_priv) && crtc_state->ips_enabled &&
-	    crtc_state->gamma_mode == GAMMA_MODE_MODE_SPLIT) {
-		hsw_disable_ips(crtc_state);
-		reenable_ips = true;
-	}
-
-	crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
-	I915_WRITE(GAMMA_MODE(crtc->pipe), GAMMA_MODE_MODE_8BIT);
-
-	i9xx_load_luts(crtc_state);
-
-	if (reenable_ips)
-		hsw_enable_ips(crtc_state);
-}
-
 static void bdw_load_degamma_lut(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
@@ -462,15 +436,14 @@ static void broadwell_load_luts(struct intel_crtc_state *crtc_state)
 	enum pipe pipe = crtc->pipe;
 
 	if (crtc_state_is_legacy_gamma(crtc_state)) {
-		haswell_load_luts(crtc_state);
+		i9xx_load_luts(crtc_state);
 		return;
 	}
 
 	bdw_load_degamma_lut(crtc_state);
 	bdw_load_gamma_lut(crtc_state, INTEL_INFO(dev_priv)->color.degamma_lut_size);
 
-	crtc_state->gamma_mode = GAMMA_MODE_MODE_SPLIT;
-	I915_WRITE(GAMMA_MODE(pipe), GAMMA_MODE_MODE_SPLIT);
+	I915_WRITE(GAMMA_MODE(pipe), crtc_state->gamma_mode);
 	POSTING_READ(GAMMA_MODE(pipe));
 
 	/*
@@ -520,14 +493,13 @@ static void glk_load_luts(struct intel_crtc_state *crtc_state)
 	glk_load_degamma_lut(crtc_state);
 
 	if (crtc_state_is_legacy_gamma(crtc_state)) {
-		haswell_load_luts(crtc_state);
+		i9xx_load_luts(crtc_state);
 		return;
 	}
 
 	bdw_load_gamma_lut(crtc_state, 0);
 
-	crtc_state->gamma_mode = GAMMA_MODE_MODE_10BIT;
-	I915_WRITE(GAMMA_MODE(pipe), GAMMA_MODE_MODE_10BIT);
+	I915_WRITE(GAMMA_MODE(pipe), crtc_state->gamma_mode);
 	POSTING_READ(GAMMA_MODE(pipe));
 }
 
@@ -615,21 +587,30 @@ int intel_color_check(struct intel_crtc_state *crtc_state)
 	gamma_length = INTEL_INFO(dev_priv)->color.gamma_lut_size;
 
 	/*
-	 * We allow both degamma & gamma luts at the right size or
-	 * NULL.
-	 */
-	if ((!degamma_lut || drm_color_lut_size(degamma_lut) == degamma_length) &&
-	    (!gamma_lut || drm_color_lut_size(gamma_lut) == gamma_length))
-		return 0;
-
-	/*
 	 * We also allow no degamma lut/ctm and a gamma lut at the legacy
 	 * size (256 entries).
 	 */
-	if (crtc_state_is_legacy_gamma(crtc_state))
+	if (crtc_state_is_legacy_gamma(crtc_state)) {
+		crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
 		return 0;
+	}
 
-	return -EINVAL;
+	/*
+	 * We allow both degamma & gamma luts at the right size or
+	 * NULL.
+	 */
+	if (degamma_lut && drm_color_lut_size(degamma_lut) != degamma_length)
+		return -EINVAL;
+
+	if (gamma_lut && drm_color_lut_size(gamma_lut) != gamma_length)
+		return -EINVAL;
+
+	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
+		crtc_state->gamma_mode = GAMMA_MODE_MODE_10BIT;
+	else if (INTEL_GEN(dev_priv) >= 9 || IS_BROADWELL(dev_priv))
+		crtc_state->gamma_mode = GAMMA_MODE_MODE_SPLIT;
+
+	return 0;
 }
 
 void intel_color_init(struct intel_crtc *crtc)
@@ -643,7 +624,7 @@ void intel_color_init(struct intel_crtc *crtc)
 		dev_priv->display.load_luts = cherryview_load_luts;
 	} else if (IS_HASWELL(dev_priv)) {
 		dev_priv->display.load_csc_matrix = ilk_load_csc_matrix;
-		dev_priv->display.load_luts = haswell_load_luts;
+		dev_priv->display.load_luts = i9xx_load_luts;
 	} else if (IS_BROADWELL(dev_priv) || IS_GEN9_BC(dev_priv) ||
 		   IS_BROXTON(dev_priv)) {
 		dev_priv->display.load_csc_matrix = ilk_load_csc_matrix;
