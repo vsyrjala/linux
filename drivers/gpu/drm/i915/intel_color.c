@@ -132,7 +132,7 @@ static void ilk_load_ycbcr_conversion_matrix(struct intel_crtc *crtc)
 	I915_WRITE(PIPE_CSC_MODE(pipe), 0);
 }
 
-static void ilk_load_csc_matrix(struct intel_crtc_state *crtc_state)
+static void ilk_load_csc_matrix(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -244,7 +244,7 @@ static void ilk_load_csc_matrix(struct intel_crtc_state *crtc_state)
 /*
  * Set up the pipe CSC unit on CherryView.
  */
-static void cherryview_load_csc_matrix(struct intel_crtc_state *crtc_state)
+static void cherryview_load_csc_matrix(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -291,7 +291,7 @@ static void cherryview_load_csc_matrix(struct intel_crtc_state *crtc_state)
 	I915_WRITE(CGM_PIPE_MODE(pipe), mode);
 }
 
-void intel_color_set_csc(struct intel_crtc_state *crtc_state)
+void intel_color_set_csc(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -301,7 +301,7 @@ void intel_color_set_csc(struct intel_crtc_state *crtc_state)
 }
 
 /* Loads the legacy palette/gamma unit for the CRTC. */
-static void i9xx_load_luts_internal(struct intel_crtc_state *crtc_state,
+static void i9xx_load_luts_internal(const struct intel_crtc_state *crtc_state,
 				    const struct drm_property_blob *blob)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
@@ -342,12 +342,12 @@ static void i9xx_load_luts_internal(struct intel_crtc_state *crtc_state,
 	}
 }
 
-static void i9xx_load_luts(struct intel_crtc_state *crtc_state)
+static void i9xx_load_luts(const struct intel_crtc_state *crtc_state)
 {
 	i9xx_load_luts_internal(crtc_state, crtc_state->base.gamma_lut);
 }
 
-static void bdw_load_degamma_lut(struct intel_crtc_state *crtc_state)
+static void bdw_load_degamma_lut(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -379,7 +379,7 @@ static void bdw_load_degamma_lut(struct intel_crtc_state *crtc_state)
 	}
 }
 
-static void bdw_load_gamma_lut(struct intel_crtc_state *crtc_state, u32 offset)
+static void bdw_load_gamma_lut(const struct intel_crtc_state *crtc_state, u32 offset)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -429,7 +429,7 @@ static void bdw_load_gamma_lut(struct intel_crtc_state *crtc_state, u32 offset)
 }
 
 /* Loads the palette/gamma unit for the CRTC on Broadwell+. */
-static void broadwell_load_luts(struct intel_crtc_state *crtc_state)
+static void broadwell_load_luts(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -453,7 +453,7 @@ static void broadwell_load_luts(struct intel_crtc_state *crtc_state)
 
 }
 
-static void glk_load_degamma_lut(struct intel_crtc_state *crtc_state)
+static void glk_load_degamma_lut(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -484,7 +484,7 @@ static void glk_load_degamma_lut(struct intel_crtc_state *crtc_state)
 		I915_WRITE(PRE_CSC_GAMC_DATA(pipe), (1 << 16));
 }
 
-static void glk_load_luts(struct intel_crtc_state *crtc_state)
+static void glk_load_luts(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -502,7 +502,7 @@ static void glk_load_luts(struct intel_crtc_state *crtc_state)
 	POSTING_READ(GAMMA_MODE(pipe));
 }
 
-static void cherryview_load_luts(struct intel_crtc_state *crtc_state)
+static void cherryview_load_luts(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -566,7 +566,7 @@ static void cherryview_load_luts(struct intel_crtc_state *crtc_state)
 	i9xx_load_luts_internal(crtc_state, NULL);
 }
 
-void intel_color_load_luts(struct intel_crtc_state *crtc_state)
+void intel_color_load_luts(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
