@@ -1240,6 +1240,402 @@ static void skl_color_commit(const struct intel_crtc_state *crtc_state)
 		ilk_load_csc_matrix(crtc_state);
 }
 
+#define I9XX_GAMMA_8 \
+	{ \
+		.flags = DRM_MODE_LUT_GAMMA, \
+		.count = 256, \
+		.input_bpc = 8, .output_bpc = 8, \
+		.start = 0, .end = (1 << 8) - 1, \
+		.min = 0, .max = (1 << 8) - 1, \
+	}
+
+static const struct drm_color_lut_range i9xx_gamma_8[] = {
+	I9XX_GAMMA_8,
+};
+
+static const struct drm_color_lut_range i9xx_gamma_10_slope[] = {
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 129,
+		.input_bpc = 10, .output_bpc = 10,
+		.start = 0, .end = 1 << 10,
+		.min = 0, .max = (1 << 10) - 1,
+	},
+};
+
+#define I965_GAMMA_10 \
+	{ \
+		.flags = (DRM_MODE_LUT_GAMMA | \
+			  DRM_MODE_LUT_INTERPOLATE | \
+			  DRM_MODE_LUT_NON_DECREASING), \
+		.count = 128, \
+		.input_bpc = 10, .output_bpc = 16, \
+		.start = 0, .end = (1 << 10) - (1 << 10) / 128, \
+		.min = 0, .max = (1 << 16) - 1, \
+	}, \
+	/* PIPEGCMAX */ \
+	{ \
+		.flags = (DRM_MODE_LUT_GAMMA | \
+			  DRM_MODE_LUT_INTERPOLATE | \
+			  DRM_MODE_LUT_REUSE_LAST | \
+			  DRM_MODE_LUT_NON_DECREASING), \
+		.count = 1, \
+		.input_bpc = 10, .output_bpc = 16, \
+		.start = (1 << 10) - (1 << 10) / 128, .end = 1 << 10, \
+		.min = 0, .max = 1 << 16, \
+	}
+
+static const struct drm_color_lut_range i965_gamma_10[] = {
+	I965_GAMMA_10,
+};
+
+#define CHV_CGM_DEGAMMA \
+	{ \
+		.flags = (DRM_MODE_LUT_DEGAMMA | \
+			  DRM_MODE_LUT_INTERPOLATE | \
+			  DRM_MODE_LUT_NON_DECREASING), \
+		.count = 65, \
+		.input_bpc = 10, .output_bpc = 14, \
+		.start = 0, .end = 1 << 10, \
+		.min = 0, .max = (1 << 14) - 1, \
+	}
+#define CHV_CGM_GAMMA \
+	{ \
+		.flags = (DRM_MODE_LUT_GAMMA | \
+			  DRM_MODE_LUT_INTERPOLATE | \
+			  DRM_MODE_LUT_NON_DECREASING), \
+		.count = 257, \
+		.input_bpc = 14, .output_bpc = 10, \
+		.start = 0, .end = 1 << 14, \
+		.min = 0, .max = (1 << 10) - 1, \
+	}
+
+static const struct drm_color_lut_range chv_cgm_degamma[] = {
+	CHV_CGM_DEGAMMA,
+};
+
+static const struct drm_color_lut_range chv_cgm_gamma[] = {
+	CHV_CGM_GAMMA,
+};
+
+static const struct drm_color_lut_range chv_cgm_degamma_i9xx_gamma_8[] = {
+	CHV_CGM_DEGAMMA,
+	I9XX_GAMMA_8,
+};
+
+static const struct drm_color_lut_range chv_cgm_degamma_i965_gamma_10[] = {
+	CHV_CGM_DEGAMMA,
+	I965_GAMMA_10,
+};
+
+static const struct drm_color_lut_range chv_cgm_degamma_cgm_degamma[] = {
+	CHV_CGM_DEGAMMA,
+	CHV_CGM_GAMMA,
+};
+
+static const struct drm_color_lut_range ilk_gamma_degamma_8[] = {
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_DEGAMMA),
+		.count = 256,
+		.input_bpc = 8, .output_bpc = 8,
+		.start = 0, .end = (1 << 8) - 1,
+		.min = 0, .max = (1 << 8) - 1,
+	},
+};
+
+static const struct drm_color_lut_range ilk_gamma_degamma_10[] = {
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_DEGAMMA),
+		.count = 1024,
+		.input_bpc = 10, .output_bpc = 10,
+		.start = 0, .end = (1 << 10) - 1,
+		.min = 0, .max = (1 << 10) - 1,
+	},
+};
+
+static const struct drm_color_lut_range ilk_gamma_degamma_12p4[] = {
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_DEGAMMA |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 512,
+		.input_bpc = 12, .output_bpc = 16,
+		.start = 0, .end = (1 << 12) - (1 << 12) / 512,
+		.min = 0, .max = (1 << 16) - 1,
+	},
+	/* PIPEGCMAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_DEGAMMA |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 10, .output_bpc = 16,
+		.start = (1 << 12) - (1 << 12) / 512, .end = 1 << 12,
+		.min = 0, .max = 1 << 16,
+	},
+};
+
+static const struct drm_color_lut_range ivb_gamma_degamma_10[] = {
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_DEGAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE),
+		.count = 1024,
+		.input_bpc = 10, .output_bpc = 10,
+		.start = 0, .end = (1 << 10) - 1,
+		.min = 0, .max = (1 << 10) - 1,
+	},
+	/* PAL_EXT_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_DEGAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 10, .output_bpc = 16,
+		.start = 1 << 10, .end = 3 << 10,
+		.min = 0, .max = (8 << 16) - 1,
+	}
+};
+
+static const struct drm_color_lut_range glk_gamma_10[] = {
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE),
+		.count = 1024,
+		.input_bpc = 10, .output_bpc = 10,
+		.start = 0, .end = (1 << 10) - 1,
+		.min = 0, .max = (1 << 10) - 1,
+	},
+	/* PAL_EXT_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 10, .output_bpc = 16,
+		.start = 1 << 10, .end = 3 << 10,
+		.min = 0, .max = (8 << 16) - 1,
+	},
+	/* PAL_EXT2_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 10, .output_bpc = 16,
+		.start = 3 << 12, .end = 7 << 12,
+		.min = 0, .max = (8 << 16) - 1,
+	},
+};
+
+static const struct drm_color_lut_range ivb_split_gamma[] = {
+	{
+		.flags = (DRM_MODE_LUT_DEGAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE),
+		.count = 512,
+		.input_bpc = 9, .output_bpc = 10,
+		.start = 0, .end = (1 << 9) - 1,
+		.min = 0, .max = (1 << 10) - 1,
+	},
+	/* PAL_EXT_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_DEGAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 10, .output_bpc = 16,
+		.start = 1 << 9, .end = 3 << 9,
+		.min = 0, .max = (8 << 16) - 1,
+	},
+	{
+		.flags = DRM_MODE_LUT_GAMMA,
+		.count = 512,
+		.input_bpc = 9, .output_bpc = 10,
+		.start = 0, .end = (1 << 9) - 1,
+		.min = 0, .max = (1 << 10) - 1,
+	},
+};
+
+/* FIXME input bpc? */
+static const struct drm_color_lut_range ivb_gamma_degamma_12p4[] = {
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_DEGAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 512,
+		.input_bpc = 12, .output_bpc = 16,
+		.start = 0, .end = (1 << 12) - (1 << 12) / 512,
+		.min = 0, .max = (1 << 16) - 1,
+	},
+	/* PAL_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_DEGAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 12, .output_bpc = 16,
+		.start = (1 << 12) - (1 << 12) / 512, .end = 1 << 12,
+		.min = 0, .max = 1 << 16,
+	},
+	/* PAL_EXT_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_DEGAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 12, .output_bpc = 16,
+		.start = 1 << 12, .end = 3 << 12,
+		.min = 0, .max = (8 << 16) - 1,
+	},
+};
+
+/* FIXME input bpc? */
+static const struct drm_color_lut_range glk_gamma_12p4[] = {
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 512,
+		.input_bpc = 16, .output_bpc = 16,
+		.start = 0, .end = (1 << 16) - (1 << 16) / 512,
+		.min = 0, .max = (1 << 16) - 1,
+	},
+	/* PAL_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 16, .output_bpc = 16,
+		.start = (1 << 16) - (1 << 16) / 512, .end = 1 << 16,
+		.min = 0, .max = 1 << 16,
+	},
+	/* PAL_EXT_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 16, .output_bpc = 16,
+		.start = 1 << 16, .end = 3 << 16,
+		.min = 0, .max = (8 << 16) - 1,
+	},
+	/* PAL_EXT2_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 16, .output_bpc = 16,
+		.start = 3 << 16, .end = 7 << 16,
+		.min = 0, .max = (8 << 16) - 1,
+	},
+};
+
+ /* FIXME input bpc? */
+static const struct drm_color_lut_range icl_multi_seg_gamma[] = {
+	/* segment 1 aka. super fine segment */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 257,
+		.input_bpc = 24, .output_bpc = 16,
+		.start = 0, .end = (1 << 24) / (128 * 256),
+		.min = 0, .max = (1 << 16) - 1,
+	},
+	/* segment 2 aka. fine segment */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 257,
+		.input_bpc = 24, .output_bpc = 16,
+		.start = 0, .end = (1 << 24) / 128,
+		.min = 0, .max = (1 << 16) - 1,
+	},
+	/* segment 3 aka. coarse segment */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 256,
+		.input_bpc = 24, .output_bpc = 16,
+		.start = 0, .end = (1 << 24) - (1 << 24) / 256,
+		.min = 0, .max = (1 << 16) - 1,
+	},
+	/* segment 3 aka. coarse segment / PAL_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 24, .output_bpc = 16,
+		.start = (1 << 24) - (1 << 24) / 256, .end = 1 << 24,
+		.min = 0, .max = 1 << 16,
+	},
+	/* PAL_EXT_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 24, .output_bpc = 16,
+		.start = 1 << 24, .end = 3 << 24,
+		.min = 0, .max = (8 << 16) - 1,
+	},
+	/* PAL_EXT2_GC_MAX */
+	{
+		.flags = (DRM_MODE_LUT_GAMMA |
+			  DRM_MODE_LUT_REFLECT_NEGATIVE |
+			  DRM_MODE_LUT_INTERPOLATE |
+			  DRM_MODE_LUT_REUSE_LAST |
+			  DRM_MODE_LUT_NON_DECREASING),
+		.count = 1,
+		.input_bpc = 24, .output_bpc = 16,
+		.start = 3 << 24, .end = 7 << 24,
+		.min = 0, .max = (8 << 16) - 1,
+	},
+};
+
 void intel_color_init(struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -1262,6 +1658,35 @@ void intel_color_init(struct intel_crtc *crtc)
 			dev_priv->display.load_luts = chv_load_luts;
 			dev_priv->display.color_check = chv_color_check;
 			dev_priv->display.color_commit = chv_color_commit;
+
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "8bit gamma",
+						       i9xx_gamma_8,
+						       sizeof(i9xx_gamma_8));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "interpolated gamma",
+						       i965_gamma_10,
+						       sizeof(i965_gamma_10));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "CGM gamma",
+						       chv_cgm_gamma,
+						       sizeof(chv_cgm_gamma));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "CGM degamma",
+						       chv_cgm_degamma,
+						       sizeof(chv_cgm_degamma));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "CGM degamma with 8bit gamma",
+						       chv_cgm_degamma_i9xx_gamma_8,
+						       sizeof(chv_cgm_degamma));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "CGM degamma with 10bit interpolated gamma",
+						       chv_cgm_degamma_i965_gamma_10,
+						       sizeof(chv_cgm_degamma));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "CGM degamma with CGM gamma",
+						       chv_cgm_degamma_cgm_degamma,
+						       sizeof(chv_cgm_degamma));
 		} else if (INTEL_GEN(dev_priv) >= 4) {
 			/* 10bit interpolated gamma */
 			degamma_lut_size = 0;
@@ -1271,6 +1696,15 @@ void intel_color_init(struct intel_crtc *crtc)
 			dev_priv->display.load_luts = i965_load_luts;
 			dev_priv->display.color_check = i9xx_color_check;
 			dev_priv->display.color_commit = i9xx_color_commit;
+
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "8bit gamma",
+						       i9xx_gamma_8,
+						       sizeof(i9xx_gamma_8));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "interpolated gamma",
+						       i965_gamma_10,
+						       sizeof(i965_gamma_10));
 		} else {
 			dev_priv->display.load_luts = i9xx_load_luts;
 			dev_priv->display.color_check = i9xx_color_check;
@@ -1280,9 +1714,19 @@ void intel_color_init(struct intel_crtc *crtc)
 			gamma_lut_size = 0;
 			has_ctm = false;
 
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "8bit gamma",
+						       i9xx_gamma_8,
+						       sizeof(i9xx_gamma_8));
+
 			if (i9xx_has_10bit_lut(dev_priv)) {
 				/* 10bit interpolated gamma */
 				gamma_lut_size = I9XX_LUT_SIZE_10BIT;
+
+				drm_color_add_gamma_mode_range(&dev_priv->drm,
+							       "interpolated gamma",
+							       i9xx_gamma_10_slope,
+							       sizeof(i9xx_gamma_10_slope));
 			}
 		}
 	} else {
@@ -1295,6 +1739,23 @@ void intel_color_init(struct intel_crtc *crtc)
 			degamma_lut_size = 0;
 			gamma_lut_size = ILK_LUT_SIZE_10BIT;
 			has_ctm = true;
+
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "8bit gamma",
+						       i9xx_gamma_8,
+						       sizeof(i9xx_gamma_8));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "10bit gamma",
+						       glk_gamma_10,
+						       sizeof(glk_gamma_10));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "interpolated gamma",
+						       glk_gamma_12p4,
+						       sizeof(glk_gamma_12p4));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "multi-segmented gamma",
+						       icl_multi_seg_gamma,
+						       sizeof(icl_multi_seg_gamma));
 		} else if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv)) {
 			dev_priv->display.load_luts = glk_load_luts;
 			dev_priv->display.color_check = glk_color_check;
@@ -1304,10 +1765,40 @@ void intel_color_init(struct intel_crtc *crtc)
 			degamma_lut_size = 0;
 			gamma_lut_size = ILK_LUT_SIZE_10BIT;
 			has_ctm = true;
+
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "8bit gamma",
+						       i9xx_gamma_8,
+						       sizeof(i9xx_gamma_8));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "10bit gamma",
+						       glk_gamma_10,
+						       sizeof(glk_gamma_10));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "interpolated gamma",
+						       glk_gamma_12p4,
+						       sizeof(glk_gamma_12p4));
 		} else if (INTEL_GEN(dev_priv) >= 9) {
 			dev_priv->display.load_luts = ivb_load_luts;
 			dev_priv->display.color_check = ivb_color_check;
 			dev_priv->display.color_commit = skl_color_commit;
+
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "8bit gamma or degamma",
+						       ilk_gamma_degamma_8,
+						       sizeof(ilk_gamma_degamma_8));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "split gamma",
+						       ivb_split_gamma,
+						       sizeof(ivb_split_gamma));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "10bit gamma or degamma",
+						       ivb_gamma_degamma_10,
+						       sizeof(ivb_gamma_degamma_10));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "interpolated gamma or degamma",
+						       ivb_gamma_degamma_12p4,
+						       sizeof(ivb_gamma_degamma_12p4));
 
 			/* don't advertize the >= 1.0 entries */
 			degamma_lut_size = IVB_LUT_SIZE_SPLIT;
@@ -1322,6 +1813,23 @@ void intel_color_init(struct intel_crtc *crtc)
 			degamma_lut_size = IVB_LUT_SIZE_SPLIT;
 			gamma_lut_size = IVB_LUT_SIZE_SPLIT;
 			has_ctm = true;
+
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "8bit gamma or degamma",
+						       ilk_gamma_degamma_8,
+						       sizeof(ilk_gamma_degamma_8));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "split gamma",
+						       ivb_split_gamma,
+						       sizeof(ivb_split_gamma));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "10bit gamma or degamma",
+						       ivb_gamma_degamma_10,
+						       sizeof(ivb_gamma_degamma_10));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "interpolated gamma or degamma",
+						       ivb_gamma_degamma_12p4,
+						       sizeof(ivb_gamma_degamma_12p4));
 		} else if (IS_IVYBRIDGE(dev_priv)) {
 			dev_priv->display.load_luts = ivb_load_luts;
 			dev_priv->display.color_check = ivb_color_check;
@@ -1331,6 +1839,23 @@ void intel_color_init(struct intel_crtc *crtc)
 			degamma_lut_size = IVB_LUT_SIZE_SPLIT;
 			gamma_lut_size = IVB_LUT_SIZE_SPLIT;
 			has_ctm = true;
+
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "8bit gamma or degamma",
+						       ilk_gamma_degamma_8,
+						       sizeof(ilk_gamma_degamma_8));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "split gamma",
+						       ivb_split_gamma,
+						       sizeof(ivb_split_gamma));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "10bit gamma or degamma",
+						       ivb_gamma_degamma_10,
+						       sizeof(ivb_gamma_degamma_10));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "interpolated gamma or degamma",
+						       ivb_gamma_degamma_12p4,
+						       sizeof(ivb_gamma_degamma_12p4));
 		} else {
 			dev_priv->display.load_luts = ilk_load_luts;
 			dev_priv->display.color_check = ilk_color_check;
@@ -1339,6 +1864,19 @@ void intel_color_init(struct intel_crtc *crtc)
 			degamma_lut_size = 0;
 			gamma_lut_size = ILK_LUT_SIZE_10BIT;
 			has_ctm = true;
+
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "8bit gamma or degamma",
+						       ilk_gamma_degamma_8,
+						       sizeof(ilk_gamma_degamma_8));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "10bit gamma or degamma",
+						       ilk_gamma_degamma_10,
+						       sizeof(ilk_gamma_degamma_10));
+			drm_color_add_gamma_mode_range(&dev_priv->drm,
+						       "interpolated gamma or degamma",
+						       ilk_gamma_degamma_12p4,
+						       sizeof(ilk_gamma_degamma_12p4));
 		}
 	}
 
