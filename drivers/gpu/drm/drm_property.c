@@ -499,7 +499,8 @@ int drm_mode_getproperty_ioctl(struct drm_device *dev,
 	 * sense to return values here when everything else is just metadata for
 	 * the property itself.
 	 */
-	if (drm_property_type_is(property, DRM_MODE_PROP_BLOB))
+	if (drm_property_type_is(property, DRM_MODE_PROP_BLOB) &&
+	    !drm_property_type_is(property, DRM_MODE_PROP_ENUM))
 		out_resp->count_enum_blobs = 0;
 
 	return 0;
@@ -845,6 +846,17 @@ err:
 	return ret;
 }
 
+static bool property_value_in_values(const struct drm_property *property,
+				     uint64_t value)
+{
+	int i;
+
+	for (i = 0; i < property->num_values; i++)
+		if (property->values[i] == value)
+			return true;
+	return false;
+}
+
 /* Some properties could refer to dynamic refcnt'd objects, or things that
  * need special locking to handle lifetime issues (ie. to ensure the prop
  * value doesn't become invalid part way through the property update due to
@@ -886,6 +898,11 @@ bool drm_property_change_valid_get(struct drm_property *property,
 		if (value == 0)
 			return true;
 
+		/* only acccept one of the enumerated blobs */
+		if (drm_property_type_is(property, DRM_MODE_PROP_ENUM) &&
+		    !property_value_in_values(property, value))
+			return false;
+
 		blob = drm_property_lookup_blob(property->dev, value);
 		if (blob) {
 			*ref = &blob->base;
@@ -903,10 +920,7 @@ bool drm_property_change_valid_get(struct drm_property *property,
 		return *ref != NULL;
 	}
 
-	for (i = 0; i < property->num_values; i++)
-		if (property->values[i] == value)
-			return true;
-	return false;
+	return property_value_in_values(property, value);
 }
 
 void drm_property_change_valid_put(struct drm_property *property,
