@@ -53,13 +53,6 @@
 #define IVB_CURSOR_OFFSETS \
 	.cursor_offsets = { CURSOR_A_OFFSET, IVB_CURSOR_B_OFFSET, IVB_CURSOR_C_OFFSET }
 
-#define IVB_COLORS \
-	.color = { .degamma_lut_size = 512, .gamma_lut_size = 512 }
-#define CHV_COLORS \
-	.color = { .degamma_lut_size = 65, .gamma_lut_size = 257 }
-#define GLK_COLORS \
-	.color = { .degamma_lut_size = 0, .gamma_lut_size = 1024 }
-
 /* Keep in gen based order, and chronological order within a gen */
 
 #define GEN_DEFAULT_PAGE_SIZES \
@@ -283,7 +276,6 @@ static const struct intel_device_info intel_sandybridge_m_gt2_info = {
 
 #define GEN7_FEATURES  \
 	GEN(7), \
-	IVB_COLORS, \
 	.num_pipes = 3, \
 	.has_hotplug = 1, \
 	.has_fbc = 1, \
@@ -388,7 +380,6 @@ static const struct intel_device_info intel_haswell_gt3_info = {
 };
 
 #define GEN8_FEATURES \
-	G75_FEATURES, \
 	GEN(8), \
 	.page_sizes = I915_GTT_PAGE_SIZE_4K | \
 		      I915_GTT_PAGE_SIZE_2M, \
@@ -447,7 +438,6 @@ static const struct intel_device_info intel_cherryview_info = {
 	GEN_DEFAULT_PAGE_SIZES,
 	GEN_CHV_PIPEOFFSETS,
 	CURSOR_OFFSETS,
-	CHV_COLORS,
 };
 
 #define GEN9_DEFAULT_PAGE_SIZES \
@@ -522,8 +512,7 @@ static const struct intel_device_info intel_skylake_gt4_info = {
 	.has_ipc = 1, \
 	GEN9_DEFAULT_PAGE_SIZES, \
 	GEN_DEFAULT_PIPEOFFSETS, \
-	IVB_CURSOR_OFFSETS, \
-	IVB_COLORS
+	IVB_CURSOR_OFFSETS
 
 static const struct intel_device_info intel_broxton_info = {
 	GEN9_LP_FEATURES,
@@ -535,7 +524,6 @@ static const struct intel_device_info intel_geminilake_info = {
 	GEN9_LP_FEATURES,
 	PLATFORM(INTEL_GEMINILAKE),
 	.ddb_size = 1024,
-	GLK_COLORS,
 };
 
 #define KBL_PLATFORM \
@@ -581,8 +569,7 @@ static const struct intel_device_info intel_coffeelake_gt3_info = {
 #define GEN10_FEATURES \
 	GEN9_FEATURES, \
 	GEN(10), \
-	.ddb_size = 1024, \
-	GLK_COLORS
+	.ddb_size = 1024
 
 static const struct intel_device_info intel_cannonlake_info = {
 	GEN10_FEATURES,

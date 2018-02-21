@@ -870,6 +870,12 @@ struct intel_crtc_state {
 
 	/* Gamma mode programmed on the pipe */
 	uint32_t gamma_mode;
+	union {
+		/* CHV color gamut mapping unit mode */
+		uint32_t cgm_mode;
+		/* ILK+ pipe csc mode */
+		uint32_t csc_mode;
+	};
 
 	/* bitmask of visible planes (enum plane_id) */
 	u8 active_planes;
@@ -2123,9 +2129,6 @@ int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_
 
 /* intel_color.c */
 void intel_color_init(struct intel_crtc *crtc);
-int intel_color_check(struct intel_crtc_state *crtc_state);
-void intel_color_set_csc(const struct intel_crtc_state *crtc_state);
-void intel_color_load_luts(const struct intel_crtc_state *crtc_state);
 
 /* intel_lspcon.c */
 bool lspcon_init(struct intel_digital_port *intel_dig_port);

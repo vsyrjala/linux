@@ -3194,6 +3194,9 @@ static u32 i9xx_plane_ctl(const struct intel_crtc_state *crtc_state,
 
 	dspcntr = DISPLAY_PLANE_ENABLE;
 
+	if (INTEL_GEN(dev_priv) < 5)
+		dspcntr |= DISPPLANE_SEL_PIPE(crtc->pipe);
+
 	if (IS_G4X(dev_priv) || IS_GEN5(dev_priv) ||
 	    IS_GEN6(dev_priv) || IS_IVYBRIDGE(dev_priv))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
@@ -3203,9 +3206,6 @@ static u32 i9xx_plane_ctl(const struct intel_crtc_state *crtc_state,
 
 	if (crtc_state->csc_enable)
 		dspcntr |= DISPPLANE_PIPE_CSC_ENABLE;
-
-	if (INTEL_GEN(dev_priv) < 5)
-		dspcntr |= DISPPLANE_SEL_PIPE(crtc->pipe);
 
 	switch (fb->format->format) {
 	case DRM_FORMAT_C8:
@@ -5448,7 +5448,8 @@ static void ironlake_crtc_enable(struct intel_crtc_state *pipe_config,
 	 * On ILK+ LUT must be loaded before the pipe is running but with
 	 * clocks enabled
 	 */
-	intel_color_load_luts(pipe_config);
+	dev_priv->display.load_luts(pipe_config);
+	dev_priv->display.color_commit(pipe_config);
 
 	if (dev_priv->display.initial_watermarks != NULL)
 		dev_priv->display.initial_watermarks(old_intel_state, intel_crtc->config);
@@ -5550,8 +5551,6 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 
 	haswell_set_pipemisc(crtc);
 
-	intel_color_set_csc(pipe_config);
-
 	intel_crtc->active = true;
 
 	intel_encoders_pre_enable(crtc, pipe_config, old_state);
@@ -5570,15 +5569,16 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 	else
 		ironlake_pfit_enable(intel_crtc);
 
+	intel_ddi_set_pipe_settings(pipe_config);
+	if (!transcoder_is_dsi(cpu_transcoder))
+		intel_ddi_enable_transcoder_func(pipe_config);
+
 	/*
 	 * On ILK+ LUT must be loaded before the pipe is running but with
 	 * clocks enabled
 	 */
-	intel_color_load_luts(pipe_config);
-
-	intel_ddi_set_pipe_settings(pipe_config);
-	if (!transcoder_is_dsi(cpu_transcoder))
-		intel_ddi_enable_transcoder_func(pipe_config);
+	dev_priv->display.load_luts(pipe_config);
+	dev_priv->display.color_commit(pipe_config);
 
 	if (dev_priv->display.initial_watermarks != NULL)
 		dev_priv->display.initial_watermarks(old_intel_state, pipe_config);
@@ -5882,7 +5882,8 @@ static void valleyview_crtc_enable(struct intel_crtc_state *pipe_config,
 
 	i9xx_pfit_enable(intel_crtc);
 
-	intel_color_load_luts(pipe_config);
+	dev_priv->display.load_luts(pipe_config);
+	dev_priv->display.color_commit(pipe_config);
 
 	dev_priv->display.initial_watermarks(old_intel_state,
 					     pipe_config);
@@ -5938,7 +5939,8 @@ static void i9xx_crtc_enable(struct intel_crtc_state *pipe_config,
 
 	i9xx_pfit_enable(intel_crtc);
 
-	intel_color_load_luts(pipe_config);
+	dev_priv->display.load_luts(pipe_config);
+	dev_priv->display.color_commit(pipe_config);
 
 	if (dev_priv->display.initial_watermarks != NULL)
 		dev_priv->display.initial_watermarks(old_intel_state,
@@ -7689,6 +7691,10 @@ static void i9xx_get_pipe_color_config(struct intel_crtc_state *crtc_state)
 
 	if (tmp & DISPPLANE_GAMMA_ENABLE)
 		crtc_state->gamma_enable = true;
+
+	if (!HAS_GMCH_DISPLAY(dev_priv) &&
+	    tmp & DISPPLANE_PIPE_CSC_ENABLE)
+		crtc_state->csc_enable = true;
 }
 
 static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
@@ -7740,6 +7746,9 @@ static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 
 	if (INTEL_GEN(dev_priv) < 4)
 		pipe_config->double_wide = tmp & PIPECONF_DOUBLE_WIDE;
+
+	if (IS_CHERRYVIEW(dev_priv))
+		pipe_config->cgm_mode = I915_READ(CGM_PIPE_MODE(crtc->pipe));
 
 	intel_get_pipe_timings(crtc, pipe_config);
 	intel_get_pipe_src_size(crtc, pipe_config);
@@ -8791,6 +8800,8 @@ static bool ironlake_get_pipe_config(struct intel_crtc *crtc,
 
 	i9xx_get_pipe_color_config(pipe_config);
 
+	pipe_config->csc_mode = I915_READ(PIPE_CSC_MODE(crtc->pipe));
+
 	if (I915_READ(PCH_TRANSCONF(crtc->pipe)) & TRANS_ENABLE) {
 		struct intel_shared_dpll *pll;
 		enum intel_dpll_id pll_id;
@@ -9660,19 +9671,18 @@ static bool i845_cursor_get_hw_state(struct intel_plane *plane)
 static u32 i9xx_cursor_ctl(const struct intel_crtc_state *crtc_state,
 			   const struct intel_plane_state *plane_state)
 {
-	struct drm_i915_private *dev_priv =
-		to_i915(plane_state->base.plane->dev);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	u32 cntl = 0;
+
+	if (INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv))
+		cntl |= MCURSOR_PIPE_SELECT(crtc->pipe);
 
 	if (crtc_state->gamma_enable)
 		cntl = MCURSOR_GAMMA_ENABLE;
 
 	if (crtc_state->csc_enable)
 		cntl |= CURSOR_PIPE_CSC_ENABLE;
-
-	if (INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv))
-		cntl |= MCURSOR_PIPE_SELECT(crtc->pipe);
 
 	switch (plane_state->base.crtc_w) {
 	case 64:
@@ -11364,8 +11374,11 @@ intel_pipe_config_compare(struct drm_i915_private *dev_priv,
 
 	PIPE_CONF_CHECK_BOOL(double_wide);
 
-	PIPE_CONF_CHECK_X(gamma_mode);
 	PIPE_CONF_CHECK_BOOL(gamma_enable);
+	PIPE_CONF_CHECK_BOOL(csc_enable);
+	PIPE_CONF_CHECK_X(gamma_mode);
+	PIPE_CONF_CHECK_X(csc_mode);
+	PIPE_CONF_CHECK_X(cgm_mode);
 
 	PIPE_CONF_CHECK_P(shared_dpll);
 	PIPE_CONF_CHECK_X(dpll_hw_state.dpll);
@@ -12189,7 +12202,7 @@ static int intel_atomic_check(struct drm_device *dev,
 		    !crtc_state->color_mgmt_changed)
 			continue;
 
-		ret = intel_color_check(to_intel_crtc_state(crtc_state));
+		ret = dev_priv->display.color_check(to_intel_crtc_state(crtc_state));
 		if (ret)
 			return ret;
 
@@ -13026,8 +13039,7 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc,
 	if (!modeset &&
 	    (intel_cstate->base.color_mgmt_changed ||
 	     intel_cstate->update_pipe)) {
-		intel_color_set_csc(intel_cstate);
-		intel_color_load_luts(intel_cstate);
+		dev_priv->display.load_luts(intel_cstate);
 	}
 
 	/* Perform vblank evasion around commit operation */
@@ -13035,6 +13047,11 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc,
 
 	if (modeset)
 		goto out;
+
+	if (crtc->state->color_mgmt_changed ||
+	    to_intel_crtc_state(crtc->state)->update_pipe) {
+		dev_priv->display.color_commit(intel_cstate);
+	}
 
 	if (intel_cstate->update_pipe)
 		intel_update_pipe_config(old_intel_cstate, intel_cstate);
