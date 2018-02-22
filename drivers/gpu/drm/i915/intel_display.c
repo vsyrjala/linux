@@ -11314,6 +11314,8 @@ intel_pipe_config_compare(struct drm_i915_private *dev_priv,
 
 	PIPE_CONF_CHECK_BOOL(double_wide);
 
+	PIPE_CONF_CHECK_X(gamma_mode);
+
 	PIPE_CONF_CHECK_P(shared_dpll);
 	PIPE_CONF_CHECK_X(dpll_hw_state.dpll);
 	PIPE_CONF_CHECK_X(dpll_hw_state.dpll_md);

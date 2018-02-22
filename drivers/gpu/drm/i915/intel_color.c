@@ -347,7 +347,7 @@ static void i9xx_load_luts(const struct intel_crtc_state *crtc_state)
 	i9xx_load_luts_internal(crtc_state, crtc_state->base.gamma_lut);
 }
 
-static void bdw_load_degamma_lut(const struct intel_crtc_state *crtc_state)
+static void hsw_load_degamma_lut(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -379,7 +379,7 @@ static void bdw_load_degamma_lut(const struct intel_crtc_state *crtc_state)
 	}
 }
 
-static void bdw_load_gamma_lut(const struct intel_crtc_state *crtc_state, u32 offset)
+static void hsw_load_gamma_lut(const struct intel_crtc_state *crtc_state, u32 offset)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -428,8 +428,7 @@ static void bdw_load_gamma_lut(const struct intel_crtc_state *crtc_state, u32 of
 	}
 }
 
-/* Loads the palette/gamma unit for the CRTC on Broadwell+. */
-static void broadwell_load_luts(const struct intel_crtc_state *crtc_state)
+static void hsw_load_luts(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -438,8 +437,8 @@ static void broadwell_load_luts(const struct intel_crtc_state *crtc_state)
 	if (crtc_state_is_legacy_gamma(crtc_state)) {
 		i9xx_load_luts(crtc_state);
 	} else {
-		bdw_load_degamma_lut(crtc_state);
-		bdw_load_gamma_lut(crtc_state, INTEL_INFO(dev_priv)->color.degamma_lut_size);
+		hsw_load_degamma_lut(crtc_state);
+		hsw_load_gamma_lut(crtc_state, INTEL_INFO(dev_priv)->color.degamma_lut_size);
 
 		/*
 		 * Reset the index, otherwise it prevents the legacy palette to be
@@ -495,7 +494,7 @@ static void glk_load_luts(const struct intel_crtc_state *crtc_state)
 	if (crtc_state_is_legacy_gamma(crtc_state)) {
 		i9xx_load_luts(crtc_state);
 	} else {
-		bdw_load_gamma_lut(crtc_state, 0);
+		hsw_load_gamma_lut(crtc_state, 0);
 	}
 
 	I915_WRITE(GAMMA_MODE(pipe), crtc_state->gamma_mode);
@@ -606,7 +605,8 @@ int intel_color_check(struct intel_crtc_state *crtc_state)
 
 	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
 		crtc_state->gamma_mode = GAMMA_MODE_MODE_10BIT;
-	else if (INTEL_GEN(dev_priv) >= 9 || IS_BROADWELL(dev_priv))
+	else if (INTEL_GEN(dev_priv) >= 9 || IS_BROADWELL(dev_priv) ||
+		 IS_HASWELL(dev_priv))
 		crtc_state->gamma_mode = GAMMA_MODE_MODE_SPLIT;
 
 	return 0;
@@ -618,21 +618,23 @@ void intel_color_init(struct intel_crtc *crtc)
 
 	drm_mode_crtc_set_gamma_size(&crtc->base, 256);
 
-	if (IS_CHERRYVIEW(dev_priv)) {
-		dev_priv->display.load_csc_matrix = cherryview_load_csc_matrix;
-		dev_priv->display.load_luts = cherryview_load_luts;
-	} else if (IS_HASWELL(dev_priv)) {
-		dev_priv->display.load_csc_matrix = ilk_load_csc_matrix;
-		dev_priv->display.load_luts = i9xx_load_luts;
-	} else if (IS_BROADWELL(dev_priv) || IS_GEN9_BC(dev_priv) ||
-		   IS_BROXTON(dev_priv)) {
-		dev_priv->display.load_csc_matrix = ilk_load_csc_matrix;
-		dev_priv->display.load_luts = broadwell_load_luts;
-	} else if (IS_GEMINILAKE(dev_priv) || IS_CANNONLAKE(dev_priv)) {
-		dev_priv->display.load_csc_matrix = ilk_load_csc_matrix;
-		dev_priv->display.load_luts = glk_load_luts;
+	if (HAS_GMCH_DISPLAY(dev_priv)) {
+		if (IS_CHERRYVIEW(dev_priv)) {
+			dev_priv->display.load_csc_matrix = cherryview_load_csc_matrix;
+			dev_priv->display.load_luts = cherryview_load_luts;
+		} else {
+			dev_priv->display.load_luts = i9xx_load_luts;
+		}
 	} else {
-		dev_priv->display.load_luts = i9xx_load_luts;
+		if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv)) {
+			dev_priv->display.load_csc_matrix = ilk_load_csc_matrix;
+			dev_priv->display.load_luts = glk_load_luts;
+		} else if (INTEL_GEN(dev_priv) >= 8 || IS_HASWELL(dev_priv)) {
+			dev_priv->display.load_csc_matrix = ilk_load_csc_matrix;
+			dev_priv->display.load_luts = hsw_load_luts;
+		} else {
+			dev_priv->display.load_luts = i9xx_load_luts;
+		}
 	}
 
 	/* Enable color management support when we have degamma & gamma LUTs. */

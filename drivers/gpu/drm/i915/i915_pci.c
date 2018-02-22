@@ -53,7 +53,7 @@
 #define IVB_CURSOR_OFFSETS \
 	.cursor_offsets = { CURSOR_A_OFFSET, IVB_CURSOR_B_OFFSET, IVB_CURSOR_C_OFFSET }
 
-#define BDW_COLORS \
+#define HSW_COLORS \
 	.color = { .degamma_lut_size = 512, .gamma_lut_size = 512 }
 #define CHV_COLORS \
 	.color = { .degamma_lut_size = 65, .gamma_lut_size = 257 }
@@ -357,6 +357,7 @@ static const struct intel_device_info intel_valleyview_info = {
 
 #define G75_FEATURES  \
 	GEN7_FEATURES, \
+	HSW_COLORS, \
 	.ring_mask = RENDER_RING | BSD_RING | BLT_RING | VEBOX_RING, \
 	.has_ddi = 1, \
 	.has_fpga_dbg = 1, \
@@ -389,7 +390,6 @@ static const struct intel_device_info intel_haswell_gt3_info = {
 #define GEN8_FEATURES \
 	G75_FEATURES, \
 	GEN(8), \
-	BDW_COLORS, \
 	.page_sizes = I915_GTT_PAGE_SIZE_4K | \
 		      I915_GTT_PAGE_SIZE_2M, \
 	.has_logical_ring_contexts = 1, \
@@ -523,7 +523,7 @@ static const struct intel_device_info intel_skylake_gt4_info = {
 	GEN9_DEFAULT_PAGE_SIZES, \
 	GEN_DEFAULT_PIPEOFFSETS, \
 	IVB_CURSOR_OFFSETS, \
-	BDW_COLORS
+	HSW_COLORS
 
 static const struct intel_device_info intel_broxton_info = {
 	GEN9_LP_FEATURES,
