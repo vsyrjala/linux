@@ -347,7 +347,7 @@ static void i9xx_load_luts(const struct intel_crtc_state *crtc_state)
 	i9xx_load_luts_internal(crtc_state, crtc_state->base.gamma_lut);
 }
 
-static void hsw_load_degamma_lut(const struct intel_crtc_state *crtc_state)
+static void ivb_load_degamma_lut(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -379,7 +379,7 @@ static void hsw_load_degamma_lut(const struct intel_crtc_state *crtc_state)
 	}
 }
 
-static void hsw_load_gamma_lut(const struct intel_crtc_state *crtc_state, u32 offset)
+static void ivb_load_gamma_lut(const struct intel_crtc_state *crtc_state, u32 offset)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -428,6 +428,33 @@ static void hsw_load_gamma_lut(const struct intel_crtc_state *crtc_state, u32 of
 	}
 }
 
+static void ivb_load_luts(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+	u32 tmp;
+
+	if (crtc_state_is_legacy_gamma(crtc_state)) {
+		i9xx_load_luts(crtc_state);
+	} else {
+		ivb_load_degamma_lut(crtc_state);
+		ivb_load_gamma_lut(crtc_state, INTEL_INFO(dev_priv)->color.degamma_lut_size);
+
+		/*
+		 * Reset the index, otherwise it prevents the legacy palette to be
+		 * written properly.
+		 */
+		I915_WRITE(PREC_PAL_INDEX(pipe), 0);
+	}
+
+	tmp = I915_READ(PIPECONF(pipe));
+	tmp &= ~PIPECONF_GAMMA_MODE_MASK_ILK;
+	tmp |= PIPECONF_GAMMA_MODE(crtc_state->gamma_mode);
+	I915_WRITE(PIPECONF(pipe), tmp);
+	POSTING_READ(PIPECONF(pipe));
+}
+
 static void hsw_load_luts(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
@@ -437,8 +464,8 @@ static void hsw_load_luts(const struct intel_crtc_state *crtc_state)
 	if (crtc_state_is_legacy_gamma(crtc_state)) {
 		i9xx_load_luts(crtc_state);
 	} else {
-		hsw_load_degamma_lut(crtc_state);
-		hsw_load_gamma_lut(crtc_state, INTEL_INFO(dev_priv)->color.degamma_lut_size);
+		ivb_load_degamma_lut(crtc_state);
+		ivb_load_gamma_lut(crtc_state, INTEL_INFO(dev_priv)->color.degamma_lut_size);
 
 		/*
 		 * Reset the index, otherwise it prevents the legacy palette to be
@@ -449,7 +476,6 @@ static void hsw_load_luts(const struct intel_crtc_state *crtc_state)
 
 	I915_WRITE(GAMMA_MODE(pipe), crtc_state->gamma_mode);
 	POSTING_READ(GAMMA_MODE(pipe));
-
 }
 
 static void glk_load_degamma_lut(const struct intel_crtc_state *crtc_state)
@@ -494,7 +520,7 @@ static void glk_load_luts(const struct intel_crtc_state *crtc_state)
 	if (crtc_state_is_legacy_gamma(crtc_state)) {
 		i9xx_load_luts(crtc_state);
 	} else {
-		hsw_load_gamma_lut(crtc_state, 0);
+		ivb_load_gamma_lut(crtc_state, 0);
 	}
 
 	I915_WRITE(GAMMA_MODE(pipe), crtc_state->gamma_mode);
@@ -610,7 +636,7 @@ int intel_color_check(struct intel_crtc_state *crtc_state)
 
 	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
 		crtc_state->gamma_mode = GAMMA_MODE_MODE_10BIT;
-	else if (INTEL_GEN(dev_priv) >= 8 || IS_HASWELL(dev_priv))
+	else if (INTEL_GEN(dev_priv) >= 7)
 		crtc_state->gamma_mode = GAMMA_MODE_MODE_SPLIT;
 	else
 		crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
@@ -638,6 +664,9 @@ void intel_color_init(struct intel_crtc *crtc)
 		} else if (INTEL_GEN(dev_priv) >= 8 || IS_HASWELL(dev_priv)) {
 			dev_priv->display.load_csc_matrix = ilk_load_csc_matrix;
 			dev_priv->display.load_luts = hsw_load_luts;
+		} else if (IS_IVYBRIDGE(dev_priv)) {
+			dev_priv->display.load_csc_matrix = ilk_load_csc_matrix;
+			dev_priv->display.load_luts = ivb_load_luts;
 		} else {
 			dev_priv->display.load_luts = i9xx_load_luts;
 		}
