@@ -437,20 +437,20 @@ static void broadwell_load_luts(struct intel_crtc_state *crtc_state)
 
 	if (crtc_state_is_legacy_gamma(crtc_state)) {
 		i9xx_load_luts(crtc_state);
-		return;
-	}
+	} else {
+		bdw_load_degamma_lut(crtc_state);
+		bdw_load_gamma_lut(crtc_state, INTEL_INFO(dev_priv)->color.degamma_lut_size);
 
-	bdw_load_degamma_lut(crtc_state);
-	bdw_load_gamma_lut(crtc_state, INTEL_INFO(dev_priv)->color.degamma_lut_size);
+		/*
+		 * Reset the index, otherwise it prevents the legacy palette to be
+		 * written properly.
+		 */
+		I915_WRITE(PREC_PAL_INDEX(pipe), 0);
+	}
 
 	I915_WRITE(GAMMA_MODE(pipe), crtc_state->gamma_mode);
 	POSTING_READ(GAMMA_MODE(pipe));
 
-	/*
-	 * Reset the index, otherwise it prevents the legacy palette to be
-	 * written properly.
-	 */
-	I915_WRITE(PREC_PAL_INDEX(pipe), 0);
 }
 
 static void glk_load_degamma_lut(struct intel_crtc_state *crtc_state)
@@ -494,10 +494,9 @@ static void glk_load_luts(struct intel_crtc_state *crtc_state)
 
 	if (crtc_state_is_legacy_gamma(crtc_state)) {
 		i9xx_load_luts(crtc_state);
-		return;
+	} else {
+		bdw_load_gamma_lut(crtc_state, 0);
 	}
-
-	bdw_load_gamma_lut(crtc_state, 0);
 
 	I915_WRITE(GAMMA_MODE(pipe), crtc_state->gamma_mode);
 	POSTING_READ(GAMMA_MODE(pipe));
