@@ -885,6 +885,9 @@ struct intel_crtc_state {
 
 	/* enable pipe gamma? */
 	bool gamma_enable;
+
+	/* enable pipe csc? */
+	bool csc_enable;
 };
 
 struct intel_crtc {

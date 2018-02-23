@@ -3201,7 +3201,7 @@ static u32 i9xx_plane_ctl(const struct intel_crtc_state *crtc_state,
 	if (crtc_state->gamma_enable)
 		dspcntr |= DISPPLANE_GAMMA_ENABLE;
 
-	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
+	if (crtc_state->csc_enable)
 		dspcntr |= DISPPLANE_PIPE_CSC_ENABLE;
 
 	if (INTEL_GEN(dev_priv) < 5)
@@ -3595,7 +3595,8 @@ u32 skl_plane_ctl(const struct intel_crtc_state *crtc_state,
 	if (INTEL_GEN(dev_priv) < 10 && !IS_GEMINILAKE(dev_priv)) {
 		if (crtc_state->gamma_enable)
 			plane_ctl |= PLANE_CTL_PIPE_GAMMA_ENABLE;
-		plane_ctl |= PLANE_CTL_PIPE_CSC_ENABLE;
+		if (crtc_state->csc_enable)
+			plane_ctl |= PLANE_CTL_PIPE_CSC_ENABLE;
 		plane_ctl |= PLANE_CTL_PLANE_GAMMA_DISABLE;
 		plane_ctl |= skl_plane_ctl_alpha(fb->format->format);
 	}
@@ -3624,7 +3625,8 @@ u32 glk_plane_color_ctl(const struct intel_crtc_state *crtc_state,
 
 	if (crtc_state->gamma_enable)
 		plane_color_ctl |= PLANE_COLOR_PIPE_GAMMA_ENABLE;
-	plane_color_ctl |= PLANE_COLOR_PIPE_CSC_ENABLE;
+	if (crtc_state->csc_enable)
+		plane_color_ctl |= PLANE_COLOR_PIPE_CSC_ENABLE;
 	plane_color_ctl |= PLANE_COLOR_PLANE_GAMMA_DISABLE;
 	plane_color_ctl |= glk_plane_color_ctl_alpha(fb->format->format);
 
@@ -9666,7 +9668,7 @@ static u32 i9xx_cursor_ctl(const struct intel_crtc_state *crtc_state,
 	if (crtc_state->gamma_enable)
 		cntl = MCURSOR_GAMMA_ENABLE;
 
-	if (HAS_DDI(dev_priv))
+	if (crtc_state->csc_enable)
 		cntl |= CURSOR_PIPE_CSC_ENABLE;
 
 	if (INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv))

@@ -563,7 +563,7 @@ static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	if (crtc_state->gamma_enable)
 		sprctl |= SPRITE_GAMMA_ENABLE;
 
-	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
+	if (crtc_state->csc_enable)
 		sprctl |= SPRITE_PIPE_CSC_ENABLE;
 
 	switch (fb->format->format) {
@@ -724,6 +724,9 @@ static u32 g4x_sprite_ctl(const struct intel_crtc_state *crtc_state,
 
 	if (crtc_state->gamma_enable)
 		dvscntr |= DVS_GAMMA_ENABLE;
+
+	if (crtc_state->csc_enable)
+		dvscntr |= DVS_PIPE_CSC_ENABLE;
 
 	switch (fb->format->format) {
 	case DRM_FORMAT_XBGR8888:

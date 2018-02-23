@@ -449,7 +449,7 @@ static void i9xx_set_pipe_color_config(const struct intel_crtc_state *crtc_state
 	tmp &= ~(DISPPLANE_GAMMA_ENABLE | DISPPLANE_PIPE_CSC_ENABLE);
 	if (crtc_state->gamma_enable)
 		tmp |= DISPPLANE_GAMMA_ENABLE;
-	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
+	if (crtc_state->csc_enable)
 		tmp |= DISPPLANE_PIPE_CSC_ENABLE;
 	I915_WRITE(DSPCNTR(i9xx_plane), tmp);
 }
@@ -509,6 +509,8 @@ static void hsw_load_luts(const struct intel_crtc_state *crtc_state)
 
 		if (crtc_state->gamma_enable)
 			tmp |= PIPE_BOTTOM_GAMMA_ENABLE;
+		if (crtc_state->csc_enable)
+			tmp |= PIPE_BOTTOM_CSC_ENABLE;
 
 		I915_WRITE(PIPE_BOTTOM_COLOR(pipe), tmp);
 	} else {
@@ -649,6 +651,14 @@ int intel_color_check(struct intel_crtc_state *crtc_state)
 	gamma_length = INTEL_INFO(dev_priv)->color.gamma_lut_size;
 
 	crtc_state->gamma_enable = gamma_lut || degamma_lut;
+
+	if (!HAS_GMCH_DISPLAY(dev_priv)) {
+		crtc_state->csc_enable = crtc_state->base.ctm ||
+			crtc_state->ycbcr420;
+
+		if (INTEL_GEN(dev_priv) >= 8 || IS_HASWELL(dev_priv))
+			crtc_state->csc_enable |= crtc_state->limited_color_range;
+	}
 
 	/*
 	 * We also allow no degamma lut/ctm and a gamma lut at the legacy
