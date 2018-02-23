@@ -144,8 +144,7 @@ static void i9xx_load_csc_matrix(struct drm_crtc_state *crtc_state)
 		i9xx_load_ycbcr_conversion_matrix(intel_crtc);
 		return;
 	} else if (crtc_state->ctm) {
-		struct drm_color_ctm *ctm =
-			(struct drm_color_ctm *)crtc_state->ctm->data;
+		struct drm_color_ctm *ctm = crtc_state->ctm->data;
 		uint64_t input[9] = { 0, };
 
 		if (intel_crtc_state->limited_color_range) {
@@ -254,8 +253,7 @@ static void cherryview_load_csc_matrix(struct drm_crtc_state *state)
 	uint32_t mode;
 
 	if (state->ctm) {
-		struct drm_color_ctm *ctm =
-			(struct drm_color_ctm *) state->ctm->data;
+		struct drm_color_ctm *ctm = state->ctm->data;
 		uint16_t coeffs[9] = { 0, };
 		int i;
 
@@ -322,7 +320,7 @@ static void i9xx_load_luts_internal(struct drm_crtc *crtc,
 	}
 
 	if (blob) {
-		struct drm_color_lut *lut = (struct drm_color_lut *) blob->data;
+		struct drm_color_lut *lut = blob->data;
 		for (i = 0; i < 256; i++) {
 			uint32_t word =
 				(drm_color_lut_extract(lut[i].red, 8) << 16) |
@@ -392,8 +390,7 @@ static void bdw_load_degamma_lut(struct drm_crtc_state *state)
 		   PAL_PREC_SPLIT_MODE | PAL_PREC_AUTO_INCREMENT);
 
 	if (state->degamma_lut) {
-		struct drm_color_lut *lut =
-			(struct drm_color_lut *) state->degamma_lut->data;
+		struct drm_color_lut *lut = state->degamma_lut->data;
 
 		for (i = 0; i < lut_size; i++) {
 			uint32_t word =
@@ -427,8 +424,7 @@ static void bdw_load_gamma_lut(struct drm_crtc_state *state, u32 offset)
 		   offset);
 
 	if (state->gamma_lut) {
-		struct drm_color_lut *lut =
-			(struct drm_color_lut *) state->gamma_lut->data;
+		struct drm_color_lut *lut = state->gamma_lut->data;
 
 		for (i = 0; i < lut_size; i++) {
 			uint32_t word =
@@ -560,7 +556,7 @@ static void cherryview_load_luts(struct drm_crtc_state *state)
 	}
 
 	if (state->degamma_lut) {
-		lut = (struct drm_color_lut *) state->degamma_lut->data;
+		lut = state->degamma_lut->data;
 		lut_size = INTEL_INFO(dev_priv)->color.degamma_lut_size;
 		for (i = 0; i < lut_size; i++) {
 			/* Write LUT in U0.14 format. */
@@ -575,7 +571,7 @@ static void cherryview_load_luts(struct drm_crtc_state *state)
 	}
 
 	if (state->gamma_lut) {
-		lut = (struct drm_color_lut *) state->gamma_lut->data;
+		lut = state->gamma_lut->data;
 		lut_size = INTEL_INFO(dev_priv)->color.gamma_lut_size;
 		for (i = 0; i < lut_size; i++) {
 			/* Write LUT in U0.10 format. */
