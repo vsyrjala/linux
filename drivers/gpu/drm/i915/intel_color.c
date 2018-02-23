@@ -387,6 +387,24 @@ static void hsw_color_commit(const struct intel_crtc_state *crtc_state)
 	ilk_load_csc_matrix(crtc_state);
 }
 
+static void skl_color_commit(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+	u32 val;
+
+	val = 0;
+	if (crtc_state->gamma_enable)
+		val |= PIPE_BOTTOM_GAMMA_ENABLE;
+	val |= PIPE_BOTTOM_CSC_ENABLE;
+	I915_WRITE(PIPE_BOTTOM_COLOR(pipe), val);
+
+	I915_WRITE(GAMMA_MODE(crtc->pipe), crtc_state->gamma_mode);
+
+	ilk_load_csc_matrix(crtc_state);
+}
+
 static void bdw_load_degamma_lut(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
@@ -624,6 +642,8 @@ int intel_color_check(struct intel_crtc_state *crtc_state)
 	degamma_length = INTEL_INFO(dev_priv)->color.degamma_lut_size;
 	gamma_length = INTEL_INFO(dev_priv)->color.gamma_lut_size;
 
+	crtc_state->gamma_enable = true;
+
 	/*
 	 * We also allow no degamma lut/ctm and a gamma lut at the legacy
 	 * size (256 entries).
@@ -674,7 +694,9 @@ void intel_color_init(struct intel_crtc *crtc)
 		else
 			dev_priv->display.load_luts = i9xx_load_luts;
 
-		if (INTEL_GEN(dev_priv) >= 8 || IS_HASWELL(dev_priv))
+		if (INTEL_GEN(dev_priv) >= 9)
+			dev_priv->display.color_commit = skl_color_commit;
+		else if (IS_BROADWELL(dev_priv) || IS_HASWELL(dev_priv))
 			dev_priv->display.color_commit = hsw_color_commit;
 		else
 			dev_priv->display.color_commit = ilk_color_commit;
