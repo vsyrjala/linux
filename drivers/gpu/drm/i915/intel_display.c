@@ -12504,6 +12504,16 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 	 */
 	drm_atomic_helper_wait_for_flip_done(dev, state);
 
+	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
+		intel_cstate = to_intel_crtc_state(new_crtc_state);
+
+		if (intel_cstate->base.active &&
+		    !needs_modeset(&intel_cstate->base) &&
+		    (intel_cstate->base.color_mgmt_changed ||
+		     intel_cstate->update_pipe))
+			dev_priv->display.load_luts(intel_cstate);
+	}
+
 	/*
 	 * Now that the vblank has passed, we can go ahead and program the
 	 * optimal watermarks on platforms that need two-step watermark
@@ -13036,22 +13046,15 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc,
 		intel_atomic_get_new_crtc_state(old_intel_state, intel_crtc);
 	bool modeset = needs_modeset(&intel_cstate->base);
 
-	if (!modeset &&
-	    (intel_cstate->base.color_mgmt_changed ||
-	     intel_cstate->update_pipe)) {
-		dev_priv->display.load_luts(intel_cstate);
-	}
-
 	/* Perform vblank evasion around commit operation */
 	intel_pipe_update_start(intel_cstate);
 
 	if (modeset)
 		goto out;
 
-	if (crtc->state->color_mgmt_changed ||
-	    to_intel_crtc_state(crtc->state)->update_pipe) {
+	if (intel_cstate->base.color_mgmt_changed ||
+	    intel_cstate->update_pipe)
 		dev_priv->display.color_commit(intel_cstate);
-	}
 
 	if (intel_cstate->update_pipe)
 		intel_update_pipe_config(old_intel_cstate, intel_cstate);
