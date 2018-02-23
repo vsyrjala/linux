@@ -10503,18 +10503,6 @@ static int intel_crtc_atomic_check(struct drm_crtc *crtc,
 			return ret;
 	}
 
-	if (mode_changed || crtc_state->color_mgmt_changed) {
-		ret = intel_color_check(pipe_config);
-		if (ret)
-			return ret;
-
-		/*
-		 * Changing color management on Intel hardware is
-		 * handled as part of planes update.
-		 */
-		crtc_state->planes_changed = true;
-	}
-
 	ret = 0;
 	if (dev_priv->display.compute_pipe_wm) {
 		ret = dev_priv->display.compute_pipe_wm(pipe_config);
@@ -12193,6 +12181,23 @@ static int intel_atomic_check(struct drm_device *dev,
 			return ret;
 	} else {
 		intel_state->cdclk.logical = dev_priv->cdclk.logical;
+	}
+
+	/* Things we need to check/compute before plane .atomic_check() */
+	for_each_new_crtc_in_state(state, crtc, crtc_state, i) {
+		if (!needs_modeset(crtc_state) &&
+		    !crtc_state->color_mgmt_changed)
+			continue;
+
+		ret = intel_color_check(to_intel_crtc_state(crtc_state));
+		if (ret)
+			return ret;
+
+		/*
+		 * Changing color management on Intel hardware is
+		 * handled as part of planes update.
+		 */
+		crtc_state->planes_changed = true;
 	}
 
 	ret = drm_atomic_helper_check_planes(dev, state);
