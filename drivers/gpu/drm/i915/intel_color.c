@@ -428,6 +428,32 @@ static void ivb_load_gamma_lut(const struct intel_crtc_state *crtc_state, u32 of
 	}
 }
 
+static void i9xx_set_pipe_color_config(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct intel_plane *plane = to_intel_plane(crtc->base.primary);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum i9xx_plane_id i9xx_plane = plane->i9xx_plane;
+	u32 tmp;
+
+	/*
+	 * Primary plane pipe gamma/csc enable bits also
+	 * affect the pipe bottom color, so must update
+	 * them even if the primary plane happens to be
+	 * currently disabled.
+	 *
+	 * FIXME would be nice if we didn't have to duplicate
+	 * this here...
+	 */
+	tmp = I915_READ(DSPCNTR(i9xx_plane));
+	tmp &= ~(DISPPLANE_GAMMA_ENABLE | DISPPLANE_PIPE_CSC_ENABLE);
+	if (crtc_state->gamma_enable)
+		tmp |= DISPPLANE_GAMMA_ENABLE;
+	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
+		tmp |= DISPPLANE_PIPE_CSC_ENABLE;
+	I915_WRITE(DSPCNTR(i9xx_plane), tmp);
+}
+
 static void ivb_load_luts(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
@@ -453,6 +479,8 @@ static void ivb_load_luts(const struct intel_crtc_state *crtc_state)
 	tmp |= PIPECONF_GAMMA_MODE(crtc_state->gamma_mode);
 	I915_WRITE(PIPECONF(pipe), tmp);
 	POSTING_READ(PIPECONF(pipe));
+
+	i9xx_set_pipe_color_config(crtc_state);
 }
 
 static void hsw_load_luts(const struct intel_crtc_state *crtc_state)
@@ -475,7 +503,17 @@ static void hsw_load_luts(const struct intel_crtc_state *crtc_state)
 	}
 
 	I915_WRITE(GAMMA_MODE(pipe), crtc_state->gamma_mode);
-	POSTING_READ(GAMMA_MODE(pipe));
+
+	if (INTEL_GEN(dev_priv) >= 9) {
+		u32 tmp = 0;
+
+		if (crtc_state->gamma_enable)
+			tmp |= PIPE_BOTTOM_GAMMA_ENABLE;
+
+		I915_WRITE(PIPE_BOTTOM_COLOR(pipe), tmp);
+	} else {
+		i9xx_set_pipe_color_config(crtc_state);
+	}
 }
 
 static void glk_load_degamma_lut(const struct intel_crtc_state *crtc_state)
@@ -610,11 +648,14 @@ int intel_color_check(struct intel_crtc_state *crtc_state)
 	degamma_length = INTEL_INFO(dev_priv)->color.degamma_lut_size;
 	gamma_length = INTEL_INFO(dev_priv)->color.gamma_lut_size;
 
+	crtc_state->gamma_enable = gamma_lut || degamma_lut;
+
 	/*
 	 * We also allow no degamma lut/ctm and a gamma lut at the legacy
 	 * size (256 entries).
 	 */
-	if (crtc_state_is_legacy_gamma(crtc_state)) {
+	if (!crtc_state->gamma_enable ||
+	    crtc_state_is_legacy_gamma(crtc_state)) {
 		crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
 		return 0;
 	}

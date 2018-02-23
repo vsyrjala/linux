@@ -392,7 +392,10 @@ static u32 vlv_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	const struct drm_intel_sprite_colorkey *key = &plane_state->ckey;
 	u32 sprctl;
 
-	sprctl = SP_ENABLE | SP_GAMMA_ENABLE;
+	sprctl = SP_ENABLE;
+
+	if (crtc_state->gamma_enable)
+		sprctl |= SP_GAMMA_ENABLE;
 
 	switch (fb->format->format) {
 	case DRM_FORMAT_YUYV:
@@ -552,10 +555,13 @@ static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	const struct drm_intel_sprite_colorkey *key = &plane_state->ckey;
 	u32 sprctl;
 
-	sprctl = SPRITE_ENABLE | SPRITE_GAMMA_ENABLE;
+	sprctl = SPRITE_ENABLE;
 
 	if (IS_IVYBRIDGE(dev_priv))
 		sprctl |= SPRITE_TRICKLE_FEED_DISABLE;
+
+	if (crtc_state->gamma_enable)
+		sprctl |= SPRITE_GAMMA_ENABLE;
 
 	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
 		sprctl |= SPRITE_PIPE_CSC_ENABLE;
@@ -711,10 +717,13 @@ static u32 g4x_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	const struct drm_intel_sprite_colorkey *key = &plane_state->ckey;
 	u32 dvscntr;
 
-	dvscntr = DVS_ENABLE | DVS_GAMMA_ENABLE;
+	dvscntr = DVS_ENABLE;
 
 	if (IS_GEN6(dev_priv))
 		dvscntr |= DVS_TRICKLE_FEED_DISABLE;
+
+	if (crtc_state->gamma_enable)
+		dvscntr |= DVS_GAMMA_ENABLE;
 
 	switch (fb->format->format) {
 	case DRM_FORMAT_XBGR8888:

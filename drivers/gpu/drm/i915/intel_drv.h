@@ -882,6 +882,9 @@ struct intel_crtc_state {
 
 	/* output format is YCBCR 4:2:0 */
 	bool ycbcr420;
+
+	/* enable pipe gamma? */
+	bool gamma_enable;
 };
 
 struct intel_crtc {

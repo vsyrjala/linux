@@ -3192,11 +3192,14 @@ static u32 i9xx_plane_ctl(const struct intel_crtc_state *crtc_state,
 	unsigned int rotation = plane_state->base.rotation;
 	u32 dspcntr;
 
-	dspcntr = DISPLAY_PLANE_ENABLE | DISPPLANE_GAMMA_ENABLE;
+	dspcntr = DISPLAY_PLANE_ENABLE;
 
 	if (IS_G4X(dev_priv) || IS_GEN5(dev_priv) ||
 	    IS_GEN6(dev_priv) || IS_IVYBRIDGE(dev_priv))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
+
+	if (crtc_state->gamma_enable)
+		dspcntr |= DISPPLANE_GAMMA_ENABLE;
 
 	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
 		dspcntr |= DISPPLANE_PIPE_CSC_ENABLE;
@@ -3351,10 +3354,23 @@ static void i9xx_disable_plane(struct intel_plane *plane,
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum i9xx_plane_id i9xx_plane = plane->i9xx_plane;
 	unsigned long irqflags;
+	u32 tmp;
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
-	I915_WRITE_FW(DSPCNTR(i9xx_plane), 0);
+	/*
+	 * On pre-SKL pipe gamma and csc enable affect the
+	 * pipe bottom color as well, so must preserve them
+	 * for correct operation and crtc state readout.
+	 *
+	 * FIXME figure out a nice way to do this without the
+	 * RMW, and not having to also write this register
+	 * from the color mgmt code when changing gamma/csc
+	 * settings while the primary plane is not enabled.
+	 */
+	tmp = I915_READ_FW(DSPCNTR(i9xx_plane));
+	tmp &= DISPPLANE_GAMMA_ENABLE | DISPPLANE_PIPE_CSC_ENABLE;
+	I915_WRITE_FW(DSPCNTR(i9xx_plane), tmp);
 	if (INTEL_GEN(dev_priv) >= 4)
 		I915_WRITE_FW(DSPSURF(i9xx_plane), 0);
 	else
@@ -3577,11 +3593,11 @@ u32 skl_plane_ctl(const struct intel_crtc_state *crtc_state,
 	plane_ctl = PLANE_CTL_ENABLE;
 
 	if (INTEL_GEN(dev_priv) < 10 && !IS_GEMINILAKE(dev_priv)) {
+		if (crtc_state->gamma_enable)
+			plane_ctl |= PLANE_CTL_PIPE_GAMMA_ENABLE;
+		plane_ctl |= PLANE_CTL_PIPE_CSC_ENABLE;
+		plane_ctl |= PLANE_CTL_PLANE_GAMMA_DISABLE;
 		plane_ctl |= skl_plane_ctl_alpha(fb->format->format);
-		plane_ctl |=
-			PLANE_CTL_PIPE_GAMMA_ENABLE |
-			PLANE_CTL_PIPE_CSC_ENABLE |
-			PLANE_CTL_PLANE_GAMMA_DISABLE;
 	}
 
 	plane_ctl |= skl_plane_ctl_format(fb->format->format);
@@ -3606,7 +3622,8 @@ u32 glk_plane_color_ctl(const struct intel_crtc_state *crtc_state,
 	const struct drm_framebuffer *fb = plane_state->base.fb;
 	u32 plane_color_ctl = 0;
 
-	plane_color_ctl |= PLANE_COLOR_PIPE_GAMMA_ENABLE;
+	if (crtc_state->gamma_enable)
+		plane_color_ctl |= PLANE_COLOR_PIPE_GAMMA_ENABLE;
 	plane_color_ctl |= PLANE_COLOR_PIPE_CSC_ENABLE;
 	plane_color_ctl |= PLANE_COLOR_PLANE_GAMMA_DISABLE;
 	plane_color_ctl |= glk_plane_color_ctl_alpha(fb->format->format);
@@ -3794,8 +3811,8 @@ static void intel_update_pipe_config(const struct intel_crtc_state *old_crtc_sta
 		   ((new_crtc_state->pipe_src_w - 1) << 16) |
 		   (new_crtc_state->pipe_src_h - 1));
 
-	/* on skylake this is done by detaching scalers */
 	if (INTEL_GEN(dev_priv) >= 9) {
+		/* on skylake this is done by detaching scalers */
 		skl_detach_scalers(crtc);
 
 		if (new_crtc_state->pch_pfit.enabled)
@@ -7658,6 +7675,20 @@ static void chv_crtc_clock_get(struct intel_crtc *crtc,
 	pipe_config->port_clock = chv_calc_dpll_params(refclk, &clock);
 }
 
+static void i9xx_get_pipe_color_config(struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct intel_plane *plane = to_intel_plane(crtc->base.primary);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum i9xx_plane_id i9xx_plane = plane->i9xx_plane;
+	u32 tmp;
+
+	tmp = I915_READ(DSPCNTR(i9xx_plane));
+
+	if (tmp & DISPPLANE_GAMMA_ENABLE)
+		crtc_state->gamma_enable = true;
+}
+
 static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 				 struct intel_crtc_state *pipe_config)
 {
@@ -7702,6 +7733,8 @@ static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 
 	pipe_config->gamma_mode = (tmp & PIPECONF_GAMMA_MODE_MASK_I9XX) >>
 		PIPECONF_GAMMA_MODE_SHIFT;
+
+	i9xx_get_pipe_color_config(pipe_config);
 
 	if (INTEL_GEN(dev_priv) < 4)
 		pipe_config->double_wide = tmp & PIPECONF_DOUBLE_WIDE;
@@ -8754,6 +8787,8 @@ static bool ironlake_get_pipe_config(struct intel_crtc *crtc,
 	pipe_config->gamma_mode = (tmp & PIPECONF_GAMMA_MODE_MASK_ILK) >>
 		PIPECONF_GAMMA_MODE_SHIFT;
 
+	i9xx_get_pipe_color_config(pipe_config);
+
 	if (I915_READ(PCH_TRANSCONF(crtc->pipe)) & TRANS_ENABLE) {
 		struct intel_shared_dpll *pll;
 		enum intel_dpll_id pll_id;
@@ -9320,6 +9355,15 @@ static bool haswell_get_pipe_config(struct intel_crtc *crtc,
 	pipe_config->gamma_mode =
 		I915_READ(GAMMA_MODE(crtc->pipe)) & GAMMA_MODE_MODE_MASK;
 
+	if (INTEL_GEN(dev_priv) >= 9) {
+		u32 tmp = I915_READ(PIPE_BOTTOM_COLOR(crtc->pipe));
+
+		if (tmp & PIPE_BOTTOM_GAMMA_ENABLE)
+			pipe_config->gamma_enable = true;
+	} else {
+		i9xx_get_pipe_color_config(pipe_config);
+	}
+
 	if (IS_BROADWELL(dev_priv) || INTEL_GEN(dev_priv) >= 9) {
 		u32 tmp = I915_READ(PIPEMISC(crtc->pipe));
 		bool clrspace_yuv = tmp & PIPEMISC_OUTPUT_COLORSPACE_YUV;
@@ -9480,11 +9524,16 @@ static u32 i845_cursor_ctl(const struct intel_crtc_state *crtc_state,
 			   const struct intel_plane_state *plane_state)
 {
 	const struct drm_framebuffer *fb = plane_state->base.fb;
+	u32 cntl;
 
-	return CURSOR_ENABLE |
-		CURSOR_GAMMA_ENABLE |
+	cntl = CURSOR_ENABLE |
 		CURSOR_FORMAT_ARGB |
 		CURSOR_STRIDE(fb->pitches[0]);
+
+	if (crtc_state->gamma_enable)
+		cntl |= CURSOR_GAMMA_ENABLE;
+
+	return cntl;
 }
 
 static bool i845_cursor_size_ok(const struct intel_plane_state *plane_state)
@@ -9612,9 +9661,10 @@ static u32 i9xx_cursor_ctl(const struct intel_crtc_state *crtc_state,
 	struct drm_i915_private *dev_priv =
 		to_i915(plane_state->base.plane->dev);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
-	u32 cntl;
+	u32 cntl = 0;
 
-	cntl = MCURSOR_GAMMA_ENABLE;
+	if (crtc_state->gamma_enable)
+		cntl = MCURSOR_GAMMA_ENABLE;
 
 	if (HAS_DDI(dev_priv))
 		cntl |= CURSOR_PIPE_CSC_ENABLE;
@@ -11325,6 +11375,7 @@ intel_pipe_config_compare(struct drm_i915_private *dev_priv,
 	PIPE_CONF_CHECK_BOOL(double_wide);
 
 	PIPE_CONF_CHECK_X(gamma_mode);
+	PIPE_CONF_CHECK_BOOL(gamma_enable);
 
 	PIPE_CONF_CHECK_P(shared_dpll);
 	PIPE_CONF_CHECK_X(dpll_hw_state.dpll);
