@@ -4365,7 +4365,7 @@ enum {
 #define   SDVO_ENABLE				(1 << 31)
 #define   SDVO_PIPE_SEL(pipe)			((pipe) << 30)
 #define   SDVO_PIPE_SEL_MASK			(1 << 30)
-#define   SDVO_PIPE_B_SELECT			(1 << 30)
+#define   SDVO_PIPE_SEL_SHIFT			30
 #define   SDVO_STALL_SELECT			(1 << 29)
 #define   SDVO_INTERRUPT_ENABLE			(1 << 26)
 /*
@@ -4407,10 +4407,12 @@ enum {
 /* Gen 6 (CPT) SDVO/HDMI bits: */
 #define   SDVO_PIPE_SEL_CPT(pipe)		((pipe) << 29)
 #define   SDVO_PIPE_SEL_MASK_CPT		(3 << 29)
+#define   SDVO_PIPE_SEL_SHIFT_CPT		29
 
 /* CHV SDVO/HDMI bits: */
 #define   SDVO_PIPE_SEL_CHV(pipe)		((pipe) << 24)
 #define   SDVO_PIPE_SEL_MASK_CHV		(3 << 24)
+#define   SDVO_PIPE_SEL_SHIFT_CHV		24
 
 
 /* DVO port control */
