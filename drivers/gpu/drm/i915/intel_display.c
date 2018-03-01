@@ -1171,9 +1171,9 @@ void assert_panel_unlocked(struct drm_i915_private *dev_priv, enum pipe pipe)
 		pp_reg = PP_CONTROL(0);
 		port_sel = I915_READ(PP_ON_DELAYS(0)) & PANEL_PORT_SELECT_MASK;
 
-		if (port_sel == PANEL_PORT_SELECT_LVDS &&
-		    I915_READ(PCH_LVDS) & LVDS_PIPEB_SELECT)
-			panel_pipe = PIPE_B;
+		if (port_sel == PANEL_PORT_SELECT_LVDS) {
+			intel_lvds_port_enabled(dev_priv, PCH_LVDS, &panel_pipe);
+		}
 		/* XXX: else fix for eDP */
 	} else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
 		/* presumably write lock depends on pipe, not port select */
@@ -1181,8 +1181,7 @@ void assert_panel_unlocked(struct drm_i915_private *dev_priv, enum pipe pipe)
 		panel_pipe = pipe;
 	} else {
 		pp_reg = PP_CONTROL(0);
-		if (I915_READ(LVDS) & LVDS_PIPEB_SELECT)
-			panel_pipe = PIPE_B;
+		intel_lvds_port_enabled(dev_priv, LVDS, &panel_pipe);
 	}
 
 	val = I915_READ(pp_reg);
@@ -1301,22 +1300,6 @@ static bool hdmi_pipe_enabled(struct drm_i915_private *dev_priv,
 	return true;
 }
 
-static bool lvds_pipe_enabled(struct drm_i915_private *dev_priv,
-			      enum pipe pipe, u32 val)
-{
-	if ((val & LVDS_PORT_EN) == 0)
-		return false;
-
-	if (HAS_PCH_CPT(dev_priv)) {
-		if ((val & PORT_TRANS_SEL_MASK) != PORT_TRANS_SEL_CPT(pipe))
-			return false;
-	} else {
-		if ((val & LVDS_PIPE_MASK) != LVDS_PIPE(pipe))
-			return false;
-	}
-	return true;
-}
-
 static void assert_pch_dp_disabled(struct drm_i915_private *dev_priv,
 				   enum pipe pipe, i915_reg_t reg,
 				   u32 port_sel)
@@ -1348,7 +1331,6 @@ static void assert_pch_ports_disabled(struct drm_i915_private *dev_priv,
 				      enum pipe pipe)
 {
 	enum pipe port_pipe;
-	u32 val;
 
 	assert_pch_dp_disabled(dev_priv, pipe, PCH_DP_B, TRANS_DP_PORT_SEL_B);
 	assert_pch_dp_disabled(dev_priv, pipe, PCH_DP_C, TRANS_DP_PORT_SEL_C);
@@ -1359,10 +1341,10 @@ static void assert_pch_ports_disabled(struct drm_i915_private *dev_priv,
 			"PCH VGA enabled on transcoder %c, should be disabled\n",
 			pipe_name(pipe));
 
-	val = I915_READ(PCH_LVDS);
-	I915_STATE_WARN(lvds_pipe_enabled(dev_priv, pipe, val),
-	     "PCH LVDS enabled on transcoder %c, should be disabled\n",
-	     pipe_name(pipe));
+	I915_STATE_WARN(intel_lvds_port_enabled(dev_priv, PCH_LVDS, &port_pipe) &&
+			port_pipe == pipe,
+			"PCH LVDS enabled on transcoder %c, should be disabled\n",
+			pipe_name(pipe));
 
 	assert_pch_hdmi_disabled(dev_priv, pipe, PCH_HDMIB);
 	assert_pch_hdmi_disabled(dev_priv, pipe, PCH_HDMIC);
@@ -1404,7 +1386,6 @@ static void vlv_enable_pll(struct intel_crtc *crtc,
 	I915_WRITE(DPLL_MD(pipe), pipe_config->dpll_hw_state.dpll_md);
 	POSTING_READ(DPLL_MD(pipe));
 }
-
 
 static void _chv_enable_pll(struct intel_crtc *crtc,
 			    const struct intel_crtc_state *pipe_config)
