@@ -927,6 +927,19 @@ g4x_plane_get_hw_state(struct intel_plane *plane)
 	return ret;
 }
 
+bool intel_fb_scalable(const struct drm_framebuffer *fb)
+{
+	if (!fb)
+		return false;
+
+	switch (fb->format->format) {
+	case DRM_FORMAT_C8:
+		return false;
+	default:
+		return true;
+	}
+}
+
 static int
 intel_check_sprite_plane(struct intel_plane *plane,
 			 struct intel_crtc_state *crtc_state,
@@ -968,21 +981,23 @@ intel_check_sprite_plane(struct intel_plane *plane,
 	}
 
 	/* setup can_scale, min_scale, max_scale */
+	can_scale = false;
+	min_scale = DRM_PLANE_HELPER_NO_SCALING;
+	max_scale = DRM_PLANE_HELPER_NO_SCALING;
+
 	if (INTEL_GEN(dev_priv) >= 9) {
 		/* use scaler when colorkey is not required */
-		if (!state->ckey.flags) {
-			can_scale = 1;
+		if (!state->ckey.flags && intel_fb_scalable(fb)) {
+			can_scale = true;
 			min_scale = 1;
 			max_scale = skl_max_scale(crtc, crtc_state);
-		} else {
-			can_scale = 0;
-			min_scale = DRM_PLANE_HELPER_NO_SCALING;
-			max_scale = DRM_PLANE_HELPER_NO_SCALING;
 		}
 	} else {
-		can_scale = plane->can_scale;
-		max_scale = plane->max_downscale << 16;
-		min_scale = plane->can_scale ? 1 : (1 << 16);
+		if (intel_fb_scalable(fb)) {
+			can_scale = plane->can_scale;
+			max_scale = plane->max_downscale << 16;
+			min_scale = plane->can_scale ? 1 : (1 << 16);
+		}
 	}
 
 	/*
