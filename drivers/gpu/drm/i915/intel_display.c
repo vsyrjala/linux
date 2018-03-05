@@ -68,7 +68,17 @@ static const u32 i8xx_primary_formats[] = {
 	DRM_FORMAT_XRGB8888,
 };
 
-/* Primary plane formats for gen >= 4 */
+/* Primary plane formats for ivb */
+static const u32 ivb_primary_formats[] = {
+	DRM_FORMAT_C8,
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_XRGB2101010,
+	DRM_FORMAT_XBGR2101010,
+};
+
+/* Primary plane formats for gen >= 4, except ivb */
 static const u32 i965_primary_formats[] = {
 	DRM_FORMAT_C8,
 	DRM_FORMAT_RGB565,
@@ -76,6 +86,7 @@ static const u32 i965_primary_formats[] = {
 	DRM_FORMAT_XBGR8888,
 	DRM_FORMAT_XRGB2101010,
 	DRM_FORMAT_XBGR2101010,
+	DRM_FORMAT_XBGR16161616F,
 };
 
 static const u64 i9xx_format_modifiers[] = {
@@ -2667,6 +2678,8 @@ static int i9xx_format_to_fourcc(int format)
 		return DRM_FORMAT_XRGB2101010;
 	case DISPPLANE_RGBX101010:
 		return DRM_FORMAT_XBGR2101010;
+	case DISPPLANE_RGBX161616:
+		return DRM_FORMAT_XBGR16161616F;
 	}
 }
 
@@ -3291,6 +3304,9 @@ static u32 i9xx_plane_ctl(const struct intel_crtc_state *crtc_state,
 	case DRM_FORMAT_XBGR2101010:
 		dspcntr |= DISPPLANE_RGBX101010;
 		break;
+	case DRM_FORMAT_XBGR16161616F:
+		dspcntr |= DISPPLANE_RGBX161616;
+		break;
 	default:
 		MISSING_CASE(fb->format->format);
 		return 0;
@@ -3315,6 +3331,7 @@ int i9xx_check_plane_surface(struct intel_plane_state *plane_state)
 		to_i915(plane_state->base.plane->dev);
 	const struct drm_framebuffer *fb = plane_state->base.fb;
 	unsigned int rotation = plane_state->base.rotation;
+	int src_w = drm_rect_width(&plane_state->base.src) >> 16;
 	int src_x = plane_state->base.src.x1 >> 16;
 	int src_y = plane_state->base.src.y1 >> 16;
 	u32 offset;
@@ -3326,6 +3343,10 @@ int i9xx_check_plane_surface(struct intel_plane_state *plane_state)
 	ret = intel_plane_check_stride(plane_state);
 	if (ret)
 		return ret;
+
+	/* Undocumented hardware limit on i965/g4x/vlv/chv */
+	if (HAS_GMCH(dev_priv) && fb->format->cpp[0] == 8 && src_w > 2048)
+		return -EINVAL;
 
 	intel_add_fb_offsets(&src_x, &src_y, plane_state, 0);
 
@@ -3624,7 +3645,7 @@ static u32 skl_plane_ctl_format(u32 pixel_format)
 	case DRM_FORMAT_XRGB2101010:
 		return PLANE_CTL_FORMAT_XRGB_2101010;
 	case DRM_FORMAT_XBGR2101010:
-		return PLANE_CTL_ORDER_RGBX | PLANE_CTL_FORMAT_XRGB_2101010;
+		return PLANE_CTL_FORMAT_XRGB_2101010 | PLANE_CTL_ORDER_RGBX;
 	case DRM_FORMAT_YUYV:
 		return PLANE_CTL_FORMAT_YUV422 | PLANE_CTL_YUV422_YUYV;
 	case DRM_FORMAT_YVYU:
@@ -5188,11 +5209,14 @@ static int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 	case DRM_FORMAT_UYVY:
 	case DRM_FORMAT_VYUY:
 	case DRM_FORMAT_NV12:
+		break;
 	case DRM_FORMAT_XBGR16161616F:
 	case DRM_FORMAT_ABGR16161616F:
 	case DRM_FORMAT_XRGB16161616F:
 	case DRM_FORMAT_ARGB16161616F:
-		break;
+		if (INTEL_GEN(dev_priv) >= 11)
+			break;
+		/* fall through */
 	default:
 		DRM_DEBUG_KMS("[PLANE:%d:%s] FB:%d unsupported scaling format 0x%x\n",
 			      intel_plane->base.base.id, intel_plane->base.name,
@@ -14005,6 +14029,7 @@ static bool i965_plane_format_mod_supported(struct drm_plane *_plane,
 	case DRM_FORMAT_XBGR8888:
 	case DRM_FORMAT_XRGB2101010:
 	case DRM_FORMAT_XBGR2101010:
+	case DRM_FORMAT_XBGR16161616F:
 		return modifier == DRM_FORMAT_MOD_LINEAR ||
 			modifier == I915_FORMAT_MOD_X_TILED;
 	default:
@@ -14243,8 +14268,26 @@ intel_primary_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 	}
 
 	if (INTEL_GEN(dev_priv) >= 4) {
-		formats = i965_primary_formats;
-		num_formats = ARRAY_SIZE(i965_primary_formats);
+		/*
+		 * WaFP16GammaEnabling:ivb
+		 * "Workaround : When using the 64-bit format, the plane
+		 *  output on each color channel has one quarter amplitude.
+		 *  It can be brought up to full amplitude by using pipe
+		 *  gamma correction or pipe color space conversion to
+		 *  multiply the plane output by four."
+		 *
+		 * There is no dedicated plane gamma for the primary plane,
+		 * and using the pipe gamma/csc could conflict with other
+		 * planes, so we choose not to expose fp16 on IVB primary
+		 * planes. HSW primary planes no longer have this problem.
+		 */
+		if (IS_IVYBRIDGE(dev_priv)) {
+			formats = ivb_primary_formats;
+			num_formats = ARRAY_SIZE(ivb_primary_formats);
+		} else {
+			formats = i965_primary_formats;
+			num_formats = ARRAY_SIZE(i965_primary_formats);
+		}
 		modifiers = i9xx_format_modifiers;
 
 		plane->max_stride = i9xx_plane_max_stride;

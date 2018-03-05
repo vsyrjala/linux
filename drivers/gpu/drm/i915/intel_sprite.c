@@ -985,6 +985,12 @@ static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	case DRM_FORMAT_XRGB8888:
 		sprctl |= SPRITE_FORMAT_RGBX888;
 		break;
+	case DRM_FORMAT_XBGR16161616F:
+		sprctl |= SPRITE_FORMAT_RGBX161616 | SPRITE_RGB_ORDER_RGBX;
+		break;
+	case DRM_FORMAT_XRGB16161616F:
+		sprctl |= SPRITE_FORMAT_RGBX161616;
+		break;
 	case DRM_FORMAT_YUYV:
 		sprctl |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_YUYV;
 		break;
@@ -1022,12 +1028,30 @@ static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	return sprctl;
 }
 
-static void ivb_sprite_linear_gamma(u16 gamma[18])
+static void ivb_sprite_linear_gamma(const struct intel_plane_state *plane_state,
+				    u16 gamma[18])
 {
-	int i;
+	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	const struct drm_framebuffer *fb = plane_state->base.fb;
+	int scale, i;
 
-	for (i = 0; i < 17; i++)
-		gamma[i] = (i << 10) / 16;
+	/*
+	 * WaFP16GammaEnabling:ivb,hsw
+	 * "Workaround : When using the 64-bit format, the sprite output
+	 *  on each color channel has one quarter amplitude. It can be
+	 *  brought up to full amplitude by using sprite internal gamma
+	 *  correction, pipe gamma correction, or pipe color space
+	 *  conversion to multiply the sprite output by four."
+	 */
+	scale = (IS_IVYBRIDGE(dev_priv) || IS_HASWELL(dev_priv)) &&
+		fb->format->cpp[0] == 8 ? 4 : 1;
+
+	for (i = 0; i < 16; i++)
+		gamma[i] = min((scale * i << 10) / 16, (1 << 10) - 1);
+
+	gamma[i] = min((scale * i << 10) / 16, 1 << 10);
+	i++;
 
 	gamma[i] = 3 << 10;
 	i++;
@@ -1041,7 +1065,7 @@ static void ivb_update_gamma(const struct intel_plane_state *plane_state)
 	u16 gamma[18];
 	int i;
 
-	ivb_sprite_linear_gamma(gamma);
+	ivb_sprite_linear_gamma(plane_state, gamma);
 
 	/* FIXME these register are single buffered :( */
 	for (i = 0; i < 16; i++)
@@ -1216,6 +1240,12 @@ static u32 g4x_sprite_ctl(const struct intel_crtc_state *crtc_state,
 		break;
 	case DRM_FORMAT_XRGB8888:
 		dvscntr |= DVS_FORMAT_RGBX888;
+		break;
+	case DRM_FORMAT_XBGR16161616F:
+		dvscntr |= DVS_FORMAT_RGBX161616 | DVS_RGB_ORDER_XBGR;
+		break;
+	case DRM_FORMAT_XRGB16161616F:
+		dvscntr |= DVS_FORMAT_RGBX161616;
 		break;
 	case DRM_FORMAT_YUYV:
 		dvscntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_YUYV;
@@ -1412,7 +1442,8 @@ g4x_plane_get_hw_state(struct intel_plane *plane,
 	return ret;
 }
 
-static bool intel_fb_scalable(const struct drm_framebuffer *fb)
+static bool intel_fb_scalable(struct drm_i915_private *dev_priv,
+			      const struct drm_framebuffer *fb)
 {
 	if (!fb)
 		return false;
@@ -1420,6 +1451,11 @@ static bool intel_fb_scalable(const struct drm_framebuffer *fb)
 	switch (fb->format->format) {
 	case DRM_FORMAT_C8:
 		return false;
+	case DRM_FORMAT_XRGB16161616F:
+	case DRM_FORMAT_ARGB16161616F:
+	case DRM_FORMAT_XBGR16161616F:
+	case DRM_FORMAT_ABGR16161616F:
+		return INTEL_GEN(dev_priv) >= 11;
 	default:
 		return true;
 	}
@@ -1496,7 +1532,7 @@ g4x_sprite_check(struct intel_crtc_state *crtc_state,
 	int max_scale = DRM_PLANE_HELPER_NO_SCALING;
 	int ret;
 
-	if (intel_fb_scalable(plane_state->base.fb)) {
+	if (intel_fb_scalable(dev_priv, plane_state->base.fb)) {
 		if (INTEL_GEN(dev_priv) < 7) {
 			min_scale = 1;
 			max_scale = 16 << 16;
@@ -1718,7 +1754,7 @@ static int skl_plane_check(struct intel_crtc_state *crtc_state,
 		return ret;
 
 	/* use scaler when colorkey is not required */
-	if (!plane_state->ckey.flags && intel_fb_scalable(fb)) {
+	if (!plane_state->ckey.flags && intel_fb_scalable(dev_priv, fb)) {
 		min_scale = 1;
 		max_scale = skl_max_scale(crtc_state, fb->format->format);
 	}
@@ -1895,8 +1931,10 @@ static const u64 i9xx_plane_format_modifiers[] = {
 };
 
 static const u32 snb_plane_formats[] = {
-	DRM_FORMAT_XBGR8888,
 	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_XRGB16161616F,
+	DRM_FORMAT_XBGR16161616F,
 	DRM_FORMAT_YUYV,
 	DRM_FORMAT_YVYU,
 	DRM_FORMAT_UYVY,
@@ -1926,6 +1964,8 @@ static const u32 skl_plane_formats[] = {
 	DRM_FORMAT_ABGR8888,
 	DRM_FORMAT_XRGB2101010,
 	DRM_FORMAT_XBGR2101010,
+	DRM_FORMAT_XRGB16161616F,
+	DRM_FORMAT_XBGR16161616F,
 	DRM_FORMAT_YUYV,
 	DRM_FORMAT_YVYU,
 	DRM_FORMAT_UYVY,
@@ -1933,6 +1973,39 @@ static const u32 skl_plane_formats[] = {
 };
 
 static const u32 skl_planar_formats[] = {
+	DRM_FORMAT_C8,
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_XRGB2101010,
+	DRM_FORMAT_XBGR2101010,
+	DRM_FORMAT_XRGB16161616F,
+	DRM_FORMAT_XBGR16161616F,
+	DRM_FORMAT_YUYV,
+	DRM_FORMAT_YVYU,
+	DRM_FORMAT_UYVY,
+	DRM_FORMAT_VYUY,
+	DRM_FORMAT_NV12,
+};
+
+static const u32 icl_sdr_y_plane_formats[] = {
+	DRM_FORMAT_C8,
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_XRGB2101010,
+	DRM_FORMAT_XBGR2101010,
+	DRM_FORMAT_YUYV,
+	DRM_FORMAT_YVYU,
+	DRM_FORMAT_UYVY,
+	DRM_FORMAT_VYUY,
+};
+
+static const u32 icl_sdr_uv_plane_formats[] = {
 	DRM_FORMAT_C8,
 	DRM_FORMAT_RGB565,
 	DRM_FORMAT_XRGB8888,
@@ -1949,25 +2022,6 @@ static const u32 skl_planar_formats[] = {
 };
 
 static const u32 icl_hdr_plane_formats[] = {
-	DRM_FORMAT_C8,
-	DRM_FORMAT_RGB565,
-	DRM_FORMAT_XRGB8888,
-	DRM_FORMAT_XBGR8888,
-	DRM_FORMAT_ARGB8888,
-	DRM_FORMAT_ABGR8888,
-	DRM_FORMAT_XRGB2101010,
-	DRM_FORMAT_XBGR2101010,
-	DRM_FORMAT_XRGB16161616F,
-	DRM_FORMAT_XBGR16161616F,
-	DRM_FORMAT_ARGB16161616F,
-	DRM_FORMAT_ABGR16161616F,
-	DRM_FORMAT_YUYV,
-	DRM_FORMAT_YVYU,
-	DRM_FORMAT_UYVY,
-	DRM_FORMAT_VYUY,
-};
-
-static const u32 icl_hdr_planar_formats[] = {
 	DRM_FORMAT_C8,
 	DRM_FORMAT_RGB565,
 	DRM_FORMAT_XRGB8888,
@@ -2045,6 +2099,8 @@ static bool snb_sprite_format_mod_supported(struct drm_plane *_plane,
 	switch (format) {
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_XRGB16161616F:
+	case DRM_FORMAT_XBGR16161616F:
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_YVYU:
 	case DRM_FORMAT_UYVY:
@@ -2200,9 +2256,6 @@ static bool skl_plane_has_fbc(struct drm_i915_private *dev_priv,
 static bool skl_plane_has_planar(struct drm_i915_private *dev_priv,
 				 enum pipe pipe, enum plane_id plane_id)
 {
-	if (INTEL_GEN(dev_priv) >= 11)
-		return plane_id <= PLANE_SPRITE3;
-
 	/* Display WA #0870: skl, bxt */
 	if (IS_SKYLAKE(dev_priv) || IS_BROXTON(dev_priv))
 		return false;
@@ -2214,6 +2267,35 @@ static bool skl_plane_has_planar(struct drm_i915_private *dev_priv,
 		return false;
 
 	return true;
+}
+
+static const u32 *skl_get_plane_formats(struct drm_i915_private *dev_priv,
+					enum pipe pipe, enum plane_id plane_id,
+					int *num_formats)
+{
+	if (skl_plane_has_planar(dev_priv, pipe, plane_id)) {
+		*num_formats = ARRAY_SIZE(skl_planar_formats);
+		return skl_planar_formats;
+	} else {
+		*num_formats = ARRAY_SIZE(skl_plane_formats);
+		return skl_plane_formats;
+	}
+}
+
+static const u32 *icl_get_plane_formats(struct drm_i915_private *dev_priv,
+					enum pipe pipe, enum plane_id plane_id,
+					int *num_formats)
+{
+	if (icl_is_hdr_plane(dev_priv, plane_id)) {
+		*num_formats = ARRAY_SIZE(icl_hdr_plane_formats);
+		return icl_hdr_plane_formats;
+	} else if (icl_is_nv12_y_plane(plane_id)) {
+		*num_formats = ARRAY_SIZE(icl_sdr_y_plane_formats);
+		return icl_sdr_y_plane_formats;
+	} else {
+		*num_formats = ARRAY_SIZE(icl_sdr_uv_plane_formats);
+		return icl_sdr_uv_plane_formats;
+	}
 }
 
 static bool skl_plane_has_ccs(struct drm_i915_private *dev_priv,
@@ -2269,23 +2351,12 @@ skl_universal_plane_create(struct drm_i915_private *dev_priv,
 	if (icl_is_nv12_y_plane(plane_id))
 		plane->update_slave = icl_update_slave;
 
-	if (skl_plane_has_planar(dev_priv, pipe, plane_id)) {
-		if (icl_is_hdr_plane(dev_priv, plane_id)) {
-			formats = icl_hdr_planar_formats;
-			num_formats = ARRAY_SIZE(icl_hdr_planar_formats);
-		} else {
-			formats = skl_planar_formats;
-			num_formats = ARRAY_SIZE(skl_planar_formats);
-		}
-	} else {
-		if (icl_is_hdr_plane(dev_priv, plane_id)) {
-			formats = icl_hdr_plane_formats;
-			num_formats = ARRAY_SIZE(icl_hdr_plane_formats);
-		} else {
-			formats = skl_plane_formats;
-			num_formats = ARRAY_SIZE(skl_plane_formats);
-		}
-	}
+	if (INTEL_GEN(dev_priv) >= 11)
+		formats = icl_get_plane_formats(dev_priv, pipe,
+						plane_id, &num_formats);
+	else
+		formats = skl_get_plane_formats(dev_priv, pipe,
+						plane_id, &num_formats);
 
 	plane->has_ccs = skl_plane_has_ccs(dev_priv, pipe, plane_id);
 	if (plane->has_ccs)
