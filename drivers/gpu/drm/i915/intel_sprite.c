@@ -954,6 +954,12 @@ static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	case DRM_FORMAT_XRGB8888:
 		sprctl |= SPRITE_FORMAT_RGBX888;
 		break;
+	case DRM_FORMAT_XBGR16161616F:
+		sprctl |= SPRITE_FORMAT_RGBX161616 | SPRITE_RGB_ORDER_RGBX;
+		break;
+	case DRM_FORMAT_XRGB16161616F:
+		sprctl |= SPRITE_FORMAT_RGBX161616;
+		break;
 	case DRM_FORMAT_YUYV:
 		sprctl |= SPRITE_FORMAT_YUV422 | SPRITE_YUV_ORDER_YUYV;
 		break;
@@ -991,12 +997,30 @@ static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	return sprctl;
 }
 
-static void ivb_sprite_linear_gamma(u16 gamma[18])
+static void ivb_sprite_linear_gamma(const struct intel_plane_state *plane_state,
+				    u16 gamma[18])
 {
-	int i;
+	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	const struct drm_framebuffer *fb = plane_state->base.fb;
+	int scale, i;
 
-	for (i = 0; i < 17; i++)
-		gamma[i] = (i << 10) / 16;
+	/*
+	 * WaFP16GammaEnabling:ivb,hsw
+	 * "Workaround : When using the 64-bit format, the sprite output
+	 *  on each color channel has one quarter amplitude. It can be
+	 *  brought up to full amplitude by using sprite internal gamma
+	 *  correction, pipe gamma correction, or pipe color space
+	 *  conversion to multiply the sprite output by four."
+	 */
+	scale = (IS_IVYBRIDGE(dev_priv) || IS_HASWELL(dev_priv)) &&
+		fb->format->cpp[0] == 8 ? 4 : 1;
+
+	for (i = 0; i < 16; i++)
+		gamma[i] = min((scale * i << 10) / 16, (1 << 10) - 1);
+
+	gamma[i] = min((scale * i << 10) / 16, 1 << 10);
+	i++;
 
 	gamma[i] = 3 << 10;
 	i++;
@@ -1010,7 +1034,7 @@ static void ivb_update_gamma(const struct intel_plane_state *plane_state)
 	u16 gamma[18];
 	int i;
 
-	ivb_sprite_linear_gamma(gamma);
+	ivb_sprite_linear_gamma(plane_state, gamma);
 
 	/* FIXME these register are single buffered :( */
 	for (i = 0; i < 16; i++)
@@ -1168,6 +1192,12 @@ static u32 g4x_sprite_ctl(const struct intel_crtc_state *crtc_state,
 		break;
 	case DRM_FORMAT_XRGB8888:
 		dvscntr |= DVS_FORMAT_RGBX888;
+		break;
+	case DRM_FORMAT_XBGR16161616F:
+		dvscntr |= DVS_FORMAT_RGBX161616 | DVS_RGB_ORDER_XBGR;
+		break;
+	case DRM_FORMAT_XRGB16161616F:
+		dvscntr |= DVS_FORMAT_RGBX161616;
 		break;
 	case DRM_FORMAT_YUYV:
 		dvscntr |= DVS_FORMAT_YUV422 | DVS_YUV_ORDER_YUYV;
@@ -1367,6 +1397,8 @@ static bool intel_fb_scalable(const struct drm_framebuffer *fb)
 
 	switch (fb->format->format) {
 	case DRM_FORMAT_C8:
+	case DRM_FORMAT_XRGB16161616F:
+	case DRM_FORMAT_XBGR16161616F:
 		return false;
 	default:
 		return true;
@@ -1841,8 +1873,10 @@ static const uint64_t i9xx_plane_format_modifiers[] = {
 };
 
 static const uint32_t snb_plane_formats[] = {
-	DRM_FORMAT_XBGR8888,
 	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_XRGB16161616F,
+	DRM_FORMAT_XBGR16161616F,
 	DRM_FORMAT_YUYV,
 	DRM_FORMAT_YVYU,
 	DRM_FORMAT_UYVY,
@@ -1887,6 +1921,8 @@ static const uint32_t skl_planar_formats[] = {
 	DRM_FORMAT_ABGR8888,
 	DRM_FORMAT_XRGB2101010,
 	DRM_FORMAT_XBGR2101010,
+	DRM_FORMAT_XRGB16161616F,
+	DRM_FORMAT_XBGR16161616F,
 	DRM_FORMAT_YUYV,
 	DRM_FORMAT_YVYU,
 	DRM_FORMAT_UYVY,
@@ -1952,6 +1988,8 @@ static bool snb_sprite_format_mod_supported(struct drm_plane *_plane,
 	switch (format) {
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_XRGB16161616F:
+	case DRM_FORMAT_XBGR16161616F:
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_YVYU:
 	case DRM_FORMAT_UYVY:
@@ -2036,6 +2074,8 @@ static bool skl_plane_format_mod_supported(struct drm_plane *_plane,
 		if (modifier == I915_FORMAT_MOD_Yf_TILED)
 			return true;
 		/* fall through */
+	case DRM_FORMAT_XRGB16161616F:
+	case DRM_FORMAT_XBGR16161616F:
 	case DRM_FORMAT_C8:
 		if (modifier == DRM_FORMAT_MOD_LINEAR ||
 		    modifier == I915_FORMAT_MOD_X_TILED ||
