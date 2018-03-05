@@ -168,6 +168,16 @@ extern "C" {
 #define DRM_FORMAT_X0L2		fourcc_code('X', '0', 'L', '2')
 
 /*
+ * Floating point 64bpp RGB
+ * IEEE 754-2008 binary16 half-precision float
+ * [15:0] sign:exponent:mantissa 1:5:10
+ */
+#define DRM_FORMAT_XRGB16161616F	fourcc_code('F', '2', 'X', 'R') /* [63:0] x:R:G:B 16:16:16:16 little endian */
+#define DRM_FORMAT_XBGR16161616F	fourcc_code('F', '2', 'X', 'B') /* [63:0] x:B:G:R 16:16:16:16 little endian */
+#define DRM_FORMAT_RGBX16161616F	fourcc_code('F', '2', 'R', 'X') /* [63:0] R:G:B:x 16:16:16:16 little endian */
+#define DRM_FORMAT_BGRX16161616F	fourcc_code('F', '2', 'B', 'X') /* [63:0] B:G:R:x 16:16:16:16 little endian */
+
+/*
  * 2 plane RGB + A
  * index 0 = RGB plane, same format as the corresponding non _A8 format has
  * index 1 = A plane, [7:0] A
