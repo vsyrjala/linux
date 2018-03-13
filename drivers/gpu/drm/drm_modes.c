@@ -1702,7 +1702,11 @@ int drm_mode_convert_umode(struct drm_device *dev,
 	out->vsync_end = in->vsync_end;
 	out->vtotal = in->vtotal;
 	out->vscan = in->vscan;
-	out->vrefresh = in->vrefresh;
+	 /*
+	  * Ignore what the user is saying here and instead
+	  * calculate vrefresh based on the actual timings.
+	  */
+	out->vrefresh = 0;
 	out->flags = in->flags;
 	/*
 	 * Old xf86-video-vmware (possibly others too) used to
@@ -1737,6 +1741,8 @@ int drm_mode_convert_umode(struct drm_device *dev,
 		out->picture_aspect_ratio = HDMI_PICTURE_ASPECT_NONE;
 		break;
 	}
+
+	out->vrefresh = drm_mode_vrefresh(out);
 
 	out->status = drm_mode_validate_driver(dev, out);
 	if (out->status != MODE_OK)
