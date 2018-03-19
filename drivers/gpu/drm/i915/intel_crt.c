@@ -748,6 +748,11 @@ intel_crt_detect(struct drm_connector *connector,
 		      connector->base.id, connector->name,
 		      force);
 
+	if (i915_modparams.load_detect_test) {
+		intel_display_power_get(dev_priv, intel_encoder->power_domain);
+		goto load_detect;
+	}
+
 	/* Skip machines without VGA that falsely report hotplug events */
 	if (dmi_check_system(intel_spurious_crt_detect))
 		return connector_status_disconnected;
@@ -781,6 +786,7 @@ intel_crt_detect(struct drm_connector *connector,
 		goto out;
 	}
 
+load_detect:
 	if (!force) {
 		status = connector->status;
 		goto out;
