@@ -2877,9 +2877,8 @@ valid_fb:
 	if (i915_gem_object_is_tiled(obj))
 		dev_priv->preserve_bios_swizzle = true;
 
-	drm_framebuffer_get(fb);
-	primary->fb = primary->state->fb = fb;
-	primary->crtc = primary->state->crtc = &intel_crtc->base;
+	plane_state->fb = fb;
+	plane_state->crtc = &intel_crtc->base;
 
 	intel_set_plane_visible(to_intel_crtc_state(crtc_state),
 				to_intel_plane_state(plane_state),
