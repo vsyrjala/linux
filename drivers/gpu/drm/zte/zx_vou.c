@@ -629,7 +629,7 @@ void zx_vou_layer_enable(struct drm_plane *plane)
 
 void zx_vou_layer_disable(struct drm_plane *plane)
 {
-	struct zx_crtc *zcrtc = to_zx_crtc(plane->crtc);
+	struct zx_crtc *zcrtc = to_zx_crtc(plane->state->crtc);
 	struct zx_vou_hw *vou = zcrtc->vou;
 	struct zx_plane *zplane = to_zx_plane(plane);
 	const struct vou_layer_bits *bits = zplane->bits;
