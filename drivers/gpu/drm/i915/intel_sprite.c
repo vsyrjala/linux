@@ -229,6 +229,51 @@ void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state)
 #endif
 }
 
+static int
+skl_check_plane(struct intel_plane *plane,
+		struct intel_crtc_state *crtc_state,
+		struct intel_plane_state *plane_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	struct intel_crtc *crtc = to_intel_crtc(plane_state->base.crtc);
+	int min_scale, max_scale;
+	int ret;
+
+	/* use scaler when colorkey is not required */
+	if (!plane_state->ckey.flags &&
+	    intel_fb_scalable(plane_state->base.fb)) {
+		min_scale = 1;
+		max_scale = skl_max_scale(crtc, crtc_state);
+	} else {
+		min_scale = DRM_PLANE_HELPER_NO_SCALING;
+		max_scale = DRM_PLANE_HELPER_NO_SCALING;
+	}
+
+	ret = drm_atomic_helper_check_plane_state(&plane_state->base,
+						  &crtc_state->base,
+						  min_scale, max_scale,
+						  true, true);
+	if (ret)
+		return ret;
+
+	if (!plane_state->base.fb)
+		return 0;
+
+	/* FIXME deal with hardware YUV alignment limitations etc. */
+
+	ret = skl_check_plane_surface(crtc_state, plane_state);
+	if (ret)
+		return ret;
+
+	plane_state->ctl = skl_plane_ctl(crtc_state, plane_state);
+
+	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
+		plane_state->color_ctl = glk_plane_color_ctl(crtc_state,
+							     plane_state);
+
+	return 0;
+}
+
 static void
 skl_update_plane(struct intel_plane *plane,
 		 const struct intel_crtc_state *crtc_state,
@@ -954,7 +999,6 @@ intel_check_sprite_plane(struct intel_plane *plane,
 	struct drm_rect *src = &state->base.src;
 	struct drm_rect *dst = &state->base.dst;
 	struct drm_rect clip = {};
-	int max_stride = INTEL_GEN(dev_priv) >= 9 ? 32768 : 16384;
 	int hscale, vscale;
 	int max_scale, min_scale;
 	bool can_scale;
@@ -975,29 +1019,21 @@ intel_check_sprite_plane(struct intel_plane *plane,
 	}
 
 	/* FIXME check all gen limits */
-	if (fb->width < 3 || fb->height < 3 || fb->pitches[0] > max_stride) {
+	if (fb->width < 3 || fb->height < 3 || fb->pitches[0] > 16384) {
 		DRM_DEBUG_KMS("Unsuitable framebuffer for plane\n");
 		return -EINVAL;
 	}
 
 	/* setup can_scale, min_scale, max_scale */
-	can_scale = false;
-	min_scale = DRM_PLANE_HELPER_NO_SCALING;
-	max_scale = DRM_PLANE_HELPER_NO_SCALING;
 
-	if (INTEL_GEN(dev_priv) >= 9) {
-		/* use scaler when colorkey is not required */
-		if (!state->ckey.flags && intel_fb_scalable(fb)) {
-			can_scale = true;
-			min_scale = 1;
-			max_scale = skl_max_scale(crtc, crtc_state);
-		}
+	if (intel_fb_scalable(fb)) {
+		can_scale = plane->can_scale;
+		max_scale = plane->max_downscale << 16;
+		min_scale = plane->can_scale ? 1 : (1 << 16);
 	} else {
-		if (intel_fb_scalable(fb)) {
-			can_scale = plane->can_scale;
-			max_scale = plane->max_downscale << 16;
-			min_scale = plane->can_scale ? 1 : (1 << 16);
-		}
+		can_scale = false;
+		min_scale = DRM_PLANE_HELPER_NO_SCALING;
+		max_scale = DRM_PLANE_HELPER_NO_SCALING;
 	}
 
 	/*
@@ -1122,13 +1158,7 @@ intel_check_sprite_plane(struct intel_plane *plane,
 	dst->y1 = crtc_y;
 	dst->y2 = crtc_y + crtc_h;
 
-	if (INTEL_GEN(dev_priv) >= 9) {
-		ret = skl_check_plane_surface(crtc_state, state);
-		if (ret)
-			return ret;
-
-		state->ctl = skl_plane_ctl(crtc_state, state);
-	} else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
+	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
 		ret = i9xx_check_plane_surface(state);
 		if (ret)
 			return ret;
@@ -1147,9 +1177,6 @@ intel_check_sprite_plane(struct intel_plane *plane,
 
 		state->ctl = g4x_sprite_ctl(crtc_state, state);
 	}
-
-	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
-		state->color_ctl = glk_plane_color_ctl(crtc_state, state);
 
 	return 0;
 }
@@ -1492,6 +1519,7 @@ skl_universal_plane_create(struct drm_i915_private *dev_priv,
 		fbc->possible_framebuffer_bits |= plane->frontbuffer_bit;
 	}
 
+	plane->check_plane = skl_check_plane;
 	plane->update_plane = skl_update_plane;
 	plane->disable_plane = skl_disable_plane;
 	plane->get_hw_state = skl_plane_get_hw_state;
@@ -1551,17 +1579,9 @@ intel_sprite_plane_create(struct drm_i915_private *dev_priv,
 	int num_plane_formats;
 	int ret;
 
-	if (INTEL_GEN(dev_priv) >= 9) {
-		plane = skl_universal_plane_create(dev_priv, pipe,
-						   PLANE_SPRITE0 + sprite);
-		if (IS_ERR(plane))
-			return plane;
-
-		/* FIXME unify */
-		plane->check_plane = intel_check_sprite_plane;
-
-		return plane;
-	}
+	if (INTEL_GEN(dev_priv) >= 9)
+		return skl_universal_plane_create(dev_priv, pipe,
+						  PLANE_SPRITE0 + sprite);
 
 	plane = intel_plane_alloc();
 	if (IS_ERR(plane))

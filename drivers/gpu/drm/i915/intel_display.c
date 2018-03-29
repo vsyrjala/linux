@@ -12836,52 +12836,29 @@ skl_max_scale(struct intel_crtc *intel_crtc, struct intel_crtc_state *crtc_state
 }
 
 static int
-intel_check_primary_plane(struct intel_plane *plane,
-			  struct intel_crtc_state *crtc_state,
-			  struct intel_plane_state *state)
+i9xx_check_plane(struct intel_plane *plane,
+		 struct intel_crtc_state *crtc_state,
+		 struct intel_plane_state *plane_state)
 {
-	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
-	struct drm_crtc *crtc = state->base.crtc;
 	int min_scale = DRM_PLANE_HELPER_NO_SCALING;
 	int max_scale = DRM_PLANE_HELPER_NO_SCALING;
-	bool can_position = false;
 	int ret;
 
-	if (INTEL_GEN(dev_priv) >= 9) {
-		/* use scaler when colorkey is not required */
-		if (!state->ckey.flags && intel_fb_scalable(state->base.fb)) {
-			min_scale = 1;
-			max_scale = skl_max_scale(to_intel_crtc(crtc), crtc_state);
-		}
-		can_position = true;
-	}
-
-	ret = drm_atomic_helper_check_plane_state(&state->base,
+	ret = drm_atomic_helper_check_plane_state(&plane_state->base,
 						  &crtc_state->base,
 						  min_scale, max_scale,
-						  can_position, true);
+						  false, true);
 	if (ret)
 		return ret;
 
-	if (!state->base.fb)
+	if (!plane_state->base.fb)
 		return 0;
 
-	if (INTEL_GEN(dev_priv) >= 9) {
-		ret = skl_check_plane_surface(crtc_state, state);
-		if (ret)
-			return ret;
+	ret = i9xx_check_plane_surface(plane_state);
+	if (ret)
+		return ret;
 
-		state->ctl = skl_plane_ctl(crtc_state, state);
-	} else {
-		ret = i9xx_check_plane_surface(state);
-		if (ret)
-			return ret;
-
-		state->ctl = i9xx_plane_ctl(crtc_state, state);
-	}
-
-	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
-		state->color_ctl = glk_plane_color_ctl(crtc_state, state);
+	plane_state->ctl = i9xx_plane_ctl(crtc_state, plane_state);
 
 	return 0;
 }
@@ -13187,17 +13164,9 @@ intel_primary_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 	const uint64_t *modifiers;
 	int ret;
 
-	if (INTEL_GEN(dev_priv) >= 9) {
-		primary = skl_universal_plane_create(dev_priv, pipe,
-						     PLANE_PRIMARY);
-		if (IS_ERR(primary))
-			return primary;
-
-		/* FIXME unify */
-		primary->check_plane = intel_check_primary_plane;
-
-		return primary;
-	}
+	if (INTEL_GEN(dev_priv) >= 9)
+		return skl_universal_plane_create(dev_priv, pipe,
+						  PLANE_PRIMARY);
 
 	primary = intel_plane_alloc();
 	if (IS_ERR(primary))
@@ -13227,24 +13196,19 @@ intel_primary_plane_create(struct drm_i915_private *dev_priv, enum pipe pipe)
 		fbc->possible_framebuffer_bits |= primary->frontbuffer_bit;
 	}
 
-	primary->check_plane = intel_check_primary_plane;
+	primary->check_plane = i9xx_check_plane;
+	primary->update_plane = i9xx_update_plane;
+	primary->disable_plane = i9xx_disable_plane;
+	primary->get_hw_state = i9xx_plane_get_hw_state;
 
 	if (INTEL_GEN(dev_priv) >= 4) {
 		intel_primary_formats = i965_primary_formats;
 		num_formats = ARRAY_SIZE(i965_primary_formats);
 		modifiers = i9xx_format_modifiers;
-
-		primary->update_plane = i9xx_update_plane;
-		primary->disable_plane = i9xx_disable_plane;
-		primary->get_hw_state = i9xx_plane_get_hw_state;
 	} else {
 		intel_primary_formats = i8xx_primary_formats;
 		num_formats = ARRAY_SIZE(i8xx_primary_formats);
 		modifiers = i9xx_format_modifiers;
-
-		primary->update_plane = i9xx_update_plane;
-		primary->disable_plane = i9xx_disable_plane;
-		primary->get_hw_state = i9xx_plane_get_hw_state;
 	}
 
 	possible_crtcs = BIT(pipe);
