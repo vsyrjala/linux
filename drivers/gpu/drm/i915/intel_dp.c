@@ -4529,14 +4529,7 @@ intel_dp_detect_dpcd(struct intel_dp *intel_dp)
 static enum drm_connector_status
 edp_detect(struct intel_dp *intel_dp)
 {
-	struct drm_i915_private *dev_priv = to_i915(intel_dp_to_dev(intel_dp));
-	enum drm_connector_status status;
-
-	status = intel_panel_detect(dev_priv);
-	if (status == connector_status_unknown)
-		status = connector_status_connected;
-
-	return status;
+	return connector_status_connected;
 }
 
 static bool ibx_digital_port_connected(struct intel_encoder *encoder)
