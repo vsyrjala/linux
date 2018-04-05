@@ -2771,6 +2771,8 @@ static void intel_plane_disable_noatomic(struct intel_crtc *crtc,
 	struct intel_plane_state *plane_state =
 		to_intel_plane_state(plane->base.state);
 
+	DRM_DEBUG_KMS("Disabling %s\n", plane->base.name);
+
 	intel_set_plane_visible(crtc_state, plane_state, false);
 
 	if (plane->id == PLANE_PRIMARY)
