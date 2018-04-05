@@ -2082,6 +2082,7 @@ intel_bios_is_lspcon_present(struct drm_i915_private *dev_priv,
 void intel_bios_setup_swf(struct drm_i915_private *dev_priv)
 {
 	struct pci_dev *pdev = dev_priv->drm.pdev;
+	i915_reg_t reg;
 	u32 tmp;
 
 	/* WaEnableVGAAccessThroughIOPort:ctg,elk,ilk,snb,ivb,vlv,hsw */
@@ -2098,4 +2099,9 @@ void intel_bios_setup_swf(struct drm_i915_private *dev_priv)
 		tmp |= GR18_DRIVER_SWITCH_EN;
 		I915_WRITE8(_MMIO(VGA_GR_DATA), tmp);
 	}
+
+	reg = INTEL_GEN(dev_priv) >= 5 ? SWF_ILK(0x10) : SWF1(0x0);
+	tmp = I915_READ(reg);
+	tmp |= SWF10_DRIVER_LOADED;
+	I915_WRITE(reg, tmp);
 }
