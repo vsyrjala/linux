@@ -28,6 +28,7 @@
 #include <drm/drm_dp_helper.h>
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
+#include <linux/vgaarb.h>
 #include "i915_drv.h"
 
 #define _INTEL_BIOS_PRIVATE
@@ -2076,4 +2077,25 @@ intel_bios_is_lspcon_present(struct drm_i915_private *dev_priv,
 	}
 
 	return false;
+}
+
+void intel_bios_setup_swf(struct drm_i915_private *dev_priv)
+{
+	struct pci_dev *pdev = dev_priv->drm.pdev;
+	u32 tmp;
+
+	/* WaEnableVGAAccessThroughIOPort:ctg,elk,ilk,snb,ivb,vlv,hsw */
+	if (INTEL_GEN(dev_priv) >= 5 || IS_G4X(dev_priv)) {
+		vga_get_uninterruptible(pdev, VGA_RSRC_LEGACY_IO);
+		outb(GR18, VGA_GR_INDEX);
+		tmp = inb(VGA_GR_DATA);
+		tmp |= GR18_DRIVER_SWITCH_EN;
+		outb(tmp, VGA_GR_DATA);
+		vga_put(pdev, VGA_RSRC_LEGACY_IO);
+	} else {
+		I915_WRITE8(_MMIO(VGA_GR_INDEX), GR18);
+		tmp = I915_READ8(_MMIO(VGA_GR_DATA));
+		tmp |= GR18_DRIVER_SWITCH_EN;
+		I915_WRITE8(_MMIO(VGA_GR_DATA), tmp);
+	}
 }

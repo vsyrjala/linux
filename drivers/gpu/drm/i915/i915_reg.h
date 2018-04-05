@@ -406,6 +406,7 @@ static inline bool i915_mmio_reg_valid(i915_reg_t reg)
 #define VGA_AR_DATA_READ 0x3c1
 
 #define VGA_GR_INDEX 0x3ce
+#define  GR18			0x18
 #define VGA_GR_DATA 0x3cf
 /* GR05 */
 #define   VGA_GR_MEM_READ_MODE_SHIFT 3

@@ -14521,6 +14521,8 @@ static void i915_disable_vga(struct drm_i915_private *dev_priv)
 	i915_reg_t vga_reg = i915_vgacntrl_reg(dev_priv);
 	u8 tmp;
 
+	intel_bios_setup_swf(dev_priv);
+
 	/* WaEnableVGAAccessThroughIOPort:ctg,elk,ilk,snb,ivb,vlv,hsw */
 	if (INTEL_GEN(dev_priv) >= 5 || IS_G4X(dev_priv)) {
 		vga_get_uninterruptible(pdev, VGA_RSRC_LEGACY_IO);
