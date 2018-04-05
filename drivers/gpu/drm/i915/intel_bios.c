@@ -2100,6 +2100,14 @@ void intel_bios_setup_swf(struct drm_i915_private *dev_priv)
 		I915_WRITE8(_MMIO(VGA_GR_DATA), tmp);
 	}
 
+	/* FIXME is this set of platforms correct? */
+	if (INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv)) {
+		reg = INTEL_GEN(dev_priv) >= 5 ? SWF_ILK(0x04) : SWF0(0x4);
+		tmp = I915_READ(reg);
+		tmp |= SWF04_DRIVER_SWITCH_EN;
+		I915_WRITE(reg, tmp);
+	}
+
 	reg = INTEL_GEN(dev_priv) >= 5 ? SWF_ILK(0x10) : SWF1(0x0);
 	tmp = I915_READ(reg);
 	tmp |= SWF10_DRIVER_LOADED;

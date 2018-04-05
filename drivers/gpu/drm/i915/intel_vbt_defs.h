@@ -794,6 +794,8 @@ struct bdb_psr {
 #define SWF01_TV1_FORMAT_SHIFT	0
 #define SWF01_TV_FORMAT_MASK	0xffff
 
+#define SWF04_DRIVER_SWITCH_EN	(1<<31) /* pre-g4x ? */
+
 #define SWF10_VBIOS_BLC_I2C_EN	(1<<29)
 #define SWF10_GTT_OVERRIDE_EN	(1<<28)
 #define SWF10_LFP_DPMS_OVR	(1<<27) /* override DPMS on display switch */
