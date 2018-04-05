@@ -2104,4 +2104,10 @@ void intel_bios_setup_swf(struct drm_i915_private *dev_priv)
 	tmp = I915_READ(reg);
 	tmp |= SWF10_DRIVER_LOADED;
 	I915_WRITE(reg, tmp);
+
+	reg = INTEL_GEN(dev_priv) >= 5 ? SWF_ILK(0x14) : SWF1(0x4);
+	tmp = I915_READ(reg);
+	tmp &= ~(SWF14_OS_TYPE_MASK | SWF14_PM_TYPE_MASK);
+	tmp |= SWF14_OS_TYPE_WINNT | SWF14_PM_ACPI_VIDEO;
+	I915_WRITE(reg, tmp);
 }

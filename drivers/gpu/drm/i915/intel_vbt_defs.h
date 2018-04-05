@@ -850,10 +850,11 @@ struct bdb_psr {
 #define SWF14_DISP_DETECT_EN	(1<<26)
 #define SWF14_DOCKING_STATUS_DOCKED (1<<25) /* 0 here means undocked */
 #define SWF14_DRIVER_STATUS	(1<<24)
+#define SWF14_OS_TYPE_MASK	(0x1f<<19)
 #define SWF14_OS_TYPE_WIN9X	(1<<23)
 #define SWF14_OS_TYPE_WINNT	(1<<22)
 /* 21:19 rsvd */
-#define SWF14_PM_TYPE_MASK	0x00070000
+#define SWF14_PM_TYPE_MASK	(0x7 << 16)
 #define   SWF14_PM_ACPI_VIDEO	(0x4 << 16)
 #define   SWF14_PM_ACPI		(0x3 << 16)
 #define   SWF14_PM_APM_12	(0x2 << 16)
