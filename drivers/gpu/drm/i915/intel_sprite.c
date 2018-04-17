@@ -263,6 +263,12 @@ skl_update_plane(struct intel_plane *plane,
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
+	I915_WRITE_FW(DOUBLE_BUFFER_CTL, DOUBLE_BUFFER_DISABLE);
+	/* First CTL+SURF write to set the "allow double buffer disable" bit */
+	I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
+		      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
+	I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+
 	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
 		I915_WRITE_FW(PLANE_COLOR_CTL(pipe, plane_id),
 			      plane_state->color_ctl);
@@ -322,10 +328,25 @@ skl_update_plane(struct intel_plane *plane,
 		I915_WRITE_FW(PLANE_POS(pipe, plane_id), (crtc_y << 16) | crtc_x);
 	}
 
+	/*
+	 * Second CTL+SURF write to set the actual value.
+	 * If we skip this it doesn't seem to work for some reason.
+	 */
+	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl |
+		      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
+	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
+		      intel_plane_ggtt_offset(plane_state) + surf_addr);
+
+	/*
+	 * Third CTL+SURF write to clear the "allow double buffer disable"
+	 * bit. We don't want to leave it set since DOUBLE_BUFFER_CTL is global
+	 * and we don't want one pipe to cause another pipe to fail its register
+	 * latching. If only we had a per-pipe DOUBLE_BUFFER_CTL...
+	 */
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl);
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + surf_addr);
-	POSTING_READ_FW(PLANE_SURF(pipe, plane_id));
+	I915_WRITE_FW(DOUBLE_BUFFER_CTL, 0);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
@@ -340,10 +361,29 @@ skl_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
-	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), 0);
-
+	I915_WRITE_FW(DOUBLE_BUFFER_CTL, DOUBLE_BUFFER_DISABLE);
+	/* First CTL+SURF write to set the "allow double buffer disable" bit */
+	I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
+		      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
-	POSTING_READ_FW(PLANE_SURF(pipe, plane_id));
+
+	/*
+	 * Second CTL+SURF write to set the actual value.
+	 * If we skip this it doesn't seem to work for some reason.
+	 */
+	I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
+		      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
+	I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+
+	/*
+	 * Third CTL+SURF write to clear the "allow double buffer disable"
+	 * bit. We don't want to leave it set since DOUBLE_BUFFER_CTL is global
+	 * and we don't want one pipe to cause another pipe to fail its register
+	 * latching. If only we had a per-pipe DOUBLE_BUFFER_CTL...
+	 */
+	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), 0);
+	I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+	I915_WRITE_FW(DOUBLE_BUFFER_CTL, 0);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }

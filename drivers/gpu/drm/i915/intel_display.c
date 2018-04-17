@@ -9724,8 +9724,6 @@ static void i845_update_cursor(struct intel_plane *plane,
 		I915_WRITE_FW(CURPOS(PIPE_A), pos);
 	}
 
-	POSTING_READ_FW(CURCNTR(PIPE_A));
-
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
@@ -9929,11 +9927,39 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 	if (plane->cursor.base != base ||
 	    plane->cursor.size != fbc_ctl ||
 	    plane->cursor.cntl != cntl) {
-		I915_WRITE_FW(CURCNTR(pipe), cntl);
-		if (HAS_CUR_FBC(dev_priv))
+		if (INTEL_GEN(dev_priv) >= 9) {
+			I915_WRITE_FW(DOUBLE_BUFFER_CTL, DOUBLE_BUFFER_DISABLE);
+			/* First CNTR+BASE write to set the "allow double buffer disable" bit */
+			I915_WRITE_FW(CURCNTR(pipe),
+				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
+			I915_WRITE_FW(CURBASE(pipe), 0);
+
+			/*
+			 * Second CNTR+BASE write to set the actual value.
+			 * If we skip this it doesn't seem to work for some reason.
+			 */
+			I915_WRITE_FW(CURCNTR(pipe), cntl |
+				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
 			I915_WRITE_FW(CUR_FBC_CTL(pipe), fbc_ctl);
-		I915_WRITE_FW(CURPOS(pipe), pos);
-		I915_WRITE_FW(CURBASE(pipe), base);
+			I915_WRITE_FW(CURPOS(pipe), pos);
+			I915_WRITE_FW(CURBASE(pipe), base);
+
+			/*
+			 * Third CNTR+BASE write to clear the "allow double buffer disable"
+			 * bit. We don't want to leave it set since DOUBLE_BUFFER_CTL is global
+			 * and we don't want one pipe to cause another pipe to fail its register
+			 * latching. If only we had a per-pipe DOUBLE_BUFFER_CTL...
+			 */
+			I915_WRITE_FW(CURCNTR(pipe), cntl);
+			I915_WRITE_FW(CURBASE(pipe), base);
+			I915_WRITE_FW(DOUBLE_BUFFER_CTL, 0);
+		} else {
+			I915_WRITE_FW(CURCNTR(pipe), cntl);
+			if (HAS_CUR_FBC(dev_priv))
+				I915_WRITE_FW(CUR_FBC_CTL(pipe), fbc_ctl);
+			I915_WRITE_FW(CURPOS(pipe), pos);
+			I915_WRITE_FW(CURBASE(pipe), base);
+		}
 
 		plane->cursor.base = base;
 		plane->cursor.size = fbc_ctl;
@@ -9942,8 +9968,6 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 		I915_WRITE_FW(CURPOS(pipe), pos);
 		I915_WRITE_FW(CURBASE(pipe), base);
 	}
-
-	POSTING_READ_FW(CURBASE(pipe));
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }

@@ -4937,9 +4937,9 @@ static void skl_ddb_entry_write(struct drm_i915_private *dev_priv,
 				const struct skl_ddb_entry *entry)
 {
 	if (entry->end)
-		I915_WRITE(reg, (entry->end - 1) << 16 | entry->start);
+		I915_WRITE_FW(reg, (entry->end - 1) << 16 | entry->start);
 	else
-		I915_WRITE(reg, 0);
+		I915_WRITE_FW(reg, 0);
 }
 
 static void skl_write_wm_level(struct drm_i915_private *dev_priv,
@@ -4954,7 +4954,7 @@ static void skl_write_wm_level(struct drm_i915_private *dev_priv,
 		val |= level->plane_res_l << PLANE_WM_LINES_SHIFT;
 	}
 
-	I915_WRITE(reg, val);
+	I915_WRITE_FW(reg, val);
 }
 
 static void skl_write_plane_wm(struct intel_crtc *intel_crtc,
@@ -4990,7 +4990,7 @@ static void skl_write_plane_wm(struct intel_crtc *intel_crtc,
 	} else {
 		skl_ddb_entry_write(dev_priv, PLANE_BUF_CFG(pipe, plane_id),
 				    &ddb->plane[pipe][plane_id]);
-		I915_WRITE(PLANE_NV12_BUF_CFG(pipe, plane_id), 0x0);
+		I915_WRITE_FW(PLANE_NV12_BUF_CFG(pipe, plane_id), 0x0);
 	}
 }
 
@@ -5346,13 +5346,62 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
 	struct skl_pipe_wm *pipe_wm = &cstate->wm.skl.optimal;
 	const struct skl_ddb_allocation *ddb = &state->wm_results.ddb;
+	struct intel_plane_state *old_plane_state;
+	struct intel_plane_state *new_plane_state;
+	struct intel_plane *plane;
+	int i;
 	enum pipe pipe = crtc->pipe;
 	enum plane_id plane_id;
 
 	if (!(state->wm_results.dirty_pipes & drm_crtc_mask(&crtc->base)))
 		return;
 
-	I915_WRITE(PIPE_WM_LINETIME(pipe), pipe_wm->linetime);
+	/*
+	 * intel_pipe_update_start() has already disabled interrupts
+	 * for us, so a plain spin_lock() is sufficient here.
+	 */
+	spin_lock(&dev_priv->uncore.lock);
+
+	I915_WRITE_FW(DOUBLE_BUFFER_CTL, DOUBLE_BUFFER_DISABLE);
+
+	for_each_oldnew_intel_plane_in_state(state, plane,
+					     old_plane_state,
+					     new_plane_state, i) {
+		plane_id = plane->id;
+
+		if (old_plane_state->base.crtc != &crtc->base &&
+		    new_plane_state->base.crtc != &crtc->base)
+			continue;
+
+		/*
+		 * w/a to make sure there are never any overlapping
+		 * ddb allocations for active planes. That could
+		 * hard hang the machine.
+		 *
+		 * Seems we have to do write these twice; First time
+		 * to set the "allow double buffer disable" bit,
+		 * second time to actually disable the plane.
+		 */
+		if (plane_id != PLANE_CURSOR) {
+			I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
+				      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
+			I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+
+			I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
+				      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
+			I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+		} else {
+			I915_WRITE_FW(CURCNTR(pipe),
+				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
+			I915_WRITE_FW(CURBASE(pipe), 0);
+
+			I915_WRITE_FW(CURCNTR(pipe),
+				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
+			I915_WRITE_FW(CURBASE(pipe), 0);
+		}
+	}
+
+	I915_WRITE_FW(PIPE_WM_LINETIME(pipe), pipe_wm->linetime);
 
 	for_each_plane_id_on_crtc(crtc, plane_id) {
 		if (plane_id != PLANE_CURSOR)
@@ -5362,6 +5411,16 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 			skl_write_cursor_wm(crtc, &pipe_wm->planes[plane_id],
 					    ddb);
 	}
+
+	/*
+	 * We can leave the "allow double buffer disable" bit
+	 * set here because we know that every plane will have
+	 * its ->update_plane() or ->disable_plane() hook called
+	 * later on, which will clear the bit for us.
+	 */
+	I915_WRITE_FW(DOUBLE_BUFFER_CTL, 0);
+
+	spin_unlock(&dev_priv->uncore.lock);
 }
 
 static void skl_initial_wm(struct intel_atomic_state *state,
