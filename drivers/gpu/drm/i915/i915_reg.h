@@ -2417,7 +2417,6 @@ enum i915_power_well_id {
 #define   DERRMR_PIPEC_VBLANK		(1<<21)
 #define   DERRMR_PIPEC_HBLANK		(1<<22)
 
-
 /* GM45+ chicken bits -- debug workaround bits that may be required
  * for various sorts of correct behavior.  The top 16 bits of each are
  * the enables for writing to the corresponding low bit.
@@ -5881,6 +5880,7 @@ enum {
 #define   CURSOR_MODE_64_ARGB_AX ((1 << 5) | CURSOR_MODE_64_32B_AX)
 #define   MCURSOR_PIPE_SELECT(pipe)	((pipe) << 28)
 #define   MCURSOR_GAMMA_ENABLE  (1 << 26)
+#define   MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE	(1<<23) /* skl+ */
 #define   CURSOR_ROTATE_180	(1<<15)
 #define   CURSOR_TRICKLE_FEED_DISABLE	(1 << 14)
 #define _CURABASE		0x70084
@@ -6344,6 +6344,7 @@ enum {
 #define   PLANE_CTL_ALPHA_DISABLE		(  0 << 4)
 #define   PLANE_CTL_ALPHA_SW_PREMULTIPLY	(  2 << 4)
 #define   PLANE_CTL_ALPHA_HW_PREMULTIPLY	(  3 << 4)
+#define   PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE	(1 << 3)
 #define   PLANE_CTL_ROTATE_MASK			0x3
 #define   PLANE_CTL_ROTATE_0			0x0
 #define   PLANE_CTL_ROTATE_90			0x1
@@ -6966,6 +6967,9 @@ enum {
 #define GEN8_PCU_IMR _MMIO(0x444e4)
 #define GEN8_PCU_IIR _MMIO(0x444e8)
 #define GEN8_PCU_IER _MMIO(0x444ec)
+
+#define DOUBLE_BUFFER_CTL	_MMIO(0x44500) /* skl+ */
+#define  DOUBLE_BUFFER_DISABLE	(1 << 0)
 
 #define GEN11_GFX_MSTR_IRQ		_MMIO(0x190010)
 #define  GEN11_MASTER_IRQ		(1 << 31)
