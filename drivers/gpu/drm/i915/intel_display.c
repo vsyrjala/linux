@@ -13016,9 +13016,26 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc,
 		skl_detach_scalers(intel_crtc);
 
 out:
-	if (dev_priv->display.atomic_update_watermarks)
+	if (dev_priv->display.atomic_update_watermarks) {
+		struct intel_plane_state *old_plane_state;
+		struct intel_plane_state *new_plane_state;
+		struct intel_plane *plane;
+		int i;
+
+		for_each_oldnew_intel_plane_in_state(old_intel_state, plane,
+						     old_plane_state,
+						     new_plane_state, i) {
+			if (!old_plane_state->base.visible ||
+			    old_plane_state->base.crtc != &intel_crtc->base ||
+			    needs_modeset(&intel_cstate->base))
+				continue;
+
+			plane->disable_plane(plane, intel_crtc);
+		}
+
 		dev_priv->display.atomic_update_watermarks(old_intel_state,
 							   intel_cstate);
+	}
 }
 
 void intel_crtc_arm_fifo_underrun(struct intel_crtc *crtc,
