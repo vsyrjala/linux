@@ -66,12 +66,16 @@ int intel_usecs_to_scanlines(const struct drm_display_mode *adjusted_mode,
 			    1000 * adjusted_mode->crtc_htotal);
 }
 
+#if 1
+#define VBLANK_EVASION_TIME_US 1
+#else
 /* FIXME: We should instead only take spinlocks once for the entire update
  * instead of once per mmio. */
 #if IS_ENABLED(CONFIG_PROVE_LOCKING)
 #define VBLANK_EVASION_TIME_US 250
 #else
-#define VBLANK_EVASION_TIME_US 100
+#define VBLANK_EVASION_TIME_US 50
+#endif
 #endif
 
 /**
@@ -107,10 +111,16 @@ void intel_pipe_update_start(const struct intel_crtc_state *new_crtc_state)
 						      VBLANK_EVASION_TIME_US);
 	max = vblank_start - 1;
 
-	local_irq_disable();
-
 	if (min <= 0 || max <= 0)
 		return;
+#if 1
+	do {
+		scanline = intel_get_crtc_scanline(crtc);
+	} while (scanline < vblank_start - 1 || scanline >= vblank_start);
+
+	min = max = vblank_start - 1;
+#endif
+	local_irq_disable();
 
 	if (WARN_ON(drm_crtc_vblank_get(&crtc->base)))
 		return;
@@ -128,6 +138,9 @@ void intel_pipe_update_start(const struct intel_crtc_state *new_crtc_state)
 		prepare_to_wait(wq, &wait, TASK_UNINTERRUPTIBLE);
 
 		scanline = intel_get_crtc_scanline(crtc);
+#if 1
+		break;
+#endif
 		if (scanline < min || scanline > max)
 			break;
 

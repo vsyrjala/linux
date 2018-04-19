@@ -5046,6 +5046,8 @@ skl_ddb_add_affected_planes(struct intel_crtc_state *cstate)
 					&new_ddb->uv_plane[pipe][plane_id]))
 			continue;
 
+		DRM_DEBUG_KMS("adding %s\n", plane->name);
+
 		plane_state = drm_atomic_get_plane_state(state, plane);
 		if (IS_ERR(plane_state))
 			return PTR_ERR(plane_state);
