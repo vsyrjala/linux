@@ -5412,6 +5412,41 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 					    ddb);
 	}
 
+	for_each_oldnew_intel_plane_in_state(state, plane,
+					     old_plane_state,
+					     new_plane_state, i) {
+		plane_id = plane->id;
+
+		if (old_plane_state->base.crtc != &crtc->base &&
+		    new_plane_state->base.crtc != &crtc->base)
+			continue;
+
+		/*
+		 * w/a to make sure there are never any overlapping
+		 * ddb allocations for active planes. That could
+		 * hard hang the machine.
+		 *
+		 * Seems we have to do write these twice; First time
+		 * to set the "allow double buffer disable" bit,
+		 * second time to actually disable the plane.
+		 */
+		if (plane_id != PLANE_CURSOR) {
+			I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
+				      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
+			I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+
+			I915_WRITE_FW(PLANE_CTL(pipe, plane_id), 0);
+			I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+		} else {
+			I915_WRITE_FW(CURCNTR(pipe),
+				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
+			I915_WRITE_FW(CURBASE(pipe), 0);
+
+			I915_WRITE_FW(CURCNTR(pipe), 0);
+			I915_WRITE_FW(CURBASE(pipe), 0);
+		}
+	}
+
 	/*
 	 * We can leave the "allow double buffer disable" bit
 	 * set here because we know that every plane will have
