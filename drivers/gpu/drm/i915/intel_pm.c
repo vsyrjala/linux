@@ -4193,7 +4193,24 @@ skl_ddb_calc_min(const struct intel_crtc_state *cstate, int num_active,
 {
 	const struct drm_plane_state *pstate;
 	struct drm_plane *plane;
+#if 1
+	enum plane_id plane_id;
+	struct intel_crtc *crtc = to_intel_crtc(cstate->base.crtc);
 
+	minimum[PLANE_CURSOR] = skl_cursor_allocation(num_active);
+
+	for_each_plane_id_on_crtc(crtc, plane_id) {
+		int num_planes = hweight32(crtc->plane_ids_mask & ~PLANE_CURSOR);
+		const struct skl_ddb_entry *alloc = &cstate->wm.skl.ddb;
+
+		if (plane_id == PLANE_CURSOR)
+			continue;
+
+		minimum[plane_id] = (skl_ddb_entry_size(alloc) -
+				     minimum[PLANE_CURSOR]) / num_planes;
+		uv_minimum[plane_id] = 0;
+	}
+#else
 	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, &cstate->base) {
 		enum plane_id plane_id = to_intel_plane(plane)->id;
 
@@ -4208,6 +4225,7 @@ skl_ddb_calc_min(const struct intel_crtc_state *cstate, int num_active,
 	}
 
 	minimum[PLANE_CURSOR] = skl_cursor_allocation(num_active);
+#endif
 }
 
 static int
@@ -4280,8 +4298,10 @@ skl_allocate_pipe_ddb(struct intel_crtc_state *cstate,
 	total_data_rate = skl_get_total_relative_data_rate(cstate,
 							   plane_data_rate,
 							   uv_plane_data_rate);
+#if 0
 	if (total_data_rate == 0)
 		return 0;
+#endif
 
 	start = alloc->start;
 	for_each_plane_id_on_crtc(intel_crtc, plane_id) {
@@ -4291,7 +4311,11 @@ skl_allocate_pipe_ddb(struct intel_crtc_state *cstate,
 		if (plane_id == PLANE_CURSOR)
 			continue;
 
+#if 1
+		data_rate = 1;
+#else
 		data_rate = plane_data_rate[plane_id];
+#endif
 
 		/*
 		 * allocation for (packed formats) or (uv-plane part of planar format):
@@ -4299,8 +4323,10 @@ skl_allocate_pipe_ddb(struct intel_crtc_state *cstate,
 		 * result is < available as data_rate / total_data_rate < 1
 		 */
 		plane_blocks = minimum[plane_id];
+#if 0
 		plane_blocks += div_u64((uint64_t)alloc_size * data_rate,
 					total_data_rate);
+#endif
 
 		/* Leave disabled planes at (0,0) */
 		if (data_rate) {
@@ -4310,6 +4336,7 @@ skl_allocate_pipe_ddb(struct intel_crtc_state *cstate,
 
 		start += plane_blocks;
 
+#if 0
 		/* Allocate DDB for UV plane for planar format/NV12 */
 		uv_data_rate = uv_plane_data_rate[plane_id];
 
@@ -4324,6 +4351,7 @@ skl_allocate_pipe_ddb(struct intel_crtc_state *cstate,
 		}
 
 		start += uv_plane_blocks;
+#endif
 	}
 
 	return 0;
