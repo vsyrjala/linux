@@ -5362,8 +5362,6 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 	 */
 	spin_lock(&dev_priv->uncore.lock);
 
-	I915_WRITE_FW(DOUBLE_BUFFER_CTL, DOUBLE_BUFFER_DISABLE);
-
 	for_each_oldnew_intel_plane_in_state(state, plane,
 					     old_plane_state,
 					     new_plane_state, i) {
@@ -5430,14 +5428,6 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 		else
 			I915_WRITE_FW(CURBASE(pipe), 0);
 	}
-
-	/*
-	 * We can leave the "allow double buffer disable" bit
-	 * set here because we know that every plane will have
-	 * its ->update_plane() or ->disable_plane() hook called
-	 * later on, which will clear the bit for us.
-	 */
-	I915_WRITE_FW(DOUBLE_BUFFER_CTL, 0);
 
 	spin_unlock(&dev_priv->uncore.lock);
 }

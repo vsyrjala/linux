@@ -9928,31 +9928,11 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 	    plane->cursor.size != fbc_ctl ||
 	    plane->cursor.cntl != cntl) {
 		if (INTEL_GEN(dev_priv) >= 9) {
-			I915_WRITE_FW(DOUBLE_BUFFER_CTL, DOUBLE_BUFFER_DISABLE);
-			/* First CNTR+BASE write to set the "allow double buffer disable" bit */
-			I915_WRITE_FW(CURCNTR(pipe),
-				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
-			I915_WRITE_FW(CURBASE(pipe), 0);
-
-			/*
-			 * Second CNTR+BASE write to set the actual value.
-			 * If we skip this it doesn't seem to work for some reason.
-			 */
 			I915_WRITE_FW(CURCNTR(pipe), cntl |
 				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
 			I915_WRITE_FW(CUR_FBC_CTL(pipe), fbc_ctl);
 			I915_WRITE_FW(CURPOS(pipe), pos);
 			I915_WRITE_FW(CURBASE(pipe), base);
-
-			/*
-			 * Third CNTR+BASE write to clear the "allow double buffer disable"
-			 * bit. We don't want to leave it set since DOUBLE_BUFFER_CTL is global
-			 * and we don't want one pipe to cause another pipe to fail its register
-			 * latching. If only we had a per-pipe DOUBLE_BUFFER_CTL...
-			 */
-			I915_WRITE_FW(CURCNTR(pipe), cntl);
-			I915_WRITE_FW(CURBASE(pipe), base);
-			I915_WRITE_FW(DOUBLE_BUFFER_CTL, 0);
 		} else {
 			I915_WRITE_FW(CURCNTR(pipe), cntl);
 			if (HAS_CUR_FBC(dev_priv))
@@ -15010,6 +14990,8 @@ int intel_modeset_init(struct drm_device *dev)
 	struct i915_ggtt *ggtt = &dev_priv->ggtt;
 	enum pipe pipe;
 	struct intel_crtc *crtc;
+
+	spin_lock_init(&dev_priv->display_lock);
 
 	dev_priv->modeset_wq = alloc_ordered_workqueue("i915_modeset", 0);
 

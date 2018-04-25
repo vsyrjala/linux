@@ -2116,6 +2116,8 @@ struct drm_i915_private {
 		int	irq;
 	} lpe_audio;
 
+	spinlock_t display_lock;
+
 	struct i915_pmu pmu;
 
 	/*
