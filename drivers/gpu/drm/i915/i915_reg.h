@@ -6744,6 +6744,7 @@ enum {
 #define PS_VERT_INT_INVERT_FIELD1 (0 << 20)
 #define PS_VERT_INT_INVERT_FIELD0 (1 << 20)
 #define PS_PWRUP_PROGRESS         (1 << 17)
+#define PS_ALLOW_DOUBLE_BUFFER_DISABLE	(1 << 9)
 #define PS_V_FILTER_BYPASS        (1 << 8)
 #define PS_VADAPT_EN              (1 << 7)
 #define PS_VADAPT_MODE_MASK        (3 << 5)

@@ -3437,7 +3437,8 @@ static void skl_detach_scaler(struct intel_crtc *intel_crtc, int id)
 	struct drm_device *dev = intel_crtc->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 
-	I915_WRITE(SKL_PS_CTRL(intel_crtc->pipe, id), 0);
+	I915_WRITE(SKL_PS_CTRL(intel_crtc->pipe, id),
+		   PS_ALLOW_DOUBLE_BUFFER_DISABLE);
 	I915_WRITE(SKL_PS_WIN_POS(intel_crtc->pipe, id), 0);
 	I915_WRITE(SKL_PS_WIN_SZ(intel_crtc->pipe, id), 0);
 }
@@ -4995,7 +4996,8 @@ static void skylake_pfit_enable(struct intel_crtc *crtc)
 
 		id = scaler_state->scaler_id;
 		I915_WRITE(SKL_PS_CTRL(pipe, id), PS_SCALER_EN |
-			PS_FILTER_MEDIUM | scaler_state->scalers[id].mode);
+			   PS_ALLOW_DOUBLE_BUFFER_DISABLE |
+			   PS_FILTER_MEDIUM | scaler_state->scalers[id].mode);
 		I915_WRITE_FW(SKL_PS_VPHASE(pipe, id),
 			      PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_vphase));
 		I915_WRITE_FW(SKL_PS_HPHASE(pipe, id),

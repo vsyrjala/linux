@@ -311,7 +311,9 @@ skl_update_plane(struct intel_plane *plane,
 		}
 
 		I915_WRITE_FW(SKL_PS_CTRL(pipe, scaler_id),
-			      PS_SCALER_EN | PS_PLANE_SEL(plane_id) | scaler->mode);
+			      PS_SCALER_EN |
+			      PS_ALLOW_DOUBLE_BUFFER_DISABLE |
+			      PS_PLANE_SEL(plane_id) | scaler->mode);
 		I915_WRITE_FW(SKL_PS_PWR_GATE(pipe, scaler_id), 0);
 		I915_WRITE_FW(SKL_PS_VPHASE(pipe, scaler_id),
 			      PS_Y_PHASE(y_vphase) | PS_UV_RGB_PHASE(uv_rgb_vphase));
