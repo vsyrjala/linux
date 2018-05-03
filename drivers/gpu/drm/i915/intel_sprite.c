@@ -267,6 +267,9 @@ skl_update_plane(struct intel_plane *plane,
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
+	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl |
+		      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
+
 	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
 		I915_WRITE_FW(PLANE_COLOR_CTL(pipe, plane_id),
 			      plane_state->color_ctl);
@@ -284,6 +287,14 @@ skl_update_plane(struct intel_plane *plane,
 		      (plane_state->aux.offset - surf_addr) | aux_stride);
 	I915_WRITE_FW(PLANE_AUX_OFFSET(pipe, plane_id),
 		      (plane_state->aux.y << 16) | plane_state->aux.x);
+
+	if (plane_state->scaler_id >= 0)
+		I915_WRITE_FW(PLANE_POS(pipe, plane_id), 0);
+	else
+		I915_WRITE_FW(PLANE_POS(pipe, plane_id), (crtc_y << 16) | crtc_x);
+
+	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
+		      intel_plane_ggtt_offset(plane_state) + surf_addr);
 
 	/* program plane scaler */
 	if (plane_state->scaler_id >= 0) {
@@ -322,16 +333,7 @@ skl_update_plane(struct intel_plane *plane,
 		I915_WRITE_FW(SKL_PS_WIN_POS(pipe, scaler_id), (crtc_x << 16) | crtc_y);
 		I915_WRITE_FW(SKL_PS_WIN_SZ(pipe, scaler_id),
 			      ((crtc_w + 1) << 16)|(crtc_h + 1));
-
-		I915_WRITE_FW(PLANE_POS(pipe, plane_id), 0);
-	} else {
-		I915_WRITE_FW(PLANE_POS(pipe, plane_id), (crtc_y << 16) | crtc_x);
 	}
-
-	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl |
-		      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
-	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
-		      intel_plane_ggtt_offset(plane_state) + surf_addr);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }

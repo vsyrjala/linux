@@ -5359,6 +5359,8 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
+	I915_WRITE_FW(PIPE_WM_LINETIME(pipe), pipe_wm->linetime);
+
 	for_each_oldnew_intel_plane_in_state(state, plane,
 					     old_plane_state,
 					     new_plane_state, i) {
@@ -5394,27 +5396,13 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
 			I915_WRITE_FW(CURBASE(pipe), 0);
 		}
-	}
 
-	I915_WRITE_FW(PIPE_WM_LINETIME(pipe), pipe_wm->linetime);
-
-	for_each_plane_id_on_crtc(crtc, plane_id) {
 		if (plane_id != PLANE_CURSOR)
 			skl_write_plane_wm(crtc, &pipe_wm->planes[plane_id],
 					   ddb, plane_id);
 		else
 			skl_write_cursor_wm(crtc, &pipe_wm->planes[plane_id],
 					    ddb);
-	}
-
-	for_each_oldnew_intel_plane_in_state(state, plane,
-					     old_plane_state,
-					     new_plane_state, i) {
-		plane_id = plane->id;
-
-		if (old_plane_state->base.crtc != &crtc->base &&
-		    new_plane_state->base.crtc != &crtc->base)
-			continue;
 
 		/*
 		 * It would appear we need to arm the DDB/WM
