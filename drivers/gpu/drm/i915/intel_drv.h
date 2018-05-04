@@ -941,6 +941,7 @@ struct intel_crtc {
 		ktime_t start_vbl_time;
 		int min_vbl, max_vbl;
 		int scanline_start;
+		int last_frame;
 	} debug;
 
 	/* scalers available on this crtc */
