@@ -5349,6 +5349,7 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 	struct intel_plane_state *old_plane_state;
 	struct intel_plane_state *new_plane_state;
 	struct intel_plane *plane;
+	unsigned long irqflags;
 	int i;
 	enum pipe pipe = crtc->pipe;
 	enum plane_id plane_id;
@@ -5356,11 +5357,7 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 	if (!(state->wm_results.dirty_pipes & drm_crtc_mask(&crtc->base)))
 		return;
 
-	/*
-	 * intel_pipe_update_start() has already disabled interrupts
-	 * for us, so a plain spin_lock() is sufficient here.
-	 */
-	spin_lock(&dev_priv->uncore.lock);
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	for_each_oldnew_intel_plane_in_state(state, plane,
 					     old_plane_state,
@@ -5429,7 +5426,7 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 			I915_WRITE_FW(CURBASE(pipe), 0);
 	}
 
-	spin_unlock(&dev_priv->uncore.lock);
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
 
 static void skl_initial_wm(struct intel_atomic_state *state,
