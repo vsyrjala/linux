@@ -3332,6 +3332,43 @@ static void setup_private_pat(struct drm_i915_private *dev_priv)
 	ppat->update_hw(dev_priv);
 }
 
+static void gen8_ggtt_clear_extra(struct i915_address_space *vm,
+				  unsigned int size, u64 start, u64 length)
+{
+	struct drm_i915_private *dev_priv = vm->i915;
+	struct i915_ggtt *ggtt = i915_vm_to_ggtt(vm);
+	unsigned first_entry = start >> PAGE_SHIFT;
+	unsigned num_entries = length >> PAGE_SHIFT;
+	const gen8_pte_t scratch_pte = 0;
+	void __iomem *gsm;
+	gen8_pte_t __iomem *gtt_base;
+	const int max_entries = ggtt_total_entries(ggtt) - first_entry;
+	int i;
+	struct pci_dev *pdev = dev_priv->drm.pdev;
+	phys_addr_t phys_addr;
+
+	/* For Modern GENs the PTEs and register space are split in the BAR */
+	phys_addr = pci_resource_start(pdev, 0) + pci_resource_len(pdev, 0) / 2;
+
+	gsm = ioremap_nocache(phys_addr, size);
+	if (!gsm) {
+		DRM_ERROR("Failed to map the ggtt page table\n");
+		return;
+	}
+
+	gtt_base = (gen8_pte_t __iomem *)gsm + first_entry;
+
+	if (WARN(num_entries > max_entries,
+		 "First entry = %d; Num entries = %d (max=%d)\n",
+		 first_entry, num_entries, max_entries))
+		num_entries = max_entries;
+
+	for (i = 0; i < num_entries; i++)
+		gen8_set_pte(&gtt_base[i], scratch_pte);
+
+	iounmap(gsm);
+}
+
 static int gen8_gmch_probe(struct i915_ggtt *ggtt)
 {
 	struct drm_i915_private *dev_priv = ggtt->base.i915;
@@ -3359,6 +3396,11 @@ static int gen8_gmch_probe(struct i915_ggtt *ggtt)
 		size = gen8_get_total_gtt_size(snb_gmch_ctl);
 
 	ggtt->base.total = (size / sizeof(gen8_pte_t)) << PAGE_SHIFT;
+	/* clear upper half of gtt. accesses there should fault now. */
+	gen8_ggtt_clear_extra(&ggtt->base, size,
+			      ggtt->base.total / 2,
+			      ggtt->base.total / 2);
+	ggtt->base.total /= 2;
 	ggtt->base.cleanup = gen6_gmch_remove;
 	ggtt->base.bind_vma = ggtt_bind_vma;
 	ggtt->base.unbind_vma = ggtt_unbind_vma;

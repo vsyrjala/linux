@@ -350,7 +350,8 @@ skl_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
 
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
 		      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
-	I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
+		      dev_priv->ggtt.base.total);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }

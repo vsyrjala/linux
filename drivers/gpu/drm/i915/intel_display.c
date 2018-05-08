@@ -9896,6 +9896,8 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 	u32 cntl = 0, base = 0, pos = 0, fbc_ctl = 0;
 	unsigned long irqflags;
 
+	base = dev_priv->ggtt.base.total;
+
 	if (plane_state && plane_state->base.visible) {
 		cntl = plane_state->ctl;
 

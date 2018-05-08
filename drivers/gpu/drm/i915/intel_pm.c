@@ -5385,19 +5385,23 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 		if (plane_id != PLANE_CURSOR) {
 			I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
 				      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
-			I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+			I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
+				      dev_priv->ggtt.base.total);
 
 			I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
 				      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
-			I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+			I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
+				      dev_priv->ggtt.base.total);
 		} else {
 			I915_WRITE_FW(CURCNTR(pipe),
 				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
-			I915_WRITE_FW(CURBASE(pipe), 0);
+			I915_WRITE_FW(CURBASE(pipe),
+				      dev_priv->ggtt.base.total);
 
 			I915_WRITE_FW(CURCNTR(pipe),
 				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
-			I915_WRITE_FW(CURBASE(pipe), 0);
+			I915_WRITE_FW(CURBASE(pipe),
+				      dev_priv->ggtt.base.total);
 		}
 
 		if (plane_id != PLANE_CURSOR)
@@ -5412,9 +5416,11 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 		 * here or things can still go wonky.
 		 */
 		if (plane_id != PLANE_CURSOR)
-			I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
+			I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
+				      dev_priv->ggtt.base.total);
 		else
-			I915_WRITE_FW(CURBASE(pipe), 0);
+			I915_WRITE_FW(CURBASE(pipe),
+				      dev_priv->ggtt.base.total);
 	}
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
