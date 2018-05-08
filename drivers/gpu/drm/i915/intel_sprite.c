@@ -139,11 +139,11 @@ void intel_pipe_update_start(const struct intel_crtc_state *new_crtc_state)
 			break;
 		}
 
-		local_irq_enable();
+		spin_unlock_irq(&dev_priv->display_lock);
 
 		timeout = schedule_timeout(timeout);
 
-		local_irq_disable();
+		spin_lock_irq(&dev_priv->display_lock);
 	}
 
 	finish_wait(wq, &wait);
