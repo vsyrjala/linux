@@ -2845,6 +2845,9 @@ static void intel_read_wm_latency(struct drm_i915_private *dev_priv,
 		wm[7] = (val >> GEN9_MEM_LATENCY_LEVEL_3_7_SHIFT) &
 				GEN9_MEM_LATENCY_LEVEL_MASK;
 
+		/* hack: disable low power wms */
+		wm[1] = 0;
+
 		/*
 		 * If a level n (n > 1) has a 0us latency, all levels m (m >= n)
 		 * need to be disabled. We make sure to sanitize the values out
