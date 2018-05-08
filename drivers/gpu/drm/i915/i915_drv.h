@@ -3590,15 +3590,19 @@ static inline u64 intel_rc6_residency_us(struct drm_i915_private *dev_priv,
 
 #define __raw_read(x, s) \
 static inline uint##x##_t __raw_i915_read##x(const struct drm_i915_private *dev_priv, \
-					     i915_reg_t reg) \
+					     i915_reg_t reg, bool trace) \
 { \
-	return read##s(dev_priv->regs + i915_mmio_reg_offset(reg)); \
+	uint##x##_t val; \
+	val = read##s(dev_priv->regs + i915_mmio_reg_offset(reg)); \
+	trace_i915_reg_rw(false, reg, val, sizeof(val), trace); \
+	return val; \
 }
 
 #define __raw_write(x, s) \
 static inline void __raw_i915_write##x(const struct drm_i915_private *dev_priv, \
-				       i915_reg_t reg, uint##x##_t val) \
+				       i915_reg_t reg, uint##x##_t val, bool trace) \
 { \
+	trace_i915_reg_rw(true, reg, val, sizeof(val), trace); \
 	write##s(val, dev_priv->regs + i915_mmio_reg_offset(reg)); \
 }
 __raw_read(8, b)
@@ -3640,10 +3644,11 @@ __raw_write(64, q)
  * therefore generally be serialised, by either the dev_priv->uncore.lock or
  * a more localised lock guarding all access to that bank of registers.
  */
-#define I915_READ_FW(reg__) __raw_i915_read32(dev_priv, (reg__))
-#define I915_WRITE_FW(reg__, val__) __raw_i915_write32(dev_priv, (reg__), (val__))
-#define I915_WRITE64_FW(reg__, val__) __raw_i915_write64(dev_priv, (reg__), (val__))
-#define POSTING_READ_FW(reg__) (void)I915_READ_FW(reg__)
+#define I915_READ_FW(reg__) __raw_i915_read32(dev_priv, (reg__), true)
+#define I915_READ_FW_NOTRACE(reg__) __raw_i915_read32(dev_priv, (reg__), false)
+#define I915_WRITE_FW(reg__, val__) __raw_i915_write32(dev_priv, (reg__), (val__), true)
+#define I915_WRITE64_FW(reg__, val__) __raw_i915_write64(dev_priv, (reg__), (val__), true)
+#define POSTING_READ_FW(reg__) (void)I915_READ_FW_NOTRACE(reg__)
 
 /* "Broadcast RGB" property */
 #define INTEL_BROADCAST_RGB_AUTO 0

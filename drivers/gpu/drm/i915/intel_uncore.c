@@ -31,7 +31,7 @@
 #define FORCEWAKE_ACK_TIMEOUT_MS 50
 #define GT_FIFO_TIMEOUT_MS	 10
 
-#define __raw_posting_read(dev_priv__, reg__) (void)__raw_i915_read32((dev_priv__), (reg__))
+#define __raw_posting_read(dev_priv__, reg__) (void)__raw_i915_read32((dev_priv__), (reg__), false)
 
 static const char * const forcewake_domain_names[] = {
 	"render",
@@ -67,7 +67,7 @@ fw_domain_reset(struct drm_i915_private *i915,
 	 * trying to reset here does exist at this point (engines could be fused
 	 * off in ICL+), so no waiting for acks
 	 */
-	__raw_i915_write32(i915, d->reg_set, i915->uncore.fw_reset);
+	__raw_i915_write32(i915, d->reg_set, i915->uncore.fw_reset, false);
 }
 
 static inline void
@@ -86,7 +86,7 @@ __wait_for_ack(const struct drm_i915_private *i915,
 	       const u32 ack,
 	       const u32 value)
 {
-	return wait_for_atomic((__raw_i915_read32(i915, d->reg_ack) & ack) == value,
+	return wait_for_atomic((__raw_i915_read32(i915, d->reg_ack, false) & ack) == value,
 			       FORCEWAKE_ACK_TIMEOUT_MS);
 }
 
@@ -149,21 +149,21 @@ fw_domain_wait_ack_with_fallback(const struct drm_i915_private *i915,
 		wait_ack_clear(i915, d, FORCEWAKE_KERNEL_FALLBACK);
 
 		__raw_i915_write32(i915, d->reg_set,
-				   _MASKED_BIT_ENABLE(FORCEWAKE_KERNEL_FALLBACK));
+				   _MASKED_BIT_ENABLE(FORCEWAKE_KERNEL_FALLBACK), false);
 		/* Give gt some time to relax before the polling frenzy */
 		udelay(10 * pass);
 		wait_ack_set(i915, d, FORCEWAKE_KERNEL_FALLBACK);
 
-		ack_detected = (__raw_i915_read32(i915, d->reg_ack) & ack_bit) == value;
+		ack_detected = (__raw_i915_read32(i915, d->reg_ack, false) & ack_bit) == value;
 
 		__raw_i915_write32(i915, d->reg_set,
-				   _MASKED_BIT_DISABLE(FORCEWAKE_KERNEL_FALLBACK));
+				   _MASKED_BIT_DISABLE(FORCEWAKE_KERNEL_FALLBACK), false);
 	} while (!ack_detected && pass++ < 10);
 
 	DRM_DEBUG_DRIVER("%s had to use fallback to %s ack, 0x%x (passes %u)\n",
 			 intel_uncore_forcewake_domain_to_str(d->id),
 			 type == ACK_SET ? "set" : "clear",
-			 __raw_i915_read32(i915, d->reg_ack),
+			 __raw_i915_read32(i915, d->reg_ack, false),
 			 pass);
 
 	return ack_detected ? 0 : -ETIMEDOUT;
@@ -184,7 +184,7 @@ static inline void
 fw_domain_get(struct drm_i915_private *i915,
 	      const struct intel_uncore_forcewake_domain *d)
 {
-	__raw_i915_write32(i915, d->reg_set, i915->uncore.fw_set);
+	__raw_i915_write32(i915, d->reg_set, i915->uncore.fw_set, false);
 }
 
 static inline void
@@ -211,7 +211,7 @@ static inline void
 fw_domain_put(const struct drm_i915_private *i915,
 	      const struct intel_uncore_forcewake_domain *d)
 {
-	__raw_i915_write32(i915, d->reg_set, i915->uncore.fw_clear);
+	__raw_i915_write32(i915, d->reg_set, i915->uncore.fw_clear, false);
 }
 
 static void
@@ -288,7 +288,7 @@ static void __gen6_gt_wait_for_thread_c0(struct drm_i915_private *dev_priv)
 	/* w/a for a sporadic read returning 0 by waiting for the GT
 	 * thread to wake up.
 	 */
-	if (wait_for_atomic_us((__raw_i915_read32(dev_priv, GEN6_GT_THREAD_STATUS_REG) &
+	if (wait_for_atomic_us((__raw_i915_read32(dev_priv, GEN6_GT_THREAD_STATUS_REG, false) &
 				GEN6_GT_THREAD_STATUS_CORE_MASK) == 0, 500))
 		DRM_ERROR("GT thread status wait timed out\n");
 }
@@ -304,7 +304,7 @@ static void fw_domains_get_with_thread_status(struct drm_i915_private *dev_priv,
 
 static inline u32 fifo_free_entries(struct drm_i915_private *dev_priv)
 {
-	u32 count = __raw_i915_read32(dev_priv, GTFIFOCTL);
+	u32 count = __raw_i915_read32(dev_priv, GTFIFOCTL, false);
 
 	return count & GT_FIFO_FREE_ENTRIES_MASK;
 }
@@ -460,7 +460,7 @@ static void intel_uncore_edram_detect(struct drm_i915_private *dev_priv)
 	    IS_BROADWELL(dev_priv) ||
 	    INTEL_GEN(dev_priv) >= 9) {
 		dev_priv->edram_cap = __raw_i915_read32(dev_priv,
-							HSW_EDRAM_CAP);
+							HSW_EDRAM_CAP, true);
 
 		/* NB: We can't write IDICR yet because we do not have gt funcs
 		 * set up */
@@ -478,11 +478,11 @@ fpga_check_for_unclaimed_mmio(struct drm_i915_private *dev_priv)
 {
 	u32 dbg;
 
-	dbg = __raw_i915_read32(dev_priv, FPGA_DBG);
+	dbg = __raw_i915_read32(dev_priv, FPGA_DBG, false);
 	if (likely(!(dbg & FPGA_DBG_RM_NOCLAIM)))
 		return false;
 
-	__raw_i915_write32(dev_priv, FPGA_DBG, FPGA_DBG_RM_NOCLAIM);
+	__raw_i915_write32(dev_priv, FPGA_DBG, FPGA_DBG_RM_NOCLAIM, false);
 
 	return true;
 }
@@ -492,11 +492,11 @@ vlv_check_for_unclaimed_mmio(struct drm_i915_private *dev_priv)
 {
 	u32 cer;
 
-	cer = __raw_i915_read32(dev_priv, CLAIM_ER);
+	cer = __raw_i915_read32(dev_priv, CLAIM_ER, false);
 	if (likely(!(cer & (CLAIM_ER_OVERFLOW | CLAIM_ER_CTR_MASK))))
 		return false;
 
-	__raw_i915_write32(dev_priv, CLAIM_ER, CLAIM_ER_CLR);
+	__raw_i915_write32(dev_priv, CLAIM_ER, CLAIM_ER_CLR, false);
 
 	return true;
 }
@@ -506,11 +506,11 @@ gen6_check_for_fifo_debug(struct drm_i915_private *dev_priv)
 {
 	u32 fifodbg;
 
-	fifodbg = __raw_i915_read32(dev_priv, GTFIFODBG);
+	fifodbg = __raw_i915_read32(dev_priv, GTFIFODBG, false);
 
 	if (unlikely(fifodbg)) {
 		DRM_DEBUG_DRIVER("GTFIFODBG = 0x08%x\n", fifodbg);
-		__raw_i915_write32(dev_priv, GTFIFODBG, fifodbg);
+		__raw_i915_write32(dev_priv, GTFIFODBG, fifodbg, false);
 	}
 
 	return fifodbg;
@@ -543,9 +543,9 @@ static void __intel_uncore_early_sanitize(struct drm_i915_private *dev_priv,
 	/* WaDisableShadowRegForCpd:chv */
 	if (IS_CHERRYVIEW(dev_priv)) {
 		__raw_i915_write32(dev_priv, GTFIFOCTL,
-				   __raw_i915_read32(dev_priv, GTFIFOCTL) |
+				   __raw_i915_read32(dev_priv, GTFIFOCTL, false) |
 				   GT_FIFO_CTL_BLOCK_ALL_POLICY_STALL |
-				   GT_FIFO_CTL_RC6_POLICY_STALL);
+				   GT_FIFO_CTL_RC6_POLICY_STALL, false);
 	}
 
 	iosf_mbi_punit_acquire();
@@ -1062,7 +1062,7 @@ ilk_dummy_write(struct drm_i915_private *dev_priv)
 	/* WaIssueDummyWriteToWakeupFromRC6:ilk Issue a dummy write to wake up
 	 * the chip from rc6 before touching it for real. MI_MODE is masked,
 	 * hence harmless to write 0 into. */
-	__raw_i915_write32(dev_priv, MI_MODE, 0);
+	__raw_i915_write32(dev_priv, MI_MODE, 0, false);
 }
 
 static void
@@ -1096,14 +1096,13 @@ unclaimed_reg_debug(struct drm_i915_private *dev_priv,
 	assert_rpm_wakelock_held(dev_priv);
 
 #define GEN2_READ_FOOTER \
-	trace_i915_reg_rw(false, reg, val, sizeof(val), trace); \
 	return val
 
 #define __gen2_read(x) \
 static u##x \
 gen2_read##x(struct drm_i915_private *dev_priv, i915_reg_t reg, bool trace) { \
 	GEN2_READ_HEADER(x); \
-	val = __raw_i915_read##x(dev_priv, reg); \
+	val = __raw_i915_read##x(dev_priv, reg, trace); \
 	GEN2_READ_FOOTER; \
 }
 
@@ -1112,7 +1111,7 @@ static u##x \
 gen5_read##x(struct drm_i915_private *dev_priv, i915_reg_t reg, bool trace) { \
 	GEN2_READ_HEADER(x); \
 	ilk_dummy_write(dev_priv); \
-	val = __raw_i915_read##x(dev_priv, reg); \
+	val = __raw_i915_read##x(dev_priv, reg, trace);	\
 	GEN2_READ_FOOTER; \
 }
 
@@ -1142,7 +1141,6 @@ __gen2_read(64)
 #define GEN6_READ_FOOTER \
 	unclaimed_reg_debug(dev_priv, reg, true, false); \
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags); \
-	trace_i915_reg_rw(false, reg, val, sizeof(val), trace); \
 	return val
 
 static noinline void ___force_wake_auto(struct drm_i915_private *dev_priv,
@@ -1181,7 +1179,7 @@ func##_read##x(struct drm_i915_private *dev_priv, i915_reg_t reg, bool trace) { 
 	fw_engine = __##func##_reg_read_fw_domains(offset); \
 	if (fw_engine) \
 		__force_wake_auto(dev_priv, fw_engine); \
-	val = __raw_i915_read##x(dev_priv, reg); \
+	val = __raw_i915_read##x(dev_priv, reg, trace);	\
 	GEN6_READ_FOOTER; \
 }
 #define __gen6_read(x) __gen_read(gen6, x)
@@ -1208,7 +1206,6 @@ __gen6_read(64)
 #undef GEN6_READ_HEADER
 
 #define GEN2_WRITE_HEADER \
-	trace_i915_reg_rw(true, reg, val, sizeof(val), trace); \
 	assert_rpm_wakelock_held(dev_priv); \
 
 #define GEN2_WRITE_FOOTER
@@ -1217,7 +1214,7 @@ __gen6_read(64)
 static void \
 gen2_write##x(struct drm_i915_private *dev_priv, i915_reg_t reg, u##x val, bool trace) { \
 	GEN2_WRITE_HEADER; \
-	__raw_i915_write##x(dev_priv, reg, val); \
+	__raw_i915_write##x(dev_priv, reg, val, trace);	\
 	GEN2_WRITE_FOOTER; \
 }
 
@@ -1226,7 +1223,7 @@ static void \
 gen5_write##x(struct drm_i915_private *dev_priv, i915_reg_t reg, u##x val, bool trace) { \
 	GEN2_WRITE_HEADER; \
 	ilk_dummy_write(dev_priv); \
-	__raw_i915_write##x(dev_priv, reg, val); \
+	__raw_i915_write##x(dev_priv, reg, val, trace);	\
 	GEN2_WRITE_FOOTER; \
 }
 
@@ -1246,7 +1243,6 @@ __gen2_write(32)
 #define GEN6_WRITE_HEADER \
 	u32 offset = i915_mmio_reg_offset(reg); \
 	unsigned long irqflags; \
-	trace_i915_reg_rw(true, reg, val, sizeof(val), trace); \
 	assert_rpm_wakelock_held(dev_priv); \
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags); \
 	unclaimed_reg_debug(dev_priv, reg, false, true)
@@ -1261,7 +1257,7 @@ gen6_write##x(struct drm_i915_private *dev_priv, i915_reg_t reg, u##x val, bool 
 	GEN6_WRITE_HEADER; \
 	if (NEEDS_FORCE_WAKE(offset)) \
 		__gen6_gt_wait_for_fifo(dev_priv); \
-	__raw_i915_write##x(dev_priv, reg, val); \
+	__raw_i915_write##x(dev_priv, reg, val, trace);  \
 	GEN6_WRITE_FOOTER; \
 }
 
@@ -1273,7 +1269,7 @@ func##_write##x(struct drm_i915_private *dev_priv, i915_reg_t reg, u##x val, boo
 	fw_engine = __##func##_reg_write_fw_domains(offset); \
 	if (fw_engine) \
 		__force_wake_auto(dev_priv, fw_engine); \
-	__raw_i915_write##x(dev_priv, reg, val); \
+	__raw_i915_write##x(dev_priv, reg, val, trace);	\
 	GEN6_WRITE_FOOTER; \
 }
 #define __gen8_write(x) __gen_write(gen8, x)
@@ -1469,7 +1465,7 @@ static void intel_uncore_fw_domains_init(struct drm_i915_private *dev_priv)
 		 * before the ecobus check.
 		 */
 
-		__raw_i915_write32(dev_priv, FORCEWAKE, 0);
+		__raw_i915_write32(dev_priv, FORCEWAKE, 0, false);
 		__raw_posting_read(dev_priv, ECOBUS);
 
 		fw_domain_init(dev_priv, FW_DOMAIN_ID_RENDER,
@@ -1477,7 +1473,7 @@ static void intel_uncore_fw_domains_init(struct drm_i915_private *dev_priv)
 
 		spin_lock_irq(&dev_priv->uncore.lock);
 		fw_domains_get_with_thread_status(dev_priv, FORCEWAKE_RENDER);
-		ecobus = __raw_i915_read32(dev_priv, ECOBUS);
+		ecobus = __raw_i915_read32(dev_priv, ECOBUS, false);
 		fw_domains_put(dev_priv, FORCEWAKE_RENDER);
 		spin_unlock_irq(&dev_priv->uncore.lock);
 
@@ -1853,7 +1849,7 @@ static int gen6_hw_domain_reset(struct drm_i915_private *dev_priv,
 	 * for fifo space for the write or forcewake the chip for
 	 * the read
 	 */
-	__raw_i915_write32(dev_priv, GEN6_GDRST, hw_domain_mask);
+	__raw_i915_write32(dev_priv, GEN6_GDRST, hw_domain_mask, false);
 
 	/* Wait for the device to ack the reset requests */
 	err = __intel_wait_for_register_fw(dev_priv,

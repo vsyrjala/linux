@@ -65,17 +65,17 @@ void i915_check_vgpu(struct drm_i915_private *dev_priv)
 
 	BUILD_BUG_ON(sizeof(struct vgt_if) != VGT_PVINFO_SIZE);
 
-	magic = __raw_i915_read64(dev_priv, vgtif_reg(magic));
+	magic = __raw_i915_read64(dev_priv, vgtif_reg(magic), true);
 	if (magic != VGT_MAGIC)
 		return;
 
-	version_major = __raw_i915_read16(dev_priv, vgtif_reg(version_major));
+	version_major = __raw_i915_read16(dev_priv, vgtif_reg(version_major), true);
 	if (version_major < VGT_VERSION_MAJOR) {
 		DRM_INFO("VGT interface version mismatch!\n");
 		return;
 	}
 
-	dev_priv->vgpu.caps = __raw_i915_read32(dev_priv, vgtif_reg(vgt_caps));
+	dev_priv->vgpu.caps = __raw_i915_read32(dev_priv, vgtif_reg(vgt_caps), true);
 
 	dev_priv->vgpu.active = true;
 	DRM_INFO("Virtual GPU for Intel GVT-g detected.\n");
