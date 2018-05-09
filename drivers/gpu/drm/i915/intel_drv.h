@@ -537,6 +537,8 @@ struct intel_plane_state {
 	int scaler_id;
 
 	struct drm_intel_sprite_colorkey ckey;
+
+	struct skl_ddb_entry ddb_y, ddb_uv;
 };
 
 struct intel_initial_plane_config {
@@ -2022,6 +2024,15 @@ bool chv_phy_powergate_ch(struct drm_i915_private *dev_priv, enum dpio_phy phy,
 
 
 /* intel_pm.c */
+void skl_write_plane_wm(struct intel_plane *plane,
+			const struct skl_plane_wm *wm,
+			const struct skl_ddb_entry *ddb_y,
+			const struct skl_ddb_entry *ddb_uv);
+void skl_write_cursor_wm(struct intel_plane *plane,
+			 const struct skl_plane_wm *wm,
+			 const struct skl_ddb_entry *ddb);
+void skl_atomic_update_plane_wm(const struct intel_plane_state *plane_state,
+				const struct intel_crtc_state *crtc_state);
 void intel_init_clock_gating(struct drm_i915_private *dev_priv);
 void intel_suspend_hw(struct drm_i915_private *dev_priv);
 int ilk_wm_max_level(const struct drm_i915_private *dev_priv);
@@ -2122,11 +2133,25 @@ intel_atomic_get_crtc_state(struct drm_atomic_state *state,
 			    struct intel_crtc *crtc)
 {
 	struct drm_crtc_state *crtc_state;
+
 	crtc_state = drm_atomic_get_crtc_state(state, &crtc->base);
 	if (IS_ERR(crtc_state))
 		return ERR_CAST(crtc_state);
 
 	return to_intel_crtc_state(crtc_state);
+}
+
+static inline struct intel_plane_state *
+intel_atomic_get_plane_state(struct drm_atomic_state *state,
+			     struct intel_plane *plane)
+{
+	struct drm_plane_state *plane_state;
+
+	plane_state = drm_atomic_get_plane_state(state, &plane->base);
+	if (IS_ERR(plane_state))
+		return ERR_CAST(plane_state);
+
+	return to_intel_plane_state(plane_state);
 }
 
 int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,

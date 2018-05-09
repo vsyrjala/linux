@@ -293,6 +293,11 @@ skl_update_plane(struct intel_plane *plane,
 	else
 		I915_WRITE_FW(PLANE_POS(pipe, plane_id), (crtc_y << 16) | crtc_x);
 
+	skl_write_plane_wm(plane,
+			   &crtc_state->wm.skl.optimal.planes[plane->id],
+			   &plane_state->ddb_y,
+			   &plane_state->ddb_uv);
+
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + surf_addr);
 
@@ -345,11 +350,16 @@ skl_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
 	enum plane_id plane_id = plane->id;
 	enum pipe pipe = plane->pipe;
 	unsigned long irqflags;
+	struct skl_plane_wm wm = {};
+	struct skl_ddb_entry ddb = {};
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
 		      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
+
+	skl_write_plane_wm(plane, &wm, &ddb, &ddb);
+
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
 		      dev_priv->ggtt.base.total);
 

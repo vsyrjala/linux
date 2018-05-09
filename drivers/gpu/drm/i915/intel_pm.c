@@ -4935,9 +4935,9 @@ static int skl_build_pipe_wm(struct intel_crtc_state *cstate,
 	return 0;
 }
 
-static void skl_ddb_entry_write(struct drm_i915_private *dev_priv,
-				i915_reg_t reg,
-				const struct skl_ddb_entry *entry)
+void skl_ddb_entry_write(struct drm_i915_private *dev_priv,
+			 i915_reg_t reg,
+			 const struct skl_ddb_entry *entry)
 {
 	if (entry->end)
 		I915_WRITE_FW(reg, (entry->end - 1) << 16 | entry->start);
@@ -4960,16 +4960,15 @@ static void skl_write_wm_level(struct drm_i915_private *dev_priv,
 	I915_WRITE_FW(reg, val);
 }
 
-static void skl_write_plane_wm(struct intel_crtc *intel_crtc,
-			       const struct skl_plane_wm *wm,
-			       const struct skl_ddb_allocation *ddb,
-			       enum plane_id plane_id)
+void skl_write_plane_wm(struct intel_plane *plane,
+			const struct skl_plane_wm *wm,
+			const struct skl_ddb_entry *ddb_y,
+			const struct skl_ddb_entry *ddb_uv)
 {
-	struct drm_crtc *crtc = &intel_crtc->base;
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	int level, max_level = ilk_wm_max_level(dev_priv);
-	enum pipe pipe = intel_crtc->pipe;
+	enum plane_id plane_id = plane->id;
+	enum pipe pipe = plane->pipe;
 
 	for (level = 0; level <= max_level; level++) {
 		skl_write_wm_level(dev_priv, PLANE_WM(pipe, plane_id, level),
@@ -4978,34 +4977,31 @@ static void skl_write_plane_wm(struct intel_crtc *intel_crtc,
 	skl_write_wm_level(dev_priv, PLANE_WM_TRANS(pipe, plane_id),
 			   &wm->trans_wm);
 
-	skl_ddb_entry_write(dev_priv, PLANE_BUF_CFG(pipe, plane_id),
-			    &ddb->plane[pipe][plane_id]);
-	if (INTEL_GEN(dev_priv) >= 11)
-		return skl_ddb_entry_write(dev_priv,
-					   PLANE_BUF_CFG(pipe, plane_id),
-					   &ddb->plane[pipe][plane_id]);
+	if (INTEL_GEN(dev_priv) >= 11) {
+		skl_ddb_entry_write(dev_priv, PLANE_BUF_CFG(pipe, plane_id), ddb_y);
+		return;
+	}
+
 	if (wm->is_planar) {
 		skl_ddb_entry_write(dev_priv, PLANE_BUF_CFG(pipe, plane_id),
-				    &ddb->uv_plane[pipe][plane_id]);
+				    ddb_uv);
 		skl_ddb_entry_write(dev_priv,
 				    PLANE_NV12_BUF_CFG(pipe, plane_id),
-				    &ddb->plane[pipe][plane_id]);
+				    ddb_y);
 	} else {
 		skl_ddb_entry_write(dev_priv, PLANE_BUF_CFG(pipe, plane_id),
-				    &ddb->plane[pipe][plane_id]);
+				    ddb_y);
 		I915_WRITE_FW(PLANE_NV12_BUF_CFG(pipe, plane_id), 0x0);
 	}
 }
 
-static void skl_write_cursor_wm(struct intel_crtc *intel_crtc,
-				const struct skl_plane_wm *wm,
-				const struct skl_ddb_allocation *ddb)
+void skl_write_cursor_wm(struct intel_plane *plane,
+			 const struct skl_plane_wm *wm,
+			 const struct skl_ddb_entry *ddb)
 {
-	struct drm_crtc *crtc = &intel_crtc->base;
-	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	int level, max_level = ilk_wm_max_level(dev_priv);
-	enum pipe pipe = intel_crtc->pipe;
+	enum pipe pipe = plane->pipe;
 
 	for (level = 0; level <= max_level; level++) {
 		skl_write_wm_level(dev_priv, CUR_WM(pipe, level),
@@ -5013,8 +5009,7 @@ static void skl_write_cursor_wm(struct intel_crtc *intel_crtc,
 	}
 	skl_write_wm_level(dev_priv, CUR_WM_TRANS(pipe), &wm->trans_wm);
 
-	skl_ddb_entry_write(dev_priv, CUR_BUF_CFG(pipe),
-			    &ddb->plane[pipe][PLANE_CURSOR]);
+	skl_ddb_entry_write(dev_priv, CUR_BUF_CFG(pipe), ddb);
 }
 
 bool skl_wm_level_equals(const struct skl_wm_level *l1,
@@ -5098,22 +5093,28 @@ skl_ddb_add_affected_planes(struct intel_crtc_state *cstate)
 	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
 	struct skl_ddb_allocation *new_ddb = &intel_state->wm_results.ddb;
 	struct skl_ddb_allocation *cur_ddb = &dev_priv->wm.skl_hw.ddb;
-	struct drm_plane_state *plane_state;
 	struct drm_plane *plane;
 	enum pipe pipe = intel_crtc->pipe;
 
 	drm_for_each_plane_mask(plane, dev, cstate->base.plane_mask) {
+		struct intel_plane_state *plane_state;
 		enum plane_id plane_id = to_intel_plane(plane)->id;
 
-		if (skl_ddb_entry_equal(&cur_ddb->plane[pipe][plane_id],
+		/* FIXME: need to handle cursor better */
+		if (plane_id != PLANE_CURSOR &&
+		    skl_ddb_entry_equal(&cur_ddb->plane[pipe][plane_id],
 					&new_ddb->plane[pipe][plane_id]) &&
 		    skl_ddb_entry_equal(&cur_ddb->uv_plane[pipe][plane_id],
 					&new_ddb->uv_plane[pipe][plane_id]))
 			continue;
 
-		plane_state = drm_atomic_get_plane_state(state, plane);
+		plane_state = intel_atomic_get_plane_state(state,
+							   to_intel_plane(plane));
 		if (IS_ERR(plane_state))
 			return PTR_ERR(plane_state);
+
+		plane_state->ddb_y = new_ddb->plane[pipe][plane_id];
+		plane_state->ddb_uv = new_ddb->uv_plane[pipe][plane_id];
 	}
 
 	return 0;
@@ -5348,82 +5349,12 @@ static void skl_atomic_update_crtc_wm(struct intel_atomic_state *state,
 	struct intel_crtc *crtc = to_intel_crtc(cstate->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
 	struct skl_pipe_wm *pipe_wm = &cstate->wm.skl.optimal;
-	const struct skl_ddb_allocation *ddb = &state->wm_results.ddb;
-	struct intel_plane_state *old_plane_state;
-	struct intel_plane_state *new_plane_state;
-	struct intel_plane *plane;
-	unsigned long irqflags;
-	int i;
 	enum pipe pipe = crtc->pipe;
-	enum plane_id plane_id;
 
 	if (!(state->wm_results.dirty_pipes & drm_crtc_mask(&crtc->base)))
 		return;
 
-	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
-
-	I915_WRITE_FW(PIPE_WM_LINETIME(pipe), pipe_wm->linetime);
-
-	for_each_oldnew_intel_plane_in_state(state, plane,
-					     old_plane_state,
-					     new_plane_state, i) {
-		plane_id = plane->id;
-
-		if (old_plane_state->base.crtc != &crtc->base &&
-		    new_plane_state->base.crtc != &crtc->base)
-			continue;
-
-		/*
-		 * w/a to make sure there are never any overlapping
-		 * ddb allocations for active planes. That could
-		 * hard hang the machine.
-		 *
-		 * Seems we have to do write these twice; First time
-		 * to set the "allow double buffer disable" bit,
-		 * second time to actually disable the plane.
-		 */
-		if (plane_id != PLANE_CURSOR) {
-			I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
-				      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
-			I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
-				      dev_priv->ggtt.base.total);
-
-			I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
-				      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
-			I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
-				      dev_priv->ggtt.base.total);
-		} else {
-			I915_WRITE_FW(CURCNTR(pipe),
-				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
-			I915_WRITE_FW(CURBASE(pipe),
-				      dev_priv->ggtt.base.total);
-
-			I915_WRITE_FW(CURCNTR(pipe),
-				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
-			I915_WRITE_FW(CURBASE(pipe),
-				      dev_priv->ggtt.base.total);
-		}
-
-		if (plane_id != PLANE_CURSOR)
-			skl_write_plane_wm(crtc, &pipe_wm->planes[plane_id],
-					   ddb, plane_id);
-		else
-			skl_write_cursor_wm(crtc, &pipe_wm->planes[plane_id],
-					    ddb);
-
-		/*
-		 * It would appear we need to arm the DDB/WM
-		 * here or things can still go wonky.
-		 */
-		if (plane_id != PLANE_CURSOR)
-			I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
-				      dev_priv->ggtt.base.total);
-		else
-			I915_WRITE_FW(CURBASE(pipe),
-				      dev_priv->ggtt.base.total);
-	}
-
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+	I915_WRITE(PIPE_WM_LINETIME(pipe), pipe_wm->linetime);
 }
 
 static void skl_initial_wm(struct intel_atomic_state *state,

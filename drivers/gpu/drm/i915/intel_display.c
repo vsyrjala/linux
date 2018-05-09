@@ -9703,6 +9703,9 @@ static void i845_update_cursor(struct intel_plane *plane,
 
 		base = intel_cursor_base(plane_state);
 		pos = intel_cursor_position(plane_state);
+
+		ddb = plane_state->ddb_y;
+		wm = crtc_state->wm.skl.optimal.planes[plane->id];
 	}
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
@@ -9895,6 +9898,8 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 	enum pipe pipe = plane->pipe;
 	u32 cntl = 0, base = 0, pos = 0, fbc_ctl = 0;
 	unsigned long irqflags;
+	struct skl_ddb_entry ddb = {};
+	struct skl_plane_wm wm = {};
 
 	base = dev_priv->ggtt.base.total;
 
@@ -9936,6 +9941,7 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
 			I915_WRITE_FW(CUR_FBC_CTL(pipe), fbc_ctl);
 			I915_WRITE_FW(CURPOS(pipe), pos);
+			skl_write_cursor_wm(plane, &wm, &ddb);
 			I915_WRITE_FW(CURBASE(pipe), base);
 		} else {
 			I915_WRITE_FW(CURCNTR(pipe), cntl);
