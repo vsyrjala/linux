@@ -11974,8 +11974,10 @@ intel_modeset_verify_disabled(struct drm_device *dev,
 	verify_disabled_dpll_state(dev);
 }
 
-static void update_scanline_offset(struct intel_crtc *crtc)
+static void
+intel_update_scanline_offset(const struct intel_crtc_state *crtc_state)
 {
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
 	/*
@@ -12006,7 +12008,8 @@ static void update_scanline_offset(struct intel_crtc *crtc)
 	 * answer that's slightly in the future.
 	 */
 	if (IS_GEN2(dev_priv)) {
-		const struct drm_display_mode *adjusted_mode = &crtc->config->base.adjusted_mode;
+		const struct drm_display_mode *adjusted_mode =
+			&crtc_state->base.adjusted_mode;
 		int vtotal;
 
 		vtotal = adjusted_mode->crtc_vtotal;
@@ -12015,10 +12018,11 @@ static void update_scanline_offset(struct intel_crtc *crtc)
 
 		crtc->scanline_offset = vtotal - 1;
 	} else if (HAS_DDI(dev_priv) &&
-		   intel_crtc_has_type(crtc->config, INTEL_OUTPUT_HDMI)) {
+		   intel_crtc_has_type(crtc_state, INTEL_OUTPUT_HDMI)) {
 		crtc->scanline_offset = 2;
-	} else
+	} else {
 		crtc->scanline_offset = 1;
+	}
 }
 
 static void intel_modeset_clear_plls(struct drm_atomic_state *state)
@@ -12368,7 +12372,6 @@ static void intel_update_crtc(struct drm_crtc *crtc,
 						 to_intel_plane(crtc->primary));
 
 	if (modeset) {
-		update_scanline_offset(intel_crtc);
 		dev_priv->display.crtc_enable(pipe_config, state);
 
 		/* vblanks work again, re-enable pipe CRC. */
@@ -12599,6 +12602,13 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 
 	if (intel_state->modeset) {
 		drm_atomic_helper_update_legacy_modeset_state(state->dev, state);
+
+		for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
+			if (!new_crtc_state->enable)
+				continue;
+
+			intel_update_scanline_offset(to_intel_crtc_state(new_crtc_state));
+		}
 
 		intel_set_cdclk(dev_priv, &dev_priv->cdclk.actual);
 
@@ -15588,7 +15598,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 
 			drm_calc_timestamping_constants(&crtc->base,
 							&crtc_state->base.adjusted_mode);
-			update_scanline_offset(crtc);
+			intel_update_scanline_offset(crtc_state);
 		}
 
 		dev_priv->min_cdclk[crtc->pipe] = min_cdclk;
