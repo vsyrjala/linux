@@ -5114,7 +5114,6 @@ skl_copy_ddb_for_pipe(struct skl_ddb_values *dst,
 	       sizeof(dst->ddb.uv_plane[pipe]));
 	memcpy(dst->ddb.plane[pipe], src->ddb.plane[pipe],
 	       sizeof(dst->ddb.plane[pipe]));
-	dst->ddb.enabled_slices = src->ddb.enabled_slices;
 }
 
 static void
