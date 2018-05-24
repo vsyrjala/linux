@@ -47,6 +47,7 @@ enum hdmi_infoframe_type {
 	HDMI_INFOFRAME_TYPE_AVI = 0x82,
 	HDMI_INFOFRAME_TYPE_SPD = 0x83,
 	HDMI_INFOFRAME_TYPE_AUDIO = 0x84,
+	HDMI_INFOFRAME_TYPE_MPEG_SOURCE = 0x85,
 };
 
 #define HDMI_IEEE_OUI 0x000c03
@@ -55,6 +56,7 @@ enum hdmi_infoframe_type {
 #define HDMI_AVI_INFOFRAME_SIZE    13
 #define HDMI_SPD_INFOFRAME_SIZE    25
 #define HDMI_AUDIO_INFOFRAME_SIZE  10
+#define HDMI_MPEG_SOURCE_INFOFRAME_SIZE  10
 
 #define HDMI_INFOFRAME_SIZE(type)	\
 	(HDMI_INFOFRAME_HEADER_SIZE + HDMI_ ## type ## _INFOFRAME_SIZE)
@@ -337,6 +339,29 @@ union hdmi_vendor_any_infoframe {
 	struct hdmi_vendor_infoframe hdmi;
 };
 
+enum hdmi_mpeg_frame {
+	HDMI_MPEG_FRAME_UNKNOWN,
+	HDMI_MPEG_FRAME_I_PICTURE,
+	HDMI_MPEG_FRAME_B_PICTURE,
+	HDMI_MPEG_FRAME_P_PICTURE,
+};
+
+struct hdmi_mpeg_source_infoframe {
+	enum hdmi_infoframe_type type;
+	unsigned char version;
+	unsigned char length;
+	unsigned int mpeg_bit_rate;
+	enum hdmi_mpeg_frame mpeg_frame;
+	bool field_repeat;
+};
+
+int hdmi_mpeg_source_infoframe_init(struct hdmi_mpeg_source_infoframe *frame);
+ssize_t hdmi_mpeg_source_infoframe_pack(struct hdmi_mpeg_source_infoframe *frame,
+					void *buffer, size_t size);
+ssize_t hdmi_mpeg_source_infoframe_pack_only(const struct hdmi_mpeg_source_infoframe *frame,
+					     void *buffer, size_t size);
+int hdmi_mpeg_source_infoframe_check(struct hdmi_mpeg_source_infoframe *frame);
+
 /**
  * union hdmi_infoframe - overall union of all abstract infoframe representations
  * @any: generic infoframe
@@ -344,6 +369,7 @@ union hdmi_vendor_any_infoframe {
  * @spd: spd infoframe
  * @vendor: union of all vendor infoframes
  * @audio: audio infoframe
+ * @mpeg_source: mpeg source infoframe
  *
  * This is used by the generic pack function. This works since all infoframes
  * have the same header which also indicates which type of infoframe should be
@@ -355,6 +381,7 @@ union hdmi_infoframe {
 	struct hdmi_spd_infoframe spd;
 	union hdmi_vendor_any_infoframe vendor;
 	struct hdmi_audio_infoframe audio;
+	struct hdmi_mpeg_source_infoframe mpeg_source;
 };
 
 ssize_t hdmi_infoframe_pack(union hdmi_infoframe *frame, void *buffer,
