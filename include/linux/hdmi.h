@@ -48,6 +48,7 @@ enum hdmi_infoframe_type {
 	HDMI_INFOFRAME_TYPE_SPD = 0x83,
 	HDMI_INFOFRAME_TYPE_AUDIO = 0x84,
 	HDMI_INFOFRAME_TYPE_MPEG_SOURCE = 0x85,
+	HDMI_INFOFRAME_TYPE_NTSC_VBI = 0x86,
 };
 
 #define HDMI_IEEE_OUI 0x000c03
@@ -362,6 +363,21 @@ ssize_t hdmi_mpeg_source_infoframe_pack_only(const struct hdmi_mpeg_source_infof
 					     void *buffer, size_t size);
 int hdmi_mpeg_source_infoframe_check(struct hdmi_mpeg_source_infoframe *frame);
 
+struct hdmi_ntsc_vbi_infoframe {
+	enum hdmi_infoframe_type type;
+	unsigned char version;
+	unsigned char length;
+	unsigned char pes_data_field[27];
+};
+
+int hdmi_ntsc_vbi_infoframe_init(struct hdmi_ntsc_vbi_infoframe *frame,
+				 const void *pes_data_field, size_t length);
+ssize_t hdmi_ntsc_vbi_infoframe_pack(struct hdmi_ntsc_vbi_infoframe *frame,
+				     void *buffer, size_t size);
+ssize_t hdmi_ntsc_vbi_infoframe_pack_only(const struct hdmi_ntsc_vbi_infoframe *frame,
+					  void *buffer, size_t size);
+int hdmi_ntsc_vbi_infoframe_check(struct hdmi_ntsc_vbi_infoframe *frame);
+
 /**
  * union hdmi_infoframe - overall union of all abstract infoframe representations
  * @any: generic infoframe
@@ -370,6 +386,7 @@ int hdmi_mpeg_source_infoframe_check(struct hdmi_mpeg_source_infoframe *frame);
  * @vendor: union of all vendor infoframes
  * @audio: audio infoframe
  * @mpeg_source: mpeg source infoframe
+ * @ntsc_vbi: ntsc vbi infoframe
  *
  * This is used by the generic pack function. This works since all infoframes
  * have the same header which also indicates which type of infoframe should be
@@ -382,6 +399,7 @@ union hdmi_infoframe {
 	union hdmi_vendor_any_infoframe vendor;
 	struct hdmi_audio_infoframe audio;
 	struct hdmi_mpeg_source_infoframe mpeg_source;
+	struct hdmi_ntsc_vbi_infoframe ntsc_vbi;
 };
 
 ssize_t hdmi_infoframe_pack(union hdmi_infoframe *frame, void *buffer,

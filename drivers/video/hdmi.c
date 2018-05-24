@@ -832,6 +832,139 @@ ssize_t hdmi_mpeg_source_infoframe_pack(struct hdmi_mpeg_source_infoframe *frame
 EXPORT_SYMBOL(hdmi_mpeg_source_infoframe_pack);
 
 /**
+ * hdmi_ntsc_vbi_infoframe_init() - initialize an HDMI NTSC VBI infoframe
+ * @frame: HDMI NTSC VBI infoframe
+ * @pes_data_field: ANSI/SCTE 127 PES_data_field
+ * @length: ANSI/SCTE 127 PES_data_field length
+ *
+ * Returns 0 on success or a negative error code on failure.
+ */
+int hdmi_ntsc_vbi_infoframe_init(struct hdmi_ntsc_vbi_infoframe *frame,
+				 const void *pes_data_field,
+				 size_t length)
+{
+	if (length < 1 || length > 27)
+		return -EINVAL;
+
+	memset(frame, 0, sizeof(*frame));
+
+	frame->type = HDMI_INFOFRAME_TYPE_NTSC_VBI;
+	frame->version = 1;
+	frame->length = length;
+
+	memcpy(frame->pes_data_field, pes_data_field, length);
+
+	return 0;
+}
+EXPORT_SYMBOL(hdmi_ntsc_vbi_infoframe_init);
+
+static int hdmi_ntsc_vbi_infoframe_check_only(const struct hdmi_ntsc_vbi_infoframe *frame)
+{
+	if (frame->type != HDMI_INFOFRAME_TYPE_NTSC_VBI ||
+	    frame->version != 1 ||
+	    frame->length < 1 || frame->length > 27)
+		return -EINVAL;
+
+	if (frame->pes_data_field[0] != 0x99)
+		return -EINVAL;
+
+	return 0;
+}
+
+/**
+ * hdmi_ntsc_vbi_infoframe_check() - Check and check a HDMI NTSC VBI infoframe
+ * @frame: HDMI NTSC VBI infoframe
+ *
+ * Validates that the infoframe is consistent and updates derived fields
+ * (eg. length) based on other fields.
+ *
+ * Returns 0 on success or a negative error code on failure.
+ */
+int hdmi_ntsc_vbi_infoframe_check(struct hdmi_ntsc_vbi_infoframe *frame)
+{
+	return hdmi_ntsc_vbi_infoframe_check_only(frame);
+}
+EXPORT_SYMBOL(hdmi_ntsc_vbi_infoframe_check);
+
+/**
+ * hdmi_ntsc_vbi_infoframe_pack_only() - write HDMI NTSC VBI infoframe to binary buffer
+ * @frame: HDMI NTSC VBI infoframe
+ * @buffer: destination buffer
+ * @size: size of buffer
+ *
+ * Packs the information contained in the @frame structure into a binary
+ * representation that can be written into the corresponding controller
+ * registers. Also computes the checksum as required by section 5.3.5 of
+ * the HDMI 1.4 specification.
+ *
+ * Returns the number of bytes packed into the binary buffer or a negative
+ * error code on failure.
+ */
+ssize_t hdmi_ntsc_vbi_infoframe_pack_only(const struct hdmi_ntsc_vbi_infoframe *frame,
+					  void *buffer, size_t size)
+{
+	u8 *ptr = buffer;
+	size_t length;
+	int ret;
+
+	ret = hdmi_ntsc_vbi_infoframe_check_only(frame);
+	if (ret)
+		return ret;
+
+	length = HDMI_INFOFRAME_HEADER_SIZE + frame->length;
+
+	if (size < length)
+		return -ENOSPC;
+
+	memset(buffer, 0, size);
+
+	ptr[0] = frame->type;
+	ptr[1] = frame->version;
+	ptr[2] = frame->length;
+	ptr[3] = 0; /* checksum */
+
+	/* start infoframe payload */
+	ptr += HDMI_INFOFRAME_HEADER_SIZE;
+
+	memcpy(ptr, frame->pes_data_field, frame->length);
+
+	hdmi_infoframe_set_checksum(buffer, length);
+
+	return length;
+}
+EXPORT_SYMBOL(hdmi_ntsc_vbi_infoframe_pack_only);
+
+/**
+ * hdmi_ntsc_vbi_infoframe_pack() - Check and check a HDMI NTSC VBI infoframe,
+ *                                  and write it to binary buffer
+ * @frame: HDMI NTSC VBI infoframe
+ * @buffer: destination buffer
+ * @size: size of buffer
+ *
+ * Validates that the infoframe is consistent and updates derived fields
+ * (eg. length) based on other fields, after which packs the information
+ * contained in the @frame structure into a binary representation that
+ * can be written into the corresponding controller registers. Also
+ * computes the checksum as required by section 5.3.5 of the HDMI 1.4
+ * specification.
+ *
+ * Returns the number of bytes packed into the binary buffer or a negative
+ * error code on failure.
+ */
+ssize_t hdmi_ntsc_vbi_infoframe_pack(struct hdmi_ntsc_vbi_infoframe *frame,
+				     void *buffer, size_t size)
+{
+	int ret;
+
+	ret = hdmi_ntsc_vbi_infoframe_check(frame);
+	if (ret)
+		return ret;
+
+	return hdmi_ntsc_vbi_infoframe_pack_only(frame, buffer, size);
+}
+EXPORT_SYMBOL(hdmi_ntsc_vbi_infoframe_pack);
+
+/**
  * hdmi_infoframe_check() - Check check a HDMI infoframe
  * @frame: HDMI infoframe
  *
@@ -854,6 +987,8 @@ hdmi_infoframe_check(union hdmi_infoframe *frame)
 		return hdmi_vendor_any_infoframe_check(&frame->vendor);
 	case HDMI_INFOFRAME_TYPE_MPEG_SOURCE:
 		return hdmi_mpeg_source_infoframe_check(&frame->mpeg_source);
+	case HDMI_INFOFRAME_TYPE_NTSC_VBI:
+		return hdmi_ntsc_vbi_infoframe_check(&frame->ntsc_vbi);
 	default:
 		WARN(1, "Bad infoframe type %d\n", frame->any.type);
 		return -EINVAL;
@@ -900,6 +1035,10 @@ hdmi_infoframe_pack_only(const union hdmi_infoframe *frame, void *buffer, size_t
 	case HDMI_INFOFRAME_TYPE_MPEG_SOURCE:
 		length = hdmi_mpeg_source_infoframe_pack_only(&frame->mpeg_source,
 							 buffer, size);
+		break;
+	case HDMI_INFOFRAME_TYPE_NTSC_VBI:
+		length = hdmi_ntsc_vbi_infoframe_pack_only(&frame->ntsc_vbi,
+							   buffer, size);
 		break;
 	default:
 		WARN(1, "Bad infoframe type %d\n", frame->any.type);
@@ -950,6 +1089,9 @@ hdmi_infoframe_pack(union hdmi_infoframe *frame,
 	case HDMI_INFOFRAME_TYPE_MPEG_SOURCE:
 		length = hdmi_mpeg_source_infoframe_pack(&frame->mpeg_source,
 							 buffer, size);
+	case HDMI_INFOFRAME_TYPE_NTSC_VBI:
+		length = hdmi_ntsc_vbi_infoframe_pack(&frame->ntsc_vbi,
+						      buffer, size);
 		break;
 	default:
 		WARN(1, "Bad infoframe type %d\n", frame->any.type);
@@ -975,6 +1117,8 @@ static const char *hdmi_infoframe_type_get_name(enum hdmi_infoframe_type type)
 		return "Audio";
 	case HDMI_INFOFRAME_TYPE_MPEG_SOURCE:
 		return "MPEG Source";
+	case HDMI_INFOFRAME_TYPE_NTSC_VBI:
+		return "NTSC VBI";
 	}
 	return "Reserved";
 }
@@ -1527,6 +1671,22 @@ static void hdmi_mpeg_source_infoframe_log(const char *level,
 }
 
 /**
+ * hdmi_ntsc_vbi_infoframe_log() - log info of HDMI NTSC VBI infoframe
+ * @level: logging level
+ * @dev: device
+ * @frame: HDMI NTSC VBI infoframe
+ */
+static void hdmi_ntsc_vbi_infoframe_log(const char *level,
+					struct device *dev,
+					const struct hdmi_ntsc_vbi_infoframe *frame)
+{
+	hdmi_infoframe_log_header(level, dev,
+				  (const struct hdmi_any_infoframe *)frame);
+
+	hdmi_log("    %*ph\n", frame->length, frame->pes_data_field);
+}
+
+/**
  * hdmi_infoframe_log() - log info of HDMI infoframe
  * @level: logging level
  * @dev: device
@@ -1551,6 +1711,9 @@ void hdmi_infoframe_log(const char *level,
 		break;
 	case HDMI_INFOFRAME_TYPE_MPEG_SOURCE:
 		hdmi_mpeg_source_infoframe_log(level, dev, &frame->mpeg_source);
+		break;
+	case HDMI_INFOFRAME_TYPE_NTSC_VBI:
+		hdmi_ntsc_vbi_infoframe_log(level, dev, &frame->ntsc_vbi);
 		break;
 	}
 }
@@ -1841,6 +2004,47 @@ static int hdmi_mpeg_source_infoframe_unpack(struct hdmi_mpeg_source_infoframe *
 }
 
 /**
+ * hdmi_ntsc_vbi_infoframe_unpack() - unpack binary buffer to a HDMI MPEG Source infoframe
+ * @frame: HDMI MPEG Source infoframe
+ * @buffer: source buffer
+ * @size: size of buffer
+ *
+ * Unpacks the information contained in binary @buffer into a structured
+ * @frame of the HDMI MPEG Source information frame.
+ * Also verifies the checksum as required by section 5.3.5 of the HDMI 1.4
+ * specification.
+ *
+ * Returns 0 on success or a negative error code on failure.
+ */
+static int hdmi_ntsc_vbi_infoframe_unpack(struct hdmi_ntsc_vbi_infoframe *frame,
+				       const void *buffer, size_t size)
+{
+	const u8 *ptr = buffer;
+	size_t length;
+
+	if (size < HDMI_INFOFRAME_HEADER_SIZE)
+		return -EINVAL;
+
+	if (ptr[0] != HDMI_INFOFRAME_TYPE_NTSC_VBI ||
+	    ptr[1] != 1 ||
+	    ptr[2] < 1 || ptr[2] > 27)
+		return -EINVAL;
+
+	length = ptr[2];
+
+	if (size < HDMI_INFOFRAME_HEADER_SIZE + length)
+		return -EINVAL;
+
+	if (hdmi_infoframe_checksum(buffer,
+				    HDMI_INFOFRAME_HEADER_SIZE + length) != 0)
+		return -EINVAL;
+
+	ptr += HDMI_INFOFRAME_HEADER_SIZE;
+
+	return hdmi_ntsc_vbi_infoframe_init(frame, ptr, length);
+}
+
+/**
  * hdmi_infoframe_unpack() - unpack binary buffer to a HDMI infoframe
  * @frame: HDMI infoframe
  * @buffer: source buffer
@@ -1877,6 +2081,9 @@ int hdmi_infoframe_unpack(union hdmi_infoframe *frame,
 		break;
 	case HDMI_INFOFRAME_TYPE_MPEG_SOURCE:
 		ret = hdmi_mpeg_source_infoframe_unpack(&frame->mpeg_source, buffer, size);
+		break;
+	case HDMI_INFOFRAME_TYPE_NTSC_VBI:
+		ret = hdmi_ntsc_vbi_infoframe_unpack(&frame->ntsc_vbi, buffer, size);
 		break;
 	default:
 		ret = -EINVAL;
