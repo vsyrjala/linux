@@ -2709,6 +2709,10 @@ enum i915_power_well_id {
 #define   GEN10_F2_SS_DIS_SHIFT		18
 #define   GEN10_F2_SS_DIS_MASK		(0xf << GEN10_F2_SS_DIS_SHIFT)
 
+#define	GEN10_MIRROR_FUSE3		_MMIO(0x9118)
+#define GEN10_L3BANK_PAIR_COUNT     4
+#define GEN10_L3BANK_MASK   0x0F
+
 #define GEN8_EU_DISABLE0		_MMIO(0x9134)
 #define   GEN8_EU_DIS0_S0_MASK		0xffffff
 #define   GEN8_EU_DIS0_S1_SHIFT		24
@@ -4088,10 +4092,10 @@ enum {
 #define   EDP_Y_COORDINATE_ENABLE	(1<<25) /* GLK and CNL+ */
 #define   EDP_MAX_SU_DISABLE_TIME(t)	((t)<<20)
 #define   EDP_MAX_SU_DISABLE_TIME_MASK	(0x1f<<20)
-#define   EDP_PSR2_TP2_TIME_500		(0<<8)
-#define   EDP_PSR2_TP2_TIME_100		(1<<8)
-#define   EDP_PSR2_TP2_TIME_2500	(2<<8)
-#define   EDP_PSR2_TP2_TIME_50		(3<<8)
+#define   EDP_PSR2_TP2_TIME_500us	(0<<8)
+#define   EDP_PSR2_TP2_TIME_100us	(1<<8)
+#define   EDP_PSR2_TP2_TIME_2500us	(2<<8)
+#define   EDP_PSR2_TP2_TIME_50us	(3<<8)
 #define   EDP_PSR2_TP2_TIME_MASK	(3<<8)
 #define   EDP_PSR2_FRAME_BEFORE_SU_SHIFT 4
 #define   EDP_PSR2_FRAME_BEFORE_SU_MASK	(0xf<<4)
@@ -4133,11 +4137,12 @@ enum {
 
 #define   ADPA_DAC_ENABLE	(1<<31)
 #define   ADPA_DAC_DISABLE	0
-#define   ADPA_PIPE_SELECT_MASK	(1<<30)
-#define   ADPA_PIPE_A_SELECT	0
-#define   ADPA_PIPE_B_SELECT	(1<<30)
-#define   ADPA_PIPE_SELECT(pipe) ((pipe) << 30)
-/* CPT uses bits 29:30 for pch transcoder select */
+#define   ADPA_PIPE_SEL_SHIFT		30
+#define   ADPA_PIPE_SEL_MASK		(1<<30)
+#define   ADPA_PIPE_SEL(pipe)		((pipe) << 30)
+#define   ADPA_PIPE_SEL_SHIFT_CPT	29
+#define   ADPA_PIPE_SEL_MASK_CPT	(3<<29)
+#define   ADPA_PIPE_SEL_CPT(pipe)	((pipe) << 29)
 #define   ADPA_CRT_HOTPLUG_MASK  0x03ff0000 /* bit 25-16 */
 #define   ADPA_CRT_HOTPLUG_MONITOR_NONE  (0<<24)
 #define   ADPA_CRT_HOTPLUG_MONITOR_MASK  (3<<24)
@@ -4296,9 +4301,9 @@ enum {
 
 /* Gen 3 SDVO bits: */
 #define   SDVO_ENABLE				(1 << 31)
-#define   SDVO_PIPE_SEL(pipe)			((pipe) << 30)
+#define   SDVO_PIPE_SEL_SHIFT			30
 #define   SDVO_PIPE_SEL_MASK			(1 << 30)
-#define   SDVO_PIPE_B_SELECT			(1 << 30)
+#define   SDVO_PIPE_SEL(pipe)			((pipe) << 30)
 #define   SDVO_STALL_SELECT			(1 << 29)
 #define   SDVO_INTERRUPT_ENABLE			(1 << 26)
 /*
@@ -4338,12 +4343,14 @@ enum {
 #define   SDVOB_HOTPLUG_ENABLE			(1 << 23) /* SDVO only */
 
 /* Gen 6 (CPT) SDVO/HDMI bits: */
-#define   SDVO_PIPE_SEL_CPT(pipe)		((pipe) << 29)
+#define   SDVO_PIPE_SEL_SHIFT_CPT		29
 #define   SDVO_PIPE_SEL_MASK_CPT		(3 << 29)
+#define   SDVO_PIPE_SEL_CPT(pipe)		((pipe) << 29)
 
 /* CHV SDVO/HDMI bits: */
-#define   SDVO_PIPE_SEL_CHV(pipe)		((pipe) << 24)
+#define   SDVO_PIPE_SEL_SHIFT_CHV		24
 #define   SDVO_PIPE_SEL_MASK_CHV		(3 << 24)
+#define   SDVO_PIPE_SEL_CHV(pipe)		((pipe) << 24)
 
 
 /* DVO port control */
@@ -4354,7 +4361,9 @@ enum {
 #define _DVOC			0x61160
 #define DVOC			_MMIO(_DVOC)
 #define   DVO_ENABLE			(1 << 31)
-#define   DVO_PIPE_B_SELECT		(1 << 30)
+#define   DVO_PIPE_SEL_SHIFT		30
+#define   DVO_PIPE_SEL_MASK		(1 << 30)
+#define   DVO_PIPE_SEL(pipe)		((pipe) << 30)
 #define   DVO_PIPE_STALL_UNUSED		(0 << 28)
 #define   DVO_PIPE_STALL		(1 << 28)
 #define   DVO_PIPE_STALL_TV		(2 << 28)
@@ -4391,9 +4400,12 @@ enum {
  */
 #define   LVDS_PORT_EN			(1 << 31)
 /* Selects pipe B for LVDS data.  Must be set on pre-965. */
-#define   LVDS_PIPEB_SELECT		(1 << 30)
-#define   LVDS_PIPE_MASK		(1 << 30)
-#define   LVDS_PIPE(pipe)		((pipe) << 30)
+#define   LVDS_PIPE_SEL_SHIFT		30
+#define   LVDS_PIPE_SEL_MASK		(1 << 30)
+#define   LVDS_PIPE_SEL(pipe)		((pipe) << 30)
+#define   LVDS_PIPE_SEL_SHIFT_CPT	29
+#define   LVDS_PIPE_SEL_MASK_CPT	(3 << 29)
+#define   LVDS_PIPE_SEL_CPT(pipe)	((pipe) << 29)
 /* LVDS dithering flag on 965/g4x platform */
 #define   LVDS_ENABLE_DITHER		(1 << 25)
 /* LVDS sync polarity flags. Set to invert (i.e. negative) */
@@ -4690,7 +4702,9 @@ enum {
 /* Enables the TV encoder */
 # define TV_ENC_ENABLE			(1 << 31)
 /* Sources the TV encoder input from pipe B instead of A. */
-# define TV_ENC_PIPEB_SELECT		(1 << 30)
+# define TV_ENC_PIPE_SEL_SHIFT		30
+# define TV_ENC_PIPE_SEL_MASK		(1 << 30)
+# define TV_ENC_PIPE_SEL(pipe)		((pipe) << 30)
 /* Outputs composite video (DAC A only) */
 # define TV_ENC_OUTPUT_COMPOSITE	(0 << 28)
 /* Outputs SVideo video (DAC B/C) */
@@ -5172,10 +5186,15 @@ enum {
 #define CHV_DP_D		_MMIO(VLV_DISPLAY_BASE + 0x64300)
 
 #define   DP_PORT_EN			(1 << 31)
-#define   DP_PIPEB_SELECT		(1 << 30)
-#define   DP_PIPE_MASK			(1 << 30)
-#define   DP_PIPE_SELECT_CHV(pipe)	((pipe) << 16)
-#define   DP_PIPE_MASK_CHV		(3 << 16)
+#define   DP_PIPE_SEL_SHIFT		30
+#define   DP_PIPE_SEL_MASK		(1 << 30)
+#define   DP_PIPE_SEL(pipe)		((pipe) << 30)
+#define   DP_PIPE_SEL_SHIFT_IVB		29
+#define   DP_PIPE_SEL_MASK_IVB		(3 << 29)
+#define   DP_PIPE_SEL_IVB(pipe)		((pipe) << 29)
+#define   DP_PIPE_SEL_SHIFT_CHV		16
+#define   DP_PIPE_SEL_MASK_CHV		(3 << 16)
+#define   DP_PIPE_SEL_CHV(pipe)		((pipe) << 16)
 
 /* Link training mode - select a suitable mode for each stage */
 #define   DP_LINK_TRAIN_PAT_1		(0 << 28)
@@ -7862,27 +7881,14 @@ enum {
 #define PCH_DP_AUX_CH_DATA(aux_ch, i)	_MMIO(_PORT((aux_ch) - AUX_CH_B, _PCH_DPB_AUX_CH_DATA1, _PCH_DPC_AUX_CH_DATA1) + (i) * 4) /* 5 registers */
 
 /* CPT */
-#define  PORT_TRANS_A_SEL_CPT	0
-#define  PORT_TRANS_B_SEL_CPT	(1<<29)
-#define  PORT_TRANS_C_SEL_CPT	(2<<29)
-#define  PORT_TRANS_SEL_MASK	(3<<29)
-#define  PORT_TRANS_SEL_CPT(pipe)	((pipe) << 29)
-#define  PORT_TO_PIPE(val)	(((val) & (1<<30)) >> 30)
-#define  PORT_TO_PIPE_CPT(val)	(((val) & PORT_TRANS_SEL_MASK) >> 29)
-#define  SDVO_PORT_TO_PIPE_CHV(val)	(((val) & (3<<24)) >> 24)
-#define  DP_PORT_TO_PIPE_CHV(val)	(((val) & (3<<16)) >> 16)
-
 #define _TRANS_DP_CTL_A		0xe0300
 #define _TRANS_DP_CTL_B		0xe1300
 #define _TRANS_DP_CTL_C		0xe2300
 #define TRANS_DP_CTL(pipe)	_MMIO_PIPE(pipe, _TRANS_DP_CTL_A, _TRANS_DP_CTL_B)
 #define  TRANS_DP_OUTPUT_ENABLE	(1<<31)
-#define  TRANS_DP_PORT_SEL_B	(0<<29)
-#define  TRANS_DP_PORT_SEL_C	(1<<29)
-#define  TRANS_DP_PORT_SEL_D	(2<<29)
-#define  TRANS_DP_PORT_SEL_NONE	(3<<29)
-#define  TRANS_DP_PORT_SEL_MASK	(3<<29)
-#define  TRANS_DP_PIPE_TO_PORT(val)	((((val) & TRANS_DP_PORT_SEL_MASK) >> 29) + PORT_B)
+#define  TRANS_DP_PORT_SEL_MASK		(3 << 29)
+#define  TRANS_DP_PORT_SEL_NONE		(3 << 29)
+#define  TRANS_DP_PORT_SEL(port)	(((port) - PORT_B) << 29)
 #define  TRANS_DP_AUDIO_ONLY	(1<<26)
 #define  TRANS_DP_ENH_FRAMING	(1<<18)
 #define  TRANS_DP_8BPC		(0<<9)

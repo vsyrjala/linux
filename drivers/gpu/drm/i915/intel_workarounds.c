@@ -672,8 +672,74 @@ static void cfl_gt_workarounds_apply(struct drm_i915_private *dev_priv)
 		   GAMT_ECO_ENABLE_IN_PLACE_DECOMPRESS);
 }
 
+static void wa_init_mcr(struct drm_i915_private *dev_priv)
+{
+	const struct sseu_dev_info *sseu = &(INTEL_INFO(dev_priv)->sseu);
+	u32 mcr;
+	u32 mcr_slice_subslice_mask;
+
+	/*
+	 * WaProgramMgsrForL3BankSpecificMmioReads: cnl,icl
+	 * L3Banks could be fused off in single slice scenario. If that is
+	 * the case, we might need to program MCR select to a valid L3Bank
+	 * by default, to make sure we correctly read certain registers
+	 * later on (in the range 0xB100 - 0xB3FF).
+	 * This might be incompatible with
+	 * WaProgramMgsrForCorrectSliceSpecificMmioReads.
+	 * Fortunately, this should not happen in production hardware, so
+	 * we only assert that this is the case (instead of implementing
+	 * something more complex that requires checking the range of every
+	 * MMIO read).
+	 */
+	if (INTEL_GEN(dev_priv) >= 10 &&
+	    is_power_of_2(sseu->slice_mask)) {
+		/*
+		 * read FUSE3 for enabled L3 Bank IDs, if L3 Bank matches
+		 * enabled subslice, no need to redirect MCR packet
+		 */
+		u32 slice = fls(sseu->slice_mask);
+		u32 fuse3 = I915_READ(GEN10_MIRROR_FUSE3);
+		u8 ss_mask = sseu->subslice_mask[slice];
+
+		u8 enabled_mask = (ss_mask | ss_mask >>
+				   GEN10_L3BANK_PAIR_COUNT) & GEN10_L3BANK_MASK;
+		u8 disabled_mask = fuse3 & GEN10_L3BANK_MASK;
+
+		/*
+		 * Production silicon should have matched L3Bank and
+		 * subslice enabled
+		 */
+		WARN_ON((enabled_mask & disabled_mask) != enabled_mask);
+	}
+
+	mcr = I915_READ(GEN8_MCR_SELECTOR);
+
+	if (INTEL_GEN(dev_priv) >= 11)
+		mcr_slice_subslice_mask = GEN11_MCR_SLICE_MASK |
+					  GEN11_MCR_SUBSLICE_MASK;
+	else
+		mcr_slice_subslice_mask = GEN8_MCR_SLICE_MASK |
+					  GEN8_MCR_SUBSLICE_MASK;
+	/*
+	 * WaProgramMgsrForCorrectSliceSpecificMmioReads:cnl,icl
+	 * Before any MMIO read into slice/subslice specific registers, MCR
+	 * packet control register needs to be programmed to point to any
+	 * enabled s/ss pair. Otherwise, incorrect values will be returned.
+	 * This means each subsequent MMIO read will be forwarded to an
+	 * specific s/ss combination, but this is OK since these registers
+	 * are consistent across s/ss in almost all cases. In the rare
+	 * occasions, such as INSTDONE, where this value is dependent
+	 * on s/ss combo, the read should be done with read_subslice_reg.
+	 */
+	mcr &= ~mcr_slice_subslice_mask;
+	mcr |= intel_calculate_mcr_s_ss_select(dev_priv);
+	I915_WRITE(GEN8_MCR_SELECTOR, mcr);
+}
+
 static void cnl_gt_workarounds_apply(struct drm_i915_private *dev_priv)
 {
+	wa_init_mcr(dev_priv);
+
 	/* WaDisableI2mCycleOnWRPort:cnl (pre-prod) */
 	if (IS_CNL_REVID(dev_priv, CNL_REVID_B0, CNL_REVID_B0))
 		I915_WRITE(GAMT_CHKN_BIT_REG,
@@ -692,6 +758,8 @@ static void cnl_gt_workarounds_apply(struct drm_i915_private *dev_priv)
 
 static void icl_gt_workarounds_apply(struct drm_i915_private *dev_priv)
 {
+	wa_init_mcr(dev_priv);
+
 	/* This is not an Wa. Enable for better image quality */
 	I915_WRITE(_3D_CHICKEN3,
 		   _MASKED_BIT_ENABLE(_3D_CHICKEN3_AA_LINE_QUALITY_FIX_ENABLE));
