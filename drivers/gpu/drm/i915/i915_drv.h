@@ -288,6 +288,7 @@ struct drm_i915_display_funcs {
 	void (*optimize_watermarks)(struct intel_atomic_state *state,
 				    struct intel_crtc_state *cstate);
 	int (*compute_global_watermarks)(struct intel_atomic_state *state);
+	void (*disable_cxsr)(struct intel_crtc *crtc);
 	void (*update_wm)(struct intel_crtc *crtc);
 	int (*modeset_calc_cdclk)(struct drm_atomic_state *state);
 	/* Returns the active state of the crtc, and if the crtc is active,
@@ -1082,6 +1083,7 @@ struct vlv_wm_values {
 	struct g4x_pipe_wm normal[3]; /* for each pipe */
 	struct g4x_sr_wm sr;
 	struct vlv_wm_ddl_values ddl[3]; /* for each pipe */
+	enum pipe sr_pipe;
 	u8 level;
 };
 
@@ -1089,6 +1091,7 @@ struct g4x_wm_values {
 	struct g4x_pipe_wm normal[2]; /* for each pipe */
 	struct g4x_sr_wm sr;
 	struct g4x_sr_wm hpll;
+	enum pipe sr_pipe;
 	bool fbc_en;
 };
 
@@ -3333,8 +3336,6 @@ extern void intel_init_pch_refclk(struct drm_i915_private *dev_priv);
 extern int intel_set_rps(struct drm_i915_private *dev_priv, u8 val);
 extern void intel_rps_mark_interactive(struct drm_i915_private *i915,
 				       bool interactive);
-extern bool intel_set_memory_cxsr(struct drm_i915_private *dev_priv,
-				  bool enable);
 void intel_dsc_enable(struct intel_encoder *encoder,
 		      const struct intel_crtc_state *crtc_state);
 void intel_dsc_disable(const struct intel_crtc_state *crtc_state);

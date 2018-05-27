@@ -5365,9 +5365,8 @@ intel_pre_disable_primary_noatomic(struct drm_crtc *crtc)
 	 * event which is after the vblank start event, so we need to have a
 	 * wait-for-vblank between disabling the plane and the pipe.
 	 */
-	if (HAS_GMCH(dev_priv) &&
-	    intel_set_memory_cxsr(dev_priv, false))
-		intel_wait_for_vblank(dev_priv, pipe);
+	if (dev_priv->display.disable_cxsr)
+		dev_priv->display.disable_cxsr(intel_crtc);
 }
 
 static bool hsw_pre_update_disable_ips(const struct intel_crtc_state *old_crtc_state,
@@ -5532,9 +5531,10 @@ static void intel_pre_plane_update(struct intel_crtc_state *old_crtc_state,
 	 * event which is after the vblank start event, so we need to have a
 	 * wait-for-vblank between disabling the plane and the pipe.
 	 */
-	if (HAS_GMCH(dev_priv) && old_crtc_state->base.active &&
-	    pipe_config->disable_cxsr && intel_set_memory_cxsr(dev_priv, false))
-		intel_wait_for_vblank(dev_priv, crtc->pipe);
+	if (pipe_config->disable_cxsr &&
+	    dev_priv->display.disable_cxsr &&
+	    old_crtc_state->base.active)
+		dev_priv->display.disable_cxsr(crtc);
 
 	/*
 	 * IVB workaround: must disable low power watermarks for at least

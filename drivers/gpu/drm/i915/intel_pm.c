@@ -351,60 +351,8 @@ static void chv_set_memory_pm5(struct drm_i915_private *dev_priv, bool enable)
 #define FW_WM(value, plane) \
 	(((value) << DSPFW_ ## plane ## _SHIFT) & DSPFW_ ## plane ## _MASK)
 
-static bool _intel_set_memory_cxsr(struct drm_i915_private *dev_priv, bool enable)
-{
-	bool was_enabled;
-	u32 val;
-
-	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
-		was_enabled = I915_READ(FW_BLC_SELF_VLV) & FW_CSPWRDWNEN;
-		I915_WRITE(FW_BLC_SELF_VLV, enable ? FW_CSPWRDWNEN : 0);
-		POSTING_READ(FW_BLC_SELF_VLV);
-	} else if (IS_G4X(dev_priv) || IS_I965GM(dev_priv)) {
-		was_enabled = I915_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
-		I915_WRITE(FW_BLC_SELF, enable ? FW_BLC_SELF_EN : 0);
-		POSTING_READ(FW_BLC_SELF);
-	} else if (IS_PINEVIEW(dev_priv)) {
-		val = I915_READ(DSPFW3);
-		was_enabled = val & PINEVIEW_SELF_REFRESH_EN;
-		if (enable)
-			val |= PINEVIEW_SELF_REFRESH_EN;
-		else
-			val &= ~PINEVIEW_SELF_REFRESH_EN;
-		I915_WRITE(DSPFW3, val);
-		POSTING_READ(DSPFW3);
-	} else if (IS_I945G(dev_priv) || IS_I945GM(dev_priv)) {
-		was_enabled = I915_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
-		val = enable ? _MASKED_BIT_ENABLE(FW_BLC_SELF_EN) :
-			       _MASKED_BIT_DISABLE(FW_BLC_SELF_EN);
-		I915_WRITE(FW_BLC_SELF, val);
-		POSTING_READ(FW_BLC_SELF);
-	} else if (IS_I915GM(dev_priv)) {
-		/*
-		 * FIXME can't find a bit like this for 915G, and
-		 * and yet it does have the related watermark in
-		 * FW_BLC_SELF. What's going on?
-		 */
-		was_enabled = I915_READ(INSTPM) & INSTPM_SELF_EN;
-		val = enable ? _MASKED_BIT_ENABLE(INSTPM_SELF_EN) :
-			       _MASKED_BIT_DISABLE(INSTPM_SELF_EN);
-		I915_WRITE(INSTPM, val);
-		POSTING_READ(INSTPM);
-	} else {
-		return false;
-	}
-
-	trace_intel_memory_cxsr(dev_priv, was_enabled, enable);
-
-	DRM_DEBUG_KMS("memory self-refresh is %s (was %s)\n",
-		      enableddisabled(enable),
-		      enableddisabled(was_enabled));
-
-	return was_enabled;
-}
-
 /**
- * intel_set_memory_cxsr - Configure CxSR state
+ * i9xx_set_memory_cxsr - Configure CxSR state
  * @dev_priv: i915 device
  * @enable: Allow vs. disallow CxSR
  *
@@ -440,19 +388,55 @@ static bool _intel_set_memory_cxsr(struct drm_i915_private *dev_priv, bool enabl
  * the hardware w.r.t. HPLL SR when writing to plane registers.
  * Disallowing just CxSR is sufficient.
  */
-bool intel_set_memory_cxsr(struct drm_i915_private *dev_priv, bool enable)
+static bool i9xx_set_memory_cxsr(struct drm_i915_private *dev_priv, bool enable)
 {
-	bool ret;
+	bool was_enabled;
+	u32 val;
 
-	mutex_lock(&dev_priv->wm.wm_mutex);
-	ret = _intel_set_memory_cxsr(dev_priv, enable);
-	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
-		dev_priv->wm.vlv.sr.enable = enable;
-	else if (IS_G4X(dev_priv))
-		dev_priv->wm.g4x.sr.enable = enable;
-	mutex_unlock(&dev_priv->wm.wm_mutex);
+	if (IS_I965GM(dev_priv)) {
+		was_enabled = I915_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
+		I915_WRITE(FW_BLC_SELF, enable ? FW_BLC_SELF_EN : 0);
+		POSTING_READ(FW_BLC_SELF);
+	} else if (IS_PINEVIEW(dev_priv)) {
+		val = I915_READ(DSPFW3);
+		was_enabled = val & PINEVIEW_SELF_REFRESH_EN;
+		if (enable)
+			val |= PINEVIEW_SELF_REFRESH_EN;
+		else
+			val &= ~PINEVIEW_SELF_REFRESH_EN;
+		I915_WRITE(DSPFW3, val);
+		POSTING_READ(DSPFW3);
+	} else if (IS_I945G(dev_priv) || IS_I945GM(dev_priv)) {
+		was_enabled = I915_READ(FW_BLC_SELF) & FW_BLC_SELF_EN;
+		val = enable ? _MASKED_BIT_ENABLE(FW_BLC_SELF_EN) :
+			       _MASKED_BIT_DISABLE(FW_BLC_SELF_EN);
+		I915_WRITE(FW_BLC_SELF, val);
+		POSTING_READ(FW_BLC_SELF);
+	} else if (IS_I915GM(dev_priv)) {
+		/*
+		 * FIXME can't find a bit like this for 915G, and
+		 * and yet it does have the related watermark in
+		 * FW_BLC_SELF. What's going on?
+		 */
+		was_enabled = I915_READ(INSTPM) & INSTPM_SELF_EN;
+		val = enable ? _MASKED_BIT_ENABLE(INSTPM_SELF_EN) :
+			       _MASKED_BIT_DISABLE(INSTPM_SELF_EN);
+		I915_WRITE(INSTPM, val);
+		POSTING_READ(INSTPM);
+	} else {
+		return false;
+	}
 
-	return ret;
+	if (enable == was_enabled)
+		return was_enabled;
+
+	trace_intel_memory_cxsr(dev_priv, was_enabled, enable);
+
+	DRM_DEBUG_KMS("memory self-refresh is %s (was %s)\n",
+		      enableddisabled(enable),
+		      enableddisabled(was_enabled));
+
+	return was_enabled;
 }
 
 /*
@@ -856,7 +840,7 @@ static void pineview_update_wm(struct intel_crtc *unused_crtc)
 					 dev_priv->mem_freq);
 	if (!latency) {
 		DRM_DEBUG_KMS("Unknown FSB/MEM found, disable CxSR\n");
-		intel_set_memory_cxsr(dev_priv, false);
+		i9xx_set_memory_cxsr(dev_priv, false);
 		return;
 	}
 
@@ -907,10 +891,19 @@ static void pineview_update_wm(struct intel_crtc *unused_crtc)
 		I915_WRITE(DSPFW3, reg);
 		DRM_DEBUG_KMS("DSPFW3 register is %x\n", reg);
 
-		intel_set_memory_cxsr(dev_priv, true);
+		i9xx_set_memory_cxsr(dev_priv, true);
 	} else {
-		intel_set_memory_cxsr(dev_priv, false);
+		i9xx_set_memory_cxsr(dev_priv, false);
 	}
+}
+
+static void i9xx_disable_cxsr(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe sr_pipe = crtc->pipe;
+
+	if (i9xx_set_memory_cxsr(dev_priv, false))
+		intel_wait_for_vblank(dev_priv, sr_pipe);
 }
 
 /*
@@ -1489,11 +1482,58 @@ out:
 	return 0;
 }
 
+static void g4x_set_memory_cxsr(struct drm_i915_private *dev_priv,
+				bool enable)
+{
+	struct g4x_wm_values *wm = &dev_priv->wm.g4x;
+
+	if (enable == wm->sr.enable)
+		return;
+
+	I915_WRITE(FW_BLC_SELF, enable ? FW_BLC_SELF_EN : 0);
+	POSTING_READ(FW_BLC_SELF);
+
+	trace_intel_memory_cxsr(dev_priv, wm->sr.enable, enable);
+
+	DRM_DEBUG_KMS("memory self-refresh is %s (was %s)\n",
+		      enableddisabled(enable),
+		      enableddisabled(wm->sr.enable));
+
+	wm->sr.enable = enable;
+}
+
+static void _g4x_disable_cxsr(struct drm_i915_private *dev_priv)
+{
+	struct g4x_wm_values *wm = &dev_priv->wm.g4x;
+	bool was_enabled = wm->sr.enable;
+
+	g4x_set_memory_cxsr(dev_priv, false);
+
+	if (was_enabled) {
+		WARN_ON(wm->sr_pipe == INVALID_PIPE);
+		intel_wait_for_vblank(dev_priv, wm->sr_pipe);
+	}
+}
+
+static void g4x_disable_cxsr(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct g4x_wm_state *active = &crtc->wm.active.g4x;
+
+	mutex_lock(&dev_priv->wm.wm_mutex);
+
+	active->sr.enable = false;
+
+	_g4x_disable_cxsr(dev_priv);
+
+	mutex_unlock(&dev_priv->wm.wm_mutex);
+}
+
 static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 			 struct g4x_wm_values *wm)
 {
 	struct intel_crtc *crtc;
-	int num_active_crtcs = 0;
+	unsigned int active_pipes = 0;
 
 	wm->sr.enable = true;
 	wm->hpll.enable = true;
@@ -1512,13 +1552,16 @@ static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 		if (!active->fbc_en)
 			wm->fbc_en = false;
 
-		num_active_crtcs++;
+		active_pipes |= BIT(crtc->pipe);
 	}
 
-	if (num_active_crtcs != 1) {
+	if (!is_power_of_2(active_pipes)) {
 		wm->sr.enable = false;
 		wm->hpll.enable = false;
 		wm->fbc_en = false;
+		wm->sr_pipe = INVALID_PIPE;
+	} else {
+		wm->sr_pipe = ilog2(active_pipes);
 	}
 
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
@@ -1526,9 +1569,9 @@ static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 		enum pipe pipe = crtc->pipe;
 
 		wm->normal[pipe] = active->normal;
-		if (crtc->active && wm->sr.enable)
+		if (pipe == wm->sr_pipe && wm->sr.enable)
 			wm->sr = active->sr;
-		if (crtc->active && wm->hpll.enable)
+		if (pipe == wm->sr_pipe && wm->hpll.enable)
 			wm->hpll = active->hpll;
 	}
 }
@@ -1543,13 +1586,17 @@ static void g4x_program_watermarks(struct drm_i915_private *dev_priv)
 	if (memcmp(old_wm, &new_wm, sizeof(new_wm)) == 0)
 		return;
 
-	if (is_disabling(old_wm->sr.enable, new_wm.sr.enable, true))
-		_intel_set_memory_cxsr(dev_priv, false);
+	if (is_disabling(old_wm->sr.enable, new_wm.sr.enable, true)) {
+		g4x_set_memory_cxsr(dev_priv, false);
+		WARN_ON(old_wm->sr_pipe == INVALID_PIPE);
+	}
 
 	g4x_write_wm_values(dev_priv, &new_wm);
 
-	if (is_enabling(old_wm->sr.enable, new_wm.sr.enable, true))
-		_intel_set_memory_cxsr(dev_priv, true);
+	if (is_enabling(old_wm->sr.enable, new_wm.sr.enable, true)) {
+		g4x_set_memory_cxsr(dev_priv, true);
+		WARN_ON(new_wm.sr_pipe == INVALID_PIPE);
+	}
 
 	*old_wm = new_wm;
 }
@@ -2117,11 +2164,60 @@ out:
 	return 0;
 }
 
+static void vlv_set_memory_cxsr(struct drm_i915_private *dev_priv,
+				bool enable)
+{
+	struct vlv_wm_values *wm = &dev_priv->wm.vlv;
+
+	if (enable == wm->sr.enable)
+		return;
+
+	I915_WRITE(FW_BLC_SELF_VLV, enable ? FW_CSPWRDWNEN : 0);
+	POSTING_READ(FW_BLC_SELF_VLV);
+
+	trace_intel_memory_cxsr(dev_priv, wm->sr.enable, enable);
+
+	DRM_DEBUG_KMS("memory self-refresh is %s (was %s)\n",
+		      enableddisabled(enable),
+		      enableddisabled(wm->sr.enable));
+
+	wm->sr.enable = enable;
+}
+
+static void _vlv_disable_cxsr(struct drm_i915_private *dev_priv)
+{
+	struct vlv_wm_values *wm = &dev_priv->wm.vlv;
+	bool was_enabled = wm->sr.enable;
+
+	vlv_set_memory_cxsr(dev_priv, false);
+
+	if (was_enabled) {
+		WARN_ON(wm->sr_pipe == INVALID_PIPE);
+		intel_wait_for_vblank(dev_priv, wm->sr_pipe);
+	}
+}
+
+static void vlv_disable_cxsr(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct vlv_wm_state *active = &crtc->wm.active.vlv;
+	int level, num_levels = intel_wm_num_levels(dev_priv);
+
+	mutex_lock(&dev_priv->wm.wm_mutex);
+
+	for (level = 0; level < num_levels; level++)
+		active->sr[level].enable = false;
+
+	_vlv_disable_cxsr(dev_priv);
+
+	mutex_unlock(&dev_priv->wm.wm_mutex);
+}
+
 static void vlv_merge_wm(struct drm_i915_private *dev_priv,
 			 struct vlv_wm_values *wm)
 {
 	struct intel_crtc *crtc;
-	int num_active_crtcs = 0;
+	unsigned int active_pipes = 0;
 
 	wm->level = dev_priv->wm.max_level;
 	wm->sr.enable = true;
@@ -2135,22 +2231,26 @@ static void vlv_merge_wm(struct drm_i915_private *dev_priv,
 		if (!active->sr[VLV_WM_LEVEL_PM2].enable)
 			wm->sr.enable = false;
 
-		num_active_crtcs++;
+		active_pipes |= BIT(crtc->pipe);
+
 		wm->level = min_t(int, wm->level, active->num_levels - 1);
 	}
 
-	if (num_active_crtcs != 1)
+	if (!is_power_of_2(active_pipes)) {
 		wm->sr.enable = false;
-
-	if (num_active_crtcs > 1)
-		wm->level = VLV_WM_LEVEL_PM2;
+		wm->sr_pipe = INVALID_PIPE;
+		if (active_pipes)
+			wm->level = VLV_WM_LEVEL_PM2;
+	} else {
+		wm->sr_pipe = ilog2(active_pipes);
+	}
 
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		const struct vlv_wm_state *active = &crtc->wm.active.vlv;
 		enum pipe pipe = crtc->pipe;
 
 		wm->normal[pipe] = active->normal[wm->level];
-		if (crtc->active && wm->sr.enable)
+		if (pipe == wm->sr_pipe && wm->sr.enable)
 			wm->sr = active->sr[wm->level];
 
 		wm->ddl[pipe].plane[PLANE_PRIMARY] = DDL_PRECISION_HIGH | 2;
@@ -2176,13 +2276,17 @@ static void vlv_program_watermarks(struct drm_i915_private *dev_priv)
 	if (is_disabling(old_wm->level, new_wm.level, VLV_WM_LEVEL_PM5))
 		chv_set_memory_pm5(dev_priv, false);
 
-	if (is_disabling(old_wm->sr.enable, new_wm.sr.enable, true))
-		_intel_set_memory_cxsr(dev_priv, false);
+	if (is_disabling(old_wm->sr.enable, new_wm.sr.enable, true)) {
+		vlv_set_memory_cxsr(dev_priv, false);
+		WARN_ON(old_wm->sr_pipe == INVALID_PIPE);
+	}
 
 	vlv_write_wm_values(dev_priv, &new_wm);
 
-	if (is_enabling(old_wm->sr.enable, new_wm.sr.enable, true))
-		_intel_set_memory_cxsr(dev_priv, true);
+	if (is_enabling(old_wm->sr.enable, new_wm.sr.enable, true)) {
+		vlv_set_memory_cxsr(dev_priv, true);
+		WARN_ON(new_wm.sr_pipe == INVALID_PIPE);
+	}
 
 	if (is_enabling(old_wm->level, new_wm.level, VLV_WM_LEVEL_PM5))
 		chv_set_memory_pm5(dev_priv, true);
@@ -2271,7 +2375,7 @@ static void i965_update_wm(struct intel_crtc *unused_crtc)
 	} else {
 		cxsr_enabled = false;
 		/* Turn off self refresh if both pipes are enabled */
-		intel_set_memory_cxsr(dev_priv, false);
+		i9xx_set_memory_cxsr(dev_priv, false);
 	}
 
 	DRM_DEBUG_KMS("Setting FIFO watermarks - A: 8, B: 8, C: 8, SR %d\n",
@@ -2288,7 +2392,7 @@ static void i965_update_wm(struct intel_crtc *unused_crtc)
 	I915_WRITE(DSPFW3, FW_WM(cursor_sr, CURSOR_SR));
 
 	if (cxsr_enabled)
-		intel_set_memory_cxsr(dev_priv, true);
+		i9xx_set_memory_cxsr(dev_priv, true);
 }
 
 #undef FW_WM
@@ -2383,7 +2487,7 @@ static void i9xx_update_wm(struct intel_crtc *unused_crtc)
 	cwm = 2;
 
 	/* Play safe and disable self-refresh before adjusting watermarks. */
-	intel_set_memory_cxsr(dev_priv, false);
+	i9xx_set_memory_cxsr(dev_priv, false);
 
 	/* Calc sr entries for one plane configs */
 	if (HAS_FW_BLC(dev_priv) && enabled) {
@@ -2433,7 +2537,7 @@ static void i9xx_update_wm(struct intel_crtc *unused_crtc)
 	I915_WRITE(FW_BLC2, fwater_hi);
 
 	if (enabled)
-		intel_set_memory_cxsr(dev_priv, true);
+		i9xx_set_memory_cxsr(dev_priv, true);
 }
 
 static void i845_update_wm(struct intel_crtc *unused_crtc)
@@ -5970,6 +6074,7 @@ static void vlv_read_wm_values(struct drm_i915_private *dev_priv,
 void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 {
 	struct g4x_wm_values *wm = &dev_priv->wm.g4x;
+	unsigned int active_pipes = 0;
 	struct intel_crtc *crtc;
 
 	g4x_read_wm_values(dev_priv, wm);
@@ -5982,6 +6087,9 @@ void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 		enum pipe pipe = crtc->pipe;
 		enum plane_id plane_id;
 		int level, max_level;
+
+		if (crtc_state->base.active)
+			active_pipes |= BIT(pipe);
 
 		active->sr.enable = wm->sr.enable;
 		active->hpll.enable = wm->hpll.enable;
@@ -6046,6 +6154,11 @@ void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 			      wm->normal[pipe].plane[PLANE_SPRITE0]);
 	}
 
+	if (wm->sr.enable) {
+		WARN_ON(!is_power_of_2(active_pipes));
+		wm->sr_pipe = ilog2(active_pipes);
+	}
+
 	DRM_DEBUG_KMS("Initial SR watermarks: enable=%s, plane=%d, cursor=%d fbc=%s/%d\n",
 		      yesno(wm->sr.enable), wm->sr.plane,
 		      wm->sr.cursor, yesno(wm->fbc_en), wm->sr.fbc);
@@ -6096,6 +6209,7 @@ void g4x_wm_sanitize(struct drm_i915_private *dev_priv)
 void vlv_wm_get_hw_state(struct drm_i915_private *dev_priv)
 {
 	struct vlv_wm_values *wm = &dev_priv->wm.vlv;
+	unsigned int active_pipes = 0;
 	struct intel_crtc *crtc;
 	u32 val;
 
@@ -6147,6 +6261,9 @@ void vlv_wm_get_hw_state(struct drm_i915_private *dev_priv)
 		enum plane_id plane_id;
 		int level;
 
+		if (crtc_state->base.active)
+			active_pipes |= BIT(pipe);
+
 		vlv_get_fifo_size(crtc_state);
 
 		active->num_levels = wm->level + 1;
@@ -6183,6 +6300,11 @@ void vlv_wm_get_hw_state(struct drm_i915_private *dev_priv)
 			      wm->normal[pipe].plane[PLANE_CURSOR],
 			      wm->normal[pipe].plane[PLANE_SPRITE0],
 			      wm->normal[pipe].plane[PLANE_SPRITE1]);
+	}
+
+	if (wm->sr.enable) {
+		WARN_ON(!is_power_of_2(active_pipes));
+		wm->sr_pipe = ilog2(active_pipes);
 	}
 
 	DRM_DEBUG_KMS("Initial SR watermarks: enable=%s, plane=%d, SR cursor=%d, level=%d\n",
@@ -9554,12 +9676,14 @@ void intel_init_pm(struct drm_i915_private *dev_priv)
 		dev_priv->display.initial_watermarks = vlv_initial_watermarks;
 		dev_priv->display.optimize_watermarks = vlv_optimize_watermarks;
 		dev_priv->display.atomic_update_watermarks = vlv_atomic_update_fifo;
+		dev_priv->display.disable_cxsr = vlv_disable_cxsr;
 	} else if (IS_G4X(dev_priv)) {
 		g4x_setup_wm_latency(dev_priv);
 		dev_priv->display.compute_pipe_wm = g4x_compute_pipe_wm;
 		dev_priv->display.compute_intermediate_wm = g4x_compute_intermediate_wm;
 		dev_priv->display.initial_watermarks = g4x_initial_watermarks;
 		dev_priv->display.optimize_watermarks = g4x_optimize_watermarks;
+		dev_priv->display.disable_cxsr = g4x_disable_cxsr;
 	} else if (IS_PINEVIEW(dev_priv)) {
 		if (!intel_get_cxsr_latency(IS_PINEVIEW_G(dev_priv),
 					    dev_priv->is_ddr3,
@@ -9571,15 +9695,18 @@ void intel_init_pm(struct drm_i915_private *dev_priv)
 				 (dev_priv->is_ddr3 == 1) ? "3" : "2",
 				 dev_priv->fsb_freq, dev_priv->mem_freq);
 			/* Disable CxSR and never update its watermark again */
-			intel_set_memory_cxsr(dev_priv, false);
+			i9xx_set_memory_cxsr(dev_priv, false);
 			dev_priv->display.update_wm = NULL;
 		} else
 			dev_priv->display.update_wm = pineview_update_wm;
+		dev_priv->display.disable_cxsr = i9xx_disable_cxsr;
 	} else if (IS_GEN(dev_priv, 4)) {
 		dev_priv->display.update_wm = i965_update_wm;
+		dev_priv->display.disable_cxsr = i9xx_disable_cxsr;
 	} else if (IS_GEN(dev_priv, 3)) {
 		dev_priv->display.update_wm = i9xx_update_wm;
 		dev_priv->display.get_fifo_size = i9xx_get_fifo_size;
+		dev_priv->display.disable_cxsr = i9xx_disable_cxsr;
 	} else if (IS_GEN(dev_priv, 2)) {
 		if (INTEL_INFO(dev_priv)->num_pipes == 1) {
 			dev_priv->display.update_wm = i845_update_wm;
@@ -9588,6 +9715,7 @@ void intel_init_pm(struct drm_i915_private *dev_priv)
 			dev_priv->display.update_wm = i9xx_update_wm;
 			dev_priv->display.get_fifo_size = i830_get_fifo_size;
 		}
+		dev_priv->display.disable_cxsr = i9xx_disable_cxsr;
 	} else {
 		DRM_ERROR("unexpected fall-through in intel_init_pm\n");
 	}
