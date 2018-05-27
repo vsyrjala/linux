@@ -1725,9 +1725,12 @@ int i915_driver_load(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (IS_ERR(dev_priv))
 		return PTR_ERR(dev_priv);
 
-	/* Disable nuclear pageflip by default on pre-ILK */
-	if (!i915_modparams.nuclear_pageflip && match_info->gen < 5)
-		dev_priv->drm.driver_features &= ~DRIVER_ATOMIC;
+	/* Enable nuclear pageflip on g4x+ */
+	if (!i915_modparams.nuclear_pageflip &&
+	    match_info->gen < 5 &&
+	    !(match_info->platform_mask & (BIT(INTEL_G45) |
+					   BIT(INTEL_GM45))))
+		driver.driver_features &= ~DRIVER_ATOMIC;
 
 	ret = pci_enable_device(pdev);
 	if (ret)
