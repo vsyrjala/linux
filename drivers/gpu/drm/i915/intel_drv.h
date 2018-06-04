@@ -537,8 +537,6 @@ struct intel_plane_state {
 	int scaler_id;
 
 	struct drm_intel_sprite_colorkey ckey;
-
-	struct skl_ddb_entry ddb_y, ddb_uv;
 };
 
 struct intel_initial_plane_config {
@@ -679,6 +677,8 @@ struct intel_crtc_wm_state {
 			/* gen9+ only needs 1-step wm programming */
 			struct skl_pipe_wm optimal;
 			struct skl_ddb_entry ddb;
+			struct skl_ddb_entry plane_ddb_y[I915_MAX_PLANES];
+			struct skl_ddb_entry plane_ddb_uv[I915_MAX_PLANES];
 		} skl;
 
 		struct {
@@ -2059,7 +2059,10 @@ void ilk_wm_get_hw_state(struct drm_device *dev);
 void skl_wm_get_hw_state(struct drm_device *dev);
 void skl_ddb_get_hw_state(struct drm_i915_private *dev_priv,
 			  struct skl_ddb_allocation *ddb /* out */);
-void skl_pipe_wm_get_hw_state(struct drm_crtc *crtc,
+void skl_pipe_ddb_get_hw_state(struct intel_crtc *crtc,
+			       struct skl_ddb_entry plane_ddb_y[],
+			       struct skl_ddb_entry plane_ddb_uv[]);
+void skl_pipe_wm_get_hw_state(struct intel_crtc *crtc,
 			      struct skl_pipe_wm *out);
 void g4x_wm_sanitize(struct drm_i915_private *dev_priv);
 void vlv_wm_sanitize(struct drm_i915_private *dev_priv);
@@ -2068,10 +2071,9 @@ int intel_enable_sagv(struct drm_i915_private *dev_priv);
 int intel_disable_sagv(struct drm_i915_private *dev_priv);
 bool skl_wm_level_equals(const struct skl_wm_level *l1,
 			 const struct skl_wm_level *l2);
-bool skl_ddb_allocation_overlaps(struct drm_i915_private *dev_priv,
-				 const struct skl_ddb_entry **entries,
-				 const struct skl_ddb_entry *ddb,
-				 int ignore);
+bool skl_ddb_allocation_overlaps(const struct skl_ddb_entry *ddb,
+				 const struct skl_ddb_entry entries[],
+				 int num_entries, int ignore_idx);
 bool ilk_disable_lp_wm(struct drm_device *dev);
 int skl_check_pipe_max_pixel_rate(struct intel_crtc *intel_crtc,
 				  struct intel_crtc_state *cstate);

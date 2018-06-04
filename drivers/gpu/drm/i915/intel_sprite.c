@@ -113,7 +113,7 @@ void intel_pipe_update_start(const struct intel_crtc_state *new_crtc_state)
 
 	spin_lock_irq(&dev_priv->display_lock);
 
-	I915_WRITE_FW(DOUBLE_BUFFER_CTL, DOUBLE_BUFFER_DISABLE);
+	//I915_WRITE_FW(DOUBLE_BUFFER_CTL, DOUBLE_BUFFER_DISABLE);
 
 	if (min <= 0 || max <= 0)
 		return;
@@ -209,7 +209,7 @@ void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state)
 
 	trace_i915_pipe_update_end(crtc, end_vbl_count, scanline_end);
 
-	I915_WRITE_FW(DOUBLE_BUFFER_CTL, 0);
+	//I915_WRITE_FW(DOUBLE_BUFFER_CTL, 0);
 
 	/* We're still in the vblank-evade critical section, this can't race.
 	 * Would be slightly nice to just grab the vblank count and arm the
@@ -285,8 +285,8 @@ skl_update_plane(struct intel_plane *plane,
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
-	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl |
-		      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
+	//I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl |
+	//PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
 
 	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
 		I915_WRITE_FW(PLANE_COLOR_CTL(pipe, plane_id),
@@ -313,9 +313,15 @@ skl_update_plane(struct intel_plane *plane,
 
 	skl_write_plane_wm(plane,
 			   &crtc_state->wm.skl.optimal.planes[plane->id],
-			   &plane_state->ddb_y,
-			   &plane_state->ddb_uv);
+			   &crtc_state->wm.skl.plane_ddb_y[plane->id],
+			   &crtc_state->wm.skl.plane_ddb_uv[plane->id]);
 
+	/*
+	 * PLANE_CTL self-arms if the plane was previously disabled.
+	 * Try to make the update as atomic as possible by writing
+	 * it just before PLANE_SURF.
+	 */
+	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl); //
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + surf_addr);
 
@@ -349,10 +355,12 @@ skl_update_plane(struct intel_plane *plane,
 			      PS_ALLOW_DOUBLE_BUFFER_DISABLE |
 			      PS_PLANE_SEL(plane_id) | scaler->mode);
 		I915_WRITE_FW(SKL_PS_PWR_GATE(pipe, scaler_id), 0);
+#if 0
 		I915_WRITE_FW(SKL_PS_VPHASE(pipe, scaler_id),
 			      PS_Y_PHASE(y_vphase) | PS_UV_RGB_PHASE(uv_rgb_vphase));
 		I915_WRITE_FW(SKL_PS_HPHASE(pipe, scaler_id),
 			      PS_Y_PHASE(y_hphase) | PS_UV_RGB_PHASE(uv_rgb_hphase));
+#endif
 		I915_WRITE_FW(SKL_PS_WIN_POS(pipe, scaler_id), (crtc_x << 16) | crtc_y);
 		I915_WRITE_FW(SKL_PS_WIN_SZ(pipe, scaler_id),
 			      ((crtc_w + 1) << 16)|(crtc_h + 1));
@@ -375,9 +383,7 @@ skl_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
 
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id),
 		      PLANE_CTL_ALLOW_DOUBLE_BUFFER_DISABLE);
-
 	skl_write_plane_wm(plane, &wm, &ddb, &ddb);
-
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
 		      dev_priv->ggtt.base.total);
 
@@ -621,7 +627,13 @@ vlv_update_plane(struct intel_plane *plane,
 	I915_WRITE_FW(SPCONSTALPHA(pipe, plane_id), 0);
 
 	I915_WRITE_FW(SPSIZE(pipe, plane_id), (crtc_h << 16) | crtc_w);
-	I915_WRITE_FW(SPCNTR(pipe, plane_id), sprctl);
+
+	/*
+	 * SPCNTR self-arms if the plane was previously disabled.
+	 * Try to make the update as atomic as possible by writing
+	 * it just before SPSURF.
+	 */
+	I915_WRITE_FW(SPCNTR(pipe, plane_id), sprctl); //
 	I915_WRITE_FW(SPSURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + sprsurf_offset);
 	POSTING_READ_FW(SPSURF(pipe, plane_id));
@@ -640,7 +652,6 @@ vlv_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
 	I915_WRITE_FW(SPCNTR(pipe, plane_id), 0);
-
 	I915_WRITE_FW(SPSURF(pipe, plane_id), 0);
 	POSTING_READ_FW(SPSURF(pipe, plane_id));
 
@@ -787,7 +798,13 @@ ivb_update_plane(struct intel_plane *plane,
 	I915_WRITE_FW(SPRSIZE(pipe), (crtc_h << 16) | crtc_w);
 	if (plane->can_scale)
 		I915_WRITE_FW(SPRSCALE(pipe), sprscale);
-	I915_WRITE_FW(SPRCTL(pipe), sprctl);
+
+	/*
+	 * SPRCTL self-arms if the plane was previously disabled.
+	 * Try to make the update as atomic as possible by writing
+	 * it just before SPRSURF.
+	 */
+	I915_WRITE_FW(SPRCTL(pipe), sprctl); //
 	I915_WRITE_FW(SPRSURF(pipe),
 		      intel_plane_ggtt_offset(plane_state) + sprsurf_offset);
 	POSTING_READ_FW(SPRSURF(pipe));
@@ -946,7 +963,13 @@ g4x_update_plane(struct intel_plane *plane,
 
 	I915_WRITE_FW(DVSSIZE(pipe), (crtc_h << 16) | crtc_w);
 	I915_WRITE_FW(DVSSCALE(pipe), dvsscale);
-	I915_WRITE_FW(DVSCNTR(pipe), dvscntr);
+
+	/*
+	 * DVSCNTR self-arms if the plane was previously disabled.
+	 * Try to make the update as atomic as possible by writing
+	 * it just before DVSSURF.
+	 */
+	I915_WRITE_FW(DVSCNTR(pipe), dvscntr);//
 	I915_WRITE_FW(DVSSURF(pipe),
 		      intel_plane_ggtt_offset(plane_state) + dvssurf_offset);
 	POSTING_READ_FW(DVSSURF(pipe));
@@ -966,7 +989,6 @@ g4x_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
 	I915_WRITE_FW(DVSCNTR(pipe), 0);
 	/* Disable the scaler */
 	I915_WRITE_FW(DVSSCALE(pipe), 0);
-
 	I915_WRITE_FW(DVSSURF(pipe), 0);
 	POSTING_READ_FW(DVSSURF(pipe));
 

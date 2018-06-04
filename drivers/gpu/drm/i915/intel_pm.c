@@ -3885,9 +3885,10 @@ static void skl_ddb_entry_init_from_hw(struct drm_i915_private *dev_priv,
 
 static void
 skl_ddb_get_hw_plane_state(struct drm_i915_private *dev_priv,
-			   const enum pipe pipe,
+			   enum pipe pipe,
 			   const enum plane_id plane_id,
-			   struct skl_ddb_allocation *ddb /* out */)
+			   struct skl_ddb_entry *ddb_y,
+			   struct skl_ddb_entry *ddb_uv)
 {
 	u32 val, val2 = 0;
 	int fourcc, pixel_format;
@@ -3895,8 +3896,7 @@ skl_ddb_get_hw_plane_state(struct drm_i915_private *dev_priv,
 	/* Cursor doesn't support NV12/planar, so no extra calculation needed */
 	if (plane_id == PLANE_CURSOR) {
 		val = I915_READ(CUR_BUF_CFG(pipe));
-		skl_ddb_entry_init_from_hw(dev_priv,
-					   &ddb->plane[pipe][plane_id], val);
+		skl_ddb_entry_init_from_hw(dev_priv, ddb_y, val);
 		return;
 	}
 
@@ -3915,40 +3915,43 @@ skl_ddb_get_hw_plane_state(struct drm_i915_private *dev_priv,
 	val2 = I915_READ(PLANE_NV12_BUF_CFG(pipe, plane_id));
 
 	if (fourcc == DRM_FORMAT_NV12) {
-		skl_ddb_entry_init_from_hw(dev_priv,
-					   &ddb->plane[pipe][plane_id], val2);
-		skl_ddb_entry_init_from_hw(dev_priv,
-					   &ddb->uv_plane[pipe][plane_id], val);
+		skl_ddb_entry_init_from_hw(dev_priv, ddb_y, val2);
+		skl_ddb_entry_init_from_hw(dev_priv, ddb_uv, val);
 	} else {
-		skl_ddb_entry_init_from_hw(dev_priv,
-					   &ddb->plane[pipe][plane_id], val);
+		skl_ddb_entry_init_from_hw(dev_priv, ddb_y, val);
+		skl_ddb_entry_init_from_hw(dev_priv, ddb_uv, val2);
 	}
 }
 
 void skl_ddb_get_hw_state(struct drm_i915_private *dev_priv,
 			  struct skl_ddb_allocation *ddb /* out */)
 {
-	struct intel_crtc *crtc;
-
 	memset(ddb, 0, sizeof(*ddb));
 
 	ddb->enabled_slices = intel_enabled_dbuf_slices_num(dev_priv);
+}
 
-	for_each_intel_crtc(&dev_priv->drm, crtc) {
-		enum intel_display_power_domain power_domain;
-		enum plane_id plane_id;
-		enum pipe pipe = crtc->pipe;
 
-		power_domain = POWER_DOMAIN_PIPE(pipe);
-		if (!intel_display_power_get_if_enabled(dev_priv, power_domain))
-			continue;
+void skl_pipe_ddb_get_hw_state(struct intel_crtc *crtc,
+			       struct skl_ddb_entry plane_ddb_y[],
+			       struct skl_ddb_entry plane_ddb_uv[])
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum intel_display_power_domain power_domain;
+	enum pipe pipe = crtc->pipe;
+	enum plane_id plane_id;
 
-		for_each_plane_id_on_crtc(crtc, plane_id)
-			skl_ddb_get_hw_plane_state(dev_priv, pipe,
-						   plane_id, ddb);
+	power_domain = POWER_DOMAIN_PIPE(pipe);
+	if (!intel_display_power_get_if_enabled(dev_priv, power_domain))
+		return;
 
-		intel_display_power_put(dev_priv, power_domain);
-	}
+	for_each_plane_id_on_crtc(crtc, plane_id)
+		skl_ddb_get_hw_plane_state(dev_priv, pipe,
+					   plane_id,
+					   &plane_ddb_y[plane_id],
+					   &plane_ddb_uv[plane_id]);
+
+	intel_display_power_put(dev_priv, power_domain);
 }
 
 /*
@@ -4282,7 +4285,6 @@ skl_allocate_pipe_ddb(struct intel_crtc_state *cstate,
 	struct drm_crtc *crtc = cstate->base.crtc;
 	struct drm_device *dev = crtc->dev;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	enum pipe pipe = intel_crtc->pipe;
 	struct skl_ddb_entry *alloc = &cstate->wm.skl.ddb;
 	uint16_t alloc_size, start;
 	uint16_t minimum[I915_MAX_PLANES] = {};
@@ -4295,8 +4297,8 @@ skl_allocate_pipe_ddb(struct intel_crtc_state *cstate,
 	uint16_t total_min_blocks = 0;
 
 	/* Clear the partitioning for disabled planes. */
-	memset(ddb->plane[pipe], 0, sizeof(ddb->plane[pipe]));
-	memset(ddb->uv_plane[pipe], 0, sizeof(ddb->uv_plane[pipe]));
+	memset(cstate->wm.skl.plane_ddb_y, 0, sizeof(cstate->wm.skl.plane_ddb_y));
+	memset(cstate->wm.skl.plane_ddb_uv, 0, sizeof(cstate->wm.skl.plane_ddb_uv));
 
 	if (WARN_ON(!state))
 		return 0;
@@ -4336,8 +4338,8 @@ skl_allocate_pipe_ddb(struct intel_crtc_state *cstate,
 	}
 
 	alloc_size -= total_min_blocks;
-	ddb->plane[pipe][PLANE_CURSOR].start = alloc->end - minimum[PLANE_CURSOR];
-	ddb->plane[pipe][PLANE_CURSOR].end = alloc->end;
+	cstate->wm.skl.plane_ddb_y[PLANE_CURSOR].start = alloc->end - minimum[PLANE_CURSOR];
+	cstate->wm.skl.plane_ddb_y[PLANE_CURSOR].end = alloc->end;
 
 	/*
 	 * 2. Distribute the remaining space in proportion to the amount of
@@ -4369,8 +4371,8 @@ skl_allocate_pipe_ddb(struct intel_crtc_state *cstate,
 
 		/* Leave disabled planes at (0,0) */
 		if (data_rate) {
-			ddb->plane[pipe][plane_id].start = start;
-			ddb->plane[pipe][plane_id].end = start + plane_blocks;
+			cstate->wm.skl.plane_ddb_y[plane_id].start = start;
+			cstate->wm.skl.plane_ddb_y[plane_id].end = start + plane_blocks;
 		}
 
 		start += plane_blocks;
@@ -4383,8 +4385,8 @@ skl_allocate_pipe_ddb(struct intel_crtc_state *cstate,
 					   total_data_rate);
 
 		if (uv_data_rate) {
-			ddb->uv_plane[pipe][plane_id].start = start;
-			ddb->uv_plane[pipe][plane_id].end =
+			cstate->wm.skl.plane_ddb_uv[plane_id].start = start;
+			cstate->wm.skl.plane_ddb_uv[plane_id].end =
 				start + uv_plane_blocks;
 		}
 
@@ -4746,11 +4748,9 @@ skl_compute_wm_levels(const struct drm_i915_private *dev_priv,
 		      struct skl_plane_wm *wm,
 		      int plane_id)
 {
-	struct intel_crtc *intel_crtc = to_intel_crtc(cstate->base.crtc);
 	struct drm_plane *plane = intel_pstate->base.plane;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	uint16_t ddb_blocks;
-	enum pipe pipe = intel_crtc->pipe;
 	int level, max_level = ilk_wm_max_level(dev_priv);
 	enum plane_id intel_plane_id = intel_plane->id;
 	int ret;
@@ -4759,8 +4759,8 @@ skl_compute_wm_levels(const struct drm_i915_private *dev_priv,
 		return -EINVAL;
 
 	ddb_blocks = plane_id ?
-		     skl_ddb_entry_size(&ddb->uv_plane[pipe][intel_plane_id]) :
-		     skl_ddb_entry_size(&ddb->plane[pipe][intel_plane_id]);
+		     skl_ddb_entry_size(&cstate->wm.skl.plane_ddb_uv[intel_plane_id]) :
+		     skl_ddb_entry_size(&cstate->wm.skl.plane_ddb_y[intel_plane_id]);
 
 	for (level = 0; level <= max_level; level++) {
 		struct skl_wm_level *result = plane_id ? &wm->uv_wm[level] :
@@ -4892,11 +4892,10 @@ static int skl_build_pipe_wm(struct intel_crtc_state *cstate,
 						to_intel_plane_state(pstate);
 		enum plane_id plane_id = to_intel_plane(plane)->id;
 		struct skl_wm_params wm_params;
-		enum pipe pipe = to_intel_crtc(cstate->base.crtc)->pipe;
 		uint16_t ddb_blocks;
 
 		wm = &pipe_wm->planes[plane_id];
-		ddb_blocks = skl_ddb_entry_size(&ddb->plane[pipe][plane_id]);
+		ddb_blocks = skl_ddb_entry_size(&cstate->wm.skl.plane_ddb_y[plane_id]);
 
 		ret = skl_compute_plane_wm_params(dev_priv, cstate,
 						  intel_pstate, &wm_params, 0);
@@ -5032,16 +5031,15 @@ static inline bool skl_ddb_entries_overlap(const struct skl_ddb_entry *a,
 	return a->start < b->end && b->start < a->end;
 }
 
-bool skl_ddb_allocation_overlaps(struct drm_i915_private *dev_priv,
-				 const struct skl_ddb_entry **entries,
-				 const struct skl_ddb_entry *ddb,
-				 int ignore)
+bool skl_ddb_allocation_overlaps(const struct skl_ddb_entry *ddb,
+				 const struct skl_ddb_entry entries[],
+				 int num_entries, int ignore_idx)
 {
-	enum pipe pipe;
+	int i;
 
-	for_each_pipe(dev_priv, pipe) {
-		if (pipe != ignore && entries[pipe] &&
-		    skl_ddb_entries_overlap(ddb, entries[pipe]))
+	for (i = 0; i < num_entries; i++) {
+		if (i != ignore_idx &&
+		    skl_ddb_entries_overlap(ddb, &entries[i]))
 			return true;
 	}
 
@@ -5082,30 +5080,38 @@ pipes_modified(struct drm_atomic_state *state)
 	return ret;
 }
 
-static int
-skl_ddb_add_affected_planes(struct intel_crtc_state *cstate)
+static void dump_ddb(const char *name,
+		     const struct skl_ddb_entry entries[])
 {
-	struct drm_atomic_state *state = cstate->base.state;
-	struct drm_device *dev = state->dev;
-	struct drm_crtc *crtc = cstate->base.crtc;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
-	struct skl_ddb_allocation *new_ddb = &intel_state->wm_results.ddb;
-	struct skl_ddb_allocation *cur_ddb = &dev_priv->wm.skl_hw.ddb;
-	struct drm_plane *plane;
-	enum pipe pipe = intel_crtc->pipe;
+	int i;
 
-	drm_for_each_plane_mask(plane, dev, cstate->base.plane_mask) {
+	DRM_DEBUG_KMS("ddb %s\n", name);
+	for (i = 0; i < I915_MAX_PLANES; i++)
+		DRM_DEBUG_KMS(" %d: %d - %d\n", i, entries[i].start, entries[i].end);
+}
+
+static int
+skl_ddb_add_affected_planes(struct intel_crtc_state *new_crtc_state)
+{
+	struct drm_atomic_state *state = new_crtc_state->base.state;
+	struct drm_device *dev = state->dev;
+	struct drm_crtc *crtc = new_crtc_state->base.crtc;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_atomic_state *intel_state = to_intel_atomic_state(state);
+	struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(intel_state, intel_crtc);
+	struct drm_plane *plane;
+
+	drm_for_each_plane_mask(plane, dev, new_crtc_state->base.plane_mask) {
 		struct intel_plane_state *plane_state;
 		enum plane_id plane_id = to_intel_plane(plane)->id;
 
 		/* FIXME: need to handle cursor better */
 		if (plane_id != PLANE_CURSOR &&
-		    skl_ddb_entry_equal(&cur_ddb->plane[pipe][plane_id],
-					&new_ddb->plane[pipe][plane_id]) &&
-		    skl_ddb_entry_equal(&cur_ddb->uv_plane[pipe][plane_id],
-					&new_ddb->uv_plane[pipe][plane_id]))
+		    skl_ddb_entry_equal(&old_crtc_state->wm.skl.plane_ddb_y[plane_id],
+					&new_crtc_state->wm.skl.plane_ddb_y[plane_id]) &&
+		    skl_ddb_entry_equal(&old_crtc_state->wm.skl.plane_ddb_uv[plane_id],
+					&new_crtc_state->wm.skl.plane_ddb_uv[plane_id]))
 			continue;
 
 		plane_state = intel_atomic_get_plane_state(state,
@@ -5113,8 +5119,11 @@ skl_ddb_add_affected_planes(struct intel_crtc_state *cstate)
 		if (IS_ERR(plane_state))
 			return PTR_ERR(plane_state);
 
-		plane_state->ddb_y = new_ddb->plane[pipe][plane_id];
-		plane_state->ddb_uv = new_ddb->uv_plane[pipe][plane_id];
+		DRM_DEBUG_KMS("[PLANE:%d:%s] computed ddb:\n", plane->base.id, plane->name);
+		dump_ddb("new y", new_crtc_state->wm.skl.plane_ddb_y);
+		dump_ddb("new uv", new_crtc_state->wm.skl.plane_ddb_uv);
+		dump_ddb("old y", old_crtc_state->wm.skl.plane_ddb_y);
+		dump_ddb("old uv", old_crtc_state->wm.skl.plane_ddb_uv);
 	}
 
 	return 0;
@@ -5150,10 +5159,6 @@ skl_copy_ddb_for_pipe(struct skl_ddb_values *dst,
 		      struct skl_ddb_values *src,
 		      enum pipe pipe)
 {
-	memcpy(dst->ddb.uv_plane[pipe], src->ddb.uv_plane[pipe],
-	       sizeof(dst->ddb.uv_plane[pipe]));
-	memcpy(dst->ddb.plane[pipe], src->ddb.plane[pipe],
-	       sizeof(dst->ddb.plane[pipe]));
 	dst->ddb.enabled_slices = src->ddb.enabled_slices;
 }
 
@@ -5161,33 +5166,28 @@ static void
 skl_print_wm_changes(const struct drm_atomic_state *state)
 {
 	const struct drm_device *dev = state->dev;
-	const struct drm_i915_private *dev_priv = to_i915(dev);
 	const struct intel_atomic_state *intel_state =
 		to_intel_atomic_state(state);
-	const struct drm_crtc *crtc;
-	const struct drm_crtc_state *cstate;
-	const struct intel_plane *intel_plane;
-	const struct skl_ddb_allocation *old_ddb = &dev_priv->wm.skl_hw.ddb;
-	const struct skl_ddb_allocation *new_ddb = &intel_state->wm_results.ddb;
+	const struct intel_crtc *crtc;
+	const struct intel_crtc_state *old_crtc_state;
+	const struct intel_crtc_state *new_crtc_state;
+	const struct intel_plane *plane;
 	int i;
 
-	for_each_new_crtc_in_state(state, crtc, cstate, i) {
-		const struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-		enum pipe pipe = intel_crtc->pipe;
-
-		for_each_intel_plane_on_crtc(dev, intel_crtc, intel_plane) {
-			enum plane_id plane_id = intel_plane->id;
+	for_each_oldnew_intel_crtc_in_state(intel_state, crtc, old_crtc_state, new_crtc_state, i) {
+		for_each_intel_plane_on_crtc(dev, crtc, plane) {
+			enum plane_id plane_id = plane->id;
 			const struct skl_ddb_entry *old, *new;
 
-			old = &old_ddb->plane[pipe][plane_id];
-			new = &new_ddb->plane[pipe][plane_id];
+			old = &old_crtc_state->wm.skl.plane_ddb_y[plane_id];
+			new = &new_crtc_state->wm.skl.plane_ddb_y[plane_id];
 
 			if (skl_ddb_entry_equal(old, new))
 				continue;
 
 			DRM_DEBUG_ATOMIC("[PLANE:%d:%s] ddb (%d - %d) -> (%d - %d)\n",
-					 intel_plane->base.base.id,
-					 intel_plane->base.name,
+			plane->base.base.id,
+			plane->base.name,
 					 old->start, old->end,
 					 new->start, new->end);
 		}
@@ -5466,19 +5466,18 @@ static inline void skl_wm_level_from_reg_val(uint32_t val,
 		PLANE_WM_LINES_MASK;
 }
 
-void skl_pipe_wm_get_hw_state(struct drm_crtc *crtc,
+void skl_pipe_wm_get_hw_state(struct intel_crtc *crtc,
 			      struct skl_pipe_wm *out)
 {
-	struct drm_i915_private *dev_priv = to_i915(crtc->dev);
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	enum pipe pipe = intel_crtc->pipe;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
 	int level, max_level;
 	enum plane_id plane_id;
 	uint32_t val;
 
 	max_level = ilk_wm_max_level(dev_priv);
 
-	for_each_plane_id_on_crtc(intel_crtc, plane_id) {
+	for_each_plane_id_on_crtc(crtc, plane_id) {
 		struct skl_plane_wm *wm = &out->planes[plane_id];
 
 		for (level = 0; level <= max_level; level++) {
@@ -5498,7 +5497,7 @@ void skl_pipe_wm_get_hw_state(struct drm_crtc *crtc,
 		skl_wm_level_from_reg_val(val, &wm->trans_wm);
 	}
 
-	if (!intel_crtc->active)
+	if (!crtc->active)
 		return;
 
 	out->linetime = I915_READ(PIPE_WM_LINETIME(pipe));
@@ -5509,31 +5508,24 @@ void skl_wm_get_hw_state(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct skl_ddb_values *hw = &dev_priv->wm.skl_hw;
 	struct skl_ddb_allocation *ddb = &dev_priv->wm.skl_hw.ddb;
-	struct drm_crtc *crtc;
-	struct intel_crtc *intel_crtc;
+	struct intel_crtc *crtc;
 	struct intel_crtc_state *cstate;
 
 	skl_ddb_get_hw_state(dev_priv, ddb);
-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-		intel_crtc = to_intel_crtc(crtc);
-		cstate = to_intel_crtc_state(crtc->state);
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
+		cstate = to_intel_crtc_state(crtc->base.state);
 
 		skl_pipe_wm_get_hw_state(crtc, &cstate->wm.skl.optimal);
+		skl_pipe_ddb_get_hw_state(crtc, cstate->wm.skl.plane_ddb_y,
+					  cstate->wm.skl.plane_ddb_uv);
 
-		if (intel_crtc->active)
-			hw->dirty_pipes |= drm_crtc_mask(crtc);
+		if (crtc->active)
+			hw->dirty_pipes |= drm_crtc_mask(&crtc->base);
 	}
 
 	if (dev_priv->active_crtcs) {
 		/* Fully recompute DDB on first atomic commit */
 		dev_priv->wm.distrust_bios_wm = true;
-	} else {
-		/*
-		 * Easy/common case; just sanitize DDB now if everything off
-		 * Keep dbuf slice info intact
-		 */
-		memset(ddb->plane, 0, sizeof(ddb->plane));
-		memset(ddb->uv_plane, 0, sizeof(ddb->uv_plane));
 	}
 }
 

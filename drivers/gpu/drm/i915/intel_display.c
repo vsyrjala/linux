@@ -3316,7 +3316,6 @@ static void i9xx_update_plane(struct intel_plane *plane,
 	enum i9xx_plane_id i9xx_plane = plane->i9xx_plane;
 	u32 linear_offset;
 	u32 dspcntr = plane_state->ctl;
-	i915_reg_t reg = DSPCNTR(i9xx_plane);
 	int x = plane_state->main.x;
 	int y = plane_state->main.y;
 	unsigned long irqflags;
@@ -3347,26 +3346,32 @@ static void i9xx_update_plane(struct intel_plane *plane,
 		I915_WRITE_FW(PRIMCNSTALPHA(i9xx_plane), 0);
 	}
 
-	I915_WRITE_FW(reg, dspcntr);
-
 	I915_WRITE_FW(DSPSTRIDE(i9xx_plane), fb->pitches[0]);
+
 	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
-		I915_WRITE_FW(DSPSURF(i9xx_plane),
-			      intel_plane_ggtt_offset(plane_state) +
-			      dspaddr_offset);
 		I915_WRITE_FW(DSPOFFSET(i9xx_plane), (y << 16) | x);
 	} else if (INTEL_GEN(dev_priv) >= 4) {
+		I915_WRITE_FW(DSPTILEOFF(i9xx_plane), (y << 16) | x);
+		I915_WRITE_FW(DSPLINOFF(i9xx_plane), linear_offset);
+	}
+
+	/*
+	 * DSPCNTR self-arms if the plane was previously disabled.
+	 * Try to make the update as atomic as possible by writing
+	 * it just before DSPSURF/DSPADDR.
+	 */
+	I915_WRITE_FW(DSPCNTR(i9xx_plane), dspcntr); //
+
+	if (INTEL_GEN(dev_priv) >= 4) {
 		I915_WRITE_FW(DSPSURF(i9xx_plane),
 			      intel_plane_ggtt_offset(plane_state) +
 			      dspaddr_offset);
-		I915_WRITE_FW(DSPTILEOFF(i9xx_plane), (y << 16) | x);
-		I915_WRITE_FW(DSPLINOFF(i9xx_plane), linear_offset);
 	} else {
 		I915_WRITE_FW(DSPADDR(i9xx_plane),
 			      intel_plane_ggtt_offset(plane_state) +
 			      dspaddr_offset);
 	}
-	POSTING_READ_FW(reg);
+	POSTING_READ_FW(DSPCNTR(i9xx_plane));
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
@@ -4998,10 +5003,12 @@ static void skylake_pfit_enable(struct intel_crtc *crtc)
 		I915_WRITE(SKL_PS_CTRL(pipe, id), PS_SCALER_EN |
 			   PS_ALLOW_DOUBLE_BUFFER_DISABLE |
 			   PS_FILTER_MEDIUM | scaler_state->scalers[id].mode);
+#if 0
 		I915_WRITE_FW(SKL_PS_VPHASE(pipe, id),
 			      PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_vphase));
 		I915_WRITE_FW(SKL_PS_HPHASE(pipe, id),
 			      PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_hphase));
+#endif
 		I915_WRITE(SKL_PS_WIN_POS(pipe, id), crtc->config->pch_pfit.pos);
 		I915_WRITE(SKL_PS_WIN_SZ(pipe, id), crtc->config->pch_pfit.size);
 	}
@@ -9703,9 +9710,6 @@ static void i845_update_cursor(struct intel_plane *plane,
 
 		base = intel_cursor_base(plane_state);
 		pos = intel_cursor_position(plane_state);
-
-		ddb = plane_state->ddb_y;
-		wm = crtc_state->wm.skl.optimal.planes[plane->id];
 	}
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
@@ -9911,6 +9915,9 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 
 		base = intel_cursor_base(plane_state);
 		pos = intel_cursor_position(plane_state);
+
+		ddb = crtc_state->wm.skl.plane_ddb_y[plane->id];
+		wm = crtc_state->wm.skl.optimal.planes[plane->id];
 	}
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
@@ -9936,18 +9943,24 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 	if (plane->cursor.base != base ||
 	    plane->cursor.size != fbc_ctl ||
 	    plane->cursor.cntl != cntl) {
+		/*
+		 * CURCNTR self-arms if the plane was previously disabled.
+		 * Try to make the update as atomic as possible by writing
+		 * it just before CURBASE.
+		 */
 		if (INTEL_GEN(dev_priv) >= 9) {
-			I915_WRITE_FW(CURCNTR(pipe), cntl |
-				      MCURSOR_ALLOW_DOUBLE_BUFFER_DISABLE);
+			//I915_WRITE_FW(CURCNTR(pipe), cntl);
 			I915_WRITE_FW(CUR_FBC_CTL(pipe), fbc_ctl);
 			I915_WRITE_FW(CURPOS(pipe), pos);
 			skl_write_cursor_wm(plane, &wm, &ddb);
+			I915_WRITE_FW(CURCNTR(pipe), cntl); //
 			I915_WRITE_FW(CURBASE(pipe), base);
 		} else {
-			I915_WRITE_FW(CURCNTR(pipe), cntl);
+			//I915_WRITE_FW(CURCNTR(pipe), cntl);
 			if (HAS_CUR_FBC(dev_priv))
 				I915_WRITE_FW(CUR_FBC_CTL(pipe), fbc_ctl);
 			I915_WRITE_FW(CURPOS(pipe), pos);
+			I915_WRITE_FW(CURCNTR(pipe), cntl); //
 			I915_WRITE_FW(CURBASE(pipe), base);
 		}
 
@@ -11587,15 +11600,21 @@ static void verify_wm_state(struct drm_crtc *crtc,
 	struct skl_pipe_wm hw_wm, *sw_wm;
 	struct skl_plane_wm *hw_plane_wm, *sw_plane_wm;
 	struct skl_ddb_entry *hw_ddb_entry, *sw_ddb_entry;
+	struct skl_ddb_entry hw_ddb_y[I915_MAX_PLANES];
+	struct skl_ddb_entry hw_ddb_uv[I915_MAX_PLANES];
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	const enum pipe pipe = intel_crtc->pipe;
 	int plane, level, max_level = ilk_wm_max_level(dev_priv);
 
+	return;
+
 	if (INTEL_GEN(dev_priv) < 9 || !new_state->active)
 		return;
 
-	skl_pipe_wm_get_hw_state(crtc, &hw_wm);
+	skl_pipe_wm_get_hw_state(intel_crtc, &hw_wm);
 	sw_wm = &to_intel_crtc_state(new_state)->wm.skl.optimal;
+
+	skl_pipe_ddb_get_hw_state(intel_crtc, hw_ddb_y, hw_ddb_uv);
 
 	skl_ddb_get_hw_state(dev_priv, &hw_ddb);
 	sw_ddb = &dev_priv->wm.skl_hw.ddb;
@@ -11639,8 +11658,8 @@ static void verify_wm_state(struct drm_crtc *crtc,
 		}
 
 		/* DDB */
-		hw_ddb_entry = &hw_ddb.plane[pipe][plane];
-		sw_ddb_entry = &sw_ddb->plane[pipe][plane];
+		hw_ddb_entry = &hw_ddb_y[plane];
+		sw_ddb_entry = &to_intel_crtc_state(new_state)->wm.skl.plane_ddb_y[plane];
 
 		if (!skl_ddb_entry_equal(hw_ddb_entry, sw_ddb_entry)) {
 			DRM_ERROR("mismatch in DDB state pipe %c plane %d (expected (%u,%u), found (%u,%u))\n",
@@ -11689,8 +11708,8 @@ static void verify_wm_state(struct drm_crtc *crtc,
 		}
 
 		/* DDB */
-		hw_ddb_entry = &hw_ddb.plane[pipe][PLANE_CURSOR];
-		sw_ddb_entry = &sw_ddb->plane[pipe][PLANE_CURSOR];
+		hw_ddb_entry = &hw_ddb_y[PLANE_CURSOR];
+		sw_ddb_entry = &to_intel_crtc_state(new_state)->wm.skl.plane_ddb_y[PLANE_CURSOR];
 
 		if (!skl_ddb_entry_equal(hw_ddb_entry, sw_ddb_entry)) {
 			DRM_ERROR("mismatch in DDB state pipe %c cursor (expected (%u,%u), found (%u,%u))\n",
@@ -12357,6 +12376,131 @@ u32 intel_crtc_get_vblank_counter(struct intel_crtc *crtc)
 	return dev->driver->get_vblank_counter(dev, crtc->pipe);
 }
 
+static void intel_plane_commit(struct drm_atomic_state *state,
+			       struct drm_plane *plane)
+{
+	struct drm_plane_state *old_plane_state =
+		drm_atomic_get_old_plane_state(state, plane);
+	struct drm_plane_state *new_plane_state =
+		drm_atomic_get_new_plane_state(state, plane);
+	const struct drm_plane_helper_funcs *plane_funcs =
+		plane->helper_private;
+
+	DRM_DEBUG_KMS("commiting [PLANE:%d:%s]\n",
+		      plane->base.id, plane->name);
+
+	if (WARN(!old_plane_state || !new_plane_state,
+		 "old state %p new state %p\n",
+		 old_plane_state, new_plane_state))
+		return;
+
+	if (drm_atomic_plane_disabling(old_plane_state, new_plane_state) ||
+	    new_plane_state->crtc)
+		plane_funcs->atomic_update(plane, old_plane_state);
+}
+
+#define drm_plane_mask(p) BIT(drm_plane_index(p))
+
+static void dump_ddb(const char *name,
+		     const struct skl_ddb_entry entries[])
+{
+	int i;
+
+	DRM_DEBUG_KMS("ddb %s\n", name);
+	for (i = 0; i < I915_MAX_PLANES; i++)
+		DRM_DEBUG_KMS(" %d: %d - %d\n", i, entries[i].start, entries[i].end);
+}
+
+static struct intel_plane *
+skl_next_plane_to_commit(struct intel_atomic_state *state,
+			 struct intel_crtc *crtc,
+			 struct skl_ddb_entry entries_y[I915_MAX_PLANES],
+			 struct skl_ddb_entry entries_uv[I915_MAX_PLANES],
+			 unsigned int *plane_mask)
+{
+	const struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+	struct intel_plane_state *plane_state;
+	struct intel_plane *plane;
+	int i;
+
+	if (*plane_mask == 0)
+		return NULL;
+
+	for_each_new_intel_plane_in_state(state, plane, plane_state, i) {
+		enum plane_id plane_id = plane->id;
+
+		if (!(*plane_mask & drm_plane_mask(&plane->base)))
+			continue;
+
+		if (skl_ddb_allocation_overlaps(&crtc_state->wm.skl.plane_ddb_y[plane_id],
+						entries_y,
+						I915_MAX_PLANES, plane_id) ||
+		    skl_ddb_allocation_overlaps(&crtc_state->wm.skl.plane_ddb_uv[plane_id],
+						entries_uv,
+						I915_MAX_PLANES, plane_id))
+			continue;
+
+		*plane_mask &= ~drm_plane_mask(&plane->base);
+		entries_y[plane_id] = crtc_state->wm.skl.plane_ddb_y[plane_id];
+		entries_uv[plane_id] = crtc_state->wm.skl.plane_ddb_uv[plane_id];
+
+		return plane;
+	}
+
+	/* should never happen */
+	WARN_ON(1);
+
+	return NULL;
+}
+
+static void skl_commit_planes_on_crtc(struct intel_atomic_state *state,
+				      struct intel_crtc *crtc)
+{
+	const struct drm_crtc_helper_funcs *crtc_funcs =
+		crtc_funcs = crtc->base.helper_private;
+	struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(state, crtc);
+	struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+	struct skl_ddb_entry entries_y[I915_MAX_PLANES];
+	struct skl_ddb_entry entries_uv[I915_MAX_PLANES];
+	struct intel_plane *plane;
+	unsigned int plane_mask = old_crtc_state->base.plane_mask |
+		new_crtc_state->base.plane_mask;
+
+	DRM_DEBUG_KMS("plane mask 0x%x\n", plane_mask);
+
+	memcpy(entries_y, old_crtc_state->wm.skl.plane_ddb_y,
+	       sizeof(old_crtc_state->wm.skl.plane_ddb_y));
+	memcpy(entries_uv, old_crtc_state->wm.skl.plane_ddb_uv,
+	       sizeof(old_crtc_state->wm.skl.plane_ddb_uv));
+
+	crtc_funcs->atomic_begin(&crtc->base, &old_crtc_state->base);
+
+	while ((plane = skl_next_plane_to_commit(state, crtc,
+						 entries_y, entries_uv,
+						 &plane_mask)))
+		intel_plane_commit(&state->base, &plane->base);
+
+	crtc_funcs->atomic_flush(&crtc->base, &old_crtc_state->base);
+
+	if (WARN(memcmp(entries_y, &new_crtc_state->wm.skl.plane_ddb_y,
+			sizeof(new_crtc_state->wm.skl.plane_ddb_y)) != 0,
+		 "[CRTC:%d:%s] old and new plane Y DDB differs\n",
+		 crtc->base.base.id, crtc->base.name)) {
+		dump_ddb("entries_y", entries_y);
+		dump_ddb("new ddb_y", new_crtc_state->wm.skl.plane_ddb_y);
+	}
+	if (WARN(memcmp(entries_uv, &new_crtc_state->wm.skl.plane_ddb_uv,
+			sizeof(new_crtc_state->wm.skl.plane_ddb_uv)) != 0,
+		 "[CRTC:%d:%s] old and new plane UV DDB differs\n",
+		 crtc->base.base.id, crtc->base.name)) {
+		dump_ddb("entries_uv", entries_uv);
+		dump_ddb("new ddb_uv", new_crtc_state->wm.skl.plane_ddb_uv);
+	}
+}
+
 static void intel_update_crtc(struct drm_crtc *crtc,
 			      struct drm_atomic_state *state,
 			      struct drm_crtc_state *old_crtc_state,
@@ -12384,7 +12528,10 @@ static void intel_update_crtc(struct drm_crtc *crtc,
 	if (new_plane_state)
 		intel_fbc_enable(intel_crtc, pipe_config, new_plane_state);
 
-	drm_atomic_helper_commit_planes_on_crtc(old_crtc_state);
+	if (INTEL_GEN(dev_priv) >= 9)
+		skl_commit_planes_on_crtc(to_intel_atomic_state(state), intel_crtc);
+	else
+		drm_atomic_helper_commit_planes_on_crtc(old_crtc_state);
 }
 
 static void intel_update_crtcs(struct drm_atomic_state *state)
@@ -12416,13 +12563,12 @@ static void skl_update_crtcs(struct drm_atomic_state *state)
 	int i;
 	u8 hw_enabled_slices = dev_priv->wm.skl_hw.ddb.enabled_slices;
 	u8 required_slices = intel_state->wm_results.ddb.enabled_slices;
-
-	const struct skl_ddb_entry *entries[I915_MAX_PIPES] = {};
+	struct skl_ddb_entry entries[I915_MAX_PIPES] = {};
 
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i)
 		/* ignore allocations for crtc's that have been turned off. */
 		if (new_crtc_state->active)
-			entries[i] = &to_intel_crtc_state(old_crtc_state)->wm.skl.ddb;
+			entries[i] = to_intel_crtc_state(old_crtc_state)->wm.skl.ddb;
 
 	/* If 2nd DBuf slice required, enable it here */
 	if (INTEL_GEN(dev_priv) >= 11 && required_slices > hw_enabled_slices)
@@ -12448,14 +12594,14 @@ static void skl_update_crtcs(struct drm_atomic_state *state)
 			if (updated & cmask || !cstate->base.active)
 				continue;
 
-			if (skl_ddb_allocation_overlaps(dev_priv,
+			if (skl_ddb_allocation_overlaps(&cstate->wm.skl.ddb,
 							entries,
-							&cstate->wm.skl.ddb,
+							INTEL_INFO(dev_priv)->num_pipes,
 							i))
 				continue;
 
 			updated |= cmask;
-			entries[i] = &cstate->wm.skl.ddb;
+			entries[i] = cstate->wm.skl.ddb;
 
 			/*
 			 * If this is an already active pipe, it's DDB changed,
