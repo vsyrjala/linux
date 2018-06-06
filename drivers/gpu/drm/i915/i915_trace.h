@@ -118,9 +118,9 @@ TRACE_EVENT(g4x_wm,
 			   __entry->frame = crtc->base.dev->driver->get_vblank_counter(crtc->base.dev,
 										       crtc->pipe);
 			   __entry->scanline = intel_get_crtc_scanline(crtc);
-			   __entry->primary = wm->pipe[crtc->pipe].plane[PLANE_PRIMARY];
-			   __entry->sprite = wm->pipe[crtc->pipe].plane[PLANE_SPRITE0];
-			   __entry->cursor = wm->pipe[crtc->pipe].plane[PLANE_CURSOR];
+			   __entry->primary = wm->normal[crtc->pipe].plane[PLANE_PRIMARY];
+			   __entry->sprite = wm->normal[crtc->pipe].plane[PLANE_SPRITE0];
+			   __entry->cursor = wm->normal[crtc->pipe].plane[PLANE_CURSOR];
 			   __entry->sr_plane = wm->sr.plane;
 			   __entry->sr_cursor = wm->sr.cursor;
 			   __entry->sr_fbc = wm->sr.fbc;
@@ -164,10 +164,10 @@ TRACE_EVENT(vlv_wm,
 										       crtc->pipe);
 			   __entry->scanline = intel_get_crtc_scanline(crtc);
 			   __entry->level = wm->level;
-			   __entry->primary = wm->pipe[crtc->pipe].plane[PLANE_PRIMARY];
-			   __entry->sprite0 = wm->pipe[crtc->pipe].plane[PLANE_SPRITE0];
-			   __entry->sprite1 = wm->pipe[crtc->pipe].plane[PLANE_SPRITE1];
-			   __entry->cursor = wm->pipe[crtc->pipe].plane[PLANE_CURSOR];
+			   __entry->primary = wm->normal[crtc->pipe].plane[PLANE_PRIMARY];
+			   __entry->sprite0 = wm->normal[crtc->pipe].plane[PLANE_SPRITE0];
+			   __entry->sprite1 = wm->normal[crtc->pipe].plane[PLANE_SPRITE1];
+			   __entry->cursor = wm->normal[crtc->pipe].plane[PLANE_CURSOR];
 			   __entry->sr_plane = wm->sr.plane;
 			   __entry->sr_cursor = wm->sr.cursor;
 			   __entry->sr_en = wm->sr.enable;

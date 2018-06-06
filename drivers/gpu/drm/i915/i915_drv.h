@@ -1079,14 +1079,14 @@ struct vlv_wm_ddl_values {
 };
 
 struct vlv_wm_values {
-	struct g4x_pipe_wm pipe[3];
+	struct g4x_pipe_wm normal[3]; /* for each pipe */
 	struct g4x_sr_wm sr;
-	struct vlv_wm_ddl_values ddl[3];
+	struct vlv_wm_ddl_values ddl[3]; /* for each pipe */
 	u8 level;
 };
 
 struct g4x_wm_values {
-	struct g4x_pipe_wm pipe[2];
+	struct g4x_pipe_wm normal[2]; /* for each pipe */
 	struct g4x_sr_wm sr;
 	struct g4x_sr_wm hpll;
 	bool fbc_en;
