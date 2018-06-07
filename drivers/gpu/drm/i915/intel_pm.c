@@ -6068,21 +6068,13 @@ void g4x_wm_sanitize(struct drm_i915_private *dev_priv)
 			to_intel_crtc_state(crtc->base.state);
 		struct intel_plane_state *plane_state =
 			to_intel_plane_state(plane->base.state);
-		enum plane_id plane_id = plane->id;
-		int level, num_levels = intel_wm_num_levels(dev_priv);
 
 		if (plane_state->base.visible)
 			continue;
 
-		for (level = 0; level < num_levels; level++) {
-			struct g4x_pipe_wm *raw =
-				&crtc_state->wm.g4x.raw[level];
-
-			raw->plane[plane_id] = 0;
-
-			if (plane_id == PLANE_PRIMARY)
-				raw->fbc = 0;
-		}
+		g4x_raw_plane_wm_set(crtc_state, 0, plane->id, 0);
+		if (plane->id == PLANE_PRIMARY)
+			g4x_raw_fbc_wm_set(crtc_state, 0, 0);
 	}
 
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
@@ -6211,18 +6203,11 @@ void vlv_wm_sanitize(struct drm_i915_private *dev_priv)
 			to_intel_crtc_state(crtc->base.state);
 		struct intel_plane_state *plane_state =
 			to_intel_plane_state(plane->base.state);
-		enum plane_id plane_id = plane->id;
-		int level, num_levels = intel_wm_num_levels(dev_priv);
 
 		if (plane_state->base.visible)
 			continue;
 
-		for (level = 0; level < num_levels; level++) {
-			struct g4x_pipe_wm *raw =
-				&crtc_state->wm.vlv.raw[level];
-
-			raw->plane[plane_id] = 0;
-		}
+		vlv_raw_plane_wm_set(crtc_state, 0, plane->id, 0);
 	}
 
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
