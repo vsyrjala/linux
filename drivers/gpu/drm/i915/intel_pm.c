@@ -1348,7 +1348,7 @@ static bool g4x_compute_fbc_en(const struct g4x_wm_state *wm_state,
 static int _g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
-	struct g4x_wm_state *wm_state = &crtc_state->wm.g4x.optimal;
+	struct g4x_wm_state *optimal = &crtc_state->wm.g4x.optimal;
 	const struct g4x_pipe_wm *raw;
 	enum plane_id plane_id;
 	int level;
@@ -1359,21 +1359,21 @@ static int _g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 
 	raw = &crtc_state->wm.g4x.raw[level];
 	for_each_plane_id_on_crtc(crtc, plane_id)
-		wm_state->wm.plane[plane_id] = raw->plane[plane_id];
+		optimal->wm.plane[plane_id] = raw->plane[plane_id];
 
 	level = G4X_WM_LEVEL_SR;
-	if (!g4x_compute_sr_wm(crtc_state, &wm_state->sr, level))
+	if (!g4x_compute_sr_wm(crtc_state, &optimal->sr, level))
 		goto out;
 
 	level = G4X_WM_LEVEL_HPLL;
-	if (!g4x_compute_sr_wm(crtc_state, &wm_state->hpll, level))
+	if (!g4x_compute_sr_wm(crtc_state, &optimal->hpll, level))
 		goto out;
 
 	level++;
 
  out:
 	/* invalidate the higher levels */
-	g4x_invalidate_wms(crtc, wm_state, level);
+	g4x_invalidate_wms(crtc, optimal, level);
 
 	/*
 	 * Determine if the FBC watermark(s) can be used. IF
@@ -1382,7 +1382,7 @@ static int _g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	 * level(s) entirely. 'level-1' is the highest valid
 	 * level here.
 	 */
-	wm_state->fbc_en = g4x_compute_fbc_en(wm_state, level - 1);
+	optimal->fbc_en = g4x_compute_fbc_en(optimal, level - 1);
 
 	return 0;
 }
@@ -1500,16 +1500,16 @@ static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 	wm->fbc_en = true;
 
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
-		const struct g4x_wm_state *wm_state = &crtc->wm.active.g4x;
+		const struct g4x_wm_state *active = &crtc->wm.active.g4x;
 
 		if (!crtc->active)
 			continue;
 
-		if (!wm_state->sr.enable)
+		if (!active->sr.enable)
 			wm->sr.enable = false;
-		if (!wm_state->hpll.enable)
+		if (!active->hpll.enable)
 			wm->hpll.enable = false;
-		if (!wm_state->fbc_en)
+		if (!active->fbc_en)
 			wm->fbc_en = false;
 
 		num_active_crtcs++;
@@ -1522,14 +1522,14 @@ static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 	}
 
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
-		const struct g4x_wm_state *wm_state = &crtc->wm.active.g4x;
+		const struct g4x_wm_state *active = &crtc->wm.active.g4x;
 		enum pipe pipe = crtc->pipe;
 
-		wm->pipe[pipe] = wm_state->wm;
+		wm->pipe[pipe] = active->wm;
 		if (crtc->active && wm->sr.enable)
-			wm->sr = wm_state->sr;
+			wm->sr = active->sr;
 		if (crtc->active && wm->hpll.enable)
-			wm->hpll = wm_state->hpll;
+			wm->hpll = active->hpll;
 	}
 }
 
@@ -1847,7 +1847,7 @@ static int _vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	struct vlv_wm_state *wm_state = &crtc_state->wm.vlv.optimal;
+	struct vlv_wm_state *optimal = &crtc_state->wm.vlv.optimal;
 	const struct vlv_fifo_state *fifo_state =
 		&crtc_state->wm.vlv.fifo_state;
 	int num_active_planes = hweight32(crtc_state->active_planes &
@@ -1856,9 +1856,9 @@ static int _vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	int level;
 
 	/* initially allow all levels */
-	wm_state->num_levels = intel_wm_num_levels(dev_priv);
+	optimal->num_levels = intel_wm_num_levels(dev_priv);
 
-	for (level = 0; level < wm_state->num_levels; level++) {
+	for (level = 0; level < optimal->num_levels; level++) {
 		const struct g4x_pipe_wm *raw = &crtc_state->wm.vlv.raw[level];
 		const int sr_fifo_size = INTEL_INFO(dev_priv)->num_pipes * 512 - 1;
 
@@ -1866,7 +1866,7 @@ static int _vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 			break;
 
 		for_each_plane_id_on_crtc(crtc, plane_id) {
-			wm_state->wm[level].plane[plane_id] =
+			optimal->wm[level].plane[plane_id] =
 				vlv_invert_wm_value(raw->plane[plane_id],
 						    fifo_state->plane[plane_id]);
 		}
@@ -1876,16 +1876,16 @@ static int _vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 		 * enabled can wedge the pipe. Hence we only allow cxsr
 		 * with exactly one enabled primary/sprite plane.
 		 */
-		wm_state->sr[level].enable =
+		optimal->sr[level].enable =
 			crtc->pipe != PIPE_C && num_active_planes == 1;
 
-		wm_state->sr[level].plane =
+		optimal->sr[level].plane =
 			vlv_invert_wm_value(max3(raw->plane[PLANE_PRIMARY],
 						 raw->plane[PLANE_SPRITE0],
 						 raw->plane[PLANE_SPRITE1]),
 					    sr_fifo_size);
 
-		wm_state->sr[level].cursor =
+		optimal->sr[level].cursor =
 			vlv_invert_wm_value(raw->plane[PLANE_CURSOR],
 					    63);
 	}
@@ -1894,10 +1894,10 @@ static int _vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 		return -EINVAL;
 
 	/* limit to only levels we can actually handle */
-	wm_state->num_levels = level;
+	optimal->num_levels = level;
 
 	/* invalidate the higher levels */
-	vlv_invalidate_wms(crtc, wm_state, level);
+	vlv_invalidate_wms(crtc, optimal, level);
 
 	return 0;
 }
@@ -2127,16 +2127,16 @@ static void vlv_merge_wm(struct drm_i915_private *dev_priv,
 	wm->sr.enable = true;
 
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
-		const struct vlv_wm_state *wm_state = &crtc->wm.active.vlv;
+		const struct vlv_wm_state *active = &crtc->wm.active.vlv;
 
 		if (!crtc->active)
 			continue;
 
-		if (!wm_state->sr[VLV_WM_LEVEL_PM2].enable)
+		if (!active->sr[VLV_WM_LEVEL_PM2].enable)
 			wm->sr.enable = false;
 
 		num_active_crtcs++;
-		wm->level = min_t(int, wm->level, wm_state->num_levels - 1);
+		wm->level = min_t(int, wm->level, active->num_levels - 1);
 	}
 
 	if (num_active_crtcs != 1)
@@ -2146,12 +2146,12 @@ static void vlv_merge_wm(struct drm_i915_private *dev_priv,
 		wm->level = VLV_WM_LEVEL_PM2;
 
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
-		const struct vlv_wm_state *wm_state = &crtc->wm.active.vlv;
+		const struct vlv_wm_state *active = &crtc->wm.active.vlv;
 		enum pipe pipe = crtc->pipe;
 
-		wm->pipe[pipe] = wm_state->wm[wm->level];
+		wm->pipe[pipe] = active->wm[wm->level];
 		if (crtc->active && wm->sr.enable)
-			wm->sr = wm_state->sr[wm->level];
+			wm->sr = active->sr[wm->level];
 
 		wm->ddl[pipe].plane[PLANE_PRIMARY] = DDL_PRECISION_HIGH | 2;
 		wm->ddl[pipe].plane[PLANE_SPRITE0] = DDL_PRECISION_HIGH | 2;
