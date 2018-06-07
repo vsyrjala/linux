@@ -2068,6 +2068,9 @@ void intel_dump_cdclk_state(const struct intel_cdclk_state *cdclk_state,
 void intel_set_cdclk(struct drm_i915_private *dev_priv,
 		     const struct intel_cdclk_state *cdclk_state)
 {
+	struct intel_encoder *encoder;
+	unsigned int aux_mutex_lockclass = 0;
+
 	if (!intel_cdclk_changed(&dev_priv->cdclk.hw, cdclk_state))
 		return;
 
@@ -2076,7 +2079,29 @@ void intel_set_cdclk(struct drm_i915_private *dev_priv,
 
 	intel_dump_cdclk_state(cdclk_state, "Changing CDCLK to");
 
+	/*
+	 * Lock aux/gmbus while we change cdclk in case the
+	 * those functions use cdclk. Not all platforms/ports
+	 * do, but we'll lock them all for simplicity. All other
+	 * users of cdclk (apart from audio) should be off on
+	 * account of the pipes being off.
+	 */
+	for_each_intel_dp(&dev_priv->drm, encoder) {
+		struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
+
+		mutex_lock_nested(&intel_dp->aux.hw_mutex,
+				  aux_mutex_lockclass++);
+	}
+	mutex_lock(&dev_priv->gmbus_mutex);
+
 	dev_priv->display.set_cdclk(dev_priv, cdclk_state);
+
+	for_each_intel_dp(&dev_priv->drm, encoder) {
+		struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
+
+		mutex_unlock(&intel_dp->aux.hw_mutex);
+	}
+	mutex_unlock(&dev_priv->gmbus_mutex);
 
 	if (WARN(intel_cdclk_changed(&dev_priv->cdclk.hw, cdclk_state),
 		 "cdclk state doesn't match!\n")) {

@@ -781,7 +781,6 @@ int intel_setup_gmbus(struct drm_i915_private *dev_priv)
 			i915_mmio_reg_offset(PCH_GPIOA) -
 			i915_mmio_reg_offset(GPIOA);
 
-	mutex_init(&dev_priv->gmbus_mutex);
 	init_waitqueue_head(&dev_priv->gmbus_wait_queue);
 
 	for (pin = 0; pin < ARRAY_SIZE(dev_priv->gmbus); pin++) {
