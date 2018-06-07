@@ -2809,6 +2809,40 @@ static void skl_display_core_uninit(struct drm_i915_private *dev_priv)
 	usleep_range(10, 30);		/* 10 us delay per Bspec */
 }
 
+bool intel_display_power_toggle_start(struct drm_i915_private *dev_priv,
+				      enum i915_power_well_id power_well_id)
+{
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+	struct i915_power_well *well = lookup_power_well(dev_priv, power_well_id);
+	bool was_enabled;
+
+	mutex_lock(&power_domains->lock);
+
+	was_enabled = well->hw_enabled;
+
+	if (was_enabled)
+		intel_power_well_disable(dev_priv, well);
+
+	return was_enabled;
+}
+
+void intel_display_power_toggle_end(struct drm_i915_private *dev_priv,
+				    enum i915_power_well_id power_well_id,
+				    bool enable)
+{
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+	struct i915_power_well *well = lookup_power_well(dev_priv, power_well_id);
+
+	lockdep_assert_held(&power_domains->lock);
+
+	if (enable) {
+		WARN_ON(well->hw_enabled);
+		intel_power_well_enable(dev_priv, well);
+	}
+
+	mutex_unlock(&power_domains->lock);
+}
+
 void bxt_display_core_init(struct drm_i915_private *dev_priv,
 			   bool resume)
 {

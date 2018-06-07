@@ -1346,6 +1346,7 @@ static void bxt_set_cdclk(struct drm_i915_private *dev_priv,
 {
 	int cdclk = cdclk_state->cdclk;
 	int vco = cdclk_state->vco;
+	bool enable_pw2 = false;
 	u32 val, divider;
 	int ret;
 
@@ -1369,6 +1370,14 @@ static void bxt_set_cdclk(struct drm_i915_private *dev_priv,
 		divider = BXT_CDCLK_CD2X_DIV_SEL_4;
 		break;
 	}
+
+	/*
+	 * On GLK HDA apparently gets confused if
+	 * cdclk is changed while PW2 is on
+	 */
+	if (IS_GEMINILAKE(dev_priv))
+		enable_pw2 = intel_display_power_toggle_start(dev_priv,
+							      SKL_DISP_PW_2);
 
 	/*
 	 * Inform power controller of upcoming frequency change. BSpec
@@ -1427,6 +1436,11 @@ static void bxt_set_cdclk(struct drm_i915_private *dev_priv,
 	}
 
 	intel_update_cdclk(dev_priv);
+
+	if (IS_GEMINILAKE(dev_priv))
+		intel_display_power_toggle_end(dev_priv,
+					       SKL_DISP_PW_2,
+					       enable_pw2);
 }
 
 static void bxt_sanitize_cdclk(struct drm_i915_private *dev_priv)
