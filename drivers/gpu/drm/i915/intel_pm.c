@@ -1299,7 +1299,7 @@ static void g4x_invalidate_wms(struct intel_crtc *crtc,
 		enum plane_id plane_id;
 
 		for_each_plane_id_on_crtc(crtc, plane_id)
-			wm_state->wm.plane[plane_id] = USHRT_MAX;
+			wm_state->normal.plane[plane_id] = USHRT_MAX;
 	}
 
 	if (level <= G4X_WM_LEVEL_SR)
@@ -1359,7 +1359,7 @@ static int _g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 
 	raw = &crtc_state->wm.g4x.raw[level];
 	for_each_plane_id_on_crtc(crtc, plane_id)
-		optimal->wm.plane[plane_id] = raw->plane[plane_id];
+		optimal->normal.plane[plane_id] = raw->plane[plane_id];
 
 	level = G4X_WM_LEVEL_SR;
 	if (!g4x_compute_sr_wm(crtc_state, &optimal->sr, level))
@@ -1451,11 +1451,11 @@ static int g4x_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 	}
 
 	for_each_plane_id_on_crtc(crtc, plane_id) {
-		intermediate->wm.plane[plane_id] =
-			max(optimal->wm.plane[plane_id],
-			    active->wm.plane[plane_id]);
+		intermediate->normal.plane[plane_id] =
+			max(optimal->normal.plane[plane_id],
+			    active->normal.plane[plane_id]);
 
-		WARN_ON(intermediate->wm.plane[plane_id] >
+		WARN_ON(intermediate->normal.plane[plane_id] >
 			g4x_plane_fifo_size(plane_id, G4X_WM_LEVEL_NORMAL));
 	}
 
@@ -1525,7 +1525,7 @@ static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 		const struct g4x_wm_state *active = &crtc->wm.active.g4x;
 		enum pipe pipe = crtc->pipe;
 
-		wm->pipe[pipe] = active->wm;
+		wm->pipe[pipe] = active->normal;
 		if (crtc->active && wm->sr.enable)
 			wm->sr = active->sr;
 		if (crtc->active && wm->hpll.enable)
@@ -1747,7 +1747,7 @@ static void vlv_invalidate_wms(struct intel_crtc *crtc,
 		enum plane_id plane_id;
 
 		for_each_plane_id_on_crtc(crtc, plane_id)
-			wm_state->wm[level].plane[plane_id] = USHRT_MAX;
+			wm_state->normal[level].plane[plane_id] = USHRT_MAX;
 
 		wm_state->sr[level].enable = false;
 		wm_state->sr[level].cursor = USHRT_MAX;
@@ -1866,7 +1866,7 @@ static int _vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 			break;
 
 		for_each_plane_id_on_crtc(crtc, plane_id) {
-			optimal->wm[level].plane[plane_id] =
+			optimal->normal[level].plane[plane_id] =
 				vlv_invert_wm_value(raw->plane[plane_id],
 						    fifo_state->plane[plane_id]);
 		}
@@ -2088,9 +2088,9 @@ static int vlv_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 		enum plane_id plane_id;
 
 		for_each_plane_id_on_crtc(crtc, plane_id) {
-			intermediate->wm[level].plane[plane_id] =
-				min(optimal->wm[level].plane[plane_id],
-				    active->wm[level].plane[plane_id]);
+			intermediate->normal[level].plane[plane_id] =
+				min(optimal->normal[level].plane[plane_id],
+				    active->normal[level].plane[plane_id]);
 		}
 
 		intermediate->sr[level].enable =
@@ -2149,7 +2149,7 @@ static void vlv_merge_wm(struct drm_i915_private *dev_priv,
 		const struct vlv_wm_state *active = &crtc->wm.active.vlv;
 		enum pipe pipe = crtc->pipe;
 
-		wm->pipe[pipe] = active->wm[wm->level];
+		wm->pipe[pipe] = active->normal[wm->level];
 		if (crtc->active && wm->sr.enable)
 			wm->sr = active->sr[wm->level];
 
@@ -5991,7 +5991,7 @@ void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 		active->hpll = wm->hpll;
 
 		for_each_plane_id_on_crtc(crtc, plane_id) {
-			active->wm.plane[plane_id] =
+			active->normal.plane[plane_id] =
 				wm->pipe[pipe].plane[plane_id];
 		}
 
@@ -6005,7 +6005,7 @@ void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 		level = G4X_WM_LEVEL_NORMAL;
 		raw = &crtc_state->wm.g4x.raw[level];
 		for_each_plane_id_on_crtc(crtc, plane_id)
-			raw->plane[plane_id] = active->wm.plane[plane_id];
+			raw->plane[plane_id] = active->normal.plane[plane_id];
 
 		level = G4X_WM_LEVEL_SR;
 		if (level > max_level)
@@ -6160,11 +6160,11 @@ void vlv_wm_get_hw_state(struct drm_i915_private *dev_priv)
 			active->sr[level].cursor = wm->sr.cursor;
 
 			for_each_plane_id_on_crtc(crtc, plane_id) {
-				active->wm[level].plane[plane_id] =
+				active->normal[level].plane[plane_id] =
 					wm->pipe[pipe].plane[plane_id];
 
 				raw->plane[plane_id] =
-					vlv_invert_wm_value(active->wm[level].plane[plane_id],
+					vlv_invert_wm_value(active->normal[level].plane[plane_id],
 							    fifo_state->plane[plane_id]);
 			}
 		}

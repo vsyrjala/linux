@@ -675,7 +675,7 @@ enum vlv_wm_level {
 };
 
 struct vlv_wm_state {
-	struct g4x_pipe_wm wm[NUM_VLV_WM_LEVELS];
+	struct g4x_pipe_wm normal[NUM_VLV_WM_LEVELS];
 	struct g4x_sr_wm sr[NUM_VLV_WM_LEVELS];
 	u8 num_levels;
 };
@@ -692,7 +692,7 @@ enum g4x_wm_level {
 };
 
 struct g4x_wm_state {
-	struct g4x_pipe_wm wm;
+	struct g4x_pipe_wm normal;
 	struct g4x_sr_wm sr;
 	struct g4x_sr_wm hpll;
 	bool fbc_en;
