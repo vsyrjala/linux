@@ -502,6 +502,13 @@ struct intel_plane_state {
 	unsigned long flags;
 #define PLANE_HAS_FENCE BIT(0)
 
+	/*
+	 * Plane stride in:
+	 * bytes for 0/180 degree rotation
+	 * pixels for 90/270 degree rotation
+	 */
+	u32 stride[2];
+
 	struct {
 		u32 offset;
 		int x, y;
@@ -1634,8 +1641,8 @@ u32 glk_plane_color_ctl(const struct intel_crtc_state *crtc_state,
 u32 skl_plane_ctl(const struct intel_crtc_state *crtc_state,
 		  const struct intel_plane_state *plane_state);
 u32 glk_color_ctl(const struct intel_plane_state *plane_state);
-u32 skl_plane_stride(const struct drm_framebuffer *fb, int plane,
-		     unsigned int rotation);
+u32 skl_plane_stride(const struct intel_plane_state *plane_state,
+		     int plane);
 int skl_check_plane_surface(const struct intel_crtc_state *crtc_state,
 			    struct intel_plane_state *plane_state);
 int i9xx_check_plane_surface(struct intel_plane_state *plane_state);

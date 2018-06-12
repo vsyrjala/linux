@@ -2199,7 +2199,7 @@ u32 intel_fb_xy_to_linear(int x, int y,
 {
 	const struct drm_framebuffer *fb = state->base.fb;
 	unsigned int cpp = fb->format->cpp[plane];
-	unsigned int pitch = fb->pitches[plane];
+	unsigned int pitch = state->stride[plane];
 
 	return y * pitch + x * cpp;
 }
@@ -2256,11 +2256,11 @@ static u32 intel_adjust_tile_offset(int *x, int *y,
 static u32 intel_adjust_aligned_offset(int *x, int *y,
 				       const struct drm_framebuffer *fb, int plane,
 				       unsigned int rotation,
+				       unsigned int pitch,
 				       u32 old_offset, u32 new_offset)
 {
 	struct drm_i915_private *dev_priv = to_i915(fb->dev);
 	unsigned int cpp = fb->format->cpp[plane];
-	unsigned int pitch = intel_fb_pitch(fb, plane, rotation);
 
 	WARN_ON(new_offset > old_offset);
 
@@ -2302,6 +2302,7 @@ static u32 intel_plane_adjust_aligned_offset(int *x, int *y,
 {
 	return intel_adjust_aligned_offset(x, y, state->base.fb, plane,
 					   state->base.rotation,
+					   state->stride[plane],
 					   old_offset, new_offset);
 }
 
@@ -2378,7 +2379,7 @@ static u32 intel_plane_compute_aligned_offset(int *x, int *y,
 	struct drm_i915_private *dev_priv = to_i915(intel_plane->base.dev);
 	const struct drm_framebuffer *fb = state->base.fb;
 	unsigned int rotation = state->base.rotation;
-	int pitch = intel_fb_pitch(fb, plane, rotation);
+	int pitch = state->stride[plane];
 	u32 alignment;
 
 	if (intel_plane->id == PLANE_CURSOR)
@@ -2405,6 +2406,7 @@ static int intel_fb_offset_to_xy(int *x, int *y,
 
 	intel_adjust_aligned_offset(x, y,
 				    fb, plane, DRM_MODE_ROTATE_0,
+				    fb->pitches[0],
 				    fb->offsets[plane], 0);
 
 	return 0;
@@ -2848,6 +2850,8 @@ intel_find_initial_plane_obj(struct intel_crtc *intel_crtc,
 valid_fb:
 	intel_fill_fb_ggtt_view(&intel_state->view, fb,
 				intel_state->base.rotation);
+	intel_state->stride[0] = intel_fb_pitch(fb, 0, intel_state->base.rotation);
+
 	mutex_lock(&dev->struct_mutex);
 	intel_state->vma =
 		intel_pin_and_fence_fb_obj(fb,
@@ -3165,6 +3169,8 @@ int skl_check_plane_surface(const struct intel_crtc_state *crtc_state,
 	int ret;
 
 	intel_fill_fb_ggtt_view(&plane_state->view, fb, rotation);
+	plane_state->stride[0] = intel_fb_pitch(fb, 0, rotation);
+	plane_state->stride[1] = intel_fb_pitch(fb, 1, rotation);
 
 	if (rotation & DRM_MODE_REFLECT_X &&
 	    fb->modifier == DRM_FORMAT_MOD_LINEAR) {
@@ -3283,6 +3289,7 @@ int i9xx_check_plane_surface(struct intel_plane_state *plane_state)
 	u32 offset;
 
 	intel_fill_fb_ggtt_view(&plane_state->view, fb, rotation);
+	plane_state->stride[0] = intel_fb_pitch(fb, 0, rotation);
 
 	intel_add_fb_offsets(&src_x, &src_y, plane_state, 0);
 
@@ -3318,7 +3325,6 @@ static void i9xx_update_plane(struct intel_plane *plane,
 			      const struct intel_plane_state *plane_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
-	const struct drm_framebuffer *fb = plane_state->base.fb;
 	enum i9xx_plane_id i9xx_plane = plane->i9xx_plane;
 	u32 linear_offset;
 	u32 dspcntr = plane_state->ctl;
@@ -3355,7 +3361,7 @@ static void i9xx_update_plane(struct intel_plane *plane,
 
 	I915_WRITE_FW(reg, dspcntr);
 
-	I915_WRITE_FW(DSPSTRIDE(i9xx_plane), fb->pitches[0]);
+	I915_WRITE_FW(DSPSTRIDE(i9xx_plane), plane_state->stride[0]);
 	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
 		I915_WRITE_FW(DSPSURF(i9xx_plane),
 			      intel_plane_ggtt_offset(plane_state) +
@@ -3465,15 +3471,15 @@ static void skl_detach_scalers(struct intel_crtc *intel_crtc)
 	}
 }
 
-u32 skl_plane_stride(const struct drm_framebuffer *fb, int plane,
-		     unsigned int rotation)
+u32 skl_plane_stride(const struct intel_plane_state *plane_state,
+		     int plane)
 {
-	u32 stride;
+	const struct drm_framebuffer *fb = plane_state->base.fb;
+	unsigned int rotation = plane_state->base.rotation;
+	u32 stride = plane_state->stride[plane];
 
 	if (plane >= fb->format->num_planes)
 		return 0;
-
-	stride = intel_fb_pitch(fb, plane, rotation);
 
 	/*
 	 * The stride is either expressed as a multiple of 64 bytes chunks for
@@ -9614,6 +9620,7 @@ static int intel_check_cursor(struct intel_crtc_state *crtc_state,
 	}
 
 	intel_fill_fb_ggtt_view(&plane_state->view, fb, rotation);
+	plane_state->stride[0] = intel_fb_pitch(fb, 0, rotation);
 
 	src_x = plane_state->base.src_x >> 16;
 	src_y = plane_state->base.src_y >> 16;
@@ -9635,12 +9642,10 @@ static int intel_check_cursor(struct intel_crtc_state *crtc_state,
 static u32 i845_cursor_ctl(const struct intel_crtc_state *crtc_state,
 			   const struct intel_plane_state *plane_state)
 {
-	const struct drm_framebuffer *fb = plane_state->base.fb;
-
 	return CURSOR_ENABLE |
 		CURSOR_GAMMA_ENABLE |
 		CURSOR_FORMAT_ARGB |
-		CURSOR_STRIDE(fb->pitches[0]);
+		CURSOR_STRIDE(plane_state->stride[0]);
 }
 
 static bool i845_cursor_size_ok(const struct intel_plane_state *plane_state)
@@ -9677,7 +9682,7 @@ static int i845_check_cursor(struct intel_plane *plane,
 		return -EINVAL;
 	}
 
-	switch (fb->pitches[0]) {
+	switch (plane_state->stride[0]) {
 	case 256:
 	case 512:
 	case 1024:
@@ -9685,7 +9690,7 @@ static int i845_check_cursor(struct intel_plane *plane,
 		break;
 	default:
 		DRM_DEBUG_KMS("Invalid cursor stride (%u)\n",
-			      fb->pitches[0]);
+			      plane_state->stride[0]);
 		return -EINVAL;
 	}
 
@@ -9870,9 +9875,9 @@ static int i9xx_check_cursor(struct intel_plane *plane,
 		return -EINVAL;
 	}
 
-	if (fb->pitches[0] != plane_state->base.crtc_w * fb->format->cpp[0]) {
+	if (plane_state->stride[0] != plane_state->base.crtc_w * fb->format->cpp[0]) {
 		DRM_DEBUG_KMS("Invalid cursor stride (%u) (cursor width %d)\n",
-			      fb->pitches[0], plane_state->base.crtc_w);
+			      plane_state->stride[0], plane_state->base.crtc_w);
 		return -EINVAL;
 	}
 
