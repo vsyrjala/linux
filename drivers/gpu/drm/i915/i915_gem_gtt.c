@@ -3687,6 +3687,92 @@ err_st_alloc:
 	return ERR_PTR(ret);
 }
 
+static struct scatterlist *
+remap_pages(const dma_addr_t *in, unsigned int offset,
+	    unsigned int width, unsigned int height,
+	    unsigned int stride,
+	    struct sg_table *st, struct scatterlist *sg)
+{
+	unsigned int column, row;
+
+	for (row = 0; row < height; row++) {
+		for (column = 0; column < width; column++) {
+			st->nents++;
+			/* We don't need the pages, but need to initialize
+			 * the entries so the sg list can be happily traversed.
+			 * The only thing we need are DMA addresses.
+			 */
+			sg_set_page(sg, NULL, PAGE_SIZE, 0);
+			sg_dma_address(sg) = in[offset + column];
+			sg_dma_len(sg) = PAGE_SIZE;
+			sg = sg_next(sg);
+		}
+		offset += stride;
+	}
+
+	return sg;
+}
+
+static noinline struct sg_table *
+intel_remap_pages(struct intel_remapped_info *rem_info,
+		  struct drm_i915_gem_object *obj)
+{
+	const unsigned long n_pages = obj->base.size / PAGE_SIZE;
+	unsigned int size = intel_remapped_info_size(rem_info);
+	struct sgt_iter sgt_iter;
+	dma_addr_t dma_addr;
+	unsigned long i;
+	dma_addr_t *page_addr_list;
+	struct sg_table *st;
+	struct scatterlist *sg;
+	int ret = -ENOMEM;
+
+	/* Allocate a temporary list of source pages for random access. */
+	page_addr_list = kvmalloc_array(n_pages,
+					sizeof(dma_addr_t),
+					GFP_KERNEL);
+	if (!page_addr_list)
+		return ERR_PTR(ret);
+
+	/* Allocate target SG list. */
+	st = kmalloc(sizeof(*st), GFP_KERNEL);
+	if (!st)
+		goto err_st_alloc;
+
+	ret = sg_alloc_table(st, size, GFP_KERNEL);
+	if (ret)
+		goto err_sg_alloc;
+
+	/* Populate source page list from the object. */
+	i = 0;
+	for_each_sgt_dma(dma_addr, sgt_iter, obj->mm.pages)
+		page_addr_list[i++] = dma_addr;
+
+	GEM_BUG_ON(i != n_pages);
+	st->nents = 0;
+	sg = st->sgl;
+
+	for (i = 0 ; i < ARRAY_SIZE(rem_info->plane); i++) {
+		sg = remap_pages(page_addr_list, rem_info->plane[i].offset,
+				 rem_info->plane[i].width, rem_info->plane[i].height,
+				 rem_info->plane[i].stride, st, sg);
+	}
+
+	kvfree(page_addr_list);
+
+	return st;
+
+err_sg_alloc:
+	kfree(st);
+err_st_alloc:
+	kvfree(page_addr_list);
+
+	DRM_DEBUG_DRIVER("Failed to create remapped mapping for object size %zu! (%ux%u tiles, %u pages)\n",
+			 obj->base.size, rem_info->plane[0].width, rem_info->plane[0].height, size);
+
+	return ERR_PTR(ret);
+}
+
 static noinline struct sg_table *
 intel_partial_pages(const struct i915_ggtt_view *view,
 		    struct drm_i915_gem_object *obj)
@@ -3761,6 +3847,11 @@ i915_get_ggtt_vma_pages(struct i915_vma *vma)
 	case I915_GGTT_VIEW_ROTATED:
 		vma->pages =
 			intel_rotate_pages(&vma->ggtt_view.rotated, vma->obj);
+		break;
+
+	case I915_GGTT_VIEW_REMAPPED:
+		vma->pages =
+			intel_remap_pages(&vma->ggtt_view.remapped, vma->obj);
 		break;
 
 	case I915_GGTT_VIEW_PARTIAL:
