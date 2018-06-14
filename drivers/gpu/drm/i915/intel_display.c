@@ -2832,8 +2832,6 @@ intel_plane_remap_gtt(struct intel_plane_state *plane_state)
 					DRM_MODE_ROTATE_270);
 			x = r.x1;
 			y = r.y1;
-
-			plane_state->stride[i] = info->plane[i].height * tile_height;
 		}
 
 		/*
@@ -3405,10 +3403,10 @@ int skl_check_plane_surface(const struct intel_crtc_state *crtc_state,
 		return -EINVAL;
 	}
 
-	intel_plane_compute_gtt(plane_state);
-
 	if (!plane_state->base.visible)
 		return 0;
+
+	intel_plane_compute_gtt(plane_state);
 
 	/*
 	 * Handle the AUX surface first since
@@ -3507,6 +3505,9 @@ int i9xx_check_plane_surface(struct intel_plane_state *plane_state)
 		to_i915(plane_state->base.plane->dev);
 	int src_x, src_y;
 	u32 offset;
+
+	if (!plane_state->base.visible)
+		return 0;
 
 	intel_plane_compute_gtt(plane_state);
 
