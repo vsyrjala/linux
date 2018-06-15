@@ -107,12 +107,30 @@ static void validate_possible_clones(struct drm_encoder *encoder)
 	     possible_clones, encoder_mask);
 }
 
+static void validate_possible_crtcs(struct drm_encoder *encoder)
+{
+	struct drm_device *dev = encoder->dev;
+	struct drm_crtc *crtc;
+	u32 crtc_mask = 0;
+
+	drm_for_each_crtc(crtc, dev)
+		crtc_mask |= drm_crtc_mask(crtc);
+
+	WARN((encoder->possible_crtcs & crtc_mask) == 0 ||
+	     (encoder->possible_crtcs & ~crtc_mask) != 0,
+	     "Bogus possible_crtcs: "
+	     "[ENCODER:%d:%s] possible_crtcs=0x%x (full crtc mask=0x%x)\n",
+	     encoder->base.id, encoder->name,
+	     encoder->possible_crtcs, crtc_mask);
+}
+
 int drm_encoder_register_all(struct drm_device *dev)
 {
 	struct drm_encoder *encoder;
 	int ret = 0;
 
 	drm_for_each_encoder(encoder, dev) {
+		validate_possible_crtcs(encoder);
 		validate_possible_clones(encoder);
 
 		if (encoder->funcs->late_register)
