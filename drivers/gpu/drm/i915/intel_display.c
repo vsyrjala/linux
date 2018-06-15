@@ -13950,13 +13950,10 @@ static int intel_encoder_clones(struct intel_encoder *encoder)
 	struct drm_device *dev = encoder->base.dev;
 	struct intel_encoder *source_encoder;
 	int index_mask = 0;
-	int entry = 0;
 
 	for_each_intel_encoder(dev, source_encoder) {
 		if (encoders_cloneable(encoder, source_encoder))
-			index_mask |= (1 << entry);
-
-		entry++;
+			index_mask |= drm_encoder_mask(&source_encoder->base);
 	}
 
 	return index_mask;
