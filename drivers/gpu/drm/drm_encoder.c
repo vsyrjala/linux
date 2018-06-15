@@ -63,6 +63,19 @@ static const struct drm_prop_enum_list drm_encoder_enum_list[] = {
 	{ DRM_MODE_ENCODER_DPI, "DPI" },
 };
 
+/*
+ * For some reason we want the encoder itself included in
+ * possible_clones. Make life easy for drivers by allowing them
+ * to leave possible_clones unset if no cloning is possible.
+ */
+static u32 encoder_possible_clones(struct drm_encoder *encoder)
+{
+	if (encoder->possible_clones)
+		return encoder->possible_clones;
+	else
+		return drm_encoder_mask(encoder);
+}
+
 int drm_encoder_register_all(struct drm_device *dev)
 {
 	struct drm_encoder *encoder;
@@ -240,7 +253,7 @@ int drm_mode_getencoder(struct drm_device *dev, void *data,
 	enc_resp->encoder_id = encoder->base.id;
 	enc_resp->possible_crtcs = drm_lease_filter_crtcs(file_priv,
 							  encoder->possible_crtcs);
-	enc_resp->possible_clones = encoder->possible_clones;
+	enc_resp->possible_clones = encoder_possible_clones(encoder);
 
 	return 0;
 }
