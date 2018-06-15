@@ -665,7 +665,7 @@ sti_tvout_create_dvo_encoder(struct drm_device *dev,
 
 	encoder->tvout = tvout;
 
-	drm_encoder = (struct drm_encoder *)encoder;
+	drm_encoder = &encoder->encoder;
 
 	drm_encoder->possible_crtcs = ENCODER_CRTC_MASK;
 	drm_encoder->possible_clones = 1 << 0;
@@ -718,7 +718,7 @@ static struct drm_encoder *sti_tvout_create_hda_encoder(struct drm_device *dev,
 
 	encoder->tvout = tvout;
 
-	drm_encoder = (struct drm_encoder *) encoder;
+	drm_encoder = &encoder->encoder;
 
 	drm_encoder->possible_crtcs = ENCODER_CRTC_MASK;
 	drm_encoder->possible_clones = 1 << 0;
@@ -767,7 +767,7 @@ static struct drm_encoder *sti_tvout_create_hdmi_encoder(struct drm_device *dev,
 
 	encoder->tvout = tvout;
 
-	drm_encoder = (struct drm_encoder *) encoder;
+	drm_encoder = &encoder->encoder;
 
 	drm_encoder->possible_crtcs = ENCODER_CRTC_MASK;
 	drm_encoder->possible_clones = 1 << 1;
