@@ -3514,7 +3514,7 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 	intel_encoder->type = INTEL_OUTPUT_DDI;
 	intel_encoder->power_domain = intel_port_to_power_domain(port);
 	intel_encoder->port = port;
-	intel_encoder->crtc_mask = (1 << 0) | (1 << 1) | (1 << 2);
+	intel_encoder->crtc_mask = BIT(PIPE_A) | BIT(PIPE_B) | BIT(PIPE_C);
 	intel_encoder->cloneable = 0;
 
 	if (INTEL_GEN(dev_priv) >= 11)
