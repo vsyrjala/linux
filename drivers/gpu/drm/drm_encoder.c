@@ -76,12 +76,45 @@ static u32 encoder_possible_clones(struct drm_encoder *encoder)
 		return drm_encoder_mask(encoder);
 }
 
+static void validate_possible_clones(struct drm_encoder *encoder)
+{
+	u32 possible_clones = encoder_possible_clones(encoder);
+	struct drm_device *dev = encoder->dev;
+	struct drm_encoder *other;
+	u32 encoder_mask = 0;
+
+	drm_for_each_encoder(other, dev) {
+		u32 other_possible_clones = encoder_possible_clones(other);
+
+		encoder_mask |= drm_encoder_mask(other);
+
+		WARN(!(possible_clones & drm_encoder_mask(other)) !=
+		     !(other_possible_clones & drm_encoder_mask(encoder)),
+		     "possible_clones mismatch: "
+		     "[ENCODER:%d:%s] index=%d, possible_clones=0x%x vs. "
+		     "[ENCODER:%d:%s] index=%d possible_clones=0x%x\n",
+		     encoder->base.id, encoder->name,
+		     drm_encoder_index(encoder), possible_clones,
+		     other->base.id, other->name,
+		     drm_encoder_index(other), other_possible_clones);
+	}
+
+	WARN((possible_clones & drm_encoder_mask(encoder)) == 0 ||
+	     (possible_clones & ~encoder_mask) != 0,
+	     "Bogus possible_clones: "
+	     "[ENCODER:%d:%s] possible_clones=0x%x (full encoder mask=0x%x)\n",
+	     encoder->base.id, encoder->name,
+	     possible_clones, encoder_mask);
+}
+
 int drm_encoder_register_all(struct drm_device *dev)
 {
 	struct drm_encoder *encoder;
 	int ret = 0;
 
 	drm_for_each_encoder(encoder, dev) {
+		validate_possible_clones(encoder);
+
 		if (encoder->funcs->late_register)
 			ret = encoder->funcs->late_register(encoder);
 		if (ret)
