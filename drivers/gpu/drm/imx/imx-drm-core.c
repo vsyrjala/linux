@@ -158,7 +158,7 @@ int imx_drm_encoder_parse_of(struct drm_device *drm,
 	encoder->possible_crtcs = crtc_mask;
 
 	/* FIXME: this is the mask of outputs which can clone this output. */
-	encoder->possible_clones = ~0;
+	encoder->possible_clones = 0;
 
 	return 0;
 }
