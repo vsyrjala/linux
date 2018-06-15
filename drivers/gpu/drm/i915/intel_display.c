@@ -13959,6 +13959,20 @@ static int intel_encoder_clones(struct intel_encoder *encoder)
 	return index_mask;
 }
 
+static int intel_encoder_crtcs(struct intel_encoder *encoder)
+{
+	struct drm_device *dev = encoder->base.dev;
+	struct intel_crtc *crtc;
+	int index_mask = 0;
+
+	for_each_intel_crtc(dev, crtc) {
+		if (encoder->crtc_mask & BIT(crtc->pipe))
+			index_mask |= drm_crtc_mask(&crtc->base);
+	}
+
+	return index_mask;
+}
+
 static bool has_edp_a(struct drm_i915_private *dev_priv)
 {
 	if (!IS_MOBILE(dev_priv))
@@ -14211,7 +14225,8 @@ static void intel_setup_outputs(struct drm_i915_private *dev_priv)
 	intel_psr_init(dev_priv);
 
 	for_each_intel_encoder(&dev_priv->drm, encoder) {
-		encoder->base.possible_crtcs = encoder->crtc_mask;
+		encoder->base.possible_crtcs =
+			intel_encoder_crtcs(encoder);
 		encoder->base.possible_clones =
 			intel_encoder_clones(encoder);
 	}
