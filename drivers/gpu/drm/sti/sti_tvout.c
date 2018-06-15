@@ -668,7 +668,6 @@ sti_tvout_create_dvo_encoder(struct drm_device *dev,
 	drm_encoder = &encoder->encoder;
 
 	drm_encoder->possible_crtcs = ENCODER_CRTC_MASK;
-	drm_encoder->possible_clones = 1 << 0;
 
 	drm_encoder_init(dev, drm_encoder,
 			 &sti_tvout_encoder_funcs, DRM_MODE_ENCODER_LVDS,
@@ -721,7 +720,6 @@ static struct drm_encoder *sti_tvout_create_hda_encoder(struct drm_device *dev,
 	drm_encoder = &encoder->encoder;
 
 	drm_encoder->possible_crtcs = ENCODER_CRTC_MASK;
-	drm_encoder->possible_clones = 1 << 0;
 
 	drm_encoder_init(dev, drm_encoder,
 			&sti_tvout_encoder_funcs, DRM_MODE_ENCODER_DAC, NULL);
@@ -770,7 +768,6 @@ static struct drm_encoder *sti_tvout_create_hdmi_encoder(struct drm_device *dev,
 	drm_encoder = &encoder->encoder;
 
 	drm_encoder->possible_crtcs = ENCODER_CRTC_MASK;
-	drm_encoder->possible_clones = 1 << 1;
 
 	drm_encoder_init(dev, drm_encoder,
 			&sti_tvout_encoder_funcs, DRM_MODE_ENCODER_TMDS, NULL);
@@ -786,6 +783,12 @@ static void sti_tvout_create_encoders(struct drm_device *dev,
 	tvout->hdmi = sti_tvout_create_hdmi_encoder(dev, tvout);
 	tvout->hda = sti_tvout_create_hda_encoder(dev, tvout);
 	tvout->dvo = sti_tvout_create_dvo_encoder(dev, tvout);
+
+	/* FIXME what's the correct thing here? */
+	tvout->hdmi->possible_clones =
+		drm_encoder_mask(tvout->hdmi) | drm_encoder_mask(tvout->hda);
+	tvout->hda->possible_clones =
+		drm_encoder_mask(tvout->hdmi) | drm_encoder_mask(tvout->hda);
 }
 
 static void sti_tvout_destroy_encoders(struct sti_tvout *tvout)
