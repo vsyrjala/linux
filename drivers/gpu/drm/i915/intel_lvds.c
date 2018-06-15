@@ -1084,10 +1084,8 @@ void intel_lvds_init(struct drm_i915_private *dev_priv)
 	intel_encoder->power_domain = POWER_DOMAIN_PORT_OTHER;
 	intel_encoder->port = PORT_NONE;
 	intel_encoder->cloneable = 0;
-	if (HAS_PCH_SPLIT(dev_priv))
+	if (INTEL_GEN(dev_priv) >= 4)
 		intel_encoder->crtc_mask = BIT(PIPE_A) | BIT(PIPE_B) | BIT(PIPE_C);
-	else if (IS_GEN4(dev_priv))
-		intel_encoder->crtc_mask = BIT(PIPE_A) | BIT(PIPE_B);
 	else
 		intel_encoder->crtc_mask = BIT(PIPE_B);
 
