@@ -1415,6 +1415,21 @@ static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	return _g4x_compute_pipe_wm(crtc_state);
 }
 
+static void g4x_compute_intermediate_sr_wm(struct g4x_sr_wm *intermediate,
+					   const struct g4x_sr_wm *optimal,
+					   const struct g4x_sr_wm *active,
+					   bool disable_cxsr, int level)
+{
+	intermediate->enable = optimal->enable && active->enable && !disable_cxsr;
+	intermediate->plane = max(optimal->plane, active->plane);
+	intermediate->cursor = max(optimal->cursor, active->cursor);
+	intermediate->fbc = max(optimal->fbc, active->fbc);
+
+	WARN_ON((intermediate->plane > g4x_plane_fifo_size(PLANE_PRIMARY, level) ||
+		 intermediate->cursor > g4x_plane_fifo_size(PLANE_CURSOR, level)) &&
+		intermediate->enable);
+}
+
 static int g4x_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->base.crtc);
@@ -1435,12 +1450,6 @@ static int g4x_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 		goto out;
 	}
 
-	intermediate->sr.enable = optimal->sr.enable && active->sr.enable &&
-		!new_crtc_state->disable_cxsr;
-	intermediate->hpll.enable = optimal->hpll.enable && active->hpll.enable &&
-		!new_crtc_state->disable_cxsr;
-	intermediate->fbc_en = optimal->fbc_en && active->fbc_en;
-
 	for_each_plane_id_on_crtc(crtc, plane_id) {
 		intermediate->wm.plane[plane_id] =
 			max(optimal->wm.plane[plane_id],
@@ -1450,34 +1459,23 @@ static int g4x_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 			g4x_plane_fifo_size(plane_id, G4X_WM_LEVEL_NORMAL));
 	}
 
-	intermediate->sr.plane = max(optimal->sr.plane,
-				     active->sr.plane);
-	intermediate->sr.cursor = max(optimal->sr.cursor,
-				      active->sr.cursor);
-	intermediate->sr.fbc = max(optimal->sr.fbc,
-				   active->sr.fbc);
+	g4x_compute_intermediate_sr_wm(&intermediate->sr,
+				       &optimal->sr,
+				       &active->sr,
+				       new_crtc_state->disable_cxsr,
+				       G4X_WM_LEVEL_SR);
 
-	intermediate->hpll.plane = max(optimal->hpll.plane,
-				       active->hpll.plane);
-	intermediate->hpll.cursor = max(optimal->hpll.cursor,
-					active->hpll.cursor);
-	intermediate->hpll.fbc = max(optimal->hpll.fbc,
-				     active->hpll.fbc);
+	g4x_compute_intermediate_sr_wm(&intermediate->hpll,
+				       &optimal->hpll,
+				       &active->hpll,
+				       new_crtc_state->disable_cxsr,
+				       G4X_WM_LEVEL_HPLL);
 
-	WARN_ON((intermediate->sr.plane >
-		 g4x_plane_fifo_size(PLANE_PRIMARY, G4X_WM_LEVEL_SR) ||
-		 intermediate->sr.cursor >
-		 g4x_plane_fifo_size(PLANE_CURSOR, G4X_WM_LEVEL_SR)) &&
-		intermediate->sr.enable);
-	WARN_ON((intermediate->hpll.plane >
-		 g4x_plane_fifo_size(PLANE_PRIMARY, G4X_WM_LEVEL_HPLL) ||
-		 intermediate->hpll.cursor >
-		 g4x_plane_fifo_size(PLANE_CURSOR, G4X_WM_LEVEL_HPLL)) &&
-		intermediate->hpll.enable);
+	intermediate->fbc_en = optimal->fbc_en && active->fbc_en;
 
-	WARN_ON(intermediate->sr.fbc > g4x_fbc_fifo_size(1) &&
+	WARN_ON(intermediate->sr.fbc > g4x_fbc_fifo_size(G4X_WM_LEVEL_SR) &&
 		intermediate->fbc_en && intermediate->sr.enable);
-	WARN_ON(intermediate->hpll.fbc > g4x_fbc_fifo_size(2) &&
+	WARN_ON(intermediate->hpll.fbc > g4x_fbc_fifo_size(G4X_WM_LEVEL_HPLL) &&
 		intermediate->fbc_en && intermediate->hpll.enable);
 
 out:
