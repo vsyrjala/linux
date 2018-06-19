@@ -1283,6 +1283,14 @@ static bool g4x_raw_crtc_wm_is_valid(const struct intel_crtc_state *crtc_state,
 		g4x_raw_plane_wm_is_valid(crtc_state, PLANE_CURSOR, level);
 }
 
+static void g4x_invalidate_sr_wm(struct g4x_sr_wm *sr)
+{
+	sr->enable = false;
+	sr->cursor = USHRT_MAX;
+	sr->plane = USHRT_MAX;
+	sr->fbc = USHRT_MAX;
+}
+
 /* mark all levels starting from 'level' as invalid */
 static void g4x_invalidate_wms(struct intel_crtc *crtc,
 			       struct g4x_wm_state *wm_state, int level)
@@ -1294,19 +1302,11 @@ static void g4x_invalidate_wms(struct intel_crtc *crtc,
 			wm_state->wm.plane[plane_id] = USHRT_MAX;
 	}
 
-	if (level <= G4X_WM_LEVEL_SR) {
-		wm_state->sr.enable = false;
-		wm_state->sr.cursor = USHRT_MAX;
-		wm_state->sr.plane = USHRT_MAX;
-		wm_state->sr.fbc = USHRT_MAX;
-	}
+	if (level <= G4X_WM_LEVEL_SR)
+		g4x_invalidate_sr_wm(&wm_state->sr);
 
-	if (level <= G4X_WM_LEVEL_HPLL) {
-		wm_state->hpll.enable = false;
-		wm_state->hpll.cursor = USHRT_MAX;
-		wm_state->hpll.plane = USHRT_MAX;
-		wm_state->hpll.fbc = USHRT_MAX;
-	}
+	if (level <= G4X_WM_LEVEL_HPLL)
+		g4x_invalidate_sr_wm(&wm_state->hpll);
 }
 
 static bool g4x_compute_sr_wm(struct intel_crtc_state *crtc_state,
