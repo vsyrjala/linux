@@ -225,6 +225,8 @@ intel_dvo_mode_valid(struct drm_connector *connector,
 			return MODE_PANEL;
 		if (mode->vdisplay > fixed_mode->vdisplay)
 			return MODE_PANEL;
+		if (mode->vrefresh != fixed_mode->vrefresh)
+			return MODE_PANEL;
 
 		target_clock = fixed_mode->clock;
 	}
