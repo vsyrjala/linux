@@ -490,6 +490,16 @@ retry:
 
 	drm_mode_connector_list_update(connector);
 
+	list_for_each_entry(mode, &connector->modes, head) {
+		/*
+		 * Clear out any potentially stale cached vrefresh
+		 * value, as otherwise drm_mode_vrefresh() would
+		 * just return it back to us.
+		 */
+		mode->vrefresh = 0;
+		mode->vrefresh = drm_mode_vrefresh(mode);
+	}
+
 	if (connector->interlace_allowed)
 		mode_flags |= DRM_MODE_FLAG_INTERLACE;
 	if (connector->doublescan_allowed)
@@ -524,9 +534,6 @@ prune:
 
 	if (list_empty(&connector->modes))
 		return 0;
-
-	list_for_each_entry(mode, &connector->modes, head)
-		mode->vrefresh = drm_mode_vrefresh(mode);
 
 	drm_mode_sort(&connector->modes);
 
