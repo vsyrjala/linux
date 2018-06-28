@@ -1932,6 +1932,15 @@ int intel_panel_init(struct intel_panel *panel,
 {
 	intel_panel_init_backlight_funcs(panel);
 
+	if (fixed_mode) {
+		fixed_mode->vrefresh = 0;
+		fixed_mode->vrefresh = drm_mode_vrefresh(fixed_mode);
+	}
+	if (downclock_mode) {
+		downclock_mode->vrefresh = 0;
+		downclock_mode->vrefresh = drm_mode_vrefresh(downclock_mode);
+	}
+
 	panel->fixed_mode = fixed_mode;
 	panel->downclock_mode = downclock_mode;
 
