@@ -15433,8 +15433,8 @@ int intel_modeset_init(struct drm_device *dev)
 		dev->mode_config.max_width = 4096;
 		dev->mode_config.max_height = 4096;
 	} else {
-		dev->mode_config.max_width = 8192;
-		dev->mode_config.max_height = 8192;
+		dev->mode_config.max_width = 32767;
+		dev->mode_config.max_height = 32767;
 	}
 
 	if (IS_I845G(dev_priv) || IS_I865G(dev_priv)) {
