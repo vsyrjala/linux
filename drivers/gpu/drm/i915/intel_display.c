@@ -13896,9 +13896,7 @@ bool skl_plane_has_planar(struct drm_i915_private *dev_priv,
 			  enum pipe pipe, enum plane_id plane_id)
 {
 	if (plane_id == PLANE_PRIMARY) {
-		if (IS_SKYLAKE(dev_priv) || IS_BROXTON(dev_priv))
-			return false;
-		else if ((INTEL_GEN(dev_priv) == 9 && pipe == PIPE_C) &&
+		if ((INTEL_GEN(dev_priv) == 9 && pipe == PIPE_C) &&
 			 !IS_GEMINILAKE(dev_priv))
 			return false;
 	} else if (plane_id >= PLANE_SPRITE0) {
@@ -13908,8 +13906,7 @@ bool skl_plane_has_planar(struct drm_i915_private *dev_priv,
 			if (plane_id != PLANE_SPRITE0)
 				return false;
 		} else {
-			if (plane_id != PLANE_SPRITE0 || pipe == PIPE_C ||
-			    IS_SKYLAKE(dev_priv) || IS_BROXTON(dev_priv))
+			if (plane_id != PLANE_SPRITE0 || pipe == PIPE_C)
 				return false;
 		}
 	}
@@ -14790,8 +14787,7 @@ static int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 		}
 		break;
 	case DRM_FORMAT_NV12:
-		if (INTEL_GEN(dev_priv) < 9 || IS_SKYLAKE(dev_priv) ||
-		    IS_BROXTON(dev_priv)) {
+		if (INTEL_GEN(dev_priv) < 9) {
 			DRM_DEBUG_KMS("unsupported pixel format: %s\n",
 				      drm_get_format_name(mode_cmd->pixel_format,
 							  &format_name));
