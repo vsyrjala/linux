@@ -395,8 +395,8 @@ assert_rotated(struct drm_i915_gem_object *obj,
 	return sg;
 }
 
-static unsigned int rotated_size(const struct intel_rotation_plane_info *a,
-				 const struct intel_rotation_plane_info *b)
+static unsigned int rotated_size(const struct intel_remapped_plane_info *a,
+				 const struct intel_remapped_plane_info *b)
 {
 	return a->width * a->height + b->width * b->height;
 }
@@ -406,7 +406,7 @@ static int igt_vma_rotate(void *arg)
 	struct drm_i915_private *i915 = arg;
 	struct i915_address_space *vm = &i915->ggtt.vm;
 	struct drm_i915_gem_object *obj;
-	const struct intel_rotation_plane_info planes[] = {
+	const struct intel_remapped_plane_info planes[] = {
 		{ .width = 1, .height = 1, .stride = 1 },
 		{ .width = 2, .height = 2, .stride = 2 },
 		{ .width = 4, .height = 4, .stride = 4 },
