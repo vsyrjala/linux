@@ -2505,6 +2505,19 @@ static
 u32 intel_fb_max_stride(struct drm_i915_private *dev_priv,
 			u32 pixel_format, u64 modifier)
 {
+	/*
+	 * Arbitrary limit for gen4+. We can deal with any page
+	 * aligned stride via GTT remapping. Gen2/3 need a fence
+	 * for tiled scanout which the remapped vma won't have,
+	 * so we don't allow remapping on those platforms.
+	 *
+	 * Also the new hash mode we use for CCS isn't compatible
+	 * with remapping as the virtual address of the pages
+	 * affects the compressed data.
+	 */
+	if (INTEL_GEN(dev_priv) >= 4 && !intel_modifier_has_ccs(modifier))
+		return 256*1024;
+
 	return intel_plane_fb_max_stride(dev_priv, pixel_format, modifier);
 }
 
