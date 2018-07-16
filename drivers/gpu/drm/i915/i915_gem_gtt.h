@@ -160,6 +160,19 @@ typedef u64 gen8_ppgtt_pml4e_t;
 
 struct sg_table;
 
+struct intel_remapped_info {
+	struct intel_remapped_plane_info {
+		/* tiles */
+		unsigned int width, height, stride, offset;
+	} plane[2];
+	unsigned int unused;
+} __packed;
+
+static inline void assert_intel_remapped_info_is_packed(void)
+{
+	BUILD_BUG_ON(sizeof(struct intel_remapped_info) != 10*sizeof(unsigned int));
+}
+
 struct intel_rotation_info {
 	struct intel_rotation_plane_info {
 		/* tiles */
@@ -186,6 +199,7 @@ enum i915_ggtt_view_type {
 	I915_GGTT_VIEW_NORMAL = 0,
 	I915_GGTT_VIEW_ROTATED = sizeof(struct intel_rotation_info),
 	I915_GGTT_VIEW_PARTIAL = sizeof(struct intel_partial_info),
+	I915_GGTT_VIEW_REMAPPED = sizeof(struct intel_remapped_info),
 };
 
 static inline void assert_i915_ggtt_view_type_is_unique(void)
@@ -197,6 +211,7 @@ static inline void assert_i915_ggtt_view_type_is_unique(void)
 	case I915_GGTT_VIEW_NORMAL:
 	case I915_GGTT_VIEW_PARTIAL:
 	case I915_GGTT_VIEW_ROTATED:
+	case I915_GGTT_VIEW_REMAPPED:
 		/* gcc complains if these are identical cases */
 		break;
 	}
@@ -208,6 +223,7 @@ struct i915_ggtt_view {
 		/* Members need to contain no holes/padding */
 		struct intel_partial_info partial;
 		struct intel_rotation_info rotated;
+		struct intel_remapped_info remapped;
 	};
 };
 
