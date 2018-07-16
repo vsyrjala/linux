@@ -1923,7 +1923,7 @@ intel_tile_width_bytes(const struct drm_framebuffer *fb, int color_plane)
 
 	switch (fb->modifier) {
 	case DRM_FORMAT_MOD_LINEAR:
-		return cpp;
+		return intel_tile_size(dev_priv);
 	case I915_FORMAT_MOD_X_TILED:
 		if (IS_GEN2(dev_priv))
 			return 128;
@@ -1966,11 +1966,8 @@ intel_tile_width_bytes(const struct drm_framebuffer *fb, int color_plane)
 static unsigned int
 intel_tile_height(const struct drm_framebuffer *fb, int color_plane)
 {
-	if (fb->modifier == DRM_FORMAT_MOD_LINEAR)
-		return 1;
-	else
-		return intel_tile_size(to_i915(fb->dev)) /
-			intel_tile_width_bytes(fb, color_plane);
+	return intel_tile_size(to_i915(fb->dev)) /
+		intel_tile_width_bytes(fb, color_plane);
 }
 
 /* Return the tile dimensions in pixel units */
@@ -2225,16 +2222,8 @@ void intel_add_fb_offsets(int *x, int *y,
 			  int color_plane)
 
 {
-	const struct intel_framebuffer *intel_fb = to_intel_framebuffer(state->base.fb);
-	unsigned int rotation = state->base.rotation;
-
-	if (drm_rotation_90_or_270(rotation)) {
-		*x += intel_fb->rotated[color_plane].x;
-		*y += intel_fb->rotated[color_plane].y;
-	} else {
-		*x += intel_fb->normal[color_plane].x;
-		*y += intel_fb->normal[color_plane].y;
-	}
+	*x += state->color_plane[color_plane].x;
+	*y += state->color_plane[color_plane].y;
 }
 
 static u32 intel_adjust_tile_offset(int *x, int *y,
@@ -2488,6 +2477,111 @@ intel_get_format_info(const struct drm_mode_fb_cmd2 *cmd)
 	}
 }
 
+static bool intel_modifier_has_ccs(u64 modifier)
+{
+	return modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+		modifier == I915_FORMAT_MOD_Yf_TILED_CCS;
+}
+
+static
+u32 intel_plane_fb_max_stride(struct drm_i915_private *dev_priv,
+			      u32 pixel_format, u64 modifier)
+{
+	struct intel_crtc *crtc;
+	struct intel_plane *plane;
+
+	/*
+	 * We assume the primary plane for pipe A has
+	 * the highest stride limits of them all.
+	 */
+	crtc = intel_get_crtc_for_pipe(dev_priv, PIPE_A);
+	plane = to_intel_plane(crtc->base.primary);
+
+	return plane->max_stride(plane, pixel_format, modifier,
+				 DRM_MODE_ROTATE_0);
+}
+
+static
+u32 intel_fb_max_stride(struct drm_i915_private *dev_priv,
+			u32 pixel_format, u64 modifier)
+{
+	return intel_plane_fb_max_stride(dev_priv, pixel_format, modifier);
+}
+
+static u32
+intel_fb_stride_alignment(const struct drm_framebuffer *fb, int color_plane)
+{
+	struct drm_i915_private *dev_priv = to_i915(fb->dev);
+
+	if (fb->modifier == DRM_FORMAT_MOD_LINEAR) {
+		u32 max_stride = intel_plane_fb_max_stride(dev_priv,
+							   fb->format->format,
+							   fb->modifier);
+
+		/*
+		 * To make remapping with linear generally feasible
+		 * we need the stride to be page aligned.
+		 */
+		if (fb->pitches[color_plane] > max_stride)
+			return intel_tile_size(dev_priv);
+		else
+			return 64;
+	} else {
+		return intel_tile_width_bytes(fb, color_plane);
+	}
+}
+
+static int
+intel_plane_check_stride(const struct intel_plane_state *plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
+	const struct drm_framebuffer *fb = plane_state->base.fb;
+	unsigned int rotation = plane_state->base.rotation;
+	u32 stride, max_stride;
+
+	/* FIXME other color planes? */
+	stride = plane_state->color_plane[0].stride;
+	max_stride = plane->max_stride(plane, fb->format->format,
+				       fb->modifier, rotation);
+
+	if (stride > max_stride) {
+		DRM_DEBUG_KMS("[FB:%d] stride (%d) exceeds [PLANE:%d:%s] max stride (%d)\n",
+			      fb->base.id, stride,
+			      plane->base.base.id, plane->base.name, max_stride);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static bool intel_plane_needs_remap(const struct intel_plane_state *plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	const struct drm_framebuffer *fb = plane_state->base.fb;
+	unsigned int rotation = plane_state->base.rotation;
+	u32 stride, max_stride;
+
+	/* We don't want to deal with remapping with cursors */
+	if (plane->id == PLANE_CURSOR)
+		return false;
+
+	/* No fence for the remapped vma */
+	if (INTEL_GEN(dev_priv) < 4)
+		return false;
+
+	/* New CCS hash mode makes remapping impossible */
+	if (intel_modifier_has_ccs(fb->modifier))
+		return false;
+
+	/* FIXME other color planes? */
+	stride = intel_fb_pitch(fb, 0, rotation);
+	max_stride = plane->max_stride(plane, fb->format->format,
+				       fb->modifier, rotation);
+
+	return stride > max_stride;
+}
+
 static int
 intel_fill_fb_info(struct drm_i915_private *dev_priv,
 		   struct drm_framebuffer *fb)
@@ -2650,6 +2744,181 @@ intel_fill_fb_info(struct drm_i915_private *dev_priv,
 			      max_size * tile_size, obj->base.size);
 		return -EINVAL;
 	}
+
+	return 0;
+}
+
+static void
+intel_plane_remap_gtt(struct intel_plane_state *plane_state)
+{
+	struct drm_i915_private *dev_priv =
+		to_i915(plane_state->base.plane->dev);
+	struct drm_framebuffer *fb = plane_state->base.fb;
+	struct intel_framebuffer *intel_fb = to_intel_framebuffer(fb);
+	struct intel_rotation_info *info = &plane_state->view.rotated;
+	unsigned int rotation = plane_state->base.rotation;
+	int i, num_planes = fb->format->num_planes;
+	unsigned int tile_size = intel_tile_size(dev_priv);
+	unsigned int tile_width, tile_height;
+	unsigned int aligned_x, aligned_y;
+	unsigned int aligned_w, aligned_h;
+	unsigned int src_x, src_y;
+	unsigned int src_w, src_h;
+	unsigned int x, y;
+	u32 gtt_offset = 0;
+
+	plane_state->view.type = drm_rotation_90_or_270(rotation) ?
+		I915_GGTT_VIEW_ROTATED : I915_GGTT_VIEW_REMAPPED;
+
+	src_x = plane_state->base.src.x1 >> 16;
+	src_y = plane_state->base.src.y1 >> 16;
+	src_w = drm_rect_width(&plane_state->base.src) >> 16;
+	src_h = drm_rect_height(&plane_state->base.src) >> 16;
+
+	WARN_ON(intel_modifier_has_ccs(fb->modifier));
+
+	/* Align our viewport start to tile boundary */
+	intel_tile_dims(fb, 0, &tile_width, &tile_height);
+
+	x = src_x & (tile_width - 1);
+	y = src_y & (tile_height - 1);
+
+	aligned_x = src_x - x;
+	aligned_y = src_y - y;
+
+	aligned_w = x + src_w;
+	aligned_h = y + src_h;
+
+	/* Make src coordinates relative to the aligned viewport */
+	drm_rect_translate(&plane_state->base.src,
+			   -(aligned_x << 16), -(aligned_y << 16));
+
+	/* Rotate src coordinates to match rotated GTT view */
+	if (drm_rotation_90_or_270(rotation))
+		drm_rect_rotate(&plane_state->base.src,
+				aligned_w << 16, aligned_h << 16,
+				DRM_MODE_ROTATE_270);
+
+	for (i = 0; i < num_planes; i++) {
+		unsigned int hsub = i ? fb->format->hsub : 1;
+		unsigned int vsub = i ? fb->format->vsub : 1;
+		unsigned int cpp = fb->format->cpp[i];
+		unsigned int width, height;
+		unsigned int pitch_tiles;
+		unsigned int x, y;
+		u32 offset;
+
+		intel_tile_dims(fb, i, &tile_width, &tile_height);
+
+		x = aligned_x / hsub;
+		y = aligned_y / vsub;
+		width = aligned_w / hsub;
+		height = aligned_h / vsub;
+
+		/*
+		 * First pixel of the aligned src viewport
+		 * from the start of the normal gtt mapping.
+		 */
+		x += intel_fb->normal[i].x;
+		y += intel_fb->normal[i].y;
+
+		offset = intel_compute_aligned_offset(dev_priv, &x, &y,
+						      fb, i, fb->pitches[i],
+						      DRM_MODE_ROTATE_0, tile_size);
+		offset /= tile_size;
+
+		info->plane[i].offset = offset;
+		info->plane[i].stride = DIV_ROUND_UP(fb->pitches[i],
+						     tile_width * cpp);
+		info->plane[i].width = DIV_ROUND_UP(x + width, tile_width);
+		info->plane[i].height = DIV_ROUND_UP(y + height, tile_height);
+
+		if (drm_rotation_90_or_270(rotation)) {
+			struct drm_rect r;
+
+			/* rotate the x/y offsets to match the GTT view */
+			r.x1 = x;
+			r.y1 = y;
+			r.x2 = x + width;
+			r.y2 = y + height;
+			drm_rect_rotate(&r,
+					info->plane[i].width * tile_width,
+					info->plane[i].height * tile_height,
+					DRM_MODE_ROTATE_270);
+			x = r.x1;
+			y = r.y1;
+
+			pitch_tiles = info->plane[i].height;
+			plane_state->color_plane[i].stride = pitch_tiles * tile_height;
+
+			/* rotate the tile dimensions to match the GTT view */
+			swap(tile_width, tile_height);
+		} else {
+			pitch_tiles = info->plane[i].width;
+			plane_state->color_plane[i].stride = pitch_tiles * tile_width * cpp;
+		}
+
+		/*
+		 * We only keep the x/y offsets, so push all of the
+		 * gtt offset into the x/y offsets.
+		 */
+		intel_adjust_tile_offset(&x, &y,
+					 tile_width, tile_height,
+					 tile_size, pitch_tiles,
+					 gtt_offset * tile_size, 0);
+
+		gtt_offset += info->plane[i].width * info->plane[i].height;
+
+		plane_state->color_plane[i].offset = 0;
+		plane_state->color_plane[i].x = x;
+		plane_state->color_plane[i].y = y;
+	}
+}
+
+static int
+intel_plane_compute_gtt(struct intel_plane_state *plane_state)
+{
+	const struct intel_framebuffer *fb =
+		to_intel_framebuffer(plane_state->base.fb);
+	unsigned int rotation = plane_state->base.rotation;
+	int i, num_planes = fb->base.format->num_planes;
+	int ret;
+
+	if (intel_plane_needs_remap(plane_state)) {
+		intel_plane_remap_gtt(plane_state);
+
+		/* Remapping should take care of this always */
+		ret = intel_plane_check_stride(plane_state);
+		if (WARN_ON(ret))
+			return ret;
+
+		return 0;
+	}
+
+	intel_fill_fb_ggtt_view(&plane_state->view, &fb->base, rotation);
+
+	for (i = 0; i < num_planes; i++) {
+		plane_state->color_plane[i].stride = intel_fb_pitch(&fb->base, i, rotation);
+		plane_state->color_plane[i].offset = 0;
+
+		if (drm_rotation_90_or_270(rotation)) {
+			plane_state->color_plane[i].x = fb->rotated[i].x;
+			plane_state->color_plane[i].y = fb->rotated[i].y;
+		} else {
+			plane_state->color_plane[i].x = fb->normal[i].x;
+			plane_state->color_plane[i].y = fb->normal[i].y;
+		}
+	}
+
+	/* Rotate src coordinates to match rotated GTT view */
+	if (drm_rotation_90_or_270(rotation))
+		drm_rect_rotate(&plane_state->base.src,
+				fb->base.width << 16, fb->base.height << 16,
+				DRM_MODE_ROTATE_270);
+
+	ret = intel_plane_check_stride(plane_state);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -3150,21 +3419,11 @@ static int skl_check_ccs_aux_surface(struct intel_plane_state *plane_state)
 int skl_check_plane_surface(struct intel_plane_state *plane_state)
 {
 	const struct drm_framebuffer *fb = plane_state->base.fb;
-	unsigned int rotation = plane_state->base.rotation;
 	int ret;
 
-	intel_fill_fb_ggtt_view(&plane_state->view, fb, rotation);
-	plane_state->color_plane[0].stride = intel_fb_pitch(fb, 0, rotation);
-	plane_state->color_plane[1].stride = intel_fb_pitch(fb, 1, rotation);
-
-	if (!plane_state->base.visible)
-		return 0;
-
-	/* Rotate src coordinates to match rotated GTT view */
-	if (drm_rotation_90_or_270(rotation))
-		drm_rect_rotate(&plane_state->base.src,
-				fb->width << 16, fb->height << 16,
-				DRM_MODE_ROTATE_270);
+	ret = intel_plane_compute_gtt(plane_state);
+	if (ret)
+		return ret;
 
 	/*
 	 * Handle the AUX surface first since
@@ -3286,14 +3545,16 @@ int i9xx_check_plane_surface(struct intel_plane_state *plane_state)
 {
 	struct drm_i915_private *dev_priv =
 		to_i915(plane_state->base.plane->dev);
-	const struct drm_framebuffer *fb = plane_state->base.fb;
-	unsigned int rotation = plane_state->base.rotation;
-	int src_x = plane_state->base.src.x1 >> 16;
-	int src_y = plane_state->base.src.y1 >> 16;
+	int src_x, src_y;
 	u32 offset;
+	int ret;
 
-	intel_fill_fb_ggtt_view(&plane_state->view, fb, rotation);
-	plane_state->color_plane[0].stride = intel_fb_pitch(fb, 0, rotation);
+	ret = intel_plane_compute_gtt(plane_state);
+	if (ret)
+		return ret;
+
+	src_x = plane_state->base.src.x1 >> 16;
+	src_y = plane_state->base.src.y1 >> 16;
 
 	intel_add_fb_offsets(&src_x, &src_y, plane_state, 0);
 
@@ -3305,6 +3566,7 @@ int i9xx_check_plane_surface(struct intel_plane_state *plane_state)
 
 	/* HSW/BDW do this automagically in hardware */
 	if (!IS_HASWELL(dev_priv) && !IS_BROADWELL(dev_priv)) {
+		unsigned int rotation = plane_state->base.rotation;
 		int src_w = drm_rect_width(&plane_state->base.src) >> 16;
 		int src_h = drm_rect_height(&plane_state->base.src) >> 16;
 
@@ -3472,15 +3734,6 @@ static bool i9xx_plane_get_hw_state(struct intel_plane *plane,
 	return ret;
 }
 
-static u32
-intel_fb_stride_alignment(const struct drm_framebuffer *fb, int color_plane)
-{
-	if (fb->modifier == DRM_FORMAT_MOD_LINEAR)
-		return 64;
-	else
-		return intel_tile_width_bytes(fb, color_plane);
-}
-
 static void skl_detach_scaler(struct intel_crtc *intel_crtc, int id)
 {
 	struct drm_device *dev = intel_crtc->base.dev;
@@ -3522,12 +3775,12 @@ u32 skl_plane_stride(const struct intel_plane_state *plane_state,
 	 * The stride is either expressed as a multiple of 64 bytes chunks for
 	 * linear buffers or in number of tiles for tiled buffers.
 	 */
-	if (drm_rotation_90_or_270(rotation))
-		stride /= intel_tile_height(fb, color_plane);
+	if (fb->modifier == DRM_FORMAT_MOD_LINEAR)
+		return stride / 64;
+	else if (drm_rotation_90_or_270(rotation))
+		return stride / intel_tile_height(fb, color_plane);
 	else
-		stride /= intel_fb_stride_alignment(fb, color_plane);
-
-	return stride;
+		return stride / intel_tile_width_bytes(fb, color_plane);
 }
 
 static u32 skl_plane_ctl_format(uint32_t pixel_format)
@@ -9680,13 +9933,13 @@ static bool intel_cursor_size_ok(const struct intel_plane_state *plane_state)
 
 static int intel_cursor_check_surface(struct intel_plane_state *plane_state)
 {
-	const struct drm_framebuffer *fb = plane_state->base.fb;
-	unsigned int rotation = plane_state->base.rotation;
 	int src_x, src_y;
 	u32 offset;
+	int ret;
 
-	intel_fill_fb_ggtt_view(&plane_state->view, fb, rotation);
-	plane_state->color_plane[0].stride = intel_fb_pitch(fb, 0, rotation);
+	ret = intel_plane_compute_gtt(plane_state);
+	if (ret)
+		return ret;
 
 	src_x = plane_state->base.src_x >> 16;
 	src_y = plane_state->base.src_y >> 16;
@@ -14373,24 +14626,6 @@ static const struct drm_framebuffer_funcs intel_fb_funcs = {
 	.dirty = intel_user_framebuffer_dirty,
 };
 
-static
-u32 intel_fb_pitch_limit(struct drm_i915_private *dev_priv,
-			 uint64_t fb_modifier, uint32_t pixel_format)
-{
-	struct intel_crtc *crtc;
-	struct intel_plane *plane;
-
-	/*
-	 * We assume the primary plane for pipe A has
-	 * the highest stride limits of them all.
-	 */
-	crtc = intel_get_crtc_for_pipe(dev_priv, PIPE_A);
-	plane = to_intel_plane(crtc->base.primary);
-
-	return plane->max_stride(plane, pixel_format, fb_modifier,
-				 DRM_MODE_ROTATE_0);
-}
-
 static int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 				  struct drm_i915_gem_object *obj,
 				  struct drm_mode_fb_cmd2 *mode_cmd)
@@ -14398,7 +14633,7 @@ static int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 	struct drm_i915_private *dev_priv = to_i915(obj->base.dev);
 	struct drm_framebuffer *fb = &intel_fb->base;
 	struct drm_format_name_buf format_name;
-	u32 pitch_limit;
+	u32 max_stride;
 	unsigned int tiling, stride;
 	int ret = -EINVAL;
 	int i;
@@ -14469,13 +14704,13 @@ static int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 		goto err;
 	}
 
-	pitch_limit = intel_fb_pitch_limit(dev_priv, mode_cmd->modifier[0],
-					   mode_cmd->pixel_format);
-	if (mode_cmd->pitches[0] > pitch_limit) {
+	max_stride = intel_fb_max_stride(dev_priv, mode_cmd->modifier[0],
+					 mode_cmd->pixel_format);
+	if (mode_cmd->pitches[0] > max_stride) {
 		DRM_DEBUG_KMS("%s pitch (%u) must be at most %d\n",
 			      mode_cmd->modifier[0] != DRM_FORMAT_MOD_LINEAR ?
 			      "tiled" : "linear",
-			      mode_cmd->pitches[0], pitch_limit);
+			      mode_cmd->pitches[0], max_stride);
 		goto err;
 	}
 
