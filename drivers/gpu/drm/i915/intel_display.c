@@ -2818,6 +2818,12 @@ intel_plane_remap_gtt(struct intel_plane_state *plane_state)
 	drm_rect_translate(&plane_state->base.src,
 			   -(aligned_x << 16), -(aligned_y << 16));
 
+	DRM_DEBUG_KMS("remaineder %dx%d%+d%+d\n",
+		      drm_rect_width(&plane_state->base.src) >> 16,
+		      drm_rect_height(&plane_state->base.src) >> 16,
+		      plane_state->base.src.x1 >> 16,
+		      plane_state->base.src.y1 >> 16);
+
 	/* Rotate src coordinates to match rotated GTT view */
 	if (drm_rotation_90_or_270(rotation))
 		drm_rect_rotate(&plane_state->base.src,
@@ -2858,6 +2864,13 @@ intel_plane_remap_gtt(struct intel_plane_state *plane_state)
 		info->plane[i].width = DIV_ROUND_UP(x + width, tile_width);
 		info->plane[i].height = DIV_ROUND_UP(y + height, tile_height);
 
+		DRM_DEBUG_KMS("%d: offset 0x%x, stride %d, width %d, height %d\n",
+			      i,
+			      info->plane[i].offset,
+			      info->plane[i].stride,
+			      info->plane[i].width,
+			      info->plane[i].height);
+
 		if (drm_rotation_90_or_270(rotation)) {
 			struct drm_rect r;
 
@@ -2883,16 +2896,19 @@ intel_plane_remap_gtt(struct intel_plane_state *plane_state)
 			plane_state->color_plane[i].stride = pitch_tiles * tile_width * cpp;
 		}
 
+		DRM_DEBUG_KMS("gtt offset pre 0x%x / %d %d\n", gtt_offset, x, y);
 		/*
 		 * We only keep the x/y offsets, so push all of the
 		 * gtt offset into the x/y offsets.
 		 */
-		intel_adjust_tile_offset(&x, &y,
+		u32 tmp = intel_adjust_tile_offset(&x, &y,
 					 tile_width, tile_height,
 					 tile_size, pitch_tiles,
 					 gtt_offset * tile_size, 0);
+		DRM_DEBUG_KMS("gtt offset post 0x%x / %d %d\n", tmp, x, y);
 
 		gtt_offset += info->plane[i].width * info->plane[i].height;
+		DRM_DEBUG_KMS("next gtt offset 0x%x\n", gtt_offset);
 
 		plane_state->color_plane[i].offset = 0;
 		plane_state->color_plane[i].x = x;
@@ -2910,6 +2926,7 @@ intel_plane_compute_gtt(struct intel_plane_state *plane_state)
 	int ret;
 
 	if (intel_plane_needs_remap(plane_state)) {
+		DRM_DEBUG_KMS("remapping gtt\n");
 		intel_plane_remap_gtt(plane_state);
 
 		/* Remapping should take care of this always */
@@ -3264,6 +3281,8 @@ static bool skl_check_main_ccs_coordinates(struct intel_plane_state *plane_state
 	u32 aux_offset = plane_state->color_plane[1].offset;
 	u32 alignment = intel_surf_alignment(fb, 1);
 
+	DRM_DEBUG_KMS("old aux 0x%x %d %d\n", aux_offset, aux_x, aux_y);
+
 	while (aux_offset >= main_offset && aux_y <= main_y) {
 		int x, y;
 
@@ -3288,6 +3307,8 @@ static bool skl_check_main_ccs_coordinates(struct intel_plane_state *plane_state
 	plane_state->color_plane[1].x = aux_x;
 	plane_state->color_plane[1].y = aux_y;
 
+	DRM_DEBUG_KMS("new aux 0x%x %d %d\n", aux_offset, aux_x, aux_y);
+
 	return true;
 }
 
@@ -3309,8 +3330,11 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 		return -EINVAL;
 	}
 
+	DRM_DEBUG_KMS("main src %d %d\n", x, y);
 	intel_add_fb_offsets(&x, &y, plane_state, 0);
+	DRM_DEBUG_KMS("main src+fb %d %d\n", x, y);
 	offset = intel_plane_compute_aligned_offset(&x, &y, plane_state, 0);
+	DRM_DEBUG_KMS("main aligned 0x%x %d %d\n", offset, x, y);
 	alignment = intel_surf_alignment(fb, 0);
 
 	/*
@@ -3321,6 +3345,8 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 	if (offset > aux_offset)
 		offset = intel_plane_adjust_aligned_offset(&x, &y, plane_state, 0,
 							   offset, aux_offset & ~(alignment - 1));
+
+	DRM_DEBUG_KMS("main adjusted 0x%x %d %d\n", offset, x, y);
 
 	/*
 	 * When using an X-tiled surface, the plane blows up
@@ -3348,6 +3374,8 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 	 */
 	if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
 	    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS) {
+		DRM_DEBUG_KMS("old main 0x%x %d %d\n", offset, x, y);
+
 		while (!skl_check_main_ccs_coordinates(plane_state, x, y, offset)) {
 			if (offset == 0)
 				break;
@@ -3355,6 +3383,8 @@ static int skl_check_main_surface(struct intel_plane_state *plane_state)
 			offset = intel_plane_adjust_aligned_offset(&x, &y, plane_state, 0,
 								   offset, offset - alignment);
 		}
+
+		DRM_DEBUG_KMS("new main 0x%x %d %d\n", offset, x, y);
 
 		if (x != plane_state->color_plane[1].x || y != plane_state->color_plane[1].y) {
 			DRM_DEBUG_KMS("Unable to find suitable display surface offset due to CCS\n");
@@ -3431,8 +3461,12 @@ static int skl_check_ccs_aux_surface(struct intel_plane_state *plane_state)
 	int y = src_y / vsub;
 	u32 offset;
 
+	DRM_DEBUG_KMS("aux src %d %d\n", x, y);
 	intel_add_fb_offsets(&x, &y, plane_state, 1);
+	DRM_DEBUG_KMS("aux src+fb %d %d\n", x, y);
 	offset = intel_plane_compute_aligned_offset(&x, &y, plane_state, 1);
+
+	DRM_DEBUG_KMS("aux aligned 0x%x %d %d\n", offset, x, y);
 
 	plane_state->color_plane[1].offset = offset;
 	plane_state->color_plane[1].x = x * hsub + src_x % hsub;
@@ -14691,6 +14725,10 @@ static int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 			DRM_DEBUG_KMS("RC supported only with RGB8888 formats\n");
 			goto err;
 		}
+		DRM_DEBUG_KMS("new ccs offset 0x%x 0x%x\n",
+			      mode_cmd->offsets[0], mode_cmd->offsets[1]);
+		DRM_DEBUG_KMS("new ccs pitch 0x%x 0x%x\n",
+			      mode_cmd->pitches[0], mode_cmd->pitches[1]);
 		/* fall through */
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
