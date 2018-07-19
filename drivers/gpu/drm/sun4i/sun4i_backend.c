@@ -34,6 +34,9 @@
 struct sun4i_backend_quirks {
 	/* backend <-> TCON muxing selection done in backend */
 	bool needs_output_muxing;
+
+	/* alpha at the lowest z position is not always supported */
+	bool supports_lowest_plane_alpha;
 };
 
 static const u32 sunxi_rgb2yuv_coef[12] = {
@@ -84,12 +87,6 @@ static inline bool sun4i_backend_format_is_packed_yuv422(uint32_t format)
 	default:
 		return false;
 	}
-}
-
-static inline bool sun4i_backend_format_is_yuv(uint32_t format)
-{
-	return sun4i_backend_format_is_planar_yuv(format) ||
-		sun4i_backend_format_is_packed_yuv422(format);
 }
 
 static void sun4i_backend_apply_color_correction(struct sunxi_engine *engine)
@@ -304,7 +301,7 @@ int sun4i_backend_update_layer_formats(struct sun4i_backend *backend,
 			   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_EN,
 			   val);
 
-	if (sun4i_backend_format_is_yuv(fb->format->format))
+	if (fb->format->is_yuv)
 		return sun4i_backend_update_yuv_format(backend, layer, plane);
 
 	ret = sun4i_backend_drm_format_to_layer(fb->format->format, &val);
@@ -384,7 +381,7 @@ int sun4i_backend_update_layer_buffer(struct sun4i_backend *backend,
 	 */
 	paddr -= PHYS_OFFSET;
 
-	if (sun4i_backend_format_is_yuv(fb->format->format))
+	if (fb->format->is_yuv)
 		return sun4i_backend_update_yuv_buffer(backend, fb, paddr);
 
 	/* Write the 32 lower bits of the address (in bits) */
@@ -463,12 +460,14 @@ static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 				      struct drm_crtc_state *crtc_state)
 {
 	struct drm_plane_state *plane_states[SUN4I_BACKEND_NUM_LAYERS] = { 0 };
+	struct sun4i_backend *backend = engine_to_sun4i_backend(engine);
 	struct drm_atomic_state *state = crtc_state->state;
 	struct drm_device *drm = state->dev;
 	struct drm_plane *plane;
 	unsigned int num_planes = 0;
 	unsigned int num_alpha_planes = 0;
 	unsigned int num_frontend_planes = 0;
+	unsigned int num_alpha_planes_max = 1;
 	unsigned int num_yuv_planes = 0;
 	unsigned int current_pipe = 0;
 	unsigned int i;
@@ -502,7 +501,7 @@ static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 		if (fb->format->has_alpha || (plane_state->alpha != DRM_BLEND_ALPHA_OPAQUE))
 			num_alpha_planes++;
 
-		if (sun4i_backend_format_is_yuv(fb->format->format)) {
+		if (fb->format->is_yuv) {
 			DRM_DEBUG_DRIVER("Plane FB format is YUV\n");
 			num_yuv_planes++;
 		}
@@ -532,33 +531,40 @@ static int sun4i_backend_atomic_check(struct sunxi_engine *engine,
 	 * the layer with the highest priority.
 	 *
 	 * The second step is the actual alpha blending, that takes
-	 * the two pipes as input, and uses the eventual alpha
+	 * the two pipes as input, and uses the potential alpha
 	 * component to do the transparency between the two.
 	 *
-	 * This two steps scenario makes us unable to guarantee a
+	 * This two-step scenario makes us unable to guarantee a
 	 * robust alpha blending between the 4 layers in all
 	 * situations, since this means that we need to have one layer
 	 * with alpha at the lowest position of our two pipes.
 	 *
-	 * However, we cannot even do that, since the hardware has a
-	 * bug where the lowest plane of the lowest pipe (pipe 0,
-	 * priority 0), if it has any alpha, will discard the pixel
-	 * entirely and just display the pixels in the background
-	 * color (black by default).
+	 * However, we cannot even do that on every platform, since
+	 * the hardware has a bug where the lowest plane of the lowest
+	 * pipe (pipe 0, priority 0), if it has any alpha, will
+	 * discard the pixel data entirely and just display the pixels
+	 * in the background color (black by default).
 	 *
-	 * This means that we effectively have only three valid
-	 * configurations with alpha, all of them with the alpha being
-	 * on pipe1 with the lowest position, which can be 1, 2 or 3
-	 * depending on the number of planes and their zpos.
+	 * This means that on the affected platforms, we effectively
+	 * have only three valid configurations with alpha, all of
+	 * them with the alpha being on pipe1 with the lowest
+	 * position, which can be 1, 2 or 3 depending on the number of
+	 * planes and their zpos.
 	 */
-	if (num_alpha_planes > SUN4I_BACKEND_NUM_ALPHA_LAYERS) {
+
+	/* For platforms that are not affected by the issue described above. */
+	if (backend->quirks->supports_lowest_plane_alpha)
+		num_alpha_planes_max++;
+
+	if (num_alpha_planes > num_alpha_planes_max) {
 		DRM_DEBUG_DRIVER("Too many planes with alpha, rejecting...\n");
 		return -EINVAL;
 	}
 
 	/* We can't have an alpha plane at the lowest position */
-	if (plane_states[0]->fb->format->has_alpha ||
-	    (plane_states[0]->alpha != DRM_BLEND_ALPHA_OPAQUE))
+	if (!backend->quirks->supports_lowest_plane_alpha &&
+	    (plane_states[0]->fb->format->has_alpha ||
+	    (plane_states[0]->alpha != DRM_BLEND_ALPHA_OPAQUE)))
 		return -EINVAL;
 
 	for (i = 1; i < num_planes; i++) {
@@ -882,6 +888,8 @@ static int sun4i_backend_bind(struct device *dev, struct device *master,
 				    : SUN4I_BACKEND_MODCTL_OUT_LCD0));
 	}
 
+	backend->quirks = quirks;
+
 	return 0;
 
 err_disable_ram_clk:
@@ -941,9 +949,11 @@ static const struct sun4i_backend_quirks sun6i_backend_quirks = {
 
 static const struct sun4i_backend_quirks sun7i_backend_quirks = {
 	.needs_output_muxing = true,
+	.supports_lowest_plane_alpha = true,
 };
 
 static const struct sun4i_backend_quirks sun8i_a33_backend_quirks = {
+	.supports_lowest_plane_alpha = true,
 };
 
 static const struct sun4i_backend_quirks sun9i_backend_quirks = {
