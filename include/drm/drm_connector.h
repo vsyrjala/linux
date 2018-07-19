@@ -290,6 +290,10 @@ struct drm_display_info {
 #define DRM_BUS_FLAG_DATA_MSB_TO_LSB	(1<<4)
 /* data is transmitted LSB to MSB on the bus */
 #define DRM_BUS_FLAG_DATA_LSB_TO_MSB	(1<<5)
+/* drive sync on pos. edge */
+#define DRM_BUS_FLAG_SYNC_POSEDGE	(1<<6)
+/* drive sync on neg. edge */
+#define DRM_BUS_FLAG_SYNC_NEGEDGE	(1<<7)
 
 	/**
 	 * @bus_flags: Additional information (like pixel signal polarity) for
@@ -419,6 +423,14 @@ struct drm_connector_state {
 	enum hdmi_picture_aspect picture_aspect_ratio;
 
 	/**
+	 * @content_type: Connector property to control the
+	 * HDMI infoframe content type setting.
+	 * The %DRM_MODE_CONTENT_TYPE_\* values much
+	 * match the values.
+	 */
+	unsigned int content_type;
+
+	/**
 	 * @scaling_mode: Connector property to control the
 	 * upscaling, mostly used for built-in panels.
 	 */
@@ -429,6 +441,19 @@ struct drm_connector_state {
 	 * protection. This is most commonly used for HDCP.
 	 */
 	unsigned int content_protection;
+
+	/**
+	 * @writeback_job: Writeback job for writeback connectors
+	 *
+	 * Holds the framebuffer and out-fence for a writeback connector. As
+	 * the writeback completion may be asynchronous to the normal commit
+	 * cycle, the writeback job lifetime is managed separately from the
+	 * normal atomic state by this object.
+	 *
+	 * See also: drm_writeback_queue_job() and
+	 * drm_writeback_signal_completion()
+	 */
+	struct drm_writeback_job *writeback_job;
 };
 
 /**
@@ -608,6 +633,8 @@ struct drm_connector_funcs {
 	 * cleaned up by calling the @atomic_destroy_state hook in this
 	 * structure.
 	 *
+	 * This callback is mandatory for atomic drivers.
+	 *
 	 * Atomic drivers which don't subclass &struct drm_connector_state should use
 	 * drm_atomic_helper_connector_duplicate_state(). Drivers that subclass the
 	 * state structure to extend it with driver-private state should use
@@ -634,6 +661,8 @@ struct drm_connector_funcs {
 	 *
 	 * Destroy a state duplicated with @atomic_duplicate_state and release
 	 * or unreference all resources it references
+	 *
+	 * This callback is mandatory for atomic drivers.
 	 */
 	void (*atomic_destroy_state)(struct drm_connector *connector,
 				     struct drm_connector_state *state);
@@ -1005,9 +1034,15 @@ int drm_mode_connector_attach_encoder(struct drm_connector *connector,
 				      struct drm_encoder *encoder);
 
 void drm_connector_cleanup(struct drm_connector *connector);
-static inline unsigned drm_connector_index(struct drm_connector *connector)
+
+static inline unsigned int drm_connector_index(const struct drm_connector *connector)
 {
 	return connector->index;
+}
+
+static inline u32 drm_connector_mask(const struct drm_connector *connector)
+{
+	return 1 << connector->index;
 }
 
 /**
@@ -1089,11 +1124,16 @@ int drm_mode_create_tv_properties(struct drm_device *dev,
 				  unsigned int num_modes,
 				  const char * const modes[]);
 int drm_mode_create_scaling_mode_property(struct drm_device *dev);
+int drm_connector_attach_content_type_property(struct drm_connector *dev);
 int drm_connector_attach_scaling_mode_property(struct drm_connector *connector,
 					       u32 scaling_mode_mask);
 int drm_connector_attach_content_protection_property(
 		struct drm_connector *connector);
 int drm_mode_create_aspect_ratio_property(struct drm_device *dev);
+int drm_mode_create_content_type_property(struct drm_device *dev);
+void drm_hdmi_avi_infoframe_content_type(struct hdmi_avi_infoframe *frame,
+					 const struct drm_connector_state *conn_state);
+
 int drm_mode_create_suggested_offset_properties(struct drm_device *dev);
 
 int drm_mode_connector_set_path_property(struct drm_connector *connector,
@@ -1151,6 +1191,9 @@ struct drm_connector *
 drm_connector_list_iter_next(struct drm_connector_list_iter *iter);
 void drm_connector_list_iter_end(struct drm_connector_list_iter *iter);
 
+bool drm_connector_has_possible_encoder(struct drm_connector *connector,
+					struct drm_encoder *encoder);
+
 /**
  * drm_for_each_connector_iter - connector_list iterator macro
  * @connector: &struct drm_connector pointer used as cursor
@@ -1162,5 +1205,18 @@ void drm_connector_list_iter_end(struct drm_connector_list_iter *iter);
  */
 #define drm_for_each_connector_iter(connector, iter) \
 	while ((connector = drm_connector_list_iter_next(iter)))
+
+/**
+ * drm_connector_for_each_possible_encoder - iterate connector's possible encoders
+ * @connector: &struct drm_connector pointer
+ * @encoder: &struct drm_encoder pointer used as cursor
+ * @__i: int iteration cursor, for macro-internal use
+ */
+#define drm_connector_for_each_possible_encoder(connector, encoder, __i) \
+	for ((__i) = 0; (__i) < ARRAY_SIZE((connector)->encoder_ids) && \
+		     (connector)->encoder_ids[(__i)] != 0; (__i)++) \
+		for_each_if((encoder) = \
+			    drm_encoder_find((connector)->dev, NULL, \
+					     (connector)->encoder_ids[(__i)])) \
 
 #endif

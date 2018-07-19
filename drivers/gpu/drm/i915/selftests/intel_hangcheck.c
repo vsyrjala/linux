@@ -105,7 +105,10 @@ static int emit_recurse_batch(struct hang *h,
 			      struct i915_request *rq)
 {
 	struct drm_i915_private *i915 = h->i915;
-	struct i915_address_space *vm = rq->ctx->ppgtt ? &rq->ctx->ppgtt->base : &i915->ggtt.base;
+	struct i915_address_space *vm =
+		rq->gem_context->ppgtt ?
+		&rq->gem_context->ppgtt->vm :
+		&i915->ggtt.vm;
 	struct i915_vma *hws, *vma;
 	unsigned int flags;
 	u32 *batch;
@@ -127,13 +130,19 @@ static int emit_recurse_batch(struct hang *h,
 	if (err)
 		goto unpin_vma;
 
-	i915_vma_move_to_active(vma, rq, 0);
+	err = i915_vma_move_to_active(vma, rq, 0);
+	if (err)
+		goto unpin_hws;
+
 	if (!i915_gem_object_has_active_reference(vma->obj)) {
 		i915_gem_object_get(vma->obj);
 		i915_gem_object_set_active_reference(vma->obj);
 	}
 
-	i915_vma_move_to_active(hws, rq, 0);
+	err = i915_vma_move_to_active(hws, rq, 0);
+	if (err)
+		goto unpin_hws;
+
 	if (!i915_gem_object_has_active_reference(hws->obj)) {
 		i915_gem_object_get(hws->obj);
 		i915_gem_object_set_active_reference(hws->obj);
@@ -168,7 +177,7 @@ static int emit_recurse_batch(struct hang *h,
 		*batch++ = MI_BATCH_BUFFER_START | 1 << 8;
 		*batch++ = lower_32_bits(vma->node.start);
 	} else if (INTEL_GEN(i915) >= 4) {
-		*batch++ = MI_STORE_DWORD_IMM_GEN4 | 1 << 22;
+		*batch++ = MI_STORE_DWORD_IMM_GEN4 | MI_USE_GGTT;
 		*batch++ = 0;
 		*batch++ = lower_32_bits(hws_address(hws, rq));
 		*batch++ = rq->fence.seqno;
@@ -181,7 +190,7 @@ static int emit_recurse_batch(struct hang *h,
 		*batch++ = MI_BATCH_BUFFER_START | 2 << 6;
 		*batch++ = lower_32_bits(vma->node.start);
 	} else {
-		*batch++ = MI_STORE_DWORD_IMM;
+		*batch++ = MI_STORE_DWORD_IMM | MI_MEM_VIRTUAL;
 		*batch++ = lower_32_bits(hws_address(hws, rq));
 		*batch++ = rq->fence.seqno;
 		*batch++ = MI_ARB_CHECK;
@@ -190,7 +199,7 @@ static int emit_recurse_batch(struct hang *h,
 		batch += 1024 / sizeof(*batch);
 
 		*batch++ = MI_ARB_CHECK;
-		*batch++ = MI_BATCH_BUFFER_START | 2 << 6 | 1;
+		*batch++ = MI_BATCH_BUFFER_START | 2 << 6;
 		*batch++ = lower_32_bits(vma->node.start);
 	}
 	*batch++ = MI_BATCH_BUFFER_END; /* not reached */
@@ -202,6 +211,7 @@ static int emit_recurse_batch(struct hang *h,
 
 	err = rq->engine->emit_bb_start(rq, vma->node.start, PAGE_SIZE, flags);
 
+unpin_hws:
 	i915_vma_unpin(hws);
 unpin_vma:
 	i915_vma_unpin(vma);
@@ -242,7 +252,7 @@ hang_create_request(struct hang *h, struct intel_engine_cs *engine)
 
 	err = emit_recurse_batch(h, rq);
 	if (err) {
-		__i915_request_add(rq, false);
+		i915_request_add(rq);
 		return ERR_PTR(err);
 	}
 
@@ -315,7 +325,7 @@ static int igt_hang_sanitycheck(void *arg)
 		*h.batch = MI_BATCH_BUFFER_END;
 		i915_gem_chipset_flush(i915);
 
-		__i915_request_add(rq, true);
+		i915_request_add(rq);
 
 		timeout = i915_request_wait(rq,
 					    I915_WAIT_LOCKED,
@@ -461,7 +471,7 @@ static int __igt_reset_engine(struct drm_i915_private *i915, bool active)
 				}
 
 				i915_request_get(rq);
-				__i915_request_add(rq, true);
+				i915_request_add(rq);
 				mutex_unlock(&i915->drm.struct_mutex);
 
 				if (!wait_until_running(&h, rq)) {
@@ -560,6 +570,30 @@ struct active_engine {
 #define TEST_SELF	BIT(2)
 #define TEST_PRIORITY	BIT(3)
 
+static int active_request_put(struct i915_request *rq)
+{
+	int err = 0;
+
+	if (!rq)
+		return 0;
+
+	if (i915_request_wait(rq, 0, 5 * HZ) < 0) {
+		GEM_TRACE("%s timed out waiting for completion of fence %llx:%d, seqno %d.\n",
+			  rq->engine->name,
+			  rq->fence.context,
+			  rq->fence.seqno,
+			  i915_request_global_seqno(rq));
+		GEM_TRACE_DUMP();
+
+		i915_gem_set_wedged(rq->i915);
+		err = -EIO;
+	}
+
+	i915_request_put(rq);
+
+	return err;
+}
+
 static int active_engine(void *data)
 {
 	I915_RND_STATE(prng);
@@ -608,24 +642,20 @@ static int active_engine(void *data)
 		i915_request_add(new);
 		mutex_unlock(&engine->i915->drm.struct_mutex);
 
-		if (old) {
-			if (i915_request_wait(old, 0, HZ) < 0) {
-				GEM_TRACE("%s timed out.\n", engine->name);
-				GEM_TRACE_DUMP();
-
-				i915_gem_set_wedged(engine->i915);
-				i915_request_put(old);
-				err = -EIO;
-				break;
-			}
-			i915_request_put(old);
-		}
+		err = active_request_put(old);
+		if (err)
+			break;
 
 		cond_resched();
 	}
 
-	for (count = 0; count < ARRAY_SIZE(rq); count++)
-		i915_request_put(rq[count]);
+	for (count = 0; count < ARRAY_SIZE(rq); count++) {
+		int err__ = active_request_put(rq[count]);
+
+		/* Keep the first error */
+		if (!err)
+			err = err__;
+	}
 
 err_file:
 	mock_file_free(engine->i915, file);
@@ -719,7 +749,7 @@ static int __igt_reset_engines(struct drm_i915_private *i915,
 				}
 
 				i915_request_get(rq);
-				__i915_request_add(rq, true);
+				i915_request_add(rq);
 				mutex_unlock(&i915->drm.struct_mutex);
 
 				if (!wait_until_running(&h, rq)) {
@@ -919,7 +949,7 @@ static int igt_wait_reset(void *arg)
 	}
 
 	i915_request_get(rq);
-	__i915_request_add(rq, true);
+	i915_request_add(rq);
 
 	if (!wait_until_running(&h, rq)) {
 		struct drm_printer p = drm_info_printer(i915->drm.dev);
@@ -1014,7 +1044,7 @@ static int igt_reset_queue(void *arg)
 		}
 
 		i915_request_get(prev);
-		__i915_request_add(prev, true);
+		i915_request_add(prev);
 
 		count = 0;
 		do {
@@ -1028,7 +1058,7 @@ static int igt_reset_queue(void *arg)
 			}
 
 			i915_request_get(rq);
-			__i915_request_add(rq, true);
+			i915_request_add(rq);
 
 			/*
 			 * XXX We don't handle resetting the kernel context
@@ -1161,7 +1191,7 @@ static int igt_handle_error(void *arg)
 	}
 
 	i915_request_get(rq);
-	__i915_request_add(rq, true);
+	i915_request_add(rq);
 
 	if (!wait_until_running(&h, rq)) {
 		struct drm_printer p = drm_info_printer(i915->drm.dev);
@@ -1219,6 +1249,9 @@ int intel_hangcheck_live_selftests(struct drm_i915_private *i915)
 
 	if (!intel_has_gpu_reset(i915))
 		return 0;
+
+	if (i915_terminally_wedged(&i915->gpu_error))
+		return -EIO; /* we're long past hope of a successful reset */
 
 	intel_runtime_pm_get(i915);
 	saved_hangcheck = fetch_and_zero(&i915_modparams.enable_hangcheck);
