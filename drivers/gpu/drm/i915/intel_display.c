@@ -13188,7 +13188,7 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 						      false, I915_FENCE_TIMEOUT,
 						      GFP_KERNEL);
 		if (ret < 0)
-			return ret;
+			goto unpin_fb;
 
 		fence = reservation_object_get_excl_rcu(obj->resv);
 		if (fence) {
@@ -13213,6 +13213,13 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 	}
 
 	return 0;
+
+unpin_fb:
+	mutex_lock(&dev_priv->drm.struct_mutex);
+	intel_plane_unpin_fb(to_intel_plane_state(new_state));
+	mutex_unlock(&dev_priv->drm.struct_mutex);
+
+	return ret;
 }
 
 /**
