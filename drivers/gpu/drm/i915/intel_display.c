@@ -13231,6 +13231,10 @@ intel_cleanup_plane_fb(struct drm_plane *plane,
 	struct intel_atomic_state *intel_state =
 		to_intel_atomic_state(old_state->state);
 	struct drm_i915_private *dev_priv = to_i915(plane->dev);
+	struct drm_i915_gem_object *obj = intel_fb_obj(old_state->fb);
+
+	if (!obj)
+		return;
 
 	if (intel_state->rps_interactive) {
 		intel_rps_mark_interactive(dev_priv, false);
