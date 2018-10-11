@@ -436,6 +436,8 @@ skl_program_plane(struct intel_plane *plane,
 		I915_WRITE_FW(PLANE_COLOR_CTL(pipe, plane_id),
 			      plane_state->color_ctl);
 
+	skl_write_plane_wm(plane, crtc_state);
+
 	I915_WRITE_FW(PLANE_KEYVAL(pipe, plane_id), key->min_value);
 	I915_WRITE_FW(PLANE_KEYMAX(pipe, plane_id), keymax);
 	I915_WRITE_FW(PLANE_KEYMSK(pipe, plane_id), keymsk);
@@ -497,6 +499,8 @@ skl_disable_plane(struct intel_plane *plane,
 	unsigned long irqflags;
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+
+	skl_write_plane_wm(plane, crtc_state);
 
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), 0);
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id), 0);
