@@ -382,12 +382,19 @@ skl_program_plane(struct intel_plane *plane,
 	uint32_t src_w = drm_rect_width(&plane_state->base.src) >> 16;
 	uint32_t src_h = drm_rect_height(&plane_state->base.src) >> 16;
 	struct intel_plane *linked = plane_state->linked_plane;
+	u8 alpha = plane_state->base.alpha >> 8;
 	unsigned long irqflags;
-	u32 keymsk = 0, keymax = 0;
+	u32 keymsk, keymax;
 
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
+
+	keymax = (key->max_value & 0xffffff) | PLANE_KEYMAX_ALPHA(alpha);
+
+	keymsk = key->channel_mask & 0x3ffffff;
+	if (alpha < 0xff)
+		keymsk |= PLANE_KEYMSK_ALPHA_ENABLE;
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
@@ -395,18 +402,7 @@ skl_program_plane(struct intel_plane *plane,
 		I915_WRITE_FW(PLANE_COLOR_CTL(pipe, plane_id),
 			      plane_state->color_ctl);
 
-	if (key->flags) {
-		I915_WRITE_FW(PLANE_KEYVAL(pipe, plane_id), key->min_value);
-
-		keymax |= key->max_value & 0xffffff;
-		keymsk |= key->channel_mask & 0x3ffffff;
-	}
-
-	keymax |= (plane_state->base.alpha >> 8) << PLANE_KEYMAX_ALPHA_SHIFT;
-
-	if (plane_state->base.alpha < 0xff00)
-		keymsk |= PLANE_KEYMSK_ALPHA_ENABLE;
-
+	I915_WRITE_FW(PLANE_KEYVAL(pipe, plane_id), key->min_value);
 	I915_WRITE_FW(PLANE_KEYMAX(pipe, plane_id), keymax);
 	I915_WRITE_FW(PLANE_KEYMSK(pipe, plane_id), keymsk);
 
