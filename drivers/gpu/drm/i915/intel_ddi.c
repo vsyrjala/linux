@@ -3019,6 +3019,23 @@ static void intel_ddi_pre_enable(struct intel_encoder *encoder,
 	}
 }
 
+static void intel_ddi_pre_enable_lspcon(struct intel_encoder *encoder,
+					const struct intel_crtc_state *crtc_state,
+					const struct drm_connector_state *conn_state)
+{
+	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
+
+	intel_ddi_pre_enable(encoder, crtc_state, conn_state);
+
+	/*
+	 * Parade LSPCON forgets to turn off scrambling/bit clock rate
+	 * when switching from a mode that needs them to a mode that
+	 * does not.
+	 */
+	intel_hdmi_handle_sink_scrambling(conn_state->connector,
+					  &intel_dp->aux.ddc, false, false);
+}
+
 static void intel_disable_ddi_buf(struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
@@ -3121,6 +3138,23 @@ static void intel_ddi_post_disable(struct intel_encoder *encoder,
 					  old_crtc_state, old_conn_state);
 }
 
+static void intel_ddi_post_disable_lspcon(struct intel_encoder *encoder,
+					  const struct intel_crtc_state *old_crtc_state,
+					  const struct drm_connector_state *old_conn_state)
+{
+	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
+
+	/*
+	 * Parade LSPCON forgets to turn off scrambling/bit clock rate
+	 * when switching from a mode that needs them to a mode that
+	 * does not.
+	 */
+	intel_hdmi_handle_sink_scrambling(old_conn_state->connector,
+					  &intel_dp->aux.ddc, false, false);
+
+	intel_ddi_post_disable(encoder, old_crtc_state, old_conn_state);
+}
+
 void intel_ddi_fdi_post_disable(struct intel_encoder *encoder,
 				const struct intel_crtc_state *old_crtc_state,
 				const struct drm_connector_state *old_conn_state)
@@ -3181,9 +3215,11 @@ static void intel_enable_ddi_hdmi(struct intel_encoder *encoder,
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	struct intel_digital_port *dig_port = enc_to_dig_port(&encoder->base);
 	struct drm_connector *connector = conn_state->connector;
+	struct i2c_adapter *adapter = intel_gmbus_get_adapter(dev_priv,
+							      dig_port->hdmi.ddc_bus);
 	enum port port = encoder->port;
 
-	if (!intel_hdmi_handle_sink_scrambling(encoder, connector,
+	if (!intel_hdmi_handle_sink_scrambling(connector, adapter,
 					       crtc_state->hdmi_high_tmds_clock_ratio,
 					       crtc_state->hdmi_scrambling))
 		DRM_ERROR("[CONNECTOR:%d:%s] Failed to configure sink scrambling/TMDS bit clock ratio\n",
@@ -3278,13 +3314,17 @@ static void intel_disable_ddi_hdmi(struct intel_encoder *encoder,
 				   const struct intel_crtc_state *old_crtc_state,
 				   const struct drm_connector_state *old_conn_state)
 {
+	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	struct drm_connector *connector = old_conn_state->connector;
+	struct intel_digital_port *dig_port = enc_to_dig_port(&encoder->base);
+	struct i2c_adapter *adapter = intel_gmbus_get_adapter(dev_priv,
+							      dig_port->hdmi.ddc_bus);
 
 	if (old_crtc_state->has_audio)
 		intel_audio_codec_disable(encoder,
 					  old_crtc_state, old_conn_state);
 
-	if (!intel_hdmi_handle_sink_scrambling(encoder, connector,
+	if (!intel_hdmi_handle_sink_scrambling(connector, adapter,
 					       false, false))
 		DRM_DEBUG_KMS("[CONNECTOR:%d:%s] Failed to reset sink scrambling/TMDS bit clock ratio\n",
 			      connector->base.id, connector->name);
@@ -3895,17 +3935,21 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 	}
 
 	if (init_lspcon) {
-		if (lspcon_init(intel_dig_port))
+		if (lspcon_init(intel_dig_port)) {
 			/* TODO: handle hdmi info frame part */
 			DRM_DEBUG_KMS("LSPCON init success on port %c\n",
 				port_name(port));
-		else
+
+			intel_encoder->pre_enable = intel_ddi_pre_enable_lspcon;
+			intel_encoder->post_disable = intel_ddi_post_disable_lspcon;
+		} else {
 			/*
 			 * LSPCON init faied, but DP init was success, so
 			 * lets try to drive as DP++ port.
 			 */
 			DRM_ERROR("LSPCON init failed on port %c\n",
 				port_name(port));
+		}
 	}
 
 	intel_infoframe_init(intel_dig_port);
