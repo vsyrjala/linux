@@ -240,6 +240,9 @@ void skl_update_planes_on_crtc(struct intel_atomic_state *state,
 		struct intel_plane_state *new_plane_state =
 			intel_atomic_get_new_plane_state(state, plane);
 
+		DRM_DEBUG_KMS("updating %s (visible %s)\n",
+			      plane->base.name, yesno(new_plane_state->base.visible));
+
 		if (new_plane_state->base.visible) {
 			trace_intel_update_plane(&plane->base, crtc);
 			plane->update_plane(plane, new_crtc_state, new_plane_state);
