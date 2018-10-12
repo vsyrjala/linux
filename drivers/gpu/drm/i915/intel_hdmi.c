@@ -2144,8 +2144,8 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 
 /*
  * intel_hdmi_handle_sink_scrambling: handle sink scrambling/clock ratio setup
- * @encoder: intel_encoder
  * @connector: drm_connector
+ * @adapter: i2c adapter for the ddc bus
  * @high_tmds_clock_ratio = bool to indicate if the function needs to set
  *  or reset the high tmds clock ratio for scrambling
  * @scrambling: bool to Indicate if the function needs to set or reset
@@ -2160,17 +2160,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
  * Returns:
  * True on success, false on failure.
  */
-bool intel_hdmi_handle_sink_scrambling(struct intel_encoder *encoder,
-				       struct drm_connector *connector,
+bool intel_hdmi_handle_sink_scrambling(struct drm_connector *connector,
+				       struct i2c_adapter *adapter,
 				       bool high_tmds_clock_ratio,
 				       bool scrambling)
 {
-	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
-	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
 	struct drm_scrambling *sink_scrambling =
 		&connector->display_info.hdmi.scdc.scrambling;
-	struct i2c_adapter *adapter =
-		intel_gmbus_get_adapter(dev_priv, intel_hdmi->ddc_bus);
 
 	if (!sink_scrambling->supported)
 		return true;

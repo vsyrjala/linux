@@ -1952,8 +1952,8 @@ struct intel_hdmi *enc_to_intel_hdmi(struct drm_encoder *encoder);
 bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 			       struct intel_crtc_state *pipe_config,
 			       struct drm_connector_state *conn_state);
-bool intel_hdmi_handle_sink_scrambling(struct intel_encoder *encoder,
-				       struct drm_connector *connector,
+bool intel_hdmi_handle_sink_scrambling(struct drm_connector *connector,
+				       struct i2c_adapter *adapter,
 				       bool high_tmds_clock_ratio,
 				       bool scrambling);
 void intel_dp_dual_mode_set_tmds_output(struct intel_hdmi *hdmi, bool enable);
