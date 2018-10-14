@@ -691,7 +691,13 @@ int intel_color_check(struct intel_crtc_state *crtc_state)
 	degamma_length = INTEL_INFO(dev_priv)->color.degamma_lut_size;
 	gamma_length = INTEL_INFO(dev_priv)->color.gamma_lut_size;
 
-	crtc_state->gamma_enable = gamma_lut || degamma_lut;
+	/* C8 needs the legacy LUT all to itself */
+	if (crtc_state->c8_planes &&
+	    !crtc_state_is_legacy_gamma(crtc_state))
+		return -EINVAL;
+
+	crtc_state->gamma_enable = (gamma_lut || degamma_lut) &&
+		!crtc_state->c8_planes;
 
 	if (INTEL_GEN(dev_priv) >= 9 ||
 	    IS_BROADWELL(dev_priv) || IS_HASWELL(dev_priv))
