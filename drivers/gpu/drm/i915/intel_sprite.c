@@ -484,8 +484,15 @@ skl_program_plane(struct intel_plane *plane,
 	struct intel_plane *linked = plane_state->linked_plane;
 	const struct drm_framebuffer *fb = plane_state->base.fb;
 	u8 alpha = plane_state->base.alpha >> 8;
+	u32 plane_color_ctl = 0;
 	unsigned long irqflags;
 	u32 keymsk, keymax;
+
+	plane_ctl |= skl_plane_ctl_crtc(crtc_state);
+
+	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
+		plane_color_ctl = plane_state->color_ctl |
+			glk_plane_color_ctl_crtc(crtc_state);
 
 	/* Sizes are 0 based */
 	src_w--;
@@ -533,8 +540,7 @@ skl_program_plane(struct intel_plane *plane,
 	}
 
 	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
-		I915_WRITE_FW(PLANE_COLOR_CTL(pipe, plane_id),
-			      plane_state->color_ctl);
+		I915_WRITE_FW(PLANE_COLOR_CTL(pipe, plane_id), plane_color_ctl);
 
 	if (fb->format->is_yuv && icl_is_hdr_plane(plane))
 		icl_program_input_csc(plane, crtc_state, plane_state);
@@ -731,6 +737,11 @@ vlv_update_clrc(const struct intel_plane_state *plane_state)
 		      SP_SH_SIN(sh_sin) | SP_SH_COS(sh_cos));
 }
 
+static u32 vlv_sprite_ctl_crtc(const struct intel_crtc_state *crtc_state)
+{
+	return SP_GAMMA_ENABLE;
+}
+
 static u32 vlv_sprite_ctl(const struct intel_crtc_state *crtc_state,
 			  const struct intel_plane_state *plane_state)
 {
@@ -739,7 +750,7 @@ static u32 vlv_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	const struct drm_intel_sprite_colorkey *key = &plane_state->ckey;
 	u32 sprctl;
 
-	sprctl = SP_ENABLE | SP_GAMMA_ENABLE;
+	sprctl = SP_ENABLE;
 
 	switch (fb->format->format) {
 	case DRM_FORMAT_YUYV:
@@ -806,7 +817,6 @@ vlv_update_plane(struct intel_plane *plane,
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum pipe pipe = plane->pipe;
 	enum plane_id plane_id = plane->id;
-	u32 sprctl = plane_state->ctl;
 	u32 sprsurf_offset = plane_state->color_plane[0].offset;
 	u32 linear_offset;
 	const struct drm_intel_sprite_colorkey *key = &plane_state->ckey;
@@ -817,6 +827,9 @@ vlv_update_plane(struct intel_plane *plane,
 	uint32_t x = plane_state->color_plane[0].x;
 	uint32_t y = plane_state->color_plane[0].y;
 	unsigned long irqflags;
+	u32 sprctl;
+
+	sprctl = plane_state->ctl | vlv_sprite_ctl_crtc(crtc_state);
 
 	/* Sizes are 0 based */
 	crtc_w--;
@@ -897,6 +910,19 @@ vlv_plane_get_hw_state(struct intel_plane *plane,
 	return ret;
 }
 
+static u32 ivb_sprite_ctl_crtc(const struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
+	u32 sprctl = 0;
+
+	sprctl |= SPRITE_GAMMA_ENABLE;
+
+	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
+		sprctl |= SPRITE_PIPE_CSC_ENABLE;
+
+	return sprctl;
+}
+
 static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
 			  const struct intel_plane_state *plane_state)
 {
@@ -907,13 +933,10 @@ static u32 ivb_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	const struct drm_intel_sprite_colorkey *key = &plane_state->ckey;
 	u32 sprctl;
 
-	sprctl = SPRITE_ENABLE | SPRITE_GAMMA_ENABLE;
+	sprctl = SPRITE_ENABLE;
 
 	if (IS_IVYBRIDGE(dev_priv))
 		sprctl |= SPRITE_TRICKLE_FEED_DISABLE;
-
-	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
-		sprctl |= SPRITE_PIPE_CSC_ENABLE;
 
 	switch (fb->format->format) {
 	case DRM_FORMAT_XBGR8888:
@@ -966,7 +989,6 @@ ivb_update_plane(struct intel_plane *plane,
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum pipe pipe = plane->pipe;
-	u32 sprctl = plane_state->ctl, sprscale = 0;
 	u32 sprsurf_offset = plane_state->color_plane[0].offset;
 	u32 linear_offset;
 	const struct drm_intel_sprite_colorkey *key = &plane_state->ckey;
@@ -978,7 +1000,10 @@ ivb_update_plane(struct intel_plane *plane,
 	uint32_t y = plane_state->color_plane[0].y;
 	uint32_t src_w = drm_rect_width(&plane_state->base.src) >> 16;
 	uint32_t src_h = drm_rect_height(&plane_state->base.src) >> 16;
+	u32 sprctl, sprscale = 0;
 	unsigned long irqflags;
+
+	sprctl = plane_state->ctl | ivb_sprite_ctl_crtc(crtc_state);
 
 	/* Sizes are 0 based */
 	src_w--;
@@ -1074,6 +1099,11 @@ g4x_sprite_max_stride(struct intel_plane *plane,
 	return 16384;
 }
 
+static u32 g4x_sprite_ctl_crtc(const struct intel_crtc_state *crtc_state)
+{
+	return DVS_GAMMA_ENABLE;
+}
+
 static u32 g4x_sprite_ctl(const struct intel_crtc_state *crtc_state,
 			  const struct intel_plane_state *plane_state)
 {
@@ -1084,7 +1114,7 @@ static u32 g4x_sprite_ctl(const struct intel_crtc_state *crtc_state,
 	const struct drm_intel_sprite_colorkey *key = &plane_state->ckey;
 	u32 dvscntr;
 
-	dvscntr = DVS_ENABLE | DVS_GAMMA_ENABLE;
+	dvscntr = DVS_ENABLE;
 
 	if (IS_GEN(dev_priv, 6))
 		dvscntr |= DVS_TRICKLE_FEED_DISABLE;
@@ -1140,7 +1170,6 @@ g4x_update_plane(struct intel_plane *plane,
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum pipe pipe = plane->pipe;
-	u32 dvscntr = plane_state->ctl, dvsscale = 0;
 	u32 dvssurf_offset = plane_state->color_plane[0].offset;
 	u32 linear_offset;
 	const struct drm_intel_sprite_colorkey *key = &plane_state->ckey;
@@ -1152,7 +1181,10 @@ g4x_update_plane(struct intel_plane *plane,
 	uint32_t y = plane_state->color_plane[0].y;
 	uint32_t src_w = drm_rect_width(&plane_state->base.src) >> 16;
 	uint32_t src_h = drm_rect_height(&plane_state->base.src) >> 16;
+	u32 dvscntr, dvsscale = 0;
 	unsigned long irqflags;
+
+	dvscntr = plane_state->ctl | g4x_sprite_ctl_crtc(crtc_state);
 
 	/* Sizes are 0 based */
 	src_w--;
