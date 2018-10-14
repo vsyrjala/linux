@@ -320,7 +320,7 @@ struct drm_i915_display_funcs {
 	/* display clock increase/decrease */
 	/* pll clock increase/decrease */
 
-	void (*load_csc_matrix)(const struct intel_crtc_state *crtc_state);
+	void (*color_commit)(const struct intel_crtc_state *crtc_state);
 	void (*load_luts)(const struct intel_crtc_state *crtc_state);
 };
 

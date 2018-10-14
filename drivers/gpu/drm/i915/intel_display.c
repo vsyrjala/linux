@@ -5705,6 +5705,7 @@ static void ironlake_crtc_enable(struct intel_crtc_state *pipe_config,
 	 * clocks enabled
 	 */
 	intel_color_load_luts(pipe_config);
+	intel_color_commit(pipe_config);
 
 	if (dev_priv->display.initial_watermarks != NULL)
 		dev_priv->display.initial_watermarks(old_intel_state, pipe_config);
@@ -5815,8 +5816,6 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 
 	haswell_set_pipemisc(pipe_config);
 
-	intel_color_set_csc(pipe_config);
-
 	intel_crtc->active = true;
 
 	/* Display WA #1180: WaDisableScalarClockGating: glk, cnl */
@@ -5835,6 +5834,7 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 	 * clocks enabled
 	 */
 	intel_color_load_luts(pipe_config);
+	intel_color_commit(pipe_config);
 
 	/*
 	 * Display WA #1153: enable hardware to bypass the alpha math
@@ -6180,8 +6180,6 @@ static void valleyview_crtc_enable(struct intel_crtc_state *pipe_config,
 
 	i9xx_set_pipeconf(pipe_config);
 
-	intel_color_set_csc(pipe_config);
-
 	intel_crtc->active = true;
 
 	intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, true);
@@ -6201,6 +6199,7 @@ static void valleyview_crtc_enable(struct intel_crtc_state *pipe_config,
 	i9xx_pfit_enable(pipe_config);
 
 	intel_color_load_luts(pipe_config);
+	intel_color_commit(pipe_config);
 
 	dev_priv->display.initial_watermarks(old_intel_state,
 					     pipe_config);
@@ -6257,6 +6256,7 @@ static void i9xx_crtc_enable(struct intel_crtc_state *pipe_config,
 	i9xx_pfit_enable(pipe_config);
 
 	intel_color_load_luts(pipe_config);
+	intel_color_commit(pipe_config);
 
 	if (dev_priv->display.initial_watermarks != NULL)
 		dev_priv->display.initial_watermarks(old_intel_state,
@@ -13634,16 +13634,18 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc,
 
 	if (!modeset &&
 	    (intel_cstate->base.color_mgmt_changed ||
-	     intel_cstate->update_pipe)) {
-		intel_color_set_csc(intel_cstate);
+	     intel_cstate->update_pipe))
 		intel_color_load_luts(intel_cstate);
-	}
 
 	/* Perform vblank evasion around commit operation */
 	intel_pipe_update_start(intel_cstate);
 
 	if (modeset)
 		goto out;
+
+	if (intel_cstate->base.color_mgmt_changed ||
+	    intel_cstate->update_pipe)
+		intel_color_commit(intel_cstate);
 
 	if (intel_cstate->update_pipe)
 		intel_update_pipe_config(old_intel_cstate, intel_cstate);
