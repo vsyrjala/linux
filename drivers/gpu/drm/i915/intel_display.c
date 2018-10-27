@@ -5504,6 +5504,32 @@ static void intel_encoders_post_pll_disable(struct drm_crtc *crtc,
 	}
 }
 
+static u32 intel_crtc_max_vblank_count(const struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
+	u32 max_vblank_count = dev_priv->drm.max_vblank_count;
+
+	/*
+	 * On i965gm the hardware frame counter always
+	 * reads zero when the TV encoder is used :(
+	 * Otherwise we get the 24 bit frame counter.
+	 */
+	if (IS_I965GM(dev_priv) &&
+	    (crtc_state->output_types & BIT(INTEL_OUTPUT_TVOUT)) == 0)
+		max_vblank_count = 0xffffff; /* only 24 bits of frame count */
+
+	return max_vblank_count;
+}
+
+static void intel_crtc_vblank_on(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+
+	drm_crtc_set_max_vblank_count(&crtc->base,
+				      intel_crtc_max_vblank_count(crtc_state));
+	drm_crtc_vblank_on(&crtc->base);
+}
+
 static void ironlake_crtc_enable(struct intel_crtc_state *pipe_config,
 				 struct drm_atomic_state *old_state)
 {
@@ -5577,7 +5603,7 @@ static void ironlake_crtc_enable(struct intel_crtc_state *pipe_config,
 		ironlake_pch_enable(old_intel_state, pipe_config);
 
 	assert_vblank_disabled(crtc);
-	drm_crtc_vblank_on(crtc);
+	intel_crtc_vblank_on(pipe_config);
 
 	intel_encoders_enable(crtc, pipe_config, old_state);
 
@@ -5734,7 +5760,7 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 		intel_ddi_set_vc_payload_alloc(pipe_config, true);
 
 	assert_vblank_disabled(crtc);
-	drm_crtc_vblank_on(crtc);
+	intel_crtc_vblank_on(pipe_config);
 
 	intel_encoders_enable(crtc, pipe_config, old_state);
 
@@ -6074,7 +6100,7 @@ static void valleyview_crtc_enable(struct intel_crtc_state *pipe_config,
 	intel_enable_pipe(pipe_config);
 
 	assert_vblank_disabled(crtc);
-	drm_crtc_vblank_on(crtc);
+	intel_crtc_vblank_on(pipe_config);
 
 	intel_encoders_enable(crtc, pipe_config, old_state);
 }
@@ -6133,7 +6159,7 @@ static void i9xx_crtc_enable(struct intel_crtc_state *pipe_config,
 	intel_enable_pipe(pipe_config);
 
 	assert_vblank_disabled(crtc);
-	drm_crtc_vblank_on(crtc);
+	intel_crtc_vblank_on(pipe_config);
 
 	intel_encoders_enable(crtc, pipe_config, old_state);
 }
@@ -15752,10 +15778,12 @@ intel_modeset_setup_hw_state(struct drm_device *dev,
 	 * waits, so we need vblank interrupts restored beforehand.
 	 */
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
+		crtc_state = to_intel_crtc_state(crtc->base.state);
+
 		drm_crtc_vblank_reset(&crtc->base);
 
-		if (crtc->base.state->active)
-			drm_crtc_vblank_on(&crtc->base);
+		if (crtc_state->base.active)
+			intel_crtc_vblank_on(crtc_state);
 	}
 
 	intel_sanitize_plane_mapping(dev_priv);

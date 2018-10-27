@@ -4843,8 +4843,16 @@ void intel_irq_init(struct drm_i915_private *dev_priv)
 		dev->max_vblank_count = 0xffffffff; /* full 32 bit counter */
 		dev->driver->get_vblank_counter = g4x_get_vblank_counter;
 	} else {
+		/*
+		 * On i965gm the hardware frame counter reads zero
+		 * when the TV encoder is used. Hence we configure
+		 * max_vblank_count dynamically for each crtc.
+		 */
+		if (IS_I965GM(dev_priv))
+			dev->max_vblank_count = 0;
+		else
+			dev->max_vblank_count = 0xffffff; /* only 24 bits of frame count */
 		dev->driver->get_vblank_counter = i915_get_vblank_counter;
-		dev->max_vblank_count = 0xffffff; /* only 24 bits of frame count */
 	}
 
 	/*
