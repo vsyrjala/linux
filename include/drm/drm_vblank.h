@@ -129,6 +129,12 @@ struct drm_vblank_crtc {
 	 */
 	u32 last;
 	/**
+	 * @max_vblank_count: Maximum value of the hardware vblank counter.
+	 * If non-zero this takes precedence over &drm_device.max_vblank_count
+	 * for this crtc. Otherwise &drm_device.max_vblank_count is used.
+	 */
+	u32 max_vblank_count;
+	/**
 	 * @inmodeset: Tracks whether the vblank is disabled due to a modeset.
 	 * For legacy driver bit 2 additionally tracks whether an additional
 	 * temporary vblank reference has been acquired to paper over the
@@ -206,4 +212,6 @@ bool drm_calc_vbltimestamp_from_scanoutpos(struct drm_device *dev,
 void drm_calc_timestamping_constants(struct drm_crtc *crtc,
 				     const struct drm_display_mode *mode);
 wait_queue_head_t *drm_crtc_vblank_waitqueue(struct drm_crtc *crtc);
+void drm_crtc_set_max_vblank_count(struct drm_crtc *crtc,
+				   u32 max_vblank_count);
 #endif
