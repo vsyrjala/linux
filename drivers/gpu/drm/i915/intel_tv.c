@@ -380,7 +380,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 108000,
 		.refresh	= 59940,
 		.oversample	= 8,
-		.component_only = 0,
+		.component_only = false,
 		/* 525 Lines, 60 Fields, 15.734KHz line, Sub-Carrier 3.580MHz */
 
 		.hsync_end	= 64,		    .hblank_end		= 124,
@@ -423,7 +423,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 108000,
 		.refresh	= 59940,
 		.oversample	= 8,
-		.component_only = 0,
+		.component_only = false,
 		/* 525 Lines, 60 Fields, 15.734KHz line, Sub-Carrier 4.43MHz */
 		.hsync_end	= 64,		    .hblank_end		= 124,
 		.hblank_start	= 836,		    .htotal		= 857,
@@ -465,7 +465,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 108000,
 		.refresh	= 59940,
 		.oversample	= 8,
-		.component_only = 0,
+		.component_only = false,
 
 		/* 525 Lines, 60 Fields, 15.734KHz line, Sub-Carrier 3.580MHz */
 		.hsync_end	= 64,		    .hblank_end		= 124,
@@ -508,7 +508,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 108000,
 		.refresh	= 59940,
 		.oversample	= 8,
-		.component_only = 0,
+		.component_only = false,
 
 		/* 525 Lines, 60 Fields, 15.734KHz line, Sub-Carrier 3.580MHz */
 		.hsync_end	= 64,		  .hblank_end		= 124,
@@ -552,7 +552,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 108000,
 		.refresh	= 50000,
 		.oversample	= 8,
-		.component_only = 0,
+		.component_only = false,
 
 		.hsync_end	= 64,		    .hblank_end		= 128,
 		.hblank_start = 844,	    .htotal		= 863,
@@ -597,7 +597,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 108000,
 		.refresh	= 50000,
 		.oversample	= 8,
-		.component_only = 0,
+		.component_only = false,
 
 		.hsync_end	= 64,		    .hblank_end		= 142,
 		.hblank_start	= 844,	    .htotal		= 863,
@@ -639,7 +639,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 108000,
 		.refresh	= 59940,
 		.oversample     = 4,
-		.component_only = 1,
+		.component_only = true,
 
 		.hsync_end      = 64,               .hblank_end         = 122,
 		.hblank_start   = 842,              .htotal             = 857,
@@ -663,7 +663,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 108000,
 		.refresh	= 50000,
 		.oversample     = 4,
-		.component_only = 1,
+		.component_only = true,
 
 		.hsync_end      = 64,               .hblank_end         = 139,
 		.hblank_start   = 859,              .htotal             = 863,
@@ -687,7 +687,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 148500,
 		.refresh	= 60000,
 		.oversample     = 2,
-		.component_only = 1,
+		.component_only = true,
 
 		.hsync_end      = 80,               .hblank_end         = 300,
 		.hblank_start   = 1580,             .htotal             = 1649,
@@ -711,7 +711,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 148500,
 		.refresh	= 50000,
 		.oversample     = 2,
-		.component_only = 1,
+		.component_only = true,
 
 		.hsync_end      = 80,               .hblank_end         = 300,
 		.hblank_start   = 1580,             .htotal             = 1979,
@@ -736,7 +736,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 148500,
 		.refresh	= 50000,
 		.oversample     = 2,
-		.component_only = 1,
+		.component_only = true,
 
 		.hsync_end      = 88,               .hblank_end         = 235,
 		.hblank_start   = 2155,             .htotal             = 2639,
@@ -762,7 +762,7 @@ static const struct tv_mode tv_modes[] = {
 		.clock		= 148500,
 		.refresh	= 60000,
 		.oversample     = 2,
-		.component_only = 1,
+		.component_only = true,
 
 		.hsync_end      = 88,               .hblank_end         = 235,
 		.hblank_start   = 2155,             .htotal             = 2199,
