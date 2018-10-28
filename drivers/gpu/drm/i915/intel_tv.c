@@ -636,7 +636,7 @@ static const struct tv_mode tv_modes[] = {
 	},
 	{
 		.name       = "480p",
-		.clock		= 107520,
+		.clock		= 108000,
 		.refresh	= 59940,
 		.oversample     = TV_OVERSAMPLE_4X,
 		.component_only = 1,
@@ -660,7 +660,7 @@ static const struct tv_mode tv_modes[] = {
 	},
 	{
 		.name       = "576p",
-		.clock		= 107520,
+		.clock		= 108000,
 		.refresh	= 50000,
 		.oversample     = TV_OVERSAMPLE_4X,
 		.component_only = 1,
@@ -684,7 +684,7 @@ static const struct tv_mode tv_modes[] = {
 	},
 	{
 		.name       = "720p@60Hz",
-		.clock		= 148800,
+		.clock		= 148500,
 		.refresh	= 60000,
 		.oversample     = TV_OVERSAMPLE_2X,
 		.component_only = 1,
@@ -708,7 +708,7 @@ static const struct tv_mode tv_modes[] = {
 	},
 	{
 		.name       = "720p@50Hz",
-		.clock		= 148800,
+		.clock		= 148500,
 		.refresh	= 50000,
 		.oversample     = TV_OVERSAMPLE_2X,
 		.component_only = 1,
@@ -733,7 +733,7 @@ static const struct tv_mode tv_modes[] = {
 	},
 	{
 		.name       = "1080i@50Hz",
-		.clock		= 148800,
+		.clock		= 148500,
 		.refresh	= 50000,
 		.oversample     = TV_OVERSAMPLE_2X,
 		.component_only = 1,
@@ -759,7 +759,7 @@ static const struct tv_mode tv_modes[] = {
 	},
 	{
 		.name       = "1080i@60Hz",
-		.clock		= 148800,
+		.clock		= 148500,
 		.refresh	= 60000,
 		.oversample     = TV_OVERSAMPLE_2X,
 		.component_only = 1,
@@ -1114,7 +1114,7 @@ static void intel_tv_pre_enable(struct intel_encoder *encoder,
 static const struct drm_display_mode reported_modes[] = {
 	{
 		.name = "NTSC 480i",
-		.clock = 107520,
+		.clock = 108000,
 		.hdisplay = 1280,
 		.hsync_start = 1368,
 		.hsync_end = 1496,
