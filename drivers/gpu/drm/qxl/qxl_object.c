@@ -54,7 +54,7 @@ void qxl_ttm_placement_from_domain(struct qxl_bo *qbo, u32 domain, bool pinned)
 {
 	u32 c = 0;
 	u32 pflag = pinned ? TTM_PL_FLAG_NO_EVICT : 0;
-	unsigned i;
+	unsigned int i;
 
 	qbo->placement.placement = qbo->placements;
 	qbo->placement.busy_placement = qbo->placements;
@@ -73,7 +73,6 @@ void qxl_ttm_placement_from_domain(struct qxl_bo *qbo, u32 domain, bool pinned)
 		qbo->placements[i].lpfn = 0;
 	}
 }
-
 
 int qxl_bo_create(struct qxl_device *qdev,
 		  unsigned long size, bool kernel, bool pinned, u32 domain,
@@ -187,13 +186,9 @@ void qxl_bo_kunmap_atomic_page(struct qxl_device *qdev,
 			       struct qxl_bo *bo, void *pmap)
 {
 	struct ttm_mem_type_manager *man = &bo->tbo.bdev->man[bo->tbo.mem.mem_type];
-	struct io_mapping *map;
 
-	if (bo->tbo.mem.mem_type == TTM_PL_VRAM)
-		map = qdev->vram_mapping;
-	else if (bo->tbo.mem.mem_type == TTM_PL_PRIV)
-		map = qdev->surface_mapping;
-	else
+	if ((bo->tbo.mem.mem_type != TTM_PL_VRAM) &&
+	    (bo->tbo.mem.mem_type != TTM_PL_PRIV))
 		goto fallback;
 
 	io_mapping_unmap_atomic(pmap);
@@ -201,7 +196,7 @@ void qxl_bo_kunmap_atomic_page(struct qxl_device *qdev,
 	(void) ttm_mem_io_lock(man, false);
 	ttm_mem_io_free(bo->tbo.bdev, &bo->tbo.mem);
 	ttm_mem_io_unlock(man);
-	return ;
+	return;
  fallback:
 	qxl_bo_kunmap(bo);
 }
@@ -265,7 +260,6 @@ static int __qxl_bo_unpin(struct qxl_bo *bo)
 		dev_err(ddev->dev, "%p validate failed for unpin\n", bo);
 	return r;
 }
-
 
 /*
  * Reserve the BO before pinning the object.  If the BO was reserved
@@ -335,6 +329,7 @@ void qxl_bo_fini(struct qxl_device *qdev)
 int qxl_bo_check_id(struct qxl_device *qdev, struct qxl_bo *bo)
 {
 	int ret;
+
 	if (bo->type == QXL_GEM_DOMAIN_SURFACE && bo->surface_id == 0) {
 		/* allocate a surface id for this surface now */
 		ret = qxl_surface_id_alloc(qdev, bo);
