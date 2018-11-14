@@ -2761,7 +2761,7 @@ static void intel_plane_disable_noatomic(struct intel_crtc *crtc,
 		intel_pre_disable_primary_noatomic(&crtc->base);
 
 	trace_intel_disable_plane(&plane->base, crtc);
-	plane->disable_plane(plane, crtc);
+	plane->disable_plane(plane, crtc_state);
 }
 
 static void
@@ -3306,7 +3306,7 @@ static void i9xx_update_primary_plane(struct intel_plane *primary,
 }
 
 static void i9xx_disable_primary_plane(struct intel_plane *primary,
-				       struct intel_crtc *crtc)
+				       const struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(primary->base.dev);
 	enum plane plane = primary->plane;
@@ -5103,23 +5103,32 @@ static void intel_pre_plane_update(struct intel_crtc_state *old_crtc_state,
 		intel_update_watermarks(crtc);
 }
 
-static void intel_crtc_disable_planes(struct intel_crtc *crtc, unsigned plane_mask)
+static void intel_crtc_disable_planes(struct intel_atomic_state *state,
+				      struct intel_crtc *crtc)
 {
-	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	const struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+	unsigned int update_mask = new_crtc_state->update_planes;
+	const struct intel_plane_state *old_plane_state;
 	struct intel_plane *plane;
 	unsigned fb_bits = 0;
+	int i;
 
 	intel_crtc_dpms_overlay_disable(crtc);
 
-	for_each_intel_plane_on_crtc(dev, crtc, plane) {
-		if (plane_mask & BIT(plane->id)) {
-			plane->disable_plane(plane, crtc);
+	for_each_old_intel_plane_in_state(state, plane, old_plane_state, i) {
+		if (crtc->pipe != plane->pipe ||
+		    !(update_mask & BIT(plane->id)))
+			continue;
 
+		plane->disable_plane(plane, new_crtc_state);
+
+		if (old_plane_state->base.visible)
 			fb_bits |= plane->frontbuffer_bit;
-		}
 	}
 
-	intel_frontbuffer_flip(to_i915(dev), fb_bits);
+	intel_frontbuffer_flip(dev_priv, fb_bits);
 }
 
 static void intel_encoders_pre_pll_enable(struct drm_crtc *crtc,
@@ -9439,9 +9448,9 @@ static void i845_update_cursor(struct intel_plane *plane,
 }
 
 static void i845_disable_cursor(struct intel_plane *plane,
-				struct intel_crtc *crtc)
+				const struct intel_crtc_state *crtc_state)
 {
-	i845_update_cursor(plane, NULL, NULL);
+	i845_update_cursor(plane, crtc_state, NULL);
 }
 
 static bool i845_cursor_get_hw_state(struct intel_plane *plane)
@@ -9649,9 +9658,9 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 }
 
 static void i9xx_disable_cursor(struct intel_plane *plane,
-				struct intel_crtc *crtc)
+				const struct intel_crtc_state *crtc_state)
 {
-	i9xx_update_cursor(plane, NULL, NULL);
+	i9xx_update_cursor(plane, crtc_state, NULL);
 }
 
 static bool i9xx_cursor_get_hw_state(struct intel_plane *plane)
@@ -12417,7 +12426,7 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 				       to_intel_crtc_state(new_crtc_state));
 
 		if (old_crtc_state->active) {
-			intel_crtc_disable_planes(intel_crtc, to_intel_crtc_state(old_crtc_state)->active_planes);
+			intel_crtc_disable_planes(intel_state, intel_crtc);
 			dev_priv->display.crtc_disable(to_intel_crtc_state(old_crtc_state), state);
 			intel_crtc->active = false;
 			intel_fbc_disable(intel_crtc);
@@ -13265,7 +13274,7 @@ intel_legacy_cursor_update(struct drm_plane *plane,
 					  to_intel_plane_state(plane->state));
 	} else {
 		trace_intel_disable_plane(plane, to_intel_crtc(crtc));
-		intel_plane->disable_plane(intel_plane, to_intel_crtc(crtc));
+		intel_plane->disable_plane(intel_plane, crtc_state);
 	}
 
 	old_vma = fetch_and_zero(&to_intel_plane_state(old_plane_state)->vma);

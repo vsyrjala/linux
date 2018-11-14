@@ -312,7 +312,8 @@ skl_update_plane(struct intel_plane *plane,
 }
 
 void
-skl_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
+skl_disable_plane(struct intel_plane *plane,
+		  const struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum plane_id plane_id = plane->id;
@@ -509,7 +510,8 @@ vlv_update_plane(struct intel_plane *plane,
 }
 
 static void
-vlv_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
+vlv_disable_plane(struct intel_plane *plane,
+		  const struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum pipe pipe = plane->pipe;
@@ -667,7 +669,8 @@ ivb_update_plane(struct intel_plane *plane,
 }
 
 static void
-ivb_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
+ivb_disable_plane(struct intel_plane *plane,
+		  const struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum pipe pipe = plane->pipe;
@@ -818,7 +821,8 @@ g4x_update_plane(struct intel_plane *plane,
 }
 
 static void
-g4x_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
+g4x_disable_plane(struct intel_plane *plane,
+		  const struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum pipe pipe = plane->pipe;

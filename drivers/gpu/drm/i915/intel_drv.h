@@ -894,7 +894,7 @@ struct intel_plane {
 			     const struct intel_crtc_state *crtc_state,
 			     const struct intel_plane_state *plane_state);
 	void (*disable_plane)(struct intel_plane *plane,
-			      struct intel_crtc *crtc);
+			      const struct intel_crtc_state *crtc_state);
 	bool (*get_hw_state)(struct intel_plane *plane);
 	int (*check_plane)(struct intel_plane *plane,
 			   struct intel_crtc_state *crtc_state,
@@ -1981,7 +1981,8 @@ void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state);
 void skl_update_plane(struct intel_plane *plane,
 		      const struct intel_crtc_state *crtc_state,
 		      const struct intel_plane_state *plane_state);
-void skl_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc);
+void skl_disable_plane(struct intel_plane *plane,
+		       const struct intel_crtc_state *crtc_state);
 bool skl_plane_get_hw_state(struct intel_plane *plane);
 
 static inline bool icl_is_nv12_y_plane(enum plane_id id)
