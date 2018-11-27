@@ -303,6 +303,8 @@ skl_update_plane(struct intel_plane *plane,
 		I915_WRITE_FW(PLANE_POS(pipe, plane_id), (crtc_y << 16) | crtc_x);
 	}
 
+	skl_write_plane_wm(plane, crtc_state);
+
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), plane_ctl);
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + surf_addr);
@@ -321,6 +323,8 @@ skl_disable_plane(struct intel_plane *plane,
 	unsigned long irqflags;
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+
+	skl_write_plane_wm(plane, crtc_state);
 
 	I915_WRITE_FW(PLANE_CTL(pipe, plane_id), 0);
 

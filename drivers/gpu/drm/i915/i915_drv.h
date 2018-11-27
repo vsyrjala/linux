@@ -580,6 +580,15 @@ struct i915_hotplug {
 	     (__i)++) \
 		for_each_if (crtc)
 
+#define for_each_oldnew_intel_crtc_in_state(__state, crtc, old_crtc_state, new_crtc_state, __i) \
+	for ((__i) = 0; \
+	     (__i) < (__state)->base.dev->mode_config.num_crtc && \
+		     ((crtc) = to_intel_crtc((__state)->base.crtcs[__i].ptr), \
+		      (old_crtc_state) = to_intel_crtc_state((__state)->base.crtcs[__i].old_state), \
+		      (new_crtc_state) = to_intel_crtc_state((__state)->base.crtcs[__i].new_state), 1); \
+	     (__i)++) \
+		for_each_if (crtc)
+
 #define for_each_old_intel_plane_in_state(__state, plane, old_plane_state, __i) \
 	for ((__i) = 0; \
 	     (__i) < (__state)->base.dev->mode_config.num_total_plane && \
@@ -1886,9 +1895,6 @@ static inline bool skl_ddb_entry_equal(const struct skl_ddb_entry *e1,
 }
 
 struct skl_ddb_allocation {
-	/* packed/y */
-	struct skl_ddb_entry plane[I915_MAX_PIPES][I915_MAX_PLANES];
-	struct skl_ddb_entry uv_plane[I915_MAX_PIPES][I915_MAX_PLANES];
 	u8 enabled_slices; /* GEN11 has configurable 2 slices */
 };
 
