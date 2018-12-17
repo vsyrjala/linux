@@ -3262,6 +3262,8 @@ void icl_dbuf_slices_update(struct drm_i915_private *dev_priv,
 	const u8 hw_enabled_slices = dev_priv->wm.skl_hw.ddb.enabled_slices;
 	bool ret;
 
+	return;
+
 	if (req_slices > intel_dbuf_max_slices(dev_priv)) {
 		DRM_ERROR("Invalid number of dbuf slices requested\n");
 		return;

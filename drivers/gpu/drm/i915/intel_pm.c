@@ -3825,7 +3825,7 @@ static u16 intel_get_ddb_size(struct drm_i915_private *dev_priv,
 	/*
 	 * 12GB/s is maximum BW supported by single DBuf slice.
 	 */
-	if (num_active > 1 || total_data_bw >= GBps(12)) {
+	if (1||num_active > 1 || total_data_bw >= GBps(12)) {
 		ddb->enabled_slices = 2;
 	} else {
 		ddb->enabled_slices = 1;
