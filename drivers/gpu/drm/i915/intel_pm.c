@@ -4825,10 +4825,6 @@ skl_compute_linetime_wm(const struct intel_crtc_state *cstate)
 	uint32_t linetime_wm;
 
 	linetime_us = intel_get_linetime_us(cstate);
-
-	if (is_fixed16_zero(linetime_us))
-		return 0;
-
 	linetime_wm = fixed16_to_u32_round_up(mul_u32_fixed16(8, linetime_us));
 
 	/* Display WA #1135: bxt:ALL GLK:ALL */
