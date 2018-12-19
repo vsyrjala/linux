@@ -3746,6 +3746,9 @@ bool intel_can_enable_sagv(struct drm_atomic_state *state)
 	if (!intel_has_sagv(dev_priv))
 		return false;
 
+	DRM_DEBUG_KMS("forcing SAGV off\n");
+	return false;
+
 	if (IS_GEN(dev_priv, 9))
 		sagv_block_time_us = 30;
 	else if (IS_GEN(dev_priv, 10))
