@@ -1108,6 +1108,7 @@ struct skl_ddb_values {
 };
 
 struct skl_wm_level {
+	uint16_t min_ddb_alloc;
 	uint16_t plane_res_b;
 	uint8_t plane_res_l;
 	bool plane_en;
