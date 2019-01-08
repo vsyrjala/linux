@@ -6229,6 +6229,9 @@ void intel_init_ipc(struct drm_i915_private *dev_priv)
 	else
 		dev_priv->ipc_enabled = true;
 
+	DRM_DEBUG_KMS("force ipc off\n");
+	dev_priv->ipc_enabled = false;
+
 	intel_enable_ipc(dev_priv);
 }
 
