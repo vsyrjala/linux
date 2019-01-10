@@ -1020,6 +1020,9 @@ static bool intel_sdvo_set_avi_infoframe(struct intel_sdvo *intel_sdvo,
 					   HDMI_QUANTIZATION_RANGE_LIMITED :
 					   HDMI_QUANTIZATION_RANGE_FULL);
 
+	drm_hdmi_avi_infoframe_content_type(&frame.avi,
+					    conn_state);
+
 	len = hdmi_infoframe_pack(&frame, sdvo_data, sizeof(sdvo_data));
 	if (len < 0)
 		return false;
@@ -2539,6 +2542,7 @@ intel_sdvo_add_hdmi_properties(struct intel_sdvo *intel_sdvo,
 	if (intel_sdvo->colorimetry_cap & SDVO_COLORIMETRY_RGB220)
 		intel_attach_broadcast_rgb_property(&connector->base.base);
 	intel_attach_aspect_ratio_property(&connector->base.base);
+	drm_connector_attach_content_type_property(&connector->base.base);
 	connector->base.base.state->picture_aspect_ratio = HDMI_PICTURE_ASPECT_NONE;
 }
 
