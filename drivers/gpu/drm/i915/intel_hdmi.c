@@ -1575,12 +1575,8 @@ intel_hdmi_mode_valid(struct drm_connector *connector,
 	if (clock > max_dotclk)
 		return MODE_CLOCK_HIGH;
 
-	if (mode->flags & DRM_MODE_FLAG_DBLCLK) {
-		if (!hdmi->has_hdmi_sink)
-			return MODE_CLOCK_LOW;
-
+	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
 		clock *= 2;
-	}
 
 	if (drm_mode_is_420_only(&connector->display_info, mode))
 		clock /= 2;
