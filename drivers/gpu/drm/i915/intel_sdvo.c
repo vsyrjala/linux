@@ -1944,10 +1944,8 @@ static int intel_sdvo_get_ddc_modes(struct drm_connector *connector)
 		return 0;
 
 	if (intel_sdvo_connector_matches_edid(to_intel_sdvo_connector(connector),
-					      edid)) {
-		drm_connector_update_edid_property(connector, edid);
-		num_modes += drm_add_edid_modes(connector, edid);
-	}
+					      edid))
+		num_modes += intel_connector_update_modes(connector, edid);
 
 	kfree(edid);
 
