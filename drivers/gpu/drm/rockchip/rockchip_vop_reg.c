@@ -550,6 +550,27 @@ static const struct vop_intr rk3368_vop_intr = {
 	.clear = VOP_REG_MASK_SYNC(RK3368_INTR_CLEAR, 0x3fff, 0),
 };
 
+static const struct vop_win_phy rk3368_win01_data = {
+	.scl = &rk3288_win_full_scl,
+	.data_formats = formats_win_full,
+	.nformats = ARRAY_SIZE(formats_win_full),
+	.enable = VOP_REG(RK3368_WIN0_CTRL0, 0x1, 0),
+	.format = VOP_REG(RK3368_WIN0_CTRL0, 0x7, 1),
+	.rb_swap = VOP_REG(RK3368_WIN0_CTRL0, 0x1, 12),
+	.x_mir_en = VOP_REG(RK3368_WIN0_CTRL0, 0x1, 21),
+	.y_mir_en = VOP_REG(RK3368_WIN0_CTRL0, 0x1, 22),
+	.act_info = VOP_REG(RK3368_WIN0_ACT_INFO, 0x1fff1fff, 0),
+	.dsp_info = VOP_REG(RK3368_WIN0_DSP_INFO, 0x0fff0fff, 0),
+	.dsp_st = VOP_REG(RK3368_WIN0_DSP_ST, 0x1fff1fff, 0),
+	.yrgb_mst = VOP_REG(RK3368_WIN0_YRGB_MST, 0xffffffff, 0),
+	.uv_mst = VOP_REG(RK3368_WIN0_CBR_MST, 0xffffffff, 0),
+	.yrgb_vir = VOP_REG(RK3368_WIN0_VIR, 0x3fff, 0),
+	.uv_vir = VOP_REG(RK3368_WIN0_VIR, 0x3fff, 16),
+	.src_alpha_ctl = VOP_REG(RK3368_WIN0_SRC_ALPHA_CTRL, 0xff, 0),
+	.dst_alpha_ctl = VOP_REG(RK3368_WIN0_DST_ALPHA_CTRL, 0xff, 0),
+	.channel = VOP_REG(RK3368_WIN0_CTRL2, 0xff, 0),
+};
+
 static const struct vop_win_phy rk3368_win23_data = {
 	.data_formats = formats_win_lite,
 	.nformats = ARRAY_SIZE(formats_win_lite),
@@ -557,6 +578,7 @@ static const struct vop_win_phy rk3368_win23_data = {
 	.enable = VOP_REG(RK3368_WIN2_CTRL0, 0x1, 4),
 	.format = VOP_REG(RK3368_WIN2_CTRL0, 0x3, 5),
 	.rb_swap = VOP_REG(RK3368_WIN2_CTRL0, 0x1, 20),
+	.y_mir_en = VOP_REG(RK3368_WIN2_CTRL1, 0x1, 15),
 	.dsp_info = VOP_REG(RK3368_WIN2_DSP_INFO0, 0x0fff0fff, 0),
 	.dsp_st = VOP_REG(RK3368_WIN2_DSP_ST0, 0x1fff1fff, 0),
 	.yrgb_mst = VOP_REG(RK3368_WIN2_MST0, 0xffffffff, 0),
@@ -566,9 +588,9 @@ static const struct vop_win_phy rk3368_win23_data = {
 };
 
 static const struct vop_win_data rk3368_vop_win_data[] = {
-	{ .base = 0x00, .phy = &rk3288_win01_data,
+	{ .base = 0x00, .phy = &rk3368_win01_data,
 	  .type = DRM_PLANE_TYPE_PRIMARY },
-	{ .base = 0x40, .phy = &rk3288_win01_data,
+	{ .base = 0x40, .phy = &rk3368_win01_data,
 	  .type = DRM_PLANE_TYPE_OVERLAY },
 	{ .base = 0x00, .phy = &rk3368_win23_data,
 	  .type = DRM_PLANE_TYPE_OVERLAY },
@@ -637,6 +659,34 @@ static const struct vop_output rk3399_output = {
 	.mipi_dual_channel_en = VOP_REG(RK3288_SYS_CTRL, 0x1, 3),
 };
 
+static const struct vop_yuv2yuv_phy rk3399_yuv2yuv_win01_data = {
+	.y2r_coefficients = {
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 0, 0xffff, 0),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 0, 0xffff, 16),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 4, 0xffff, 0),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 4, 0xffff, 16),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 8, 0xffff, 0),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 8, 0xffff, 16),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 12, 0xffff, 0),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 12, 0xffff, 16),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 16, 0xffff, 0),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 20, 0xffffffff, 0),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 24, 0xffffffff, 0),
+		VOP_REG(RK3399_WIN0_YUV2YUV_Y2R + 28, 0xffffffff, 0),
+	},
+};
+
+static const struct vop_yuv2yuv_phy rk3399_yuv2yuv_win23_data = { };
+
+static const struct vop_win_yuv2yuv_data rk3399_vop_big_win_yuv2yuv_data[] = {
+	{ .base = 0x00, .phy = &rk3399_yuv2yuv_win01_data,
+	  .y2r_en = VOP_REG(RK3399_YUV2YUV_WIN, 0x1, 1) },
+	{ .base = 0x60, .phy = &rk3399_yuv2yuv_win01_data,
+	  .y2r_en = VOP_REG(RK3399_YUV2YUV_WIN, 0x1, 9) },
+	{ .base = 0xC0, .phy = &rk3399_yuv2yuv_win23_data },
+	{ .base = 0x120, .phy = &rk3399_yuv2yuv_win23_data },
+};
+
 static const struct vop_data rk3399_vop_big = {
 	.version = VOP_VERSION(3, 5),
 	.feature = VOP_FEATURE_OUTPUT_RGB10,
@@ -647,13 +697,20 @@ static const struct vop_data rk3399_vop_big = {
 	.misc = &rk3368_misc,
 	.win = rk3368_vop_win_data,
 	.win_size = ARRAY_SIZE(rk3368_vop_win_data),
+	.win_yuv2yuv = rk3399_vop_big_win_yuv2yuv_data,
 };
 
 static const struct vop_win_data rk3399_vop_lit_win_data[] = {
-	{ .base = 0x00, .phy = &rk3288_win01_data,
+	{ .base = 0x00, .phy = &rk3368_win01_data,
 	  .type = DRM_PLANE_TYPE_PRIMARY },
 	{ .base = 0x00, .phy = &rk3368_win23_data,
 	  .type = DRM_PLANE_TYPE_CURSOR},
+};
+
+static const struct vop_win_yuv2yuv_data rk3399_vop_lit_win_yuv2yuv_data[] = {
+	{ .base = 0x00, .phy = &rk3399_yuv2yuv_win01_data,
+	  .y2r_en = VOP_REG(RK3399_YUV2YUV_WIN, 0x1, 1)},
+	{ .base = 0x60, .phy = &rk3399_yuv2yuv_win23_data },
 };
 
 static const struct vop_data rk3399_vop_lit = {
@@ -665,6 +722,7 @@ static const struct vop_data rk3399_vop_lit = {
 	.misc = &rk3368_misc,
 	.win = rk3399_vop_lit_win_data,
 	.win_size = ARRAY_SIZE(rk3399_vop_lit_win_data),
+	.win_yuv2yuv = rk3399_vop_lit_win_yuv2yuv_data,
 };
 
 static const struct vop_win_data rk3228_vop_win_data[] = {
@@ -730,11 +788,11 @@ static const struct vop_intr rk3328_vop_intr = {
 };
 
 static const struct vop_win_data rk3328_vop_win_data[] = {
-	{ .base = 0xd0, .phy = &rk3288_win01_data,
+	{ .base = 0xd0, .phy = &rk3368_win01_data,
 	  .type = DRM_PLANE_TYPE_PRIMARY },
-	{ .base = 0x1d0, .phy = &rk3288_win01_data,
+	{ .base = 0x1d0, .phy = &rk3368_win01_data,
 	  .type = DRM_PLANE_TYPE_OVERLAY },
-	{ .base = 0x2d0, .phy = &rk3288_win01_data,
+	{ .base = 0x2d0, .phy = &rk3368_win01_data,
 	  .type = DRM_PLANE_TYPE_CURSOR },
 };
 
