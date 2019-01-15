@@ -77,6 +77,9 @@ i915_param_named(error_capture, bool, 0600,
 	"triaging and debugging hangs.");
 #endif
 
+i915_param_named(enable_hack, bool, 0400,
+	"Hack the refresh rate.");
+
 i915_param_named_unsafe(enable_hangcheck, bool, 0600,
 	"Periodically check GPU activity for detecting hangs. "
 	"WARNING: Disabling this can cause system wide hangs. "

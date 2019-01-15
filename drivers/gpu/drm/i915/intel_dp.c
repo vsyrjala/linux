@@ -6788,6 +6788,9 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 			      pipe_name(pipe));
 	}
 
+	if (i915_modparams.enable_hack && fixed_mode)
+		fixed_mode->clock = DIV_ROUND_CLOSEST(fixed_mode->clock * 60, 90);
+
 	intel_panel_init(&intel_connector->panel, fixed_mode, downclock_mode);
 	intel_connector->panel.backlight.power = intel_edp_backlight_power;
 	intel_panel_setup_backlight(connector, pipe);
