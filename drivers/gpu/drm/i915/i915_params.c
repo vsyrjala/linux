@@ -48,7 +48,7 @@ i915_param_named_unsafe(enable_dc, int, 0400,
 	"Enable power-saving display C-states. "
 	"(-1=auto [default]; 0=disable; 1=up to DC5; 2=up to DC6)");
 
-i915_param_named_unsafe(enable_fbc, int, 0600,
+i915_param_named_unsafe(enable_fbc, int, 0400,
 	"Enable frame buffer compression for power savings "
 	"(default: -1 (use per-chip default))");
 
@@ -85,7 +85,7 @@ i915_param_named_unsafe(enable_hangcheck, bool, 0600,
 	"WARNING: Disabling this can cause system wide hangs. "
 	"(default: true)");
 
-i915_param_named_unsafe(enable_psr, int, 0600,
+i915_param_named_unsafe(enable_psr, int, 0400,
 	"Enable PSR "
 	"(0=disabled, 1=enabled) "
 	"Default: -1 (use per-chip default)");
