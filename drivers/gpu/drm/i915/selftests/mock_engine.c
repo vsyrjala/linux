@@ -148,8 +148,6 @@ static struct intel_ring *mock_ring(struct intel_engine_cs *engine)
 	const unsigned long sz = PAGE_SIZE / 2;
 	struct mock_ring *ring;
 
-	BUILD_BUG_ON(MIN_SPACE_FOR_ADD_REQUEST > sz);
-
 	ring = kzalloc(sizeof(*ring) + sz, GFP_KERNEL);
 	if (!ring)
 		return NULL;
@@ -203,7 +201,6 @@ struct intel_engine_cs *mock_engine(struct drm_i915_private *i915,
 	i915_timeline_set_subclass(&engine->base.timeline, TIMELINE_ENGINE);
 
 	intel_engine_init_breadcrumbs(&engine->base);
-	engine->base.breadcrumbs.mock = true; /* prevent touching HW for irqs */
 
 	/* fake hw queue */
 	spin_lock_init(&engine->hw_lock);
