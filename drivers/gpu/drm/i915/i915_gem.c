@@ -745,7 +745,12 @@ i915_gem_dumb_create(struct drm_file *file,
 		     struct drm_mode_create_dumb *args)
 {
 	/* have to work out size/pitch and return them */
-	args->pitch = ALIGN(args->width * DIV_ROUND_UP(args->bpp, 8), 64);
+	if (args->bpp == 32 && (args->width == 64 ||
+				args->width == 128 ||
+				args->width == 256))
+		args->pitch = ALIGN(args->width * DIV_ROUND_UP(args->bpp, 8), 64);
+	else
+		args->pitch = ALIGN(args->width * DIV_ROUND_UP(args->bpp, 8), 4096);
 	args->size = args->pitch * args->height;
 	return i915_gem_create(file, to_i915(dev),
 			       args->size, &args->handle);
