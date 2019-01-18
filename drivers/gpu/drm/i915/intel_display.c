@@ -2509,6 +2509,25 @@ intel_fb_stride_alignment(const struct drm_framebuffer *fb, int color_plane)
 	}
 }
 
+static bool intel_plane_can_remap(const struct intel_plane_state *plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	const struct drm_framebuffer *fb = plane_state->base.fb;
+	unsigned int alignment = intel_tile_size(dev_priv) - 1;
+	int i;
+
+	if (fb->modifier != DRM_FORMAT_MOD_LINEAR)
+		return true;
+
+	for (i = 0; i < fb->format->num_planes; i++) {
+		if (fb->pitches[i] & alignment)
+			return false;
+	}
+
+	return true;
+}
+
 static bool intel_plane_needs_remap(const struct intel_plane_state *plane_state)
 {
 	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
@@ -2528,6 +2547,10 @@ static bool intel_plane_needs_remap(const struct intel_plane_state *plane_state)
 	/* New CCS hash mode makes remapping impossible */
 	if (is_ccs_modifier(fb->modifier))
 		return false;
+
+	/* HACK: always remap */
+	if (intel_plane_can_remap(plane_state))
+		return true;
 
 	/* FIXME other color planes? */
 	stride = intel_fb_pitch(fb, 0, rotation);
