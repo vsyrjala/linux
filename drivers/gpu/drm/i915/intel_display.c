@@ -10950,6 +10950,56 @@ static bool needs_scaling(const struct intel_plane_state *state)
 	return (src_w != dst_w || src_h != dst_h);
 }
 
+static bool i9xx_must_disable_cxsr(const struct intel_crtc_state *new_crtc_state,
+				   const struct intel_plane_state *old_plane_state,
+				   const struct intel_plane_state *new_plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(new_plane_state->base.plane);
+	const struct drm_framebuffer *old_fb = old_plane_state->base.fb;
+	const struct drm_framebuffer *new_fb = new_plane_state->base.fb;
+	u8 old_rotation = old_plane_state->base.rotation;
+	u8 new_rotation = new_plane_state->base.rotation;
+	bool old_visible = old_plane_state->base.visible;
+	bool new_visible = new_plane_state->base.visible;
+	bool modeset, turn_on, turn_off;
+
+	if (plane->id == PLANE_CURSOR)
+		return false;
+
+	modeset = needs_modeset(&new_crtc_state->base);
+	turn_off = old_visible && (!new_visible || modeset);
+	turn_on = new_visible && (!old_visible || modeset);
+
+	/* Must disable CxSR around plane enable/disable */
+	if (turn_on || turn_off)
+		return true;
+
+	if (!old_visible || !new_visible)
+		return false;
+
+	/*
+	 * FIXME test the following conditions on pre-g4x, and
+	 * also test whether the pipe gamma enable bit is affected
+	 * on all platforms.
+	 */
+
+	/* Pixel format and rotation changes have problems while in CxSR */
+	if (old_fb->format != new_fb->format ||
+	    old_rotation != new_rotation)
+		return true;
+
+	/*
+	 * The primary plane seems capable of tiling changes while
+	 * in CxSR, sprites not so much (on VLV/CHV where CxSR is
+	 * actually possible with a sprite enabled).
+	 */
+	if (plane->id != PLANE_PRIMARY &&
+	    old_fb->modifier != new_fb->modifier)
+		return true;
+
+	return false;
+}
+
 int intel_plane_atomic_calc_changes(const struct intel_crtc_state *old_crtc_state,
 				    struct drm_crtc_state *crtc_state,
 				    const struct intel_plane_state *old_plane_state,
@@ -11019,17 +11069,9 @@ int intel_plane_atomic_calc_changes(const struct intel_crtc_state *old_crtc_stat
 	if (turn_on) {
 		if (INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv))
 			pipe_config->update_wm_pre = true;
-
-		/* must disable cxsr around plane enable/disable */
-		if (plane->id != PLANE_CURSOR)
-			pipe_config->disable_cxsr = true;
 	} else if (turn_off) {
 		if (INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv))
 			pipe_config->update_wm_post = true;
-
-		/* must disable cxsr around plane enable/disable */
-		if (plane->id != PLANE_CURSOR)
-			pipe_config->disable_cxsr = true;
 	} else if (intel_wm_need_update(to_intel_plane_state(plane->base.state),
 					to_intel_plane_state(plane_state))) {
 		if (INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv)) {
@@ -11041,6 +11083,12 @@ int intel_plane_atomic_calc_changes(const struct intel_crtc_state *old_crtc_stat
 
 	if (visible || was_visible)
 		pipe_config->fb_bits |= plane->frontbuffer_bit;
+
+	if (HAS_GMCH(dev_priv) &&
+	    i9xx_must_disable_cxsr(pipe_config,
+				   old_plane_state,
+				   to_intel_plane_state(plane_state)))
+		pipe_config->disable_cxsr = true;
 
 	/*
 	 * ILK/SNB DVSACNTR/Sprite Enable
