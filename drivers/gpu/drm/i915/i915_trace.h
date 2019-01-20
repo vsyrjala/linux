@@ -353,8 +353,8 @@ TRACE_EVENT(vlv_fifo_size,
 /* plane updates */
 
 TRACE_EVENT(intel_update_plane,
-	    TP_PROTO(struct drm_plane *plane, struct intel_crtc *crtc),
-	    TP_ARGS(plane, crtc),
+	    TP_PROTO(struct drm_plane *plane, struct intel_crtc *crtc, u8 rot),
+	    TP_ARGS(plane, crtc, rot),
 
 	    TP_STRUCT__entry(
 			     __field(enum pipe, pipe)
@@ -363,6 +363,7 @@ TRACE_EVENT(intel_update_plane,
 			     __field(u32, scanline)
 			     __array(int, src, 4)
 			     __array(int, dst, 4)
+			     __field(u8, rot)
 			     ),
 
 	    TP_fast_assign(
@@ -373,13 +374,15 @@ TRACE_EVENT(intel_update_plane,
 			   __entry->scanline = intel_get_crtc_scanline(crtc);
 			   memcpy(__entry->src, &plane->state->src, sizeof(__entry->src));
 			   memcpy(__entry->dst, &plane->state->dst, sizeof(__entry->dst));
+			   __entry->rot = rot;
 			   ),
 
-	    TP_printk("pipe %c, plane %s, frame=%u, scanline=%u, " DRM_RECT_FP_FMT " -> " DRM_RECT_FMT,
+	    TP_printk("pipe %c, plane %s, frame=%u, scanline=%u, " DRM_RECT_FP_FMT " -> " DRM_RECT_FMT " rot=0x%x\n",
 		      pipe_name(__entry->pipe), __entry->name,
 		      __entry->frame, __entry->scanline,
 		      DRM_RECT_FP_ARG((const struct drm_rect *)__entry->src),
-		      DRM_RECT_ARG((const struct drm_rect *)__entry->dst))
+		      DRM_RECT_ARG((const struct drm_rect *)__entry->dst),
+		      __entry->rot)
 );
 
 TRACE_EVENT(intel_disable_plane,

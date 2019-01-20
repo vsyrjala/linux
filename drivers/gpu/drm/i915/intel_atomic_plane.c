@@ -243,7 +243,8 @@ void skl_update_planes_on_crtc(struct intel_atomic_state *state,
 			intel_atomic_get_new_plane_state(state, plane);
 
 		if (new_plane_state->base.visible) {
-			trace_intel_update_plane(&plane->base, crtc);
+			trace_intel_update_plane(&plane->base, crtc,
+						 new_plane_state->base.rotation);
 			plane->update_plane(plane, new_crtc_state, new_plane_state);
 		} else if (new_plane_state->slave) {
 			struct intel_plane *master =
@@ -261,7 +262,8 @@ void skl_update_planes_on_crtc(struct intel_atomic_state *state,
 			new_plane_state =
 				intel_atomic_get_new_plane_state(state, master);
 
-			trace_intel_update_plane(&plane->base, crtc);
+			trace_intel_update_plane(&plane->base, crtc,
+						 new_plane_state->base.rotation);
 			plane->update_slave(plane, new_crtc_state, new_plane_state);
 		} else {
 			trace_intel_disable_plane(&plane->base, crtc);
@@ -286,7 +288,8 @@ void i9xx_update_planes_on_crtc(struct intel_atomic_state *state,
 			continue;
 
 		if (new_plane_state->base.visible) {
-			trace_intel_update_plane(&plane->base, crtc);
+			trace_intel_update_plane(&plane->base, crtc,
+						 new_plane_state->base.rotation);
 			plane->update_plane(plane, new_crtc_state, new_plane_state);
 		} else {
 			trace_intel_disable_plane(&plane->base, crtc);

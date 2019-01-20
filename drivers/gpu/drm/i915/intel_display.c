@@ -14147,7 +14147,8 @@ intel_legacy_cursor_update(struct drm_plane *plane,
 	crtc_state->active_planes = new_crtc_state->active_planes;
 
 	if (plane->state->visible) {
-		trace_intel_update_plane(plane, to_intel_crtc(crtc));
+		trace_intel_update_plane(plane, to_intel_crtc(crtc),
+					 plane->state->rotation);
 		intel_plane->update_plane(intel_plane, crtc_state,
 					  to_intel_plane_state(plane->state));
 	} else {
