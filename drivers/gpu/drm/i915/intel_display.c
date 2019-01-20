@@ -13266,7 +13266,6 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 
 			/* FIXME unify this for all platforms */
 			if (!new_crtc_state->active &&
-			    !HAS_GMCH(dev_priv) &&
 			    dev_priv->display.initial_watermarks)
 				dev_priv->display.initial_watermarks(intel_state,
 								     new_intel_crtc_state);

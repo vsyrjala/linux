@@ -1387,6 +1387,7 @@ static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 		to_intel_atomic_state(crtc_state->base.state);
 	const struct intel_plane_state *old_plane_state;
 	const struct intel_plane_state *new_plane_state;
+	struct g4x_wm_state *optimal = &crtc_state->wm.g4x.optimal;
 	struct intel_plane *plane;
 	unsigned int dirty = 0;
 	int i;
@@ -1401,6 +1402,8 @@ static int g4x_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 		if (g4x_raw_plane_wm_compute(crtc_state, new_plane_state))
 			dirty |= BIT(plane->id);
 	}
+
+	optimal->pipe_enabled = crtc_state->base.active;
 
 	if (!dirty)
 		return 0;
@@ -1543,7 +1546,7 @@ static void g4x_merge_wm(struct drm_i915_private *dev_priv,
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		const struct g4x_wm_state *active = &crtc->wm.active.g4x;
 
-		if (!crtc->active)
+		if (!active->pipe_enabled)
 			continue;
 
 		if (!active->sr.enable)
@@ -1958,6 +1961,7 @@ static int vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	struct intel_atomic_state *state =
 		to_intel_atomic_state(crtc_state->base.state);
 	bool needs_modeset = drm_atomic_crtc_needs_modeset(&crtc_state->base);
+	struct vlv_wm_state *optimal = &crtc_state->wm.vlv.optimal;
 	const struct intel_plane_state *old_plane_state;
 	const struct intel_plane_state *new_plane_state;
 	struct intel_plane *plane;
@@ -1986,6 +1990,8 @@ static int vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 	 */
 	if (needs_modeset)
 		dirty = ~0;
+
+	optimal->pipe_enabled = crtc_state->base.active;
 
 	if (!dirty)
 		return 0;
@@ -2133,6 +2139,7 @@ static int vlv_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 		goto out;
 	}
 
+	intermediate->pipe_enabled = optimal->pipe_enabled;
 	intermediate->num_levels = min(optimal->num_levels, active->num_levels);
 
 	for (level = 0; level < intermediate->num_levels; level++) {
@@ -2229,7 +2236,7 @@ static void vlv_merge_wm(struct drm_i915_private *dev_priv,
 	for_each_intel_crtc(&dev_priv->drm, crtc) {
 		const struct vlv_wm_state *active = &crtc->wm.active.vlv;
 
-		if (!crtc->active)
+		if (!active->pipe_enabled)
 			continue;
 
 		if (!active->sr[VLV_WM_LEVEL_PM2].enable)
@@ -6097,6 +6104,7 @@ void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv)
 		if (crtc_state->base.active)
 			active_pipes |= BIT(pipe);
 
+		active->pipe_enabled = crtc_state->base.active;
 		active->sr.enable = wm->sr.enable;
 		active->hpll.enable = wm->hpll.enable;
 		active->fbc_en = wm->fbc_en;
@@ -6272,6 +6280,7 @@ void vlv_wm_get_hw_state(struct drm_i915_private *dev_priv)
 
 		vlv_get_fifo_size(crtc_state);
 
+		active->pipe_enabled = crtc_state->base.active;
 		active->num_levels = wm->level + 1;
 
 		for (level = 0; level < active->num_levels; level++) {

@@ -678,6 +678,7 @@ struct vlv_wm_state {
 	struct g4x_pipe_wm normal[NUM_VLV_WM_LEVELS];
 	struct g4x_sr_wm sr[NUM_VLV_WM_LEVELS];
 	u8 num_levels;
+	bool pipe_enabled;
 };
 
 struct vlv_fifo_state {
@@ -696,6 +697,7 @@ struct g4x_wm_state {
 	struct g4x_sr_wm sr;
 	struct g4x_sr_wm hpll;
 	bool fbc_en;
+	bool pipe_enabled;
 };
 
 struct intel_crtc_wm_state {
