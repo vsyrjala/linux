@@ -1440,6 +1440,7 @@ static int g4x_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 
 		intermediate->sr.enable = false;
 		intermediate->hpll.enable = false;
+		new_crtc_state->disable_cxsr = true;
 		goto out;
 	}
 
@@ -1608,6 +1609,8 @@ static void g4x_initial_watermarks(struct intel_atomic_state *state,
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 
 	mutex_lock(&dev_priv->wm.wm_mutex);
+	if (crtc_state->disable_cxsr)
+		_g4x_disable_cxsr(dev_priv);
 	crtc->wm.active.g4x = crtc_state->wm.g4x.intermediate;
 	g4x_program_watermarks(dev_priv);
 	mutex_unlock(&dev_priv->wm.wm_mutex);
@@ -2126,6 +2129,7 @@ static int vlv_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 
 		for (level = 0; level < intermediate->num_levels; level++)
 			intermediate->sr[level].enable = false;
+		new_crtc_state->disable_cxsr = true;
 		goto out;
 	}
 
@@ -2304,6 +2308,8 @@ static void vlv_initial_watermarks(struct intel_atomic_state *state,
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 
 	mutex_lock(&dev_priv->wm.wm_mutex);
+	if (crtc_state->disable_cxsr)
+		_vlv_disable_cxsr(dev_priv);
 	crtc->wm.active.vlv = crtc_state->wm.vlv.intermediate;
 	vlv_program_watermarks(dev_priv);
 	mutex_unlock(&dev_priv->wm.wm_mutex);
