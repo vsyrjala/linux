@@ -2302,8 +2302,20 @@ static void vlv_program_watermarks(struct drm_i915_private *dev_priv)
 	if (is_enabling(old_wm->level, new_wm.level, VLV_WM_LEVEL_PM5))
 		chv_set_memory_pm5(dev_priv, true);
 
-	if (is_enabling(old_wm->level, new_wm.level, VLV_WM_LEVEL_DDR_DVFS))
+	if (is_enabling(old_wm->level, new_wm.level, VLV_WM_LEVEL_DDR_DVFS)) {
+		/*
+		 * We tend to get an underrun when going from two pipes
+		 * to a single pipe with DDR DVFS. The theory is that
+		 * even though the watermarks have already been
+		 * reconfigured to handle the extra latency, maybe the
+		 * FIFO hasn't yet filled up sufficiently. A vblank
+		 * wait between the watermark programming and DDR DVFS
+		 * enable helps.
+		 */
+		if (new_wm.sr_pipe != INVALID_PIPE)
+			intel_wait_for_vblank(dev_priv, new_wm.sr_pipe);
 		chv_set_memory_dvfs(dev_priv, true);
+	}
 
 	*old_wm = new_wm;
 }
