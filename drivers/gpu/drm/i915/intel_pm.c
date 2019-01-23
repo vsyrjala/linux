@@ -330,6 +330,10 @@ static void chv_set_memory_dvfs(struct drm_i915_private *dev_priv, bool enable)
 		DRM_ERROR("timed out waiting for Punit DDR DVFS request\n");
 
 	mutex_unlock(&dev_priv->pcu_lock);
+
+	trace_intel_memory_ddr_dvfs(dev_priv,
+				    dev_priv->wm.vlv.level >= VLV_WM_LEVEL_DDR_DVFS,
+				    enable);
 }
 
 static void chv_set_memory_pm5(struct drm_i915_private *dev_priv, bool enable)
@@ -346,6 +350,10 @@ static void chv_set_memory_pm5(struct drm_i915_private *dev_priv, bool enable)
 	vlv_punit_write(dev_priv, PUNIT_REG_DSPSSPM, val);
 
 	mutex_unlock(&dev_priv->pcu_lock);
+
+	trace_intel_memory_pm5(dev_priv,
+			       dev_priv->wm.vlv.level >= VLV_WM_LEVEL_PM5,
+			       enable);
 }
 
 #define FW_WM(value, plane) \
