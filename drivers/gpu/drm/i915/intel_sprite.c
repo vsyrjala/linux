@@ -1495,8 +1495,6 @@ static int skl_plane_check_fb(const struct intel_crtc_state *crtc_state,
 		/*
 		 * 90/270 is not allowed with RGB64 16:16:16:16 and
 		 * Indexed 8-bit. RGB 16-bit 5:6:5 is allowed gen11 onwards.
-		 * TBD: Add RGB64 case once its added in supported format
-		 * list.
 		 */
 		switch (fb->format->format) {
 		case DRM_FORMAT_RGB565:
@@ -1504,6 +1502,10 @@ static int skl_plane_check_fb(const struct intel_crtc_state *crtc_state,
 				break;
 			/* fall through */
 		case DRM_FORMAT_C8:
+		case DRM_FORMAT_XRGB16161616F:
+		case DRM_FORMAT_XBGR16161616F:
+		case DRM_FORMAT_ARGB16161616F:
+		case DRM_FORMAT_ABGR16161616F:
 			DRM_DEBUG_KMS("Unsupported pixel format %s for 90/270!\n",
 				      drm_get_format_name(fb->format->format,
 							  &format_name));
@@ -1819,6 +1821,45 @@ static const u32 skl_planar_formats[] = {
 	DRM_FORMAT_NV12,
 };
 
+static const u32 icl_hdr_plane_formats[] = {
+	DRM_FORMAT_C8,
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_XRGB2101010,
+	DRM_FORMAT_XBGR2101010,
+	DRM_FORMAT_XRGB16161616F,
+	DRM_FORMAT_XBGR16161616F,
+	DRM_FORMAT_ARGB16161616F,
+	DRM_FORMAT_ABGR16161616F,
+	DRM_FORMAT_YUYV,
+	DRM_FORMAT_YVYU,
+	DRM_FORMAT_UYVY,
+	DRM_FORMAT_VYUY,
+};
+
+static const u32 icl_hdr_planar_formats[] = {
+	DRM_FORMAT_C8,
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_XRGB2101010,
+	DRM_FORMAT_XBGR2101010,
+	DRM_FORMAT_XRGB16161616F,
+	DRM_FORMAT_XBGR16161616F,
+	DRM_FORMAT_ARGB16161616F,
+	DRM_FORMAT_ABGR16161616F,
+	DRM_FORMAT_YUYV,
+	DRM_FORMAT_YVYU,
+	DRM_FORMAT_UYVY,
+	DRM_FORMAT_VYUY,
+	DRM_FORMAT_NV12,
+};
+
 static const u64 skl_plane_format_modifiers_noccs[] = {
 	I915_FORMAT_MOD_Yf_TILED,
 	I915_FORMAT_MOD_Y_TILED,
@@ -1962,6 +2003,10 @@ static bool skl_plane_format_mod_supported(struct drm_plane *_plane,
 			return true;
 		/* fall through */
 	case DRM_FORMAT_C8:
+	case DRM_FORMAT_XBGR16161616F:
+	case DRM_FORMAT_ABGR16161616F:
+	case DRM_FORMAT_XRGB16161616F:
+	case DRM_FORMAT_ARGB16161616F:
 		if (modifier == DRM_FORMAT_MOD_LINEAR ||
 		    modifier == I915_FORMAT_MOD_X_TILED ||
 		    modifier == I915_FORMAT_MOD_Y_TILED)
@@ -2098,11 +2143,21 @@ skl_universal_plane_create(struct drm_i915_private *dev_priv,
 		plane->update_slave = icl_update_slave;
 
 	if (skl_plane_has_planar(dev_priv, pipe, plane_id)) {
-		formats = skl_planar_formats;
-		num_formats = ARRAY_SIZE(skl_planar_formats);
+		if (icl_is_hdr_plane(dev_priv, plane_id)) {
+			formats = icl_hdr_planar_formats;
+			num_formats = ARRAY_SIZE(icl_hdr_planar_formats);
+		} else {
+			formats = skl_planar_formats;
+			num_formats = ARRAY_SIZE(skl_planar_formats);
+		}
 	} else {
-		formats = skl_plane_formats;
-		num_formats = ARRAY_SIZE(skl_plane_formats);
+		if (icl_is_hdr_plane(dev_priv, plane_id)) {
+			formats = icl_hdr_plane_formats;
+			num_formats = ARRAY_SIZE(icl_hdr_plane_formats);
+		} else {
+			formats = skl_plane_formats;
+			num_formats = ARRAY_SIZE(skl_plane_formats);
+		}
 	}
 
 	plane->has_ccs = skl_plane_has_ccs(dev_priv, pipe, plane_id);
