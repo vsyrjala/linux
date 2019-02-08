@@ -5590,9 +5590,15 @@ enum {
 #define   PIPECONF_SINGLE_WIDE	0
 #define   PIPECONF_PIPE_UNLOCKED 0
 #define   PIPECONF_PIPE_LOCKED	(1 << 25)
-#define   PIPECONF_PALETTE	0
-#define   PIPECONF_GAMMA		(1 << 24)
 #define   PIPECONF_FORCE_BORDER	(1 << 25)
+#define   PIPECONF_GAMMA_MODE_MASK_I9XX	(1 << 24) /* gmch */
+#define   PIPECONF_GAMMA_MODE_MASK_ILK	(3 << 24) /* ilk-ivb */
+#define   PIPECONF_GAMMA_MODE_8BIT	(0 << 24) /* gmch,ilk-ivb */
+#define   PIPECONF_GAMMA_MODE_10BIT	(1 << 24) /* gmch,ilk-ivb */
+#define   PIPECONF_GAMMA_MODE_12BIT	(2 << 24) /* ilk-ivb */
+#define   PIPECONF_GAMMA_MODE_SPLIT	(3 << 24) /* ivb */
+#define   PIPECONF_GAMMA_MODE(x)	((x) << 24) /* pass in GAMMA_MODE_MODE_* */
+#define   PIPECONF_GAMMA_MODE_SHIFT	24
 #define   PIPECONF_INTERLACE_MASK	(7 << 21)
 #define   PIPECONF_INTERLACE_MASK_HSW	(3 << 21)
 /* Note that pre-gen3 does not support interlaced display directly. Panel
@@ -6000,7 +6006,7 @@ enum {
 #define   PLANE_WM_EN		(1 << 31)
 #define   PLANE_WM_LINES_SHIFT	14
 #define   PLANE_WM_LINES_MASK	0x1f
-#define   PLANE_WM_BLOCKS_MASK	0x3ff
+#define   PLANE_WM_BLOCKS_MASK	0x7ff /* skl+: 10 bits, icl+ 11 bits */
 
 #define _CUR_WM_0(pipe) _PIPE(pipe, _CUR_WM_A_0, _CUR_WM_B_0)
 #define CUR_WM(pipe, level) _MMIO(_CUR_WM_0(pipe) + ((4) * (level)))
@@ -6124,7 +6130,7 @@ enum {
 #define   MCURSOR_PIPE_SELECT_SHIFT	28
 #define   MCURSOR_PIPE_SELECT(pipe)	((pipe) << 28)
 #define   MCURSOR_GAMMA_ENABLE  (1 << 26)
-#define   MCURSOR_PIPE_CSC_ENABLE (1 << 24)
+#define   MCURSOR_PIPE_CSC_ENABLE (1 << 24) /* ilk+ */
 #define   MCURSOR_ROTATE_180	(1 << 15)
 #define   MCURSOR_TRICKLE_FEED_DISABLE	(1 << 14)
 #define _CURABASE		0x70084
@@ -6179,7 +6185,7 @@ enum {
 #define   DISPPLANE_RGBA888			(0xf << 26)
 #define   DISPPLANE_STEREO_ENABLE		(1 << 25)
 #define   DISPPLANE_STEREO_DISABLE		0
-#define   DISPPLANE_PIPE_CSC_ENABLE		(1 << 24)
+#define   DISPPLANE_PIPE_CSC_ENABLE		(1 << 24) /* ilk+ */
 #define   DISPPLANE_SEL_PIPE_SHIFT		24
 #define   DISPPLANE_SEL_PIPE_MASK		(3 << DISPPLANE_SEL_PIPE_SHIFT)
 #define   DISPPLANE_SEL_PIPE(pipe)		((pipe) << DISPPLANE_SEL_PIPE_SHIFT)
@@ -6784,8 +6790,7 @@ enum {
 
 #define _PLANE_BUF_CFG_1_B			0x7127c
 #define _PLANE_BUF_CFG_2_B			0x7137c
-#define  SKL_DDB_ENTRY_MASK			0x3FF
-#define  ICL_DDB_ENTRY_MASK			0x7FF
+#define  DDB_ENTRY_MASK				0x7FF /* skl+: 10 bits, icl+ 11 bits */
 #define  DDB_ENTRY_END_SHIFT			16
 #define _PLANE_BUF_CFG_1(pipe)	\
 	_PIPE(pipe, _PLANE_BUF_CFG_1_A, _PLANE_BUF_CFG_1_B)
@@ -7618,6 +7623,7 @@ enum {
 #define _PIPEB_CHICKEN			0x71038
 #define _PIPEC_CHICKEN			0x72038
 #define  PER_PIXEL_ALPHA_BYPASS_EN	(1 << 7)
+#define  PM_FILL_MAINTAIN_DBUF_FULLNESS	(1 << 0)
 #define PIPE_CHICKEN(pipe)		_MMIO_PIPE(pipe, _PIPEA_CHICKEN,\
 						   _PIPEB_CHICKEN)
 

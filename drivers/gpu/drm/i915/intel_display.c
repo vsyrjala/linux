@@ -1814,7 +1814,7 @@ static void intel_enable_pipe(const struct intel_crtc_state *new_crtc_state)
 	 * a plane.  On ILK+ the pipe PLLs are integrated, so we don't
 	 * need the check.
 	 */
-	if (HAS_GMCH_DISPLAY(dev_priv)) {
+	if (HAS_GMCH(dev_priv)) {
 		if (intel_crtc_has_type(new_crtc_state, INTEL_OUTPUT_DSI))
 			assert_dsi_pll_enabled(dev_priv);
 		else
@@ -2103,7 +2103,7 @@ intel_pin_and_fence_fb_obj(struct drm_framebuffer *fb,
 	 * complicated than this. For example, Cherryview appears quite
 	 * happy to scanout from anywhere within its global aperture.
 	 */
-	if (HAS_GMCH_DISPLAY(dev_priv))
+	if (HAS_GMCH(dev_priv))
 		pinctl |= PIN_MAPPABLE;
 
 	vma = i915_gem_object_pin_to_display_plane(obj,
@@ -3204,7 +3204,7 @@ i9xx_plane_max_stride(struct intel_plane *plane,
 {
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 
-	if (!HAS_GMCH_DISPLAY(dev_priv)) {
+	if (!HAS_GMCH(dev_priv)) {
 		return 32*1024;
 	} else if (INTEL_GEN(dev_priv) >= 4) {
 		if (modifier == I915_FORMAT_MOD_X_TILED)
@@ -3224,27 +3224,38 @@ i9xx_plane_max_stride(struct intel_plane *plane,
 	}
 }
 
+static u32 i9xx_plane_ctl_crtc(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	u32 dspcntr = 0;
+
+	if (crtc_state->gamma_enable)
+		dspcntr |= DISPPLANE_GAMMA_ENABLE;
+
+	if (crtc_state->csc_enable)
+		dspcntr |= DISPPLANE_PIPE_CSC_ENABLE;
+
+	if (INTEL_GEN(dev_priv) < 5)
+		dspcntr |= DISPPLANE_SEL_PIPE(crtc->pipe);
+
+	return dspcntr;
+}
+
 static u32 i9xx_plane_ctl(const struct intel_crtc_state *crtc_state,
 			  const struct intel_plane_state *plane_state)
 {
 	struct drm_i915_private *dev_priv =
 		to_i915(plane_state->base.plane->dev);
-	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	const struct drm_framebuffer *fb = plane_state->base.fb;
 	unsigned int rotation = plane_state->base.rotation;
 	u32 dspcntr;
 
-	dspcntr = DISPLAY_PLANE_ENABLE | DISPPLANE_GAMMA_ENABLE;
+	dspcntr = DISPLAY_PLANE_ENABLE;
 
 	if (IS_G4X(dev_priv) || IS_GEN(dev_priv, 5) ||
 	    IS_GEN(dev_priv, 6) || IS_IVYBRIDGE(dev_priv))
 		dspcntr |= DISPPLANE_TRICKLE_FEED_DISABLE;
-
-	if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv))
-		dspcntr |= DISPPLANE_PIPE_CSC_ENABLE;
-
-	if (INTEL_GEN(dev_priv) < 5)
-		dspcntr |= DISPPLANE_SEL_PIPE(crtc->pipe);
 
 	switch (fb->format->format) {
 	case DRM_FORMAT_C8:
@@ -3373,11 +3384,13 @@ static void i9xx_update_plane(struct intel_plane *plane,
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum i9xx_plane_id i9xx_plane = plane->i9xx_plane;
 	u32 linear_offset;
-	u32 dspcntr = plane_state->ctl;
 	int x = plane_state->color_plane[0].x;
 	int y = plane_state->color_plane[0].y;
 	unsigned long irqflags;
 	u32 dspaddr_offset;
+	u32 dspcntr;
+
+	dspcntr = plane_state->ctl | i9xx_plane_ctl_crtc(crtc_state);
 
 	linear_offset = intel_fb_xy_to_linear(x, y, plane_state, 0);
 
@@ -3437,10 +3450,23 @@ static void i9xx_disable_plane(struct intel_plane *plane,
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	enum i9xx_plane_id i9xx_plane = plane->i9xx_plane;
 	unsigned long irqflags;
+	u32 dspcntr;
+
+	/*
+	 * DSPCNTR pipe gamma enable on g4x+ and pipe csc
+	 * enable on ilk+ affect the pipe bottom color as
+	 * well, so we must configure them even if the plane
+	 * is disabled.
+	 *
+	 * On pre-g4x there is no way to gamma correct the
+	 * pipe bottom color but we'll keep on doing this
+	 * anyway so that the crtc state readout works correctly.
+	 */
+	dspcntr = i9xx_plane_ctl_crtc(crtc_state);
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
-	I915_WRITE_FW(DSPCNTR(i9xx_plane), 0);
+	I915_WRITE_FW(DSPCNTR(i9xx_plane), dspcntr);
 	if (INTEL_GEN(dev_priv) >= 4)
 		I915_WRITE_FW(DSPSURF(i9xx_plane), 0);
 	else
@@ -3677,6 +3703,23 @@ static u32 cnl_plane_ctl_flip(unsigned int reflect)
 	return 0;
 }
 
+u32 skl_plane_ctl_crtc(const struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
+	u32 plane_ctl = 0;
+
+	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
+		return plane_ctl;
+
+	if (crtc_state->gamma_enable)
+		plane_ctl |= PLANE_CTL_PIPE_GAMMA_ENABLE;
+
+	if (crtc_state->csc_enable)
+		plane_ctl |= PLANE_CTL_PIPE_CSC_ENABLE;
+
+	return plane_ctl;
+}
+
 u32 skl_plane_ctl(const struct intel_crtc_state *crtc_state,
 		  const struct intel_plane_state *plane_state)
 {
@@ -3691,10 +3734,7 @@ u32 skl_plane_ctl(const struct intel_crtc_state *crtc_state,
 
 	if (INTEL_GEN(dev_priv) < 10 && !IS_GEMINILAKE(dev_priv)) {
 		plane_ctl |= skl_plane_ctl_alpha(plane_state);
-		plane_ctl |=
-			PLANE_CTL_PIPE_GAMMA_ENABLE |
-			PLANE_CTL_PIPE_CSC_ENABLE |
-			PLANE_CTL_PLANE_GAMMA_DISABLE;
+		plane_ctl |= PLANE_CTL_PLANE_GAMMA_DISABLE;
 
 		if (plane_state->base.color_encoding == DRM_COLOR_YCBCR_BT709)
 			plane_ctl |= PLANE_CTL_YUV_TO_RGB_CSC_FORMAT_BT709;
@@ -3719,19 +3759,30 @@ u32 skl_plane_ctl(const struct intel_crtc_state *crtc_state,
 	return plane_ctl;
 }
 
+u32 glk_plane_color_ctl_crtc(const struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
+	u32 plane_color_ctl = 0;
+
+	if (INTEL_GEN(dev_priv) >= 11)
+		return plane_color_ctl;
+
+	if (crtc_state->gamma_enable)
+		plane_color_ctl |= PLANE_COLOR_PIPE_GAMMA_ENABLE;
+
+	if (crtc_state->csc_enable)
+		plane_color_ctl |= PLANE_COLOR_PIPE_CSC_ENABLE;
+
+	return plane_color_ctl;
+}
+
 u32 glk_plane_color_ctl(const struct intel_crtc_state *crtc_state,
 			const struct intel_plane_state *plane_state)
 {
-	struct drm_i915_private *dev_priv =
-		to_i915(plane_state->base.plane->dev);
 	const struct drm_framebuffer *fb = plane_state->base.fb;
 	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
 	u32 plane_color_ctl = 0;
 
-	if (INTEL_GEN(dev_priv) < 11) {
-		plane_color_ctl |= PLANE_COLOR_PIPE_GAMMA_ENABLE;
-		plane_color_ctl |= PLANE_COLOR_PIPE_CSC_ENABLE;
-	}
 	plane_color_ctl |= PLANE_COLOR_PLANE_GAMMA_DISABLE;
 	plane_color_ctl |= glk_plane_color_ctl_alpha(plane_state);
 
@@ -3780,7 +3831,7 @@ __intel_display_resume(struct drm_device *dev,
 	}
 
 	/* ignore any reset values/BIOS leftovers in the WM registers */
-	if (!HAS_GMCH_DISPLAY(to_i915(dev)))
+	if (!HAS_GMCH(to_i915(dev)))
 		to_intel_atomic_state(state)->skip_intermediate_wm = true;
 
 	ret = drm_atomic_helper_commit_duplicated_state(state, ctx);
@@ -3905,6 +3956,30 @@ unlock:
 	clear_bit(I915_RESET_MODESET, &dev_priv->gpu_error.flags);
 }
 
+static void icl_set_pipe_chicken(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+	u32 tmp;
+
+	tmp = I915_READ(PIPE_CHICKEN(pipe));
+
+	/*
+	 * Display WA #1153: icl
+	 * enable hardware to bypass the alpha math
+	 * and rounding for per-pixel values 00 and 0xff
+	 */
+	tmp |= PER_PIXEL_ALPHA_BYPASS_EN;
+
+	/*
+	 * W/A for underruns with linear/X-tiled with
+	 * WM1+ disabled.
+	 */
+	tmp |= PM_FILL_MAINTAIN_DBUF_FULLNESS;
+
+	I915_WRITE(PIPE_CHICKEN(pipe), tmp);
+}
+
 static void intel_update_pipe_config(const struct intel_crtc_state *old_crtc_state,
 				     const struct intel_crtc_state *new_crtc_state)
 {
@@ -3940,15 +4015,8 @@ static void intel_update_pipe_config(const struct intel_crtc_state *old_crtc_sta
 			ironlake_pfit_disable(old_crtc_state);
 	}
 
-	/*
-	 * We don't (yet) allow userspace to control the pipe background color,
-	 * so force it to black, but apply pipe gamma and CSC so that its
-	 * handling will match how we program our planes.
-	 */
-	if (INTEL_GEN(dev_priv) >= 9)
-		I915_WRITE(SKL_BOTTOM_COLOR(crtc->pipe),
-			   SKL_BOTTOM_COLOR_GAMMA_ENABLE |
-			   SKL_BOTTOM_COLOR_CSC_ENABLE);
+	if (INTEL_GEN(dev_priv) >= 11)
+		icl_set_pipe_chicken(crtc);
 }
 
 static void intel_fdi_normal_train(struct intel_crtc *crtc)
@@ -5303,7 +5371,7 @@ intel_pre_disable_primary_noatomic(struct drm_crtc *crtc)
 	 * event which is after the vblank start event, so we need to have a
 	 * wait-for-vblank between disabling the plane and the pipe.
 	 */
-	if (HAS_GMCH_DISPLAY(dev_priv) &&
+	if (HAS_GMCH(dev_priv) &&
 	    intel_set_memory_cxsr(dev_priv, false))
 		intel_wait_for_vblank(dev_priv, pipe);
 }
@@ -5311,10 +5379,25 @@ intel_pre_disable_primary_noatomic(struct drm_crtc *crtc)
 static bool hsw_pre_update_disable_ips(const struct intel_crtc_state *old_crtc_state,
 				       const struct intel_crtc_state *new_crtc_state)
 {
+	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+
 	if (!old_crtc_state->ips_enabled)
 		return false;
 
 	if (needs_modeset(&new_crtc_state->base))
+		return true;
+
+	/*
+	 * Workaround : Do not read or write the pipe palette/gamma data while
+	 * GAMMA_MODE is configured for split gamma and IPS_CTL has IPS enabled.
+	 *
+	 * Disable IPS before we program the LUT.
+	 */
+	if (IS_HASWELL(dev_priv) &&
+	    (new_crtc_state->base.color_mgmt_changed ||
+	     new_crtc_state->update_pipe) &&
+	    new_crtc_state->gamma_mode == GAMMA_MODE_MODE_SPLIT)
 		return true;
 
 	return !new_crtc_state->ips_enabled;
@@ -5323,10 +5406,25 @@ static bool hsw_pre_update_disable_ips(const struct intel_crtc_state *old_crtc_s
 static bool hsw_post_update_enable_ips(const struct intel_crtc_state *old_crtc_state,
 				       const struct intel_crtc_state *new_crtc_state)
 {
+	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+
 	if (!new_crtc_state->ips_enabled)
 		return false;
 
 	if (needs_modeset(&new_crtc_state->base))
+		return true;
+
+	/*
+	 * Workaround : Do not read or write the pipe palette/gamma data while
+	 * GAMMA_MODE is configured for split gamma and IPS_CTL has IPS enabled.
+	 *
+	 * Re-enable IPS after the LUT has been programmed.
+	 */
+	if (IS_HASWELL(dev_priv) &&
+	    (new_crtc_state->base.color_mgmt_changed ||
+	     new_crtc_state->update_pipe) &&
+	    new_crtc_state->gamma_mode == GAMMA_MODE_MODE_SPLIT)
 		return true;
 
 	/*
@@ -5440,7 +5538,7 @@ static void intel_pre_plane_update(struct intel_crtc_state *old_crtc_state,
 	 * event which is after the vblank start event, so we need to have a
 	 * wait-for-vblank between disabling the plane and the pipe.
 	 */
-	if (HAS_GMCH_DISPLAY(dev_priv) && old_crtc_state->base.active &&
+	if (HAS_GMCH(dev_priv) && old_crtc_state->base.active &&
 	    pipe_config->disable_cxsr && intel_set_memory_cxsr(dev_priv, false))
 		intel_wait_for_vblank(dev_priv, crtc->pipe);
 
@@ -5653,6 +5751,14 @@ static void intel_encoders_update_pipe(struct drm_crtc *crtc,
 	}
 }
 
+static void intel_disable_primary_plane(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct intel_plane *plane = to_intel_plane(crtc->base.primary);
+
+	plane->disable_plane(plane, crtc_state);
+}
+
 static void ironlake_crtc_enable(struct intel_crtc_state *pipe_config,
 				 struct drm_atomic_state *old_state)
 {
@@ -5717,6 +5823,9 @@ static void ironlake_crtc_enable(struct intel_crtc_state *pipe_config,
 	 * clocks enabled
 	 */
 	intel_color_load_luts(pipe_config);
+	intel_color_commit(pipe_config);
+	/* update DSPCNTR to configure gamma for pipe bottom color */
+	intel_disable_primary_plane(pipe_config);
 
 	if (dev_priv->display.initial_watermarks != NULL)
 		dev_priv->display.initial_watermarks(old_intel_state, pipe_config);
@@ -5791,7 +5900,6 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 	struct intel_atomic_state *old_intel_state =
 		to_intel_atomic_state(old_state);
 	bool psl_clkgate_wa;
-	u32 pipe_chicken;
 
 	if (WARN_ON(intel_crtc->active))
 		return;
@@ -5827,8 +5935,6 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 
 	haswell_set_pipemisc(pipe_config);
 
-	intel_color_set_csc(pipe_config);
-
 	intel_crtc->active = true;
 
 	/* Display WA #1180: WaDisableScalarClockGating: glk, cnl */
@@ -5847,17 +5953,13 @@ static void haswell_crtc_enable(struct intel_crtc_state *pipe_config,
 	 * clocks enabled
 	 */
 	intel_color_load_luts(pipe_config);
+	intel_color_commit(pipe_config);
+	/* update DSPCNTR to configure gamma/csc for pipe bottom color */
+	if (INTEL_GEN(dev_priv) < 9)
+		intel_disable_primary_plane(pipe_config);
 
-	/*
-	 * Display WA #1153: enable hardware to bypass the alpha math
-	 * and rounding for per-pixel values 00 and 0xff
-	 */
-	if (INTEL_GEN(dev_priv) >= 11) {
-		pipe_chicken = I915_READ(PIPE_CHICKEN(pipe));
-		if (!(pipe_chicken & PER_PIXEL_ALPHA_BYPASS_EN))
-			I915_WRITE_FW(PIPE_CHICKEN(pipe),
-				      pipe_chicken | PER_PIXEL_ALPHA_BYPASS_EN);
-	}
+	if (INTEL_GEN(dev_priv) >= 11)
+		icl_set_pipe_chicken(intel_crtc);
 
 	intel_ddi_set_pipe_settings(pipe_config);
 	if (!transcoder_is_dsi(cpu_transcoder))
@@ -6192,8 +6294,6 @@ static void valleyview_crtc_enable(struct intel_crtc_state *pipe_config,
 
 	i9xx_set_pipeconf(pipe_config);
 
-	intel_color_set_csc(pipe_config);
-
 	intel_crtc->active = true;
 
 	intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, true);
@@ -6213,6 +6313,9 @@ static void valleyview_crtc_enable(struct intel_crtc_state *pipe_config,
 	i9xx_pfit_enable(pipe_config);
 
 	intel_color_load_luts(pipe_config);
+	intel_color_commit(pipe_config);
+	/* update DSPCNTR to configure gamma for pipe bottom color */
+	intel_disable_primary_plane(pipe_config);
 
 	dev_priv->display.initial_watermarks(old_intel_state,
 					     pipe_config);
@@ -6269,6 +6372,9 @@ static void i9xx_crtc_enable(struct intel_crtc_state *pipe_config,
 	i9xx_pfit_enable(pipe_config);
 
 	intel_color_load_luts(pipe_config);
+	intel_color_commit(pipe_config);
+	/* update DSPCNTR to configure gamma for pipe bottom color */
+	intel_disable_primary_plane(pipe_config);
 
 	if (dev_priv->display.initial_watermarks != NULL)
 		dev_priv->display.initial_watermarks(old_intel_state,
@@ -6714,7 +6820,7 @@ static void intel_crtc_compute_pixel_rate(struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
 
-	if (HAS_GMCH_DISPLAY(dev_priv))
+	if (HAS_GMCH(dev_priv))
 		/* FIXME calculate proper pipe pixel rate for GMCH pfit */
 		crtc_state->pixel_rate =
 			crtc_state->base.adjusted_mode.crtc_clock;
@@ -7609,6 +7715,8 @@ static void i9xx_set_pipeconf(const struct intel_crtc_state *crtc_state)
 	     crtc_state->limited_color_range)
 		pipeconf |= PIPECONF_COLOR_RANGE_SELECT;
 
+	pipeconf |= PIPECONF_GAMMA_MODE(crtc_state->gamma_mode);
+
 	I915_WRITE(PIPECONF(crtc->pipe), pipeconf);
 	POSTING_READ(PIPECONF(crtc->pipe));
 }
@@ -8016,6 +8124,24 @@ static void intel_get_crtc_ycbcr_config(struct intel_crtc *crtc,
 	pipe_config->output_format = output;
 }
 
+static void i9xx_get_pipe_color_config(struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct intel_plane *plane = to_intel_plane(crtc->base.primary);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum i9xx_plane_id i9xx_plane = plane->i9xx_plane;
+	u32 tmp;
+
+	tmp = I915_READ(DSPCNTR(i9xx_plane));
+
+	if (tmp & DISPPLANE_GAMMA_ENABLE)
+		crtc_state->gamma_enable = true;
+
+	if (!HAS_GMCH(dev_priv) &&
+	    tmp & DISPPLANE_PIPE_CSC_ENABLE)
+		crtc_state->csc_enable = true;
+}
+
 static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 				 struct intel_crtc_state *pipe_config)
 {
@@ -8060,6 +8186,11 @@ static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 	if ((IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) &&
 	    (tmp & PIPECONF_COLOR_RANGE_SELECT))
 		pipe_config->limited_color_range = true;
+
+	pipe_config->gamma_mode = (tmp & PIPECONF_GAMMA_MODE_MASK_I9XX) >>
+		PIPECONF_GAMMA_MODE_SHIFT;
+
+	i9xx_get_pipe_color_config(pipe_config);
 
 	if (INTEL_GEN(dev_priv) < 4)
 		pipe_config->double_wide = tmp & PIPECONF_DOUBLE_WIDE;
@@ -8600,6 +8731,8 @@ static void ironlake_set_pipeconf(const struct intel_crtc_state *crtc_state)
 	if (crtc_state->limited_color_range)
 		val |= PIPECONF_COLOR_RANGE_SELECT;
 
+	val |= PIPECONF_GAMMA_MODE(crtc_state->gamma_mode);
+
 	I915_WRITE(PIPECONF(pipe), val);
 	POSTING_READ(PIPECONF(pipe));
 }
@@ -9133,6 +9266,11 @@ static bool ironlake_get_pipe_config(struct intel_crtc *crtc,
 
 	if (tmp & PIPECONF_COLOR_RANGE_SELECT)
 		pipe_config->limited_color_range = true;
+
+	pipe_config->gamma_mode = (tmp & PIPECONF_GAMMA_MODE_MASK_ILK) >>
+		PIPECONF_GAMMA_MODE_SHIFT;
+
+	i9xx_get_pipe_color_config(pipe_config);
 
 	if (I915_READ(PCH_TRANSCONF(crtc->pipe)) & TRANS_ENABLE) {
 		struct intel_shared_dpll *pll;
@@ -9768,6 +9906,18 @@ static bool haswell_get_pipe_config(struct intel_crtc *crtc,
 	pipe_config->gamma_mode =
 		I915_READ(GAMMA_MODE(crtc->pipe)) & GAMMA_MODE_MODE_MASK;
 
+	if (INTEL_GEN(dev_priv) >= 9) {
+		u32 tmp = I915_READ(SKL_BOTTOM_COLOR(crtc->pipe));
+
+		if (tmp & SKL_BOTTOM_COLOR_GAMMA_ENABLE)
+			pipe_config->gamma_enable = true;
+
+		if (tmp & SKL_BOTTOM_COLOR_CSC_ENABLE)
+			pipe_config->csc_enable = true;
+	} else {
+		i9xx_get_pipe_color_config(pipe_config);
+	}
+
 	power_domain = POWER_DOMAIN_PIPE_PANEL_FITTER(crtc->pipe);
 	if (intel_display_power_get_if_enabled(dev_priv, power_domain)) {
 		WARN_ON(power_domain_mask & BIT_ULL(power_domain));
@@ -9823,7 +9973,7 @@ static u32 intel_cursor_base(const struct intel_plane_state *plane_state)
 	base += plane_state->color_plane[0].offset;
 
 	/* ILK+ do this automagically */
-	if (HAS_GMCH_DISPLAY(dev_priv) &&
+	if (HAS_GMCH(dev_priv) &&
 	    plane_state->base.rotation & DRM_MODE_ROTATE_180)
 		base += (plane_state->base.crtc_h *
 			 plane_state->base.crtc_w - 1) * fb->format->cpp[0];
@@ -9936,11 +10086,20 @@ i845_cursor_max_stride(struct intel_plane *plane,
 	return 2048;
 }
 
+static u32 i845_cursor_ctl_crtc(const struct intel_crtc_state *crtc_state)
+{
+	u32 cntl = 0;
+
+	if (crtc_state->gamma_enable)
+		cntl |= CURSOR_GAMMA_ENABLE;
+
+	return cntl;
+}
+
 static u32 i845_cursor_ctl(const struct intel_crtc_state *crtc_state,
 			   const struct intel_plane_state *plane_state)
 {
 	return CURSOR_ENABLE |
-		CURSOR_GAMMA_ENABLE |
 		CURSOR_FORMAT_ARGB |
 		CURSOR_STRIDE(plane_state->color_plane[0].stride);
 }
@@ -10010,7 +10169,9 @@ static void i845_update_cursor(struct intel_plane *plane,
 		unsigned int width = plane_state->base.crtc_w;
 		unsigned int height = plane_state->base.crtc_h;
 
-		cntl = plane_state->ctl;
+		cntl = plane_state->ctl |
+			i845_cursor_ctl_crtc(crtc_state);
+
 		size = (height << 12) | width;
 
 		base = intel_cursor_base(plane_state);
@@ -10077,26 +10238,36 @@ i9xx_cursor_max_stride(struct intel_plane *plane,
 	return plane->base.dev->mode_config.cursor_width * 4;
 }
 
+static u32 i9xx_cursor_ctl_crtc(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	u32 cntl = 0;
+
+	if (INTEL_GEN(dev_priv) >= 11)
+		return cntl;
+
+	if (crtc_state->gamma_enable)
+		cntl = MCURSOR_GAMMA_ENABLE;
+
+	if (crtc_state->csc_enable)
+		cntl |= MCURSOR_PIPE_CSC_ENABLE;
+
+	if (INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv))
+		cntl |= MCURSOR_PIPE_SELECT(crtc->pipe);
+
+	return cntl;
+}
+
 static u32 i9xx_cursor_ctl(const struct intel_crtc_state *crtc_state,
 			   const struct intel_plane_state *plane_state)
 {
 	struct drm_i915_private *dev_priv =
 		to_i915(plane_state->base.plane->dev);
-	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	u32 cntl = 0;
 
 	if (IS_GEN(dev_priv, 6) || IS_IVYBRIDGE(dev_priv))
 		cntl |= MCURSOR_TRICKLE_FEED_DISABLE;
-
-	if (INTEL_GEN(dev_priv) <= 10) {
-		cntl |= MCURSOR_GAMMA_ENABLE;
-
-		if (HAS_DDI(dev_priv))
-			cntl |= MCURSOR_PIPE_CSC_ENABLE;
-	}
-
-	if (INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv))
-		cntl |= MCURSOR_PIPE_SELECT(crtc->pipe);
 
 	switch (plane_state->base.crtc_w) {
 	case 64:
@@ -10222,7 +10393,8 @@ static void i9xx_update_cursor(struct intel_plane *plane,
 	unsigned long irqflags;
 
 	if (plane_state && plane_state->base.visible) {
-		cntl = plane_state->ctl;
+		cntl = plane_state->ctl |
+			i9xx_cursor_ctl_crtc(crtc_state);
 
 		if (plane_state->base.crtc_h != plane_state->base.crtc_w)
 			fbc_ctl = CUR_FBC_CTL_EN | (plane_state->base.crtc_h - 1);
@@ -11054,7 +11226,8 @@ static int intel_crtc_atomic_check(struct drm_crtc *crtc,
 	int ret;
 	bool mode_changed = needs_modeset(crtc_state);
 
-	if (mode_changed && !crtc_state->active)
+	if (INTEL_GEN(dev_priv) < 5 && !IS_G4X(dev_priv) &&
+	    mode_changed && !crtc_state->active)
 		pipe_config->update_wm_post = true;
 
 	if (mode_changed && crtc_state->enable &&
@@ -11066,16 +11239,10 @@ static int intel_crtc_atomic_check(struct drm_crtc *crtc,
 			return ret;
 	}
 
-	if (crtc_state->color_mgmt_changed) {
+	if (mode_changed || crtc_state->color_mgmt_changed) {
 		ret = intel_color_check(pipe_config);
 		if (ret)
 			return ret;
-
-		/*
-		 * Changing color management on Intel hardware is
-		 * handled as part of planes update.
-		 */
-		crtc_state->planes_changed = true;
 	}
 
 	ret = 0;
@@ -11365,7 +11532,7 @@ static void intel_dump_pipe_config(struct intel_crtc *crtc,
 			      pipe_config->scaler_state.scaler_users,
 		              pipe_config->scaler_state.scaler_id);
 
-	if (HAS_GMCH_DISPLAY(dev_priv))
+	if (HAS_GMCH(dev_priv))
 		DRM_DEBUG_KMS("gmch pfit: control: 0x%08x, ratios: 0x%08x, lvds border: 0x%08x\n",
 			      pipe_config->gmch_pfit.control,
 			      pipe_config->gmch_pfit.pgm_ratios,
@@ -11477,44 +11644,38 @@ static bool check_digital_port_conflicts(struct drm_atomic_state *state)
 	return ret;
 }
 
-static void
+static int
 clear_intel_crtc_state(struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv =
 		to_i915(crtc_state->base.crtc->dev);
-	struct intel_crtc_scaler_state scaler_state;
-	struct intel_dpll_hw_state dpll_hw_state;
-	struct intel_shared_dpll *shared_dpll;
-	struct intel_crtc_wm_state wm_state;
-	bool force_thru, ips_force_disable;
+	struct intel_crtc_state *saved_state;
+
+	saved_state = kzalloc(sizeof(*saved_state), GFP_KERNEL);
+	if (!saved_state)
+		return -ENOMEM;
 
 	/* FIXME: before the switch to atomic started, a new pipe_config was
 	 * kzalloc'd. Code that depends on any field being zero should be
 	 * fixed, so that the crtc_state can be safely duplicated. For now,
 	 * only fields that are know to not cause problems are preserved. */
 
-	scaler_state = crtc_state->scaler_state;
-	shared_dpll = crtc_state->shared_dpll;
-	dpll_hw_state = crtc_state->dpll_hw_state;
-	force_thru = crtc_state->pch_pfit.force_thru;
-	ips_force_disable = crtc_state->ips_force_disable;
+	saved_state->scaler_state = crtc_state->scaler_state;
+	saved_state->shared_dpll = crtc_state->shared_dpll;
+	saved_state->dpll_hw_state = crtc_state->dpll_hw_state;
+	saved_state->pch_pfit.force_thru = crtc_state->pch_pfit.force_thru;
+	saved_state->ips_force_disable = crtc_state->ips_force_disable;
 	if (IS_G4X(dev_priv) ||
 	    IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
-		wm_state = crtc_state->wm;
+		saved_state->wm = crtc_state->wm;
 
 	/* Keep base drm_crtc_state intact, only clear our extended struct */
 	BUILD_BUG_ON(offsetof(struct intel_crtc_state, base));
-	memset(&crtc_state->base + 1, 0,
+	memcpy(&crtc_state->base + 1, &saved_state->base + 1,
 	       sizeof(*crtc_state) - sizeof(crtc_state->base));
 
-	crtc_state->scaler_state = scaler_state;
-	crtc_state->shared_dpll = shared_dpll;
-	crtc_state->dpll_hw_state = dpll_hw_state;
-	crtc_state->pch_pfit.force_thru = force_thru;
-	crtc_state->ips_force_disable = ips_force_disable;
-	if (IS_G4X(dev_priv) ||
-	    IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
-		crtc_state->wm = wm_state;
+	kfree(saved_state);
+	return 0;
 }
 
 static int
@@ -11529,7 +11690,9 @@ intel_modeset_pipe_config(struct drm_crtc *crtc,
 	int i;
 	bool retry = true;
 
-	clear_intel_crtc_state(pipe_config);
+	ret = clear_intel_crtc_state(pipe_config);
+	if (ret)
+		return ret;
 
 	pipe_config->cpu_transcoder =
 		(enum transcoder) to_intel_crtc(crtc)->pipe;
@@ -11984,6 +12147,10 @@ intel_pipe_config_compare(struct drm_i915_private *dev_priv,
 
 		PIPE_CONF_CHECK_I(scaler_state.scaler_id);
 		PIPE_CONF_CHECK_CLOCK_FUZZY(pixel_rate);
+
+		PIPE_CONF_CHECK_X(gamma_mode);
+		PIPE_CONF_CHECK_BOOL(gamma_enable);
+		PIPE_CONF_CHECK_BOOL(csc_enable);
 	}
 
 	PIPE_CONF_CHECK_BOOL(double_wide);
@@ -13105,7 +13272,7 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 
 			/* FIXME unify this for all platforms */
 			if (!new_crtc_state->active &&
-			    !HAS_GMCH_DISPLAY(dev_priv) &&
+			    !HAS_GMCH(dev_priv) &&
 			    dev_priv->display.initial_watermarks)
 				dev_priv->display.initial_watermarks(intel_state,
 								     new_intel_crtc_state);
@@ -13158,6 +13325,16 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 	 *   we don't need out special handling any more.
 	 */
 	drm_atomic_helper_wait_for_flip_done(dev, state);
+
+	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
+		new_intel_crtc_state = to_intel_crtc_state(new_crtc_state);
+
+		if (new_crtc_state->active &&
+		    !needs_modeset(new_crtc_state) &&
+		    (new_intel_crtc_state->base.color_mgmt_changed ||
+		     new_intel_crtc_state->update_pipe))
+			intel_color_load_luts(new_intel_crtc_state);
+	}
 
 	/*
 	 * Now that the vblank has passed, we can go ahead and program the
@@ -13674,18 +13851,15 @@ static void intel_begin_crtc_commit(struct drm_crtc *crtc,
 		intel_atomic_get_new_crtc_state(old_intel_state, intel_crtc);
 	bool modeset = needs_modeset(&intel_cstate->base);
 
-	if (!modeset &&
-	    (intel_cstate->base.color_mgmt_changed ||
-	     intel_cstate->update_pipe)) {
-		intel_color_set_csc(intel_cstate);
-		intel_color_load_luts(intel_cstate);
-	}
-
 	/* Perform vblank evasion around commit operation */
 	intel_pipe_update_start(intel_cstate);
 
 	if (modeset)
 		goto out;
+
+	if (intel_cstate->base.color_mgmt_changed ||
+	    intel_cstate->update_pipe)
+		intel_color_commit(intel_cstate);
 
 	if (intel_cstate->update_pipe)
 		intel_update_pipe_config(old_intel_cstate, intel_cstate);
@@ -15083,7 +15257,7 @@ retry:
 	 * intermediate watermarks (since we don't trust the current
 	 * watermarks).
 	 */
-	if (!HAS_GMCH_DISPLAY(dev_priv))
+	if (!HAS_GMCH(dev_priv))
 		intel_state->skip_intermediate_wm = true;
 
 	ret = intel_atomic_check(dev, state);
@@ -15324,7 +15498,7 @@ int intel_modeset_init(struct drm_device *dev)
 	 * Note that we need to do this after reconstructing the BIOS fb's
 	 * since the watermark calculation done here will use pstate->fb.
 	 */
-	if (!HAS_GMCH_DISPLAY(dev_priv))
+	if (!HAS_GMCH(dev_priv))
 		sanitize_watermarks(dev);
 
 	/*
@@ -15533,7 +15707,7 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc,
 	if (crtc_state->base.active && !intel_crtc_has_encoders(crtc))
 		intel_crtc_disable_noatomic(&crtc->base, ctx);
 
-	if (crtc_state->base.active || HAS_GMCH_DISPLAY(dev_priv)) {
+	if (crtc_state->base.active || HAS_GMCH(dev_priv)) {
 		/*
 		 * We start out with underrun reporting disabled to avoid races.
 		 * For correct bookkeeping mark this on active crtcs.
@@ -16280,7 +16454,7 @@ intel_display_capture_error_state(struct drm_i915_private *dev_priv)
 
 		error->pipe[i].source = I915_READ(PIPESRC(i));
 
-		if (HAS_GMCH_DISPLAY(dev_priv))
+		if (HAS_GMCH(dev_priv))
 			error->pipe[i].stat = I915_READ(PIPESTAT(i));
 	}
 

@@ -207,7 +207,7 @@ describe_obj(struct seq_file *m, struct drm_i915_gem_object *obj)
 		if (vma->fence)
 			seq_printf(m, " , fence: %d%s",
 				   vma->fence->id,
-				   i915_gem_active_isset(&vma->last_fence) ? "*" : "");
+				   i915_active_request_isset(&vma->last_fence) ? "*" : "");
 		seq_puts(m, ")");
 	}
 	if (obj->stolen)
@@ -2607,7 +2607,6 @@ static int
 i915_edp_psr_debug_set(void *data, u64 val)
 {
 	struct drm_i915_private *dev_priv = data;
-	struct drm_modeset_acquire_ctx ctx;
 	intel_wakeref_t wakeref;
 	int ret;
 
@@ -2618,18 +2617,7 @@ i915_edp_psr_debug_set(void *data, u64 val)
 
 	wakeref = intel_runtime_pm_get(dev_priv);
 
-	drm_modeset_acquire_init(&ctx, DRM_MODESET_ACQUIRE_INTERRUPTIBLE);
-
-retry:
-	ret = intel_psr_set_debugfs_mode(dev_priv, &ctx, val);
-	if (ret == -EDEADLK) {
-		ret = drm_modeset_backoff(&ctx);
-		if (!ret)
-			goto retry;
-	}
-
-	drm_modeset_drop_locks(&ctx);
-	drm_modeset_acquire_fini(&ctx);
+	ret = intel_psr_debug_set(dev_priv, val);
 
 	intel_runtime_pm_put(dev_priv, wakeref);
 
@@ -3728,7 +3716,7 @@ static int spr_wm_latency_open(struct inode *inode, struct file *file)
 {
 	struct drm_i915_private *dev_priv = inode->i_private;
 
-	if (HAS_GMCH_DISPLAY(dev_priv))
+	if (HAS_GMCH(dev_priv))
 		return -ENODEV;
 
 	return single_open(file, spr_wm_latency_show, dev_priv);
@@ -3738,7 +3726,7 @@ static int cur_wm_latency_open(struct inode *inode, struct file *file)
 {
 	struct drm_i915_private *dev_priv = inode->i_private;
 
-	if (HAS_GMCH_DISPLAY(dev_priv))
+	if (HAS_GMCH(dev_priv))
 		return -ENODEV;
 
 	return single_open(file, cur_wm_latency_show, dev_priv);

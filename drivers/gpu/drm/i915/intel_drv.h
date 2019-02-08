@@ -213,6 +213,16 @@ struct intel_fbdev {
 	unsigned long vma_flags;
 	async_cookie_t cookie;
 	int preferred_bpp;
+
+	/* Whether or not fbdev hpd processing is temporarily suspended */
+	bool hpd_suspended : 1;
+	/* Set when a hotplug was received while HPD processing was
+	 * suspended
+	 */
+	bool hpd_waiting : 1;
+
+	/* Protects hpd_suspended */
+	struct mutex hpd_lock;
 };
 
 struct intel_encoder {
@@ -935,6 +945,7 @@ struct intel_crtc_state {
 	/* bitmask of visible planes (enum plane_id) */
 	u8 active_planes;
 	u8 nv12_planes;
+	u8 c8_planes;
 
 	/* bitmask of planes that will be updated during the commit */
 	u8 update_planes;
@@ -950,6 +961,12 @@ struct intel_crtc_state {
 
 	/* Output down scaling is done in LSPCON device */
 	bool lspcon_downsampling;
+
+	/* enable pipe gamma? */
+	bool gamma_enable;
+
+	/* enable pipe csc? */
+	bool csc_enable;
 
 	/* Display Stream compression state */
 	struct {
@@ -1756,9 +1773,10 @@ static inline u32 intel_plane_ggtt_offset(const struct intel_plane_state *state)
 
 u32 glk_plane_color_ctl(const struct intel_crtc_state *crtc_state,
 			const struct intel_plane_state *plane_state);
+u32 glk_plane_color_ctl_crtc(const struct intel_crtc_state *crtc_state);
 u32 skl_plane_ctl(const struct intel_crtc_state *crtc_state,
 		  const struct intel_plane_state *plane_state);
-u32 glk_color_ctl(const struct intel_plane_state *plane_state);
+u32 skl_plane_ctl_crtc(const struct intel_crtc_state *crtc_state);
 u32 skl_plane_stride(const struct intel_plane_state *plane_state,
 		     int plane);
 int skl_check_plane_surface(struct intel_plane_state *plane_state);
@@ -2067,9 +2085,9 @@ void intel_psr_enable(struct intel_dp *intel_dp,
 		      const struct intel_crtc_state *crtc_state);
 void intel_psr_disable(struct intel_dp *intel_dp,
 		      const struct intel_crtc_state *old_crtc_state);
-int intel_psr_set_debugfs_mode(struct drm_i915_private *dev_priv,
-			       struct drm_modeset_acquire_ctx *ctx,
-			       u64 value);
+void intel_psr_update(struct intel_dp *intel_dp,
+		      const struct intel_crtc_state *crtc_state);
+int intel_psr_debug_set(struct drm_i915_private *dev_priv, u64 value);
 void intel_psr_invalidate(struct drm_i915_private *dev_priv,
 			  unsigned frontbuffer_bits,
 			  enum fb_op_origin origin);
@@ -2379,8 +2397,8 @@ int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_
 /* intel_color.c */
 void intel_color_init(struct intel_crtc *crtc);
 int intel_color_check(struct intel_crtc_state *crtc_state);
-void intel_color_set_csc(struct intel_crtc_state *crtc_state);
-void intel_color_load_luts(struct intel_crtc_state *crtc_state);
+void intel_color_commit(const struct intel_crtc_state *crtc_state);
+void intel_color_load_luts(const struct intel_crtc_state *crtc_state);
 
 /* intel_lspcon.c */
 bool lspcon_init(struct intel_digital_port *intel_dig_port);
