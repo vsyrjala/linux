@@ -3799,6 +3799,7 @@ u32 glk_plane_color_ctl(const struct intel_crtc_state *crtc_state,
 {
 	const struct drm_framebuffer *fb = plane_state->base.fb;
 	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	u32 plane_color_ctl = 0;
 
 	plane_color_ctl |= PLANE_COLOR_PLANE_GAMMA_DISABLE;
