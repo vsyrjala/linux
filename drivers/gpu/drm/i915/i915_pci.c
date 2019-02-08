@@ -26,6 +26,8 @@
 #include <linux/vgaarb.h>
 #include <linux/vga_switcheroo.h>
 
+#include <drm/drm_drv.h>
+
 #include "i915_drv.h"
 #include "i915_selftest.h"
 
@@ -67,9 +69,15 @@
 #define BDW_COLORS \
 	.color = { .degamma_lut_size = 512, .gamma_lut_size = 512 }
 #define CHV_COLORS \
-	.color = { .degamma_lut_size = 65, .gamma_lut_size = 257 }
+	.color = { .degamma_lut_size = 65, .gamma_lut_size = 257, \
+		   .degamma_lut_tests = DRM_COLOR_LUT_NON_DECREASING, \
+		   .gamma_lut_tests = DRM_COLOR_LUT_NON_DECREASING, \
+	}
 #define GLK_COLORS \
-	.color = { .degamma_lut_size = 0, .gamma_lut_size = 1024 }
+	.color = { .degamma_lut_size = 0, .gamma_lut_size = 1024, \
+		   .degamma_lut_tests = DRM_COLOR_LUT_NON_DECREASING | \
+					DRM_COLOR_LUT_EQUAL_CHANNELS, \
+	}
 
 /* Keep in gen based order, and chronological order within a gen */
 
@@ -82,6 +90,7 @@
 	.display.has_overlay = 1, \
 	.display.overlay_needs_physical = 1, \
 	.display.has_gmch_display = 1, \
+	.gpu_reset_clobbers_display = true, \
 	.hws_needs_physical = 1, \
 	.unfenced_needs_alignment = 1, \
 	.ring_mask = RENDER_RING, \
@@ -122,6 +131,7 @@ static const struct intel_device_info intel_i865g_info = {
 	GEN(3), \
 	.num_pipes = 2, \
 	.display.has_gmch_display = 1, \
+	.gpu_reset_clobbers_display = true, \
 	.ring_mask = RENDER_RING, \
 	.has_snoop = true, \
 	.has_coherent_ggtt = true, \
@@ -198,6 +208,7 @@ static const struct intel_device_info intel_pineview_info = {
 	.num_pipes = 2, \
 	.display.has_hotplug = 1, \
 	.display.has_gmch_display = 1, \
+	.gpu_reset_clobbers_display = true, \
 	.ring_mask = RENDER_RING, \
 	.has_snoop = true, \
 	.has_coherent_ggtt = true, \
@@ -228,6 +239,7 @@ static const struct intel_device_info intel_g45_info = {
 	GEN4_FEATURES,
 	PLATFORM(INTEL_G45),
 	.ring_mask = RENDER_RING | BSD_RING,
+	.gpu_reset_clobbers_display = false,
 };
 
 static const struct intel_device_info intel_gm45_info = {
@@ -237,6 +249,7 @@ static const struct intel_device_info intel_gm45_info = {
 	.display.has_fbc = 1,
 	.display.supports_tv = 1,
 	.ring_mask = RENDER_RING | BSD_RING,
+	.gpu_reset_clobbers_display = false,
 };
 
 #define GEN5_FEATURES \
@@ -532,7 +545,6 @@ static const struct intel_device_info intel_skylake_gt4_info = {
 	.display.has_fbc = 1, \
 	.display.has_psr = 1, \
 	.has_runtime_pm = 1, \
-	.has_pooled_eu = 0, \
 	.display.has_csr = 1, \
 	.has_rc6 = 1, \
 	.display.has_dp_mst = 1, \
@@ -701,6 +713,7 @@ static const struct pci_device_id pciidlist[] = {
 	INTEL_AML_KBL_GT2_IDS(&intel_kabylake_gt2_info),
 	INTEL_CFL_S_GT1_IDS(&intel_coffeelake_gt1_info),
 	INTEL_CFL_S_GT2_IDS(&intel_coffeelake_gt2_info),
+	INTEL_CFL_H_GT1_IDS(&intel_coffeelake_gt1_info),
 	INTEL_CFL_H_GT2_IDS(&intel_coffeelake_gt2_info),
 	INTEL_CFL_U_GT2_IDS(&intel_coffeelake_gt2_info),
 	INTEL_CFL_U_GT3_IDS(&intel_coffeelake_gt3_info),

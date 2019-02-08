@@ -38,11 +38,6 @@ struct dc_stream_status {
 	int stream_enc_inst;
 	int plane_count;
 	struct dc_plane_state *plane_states[MAX_SURFACE_NUM];
-
-	/*
-	 * link this stream passes through
-	 */
-	struct dc_link *link;
 };
 
 // TODO: References to this needs to be removed..
@@ -50,8 +45,19 @@ struct freesync_context {
 	bool dummy;
 };
 
+struct vline_config {
+	unsigned int start_line;
+	unsigned int end_line;
+};
+
 struct dc_stream_state {
+	// sink is deprecated, new code should not reference
+	// this pointer
 	struct dc_sink *sink;
+
+	struct dc_link *link;
+	struct dc_panel_patch sink_patches;
+	union display_content_support content_support;
 	struct dc_crtc_timing timing;
 	struct dc_crtc_timing_adjust adjust;
 	struct dc_info_packet vrr_infopacket;
@@ -80,8 +86,9 @@ struct dc_stream_state {
 	enum view_3d_format view_format;
 
 	bool ignore_msa_timing_param;
-
-	unsigned long long periodic_fn_vsync_delta;
+	bool converter_disable_audio;
+	uint8_t qs_bit;
+	uint8_t qy_bit;
 
 	/* TODO: custom INFO packets */
 	/* TODO: ABM info (DMCU) */
@@ -91,6 +98,9 @@ struct dc_stream_state {
 
 	/* DMCU info */
 	unsigned int abm_level;
+
+	struct vline_config vline0_config;
+	struct vline_config vline1_config;
 
 	/* from core_stream struct */
 	struct dc_context *ctx;
@@ -104,6 +114,8 @@ struct dc_stream_state {
 	bool dpms_off;
 	bool apply_edp_fast_boot_optimization;
 
+	void *dm_stream_context;
+
 	struct dc_cursor_attributes cursor_attributes;
 	struct dc_cursor_position cursor_position;
 	uint32_t sdr_white_level; // for boosting (SDR) cursor in HDR mode
@@ -116,6 +128,18 @@ struct dc_stream_state {
 	/* Computed state bits */
 	bool mode_changed : 1;
 
+	/* Output from DC when stream state is committed or altered
+	 * DC may only access these values during:
+	 * dc_commit_state, dc_commit_state_no_check, dc_commit_streams
+	 * values may not change outside of those calls
+	 */
+	struct {
+		// For interrupt management, some hardware instance
+		// offsets need to be exposed to DM
+		uint8_t otg_offset;
+	} out;
+
+	uint32_t stream_id;
 };
 
 struct dc_stream_update {
@@ -125,7 +149,9 @@ struct dc_stream_update {
 	struct dc_info_packet *hdr_static_metadata;
 	unsigned int *abm_level;
 
-	unsigned long long *periodic_fn_vsync_delta;
+	struct vline_config *vline0_config;
+	struct vline_config *vline1_config;
+
 	struct dc_crtc_timing_adjust *adjust;
 	struct dc_info_packet *vrr_infopacket;
 	struct dc_info_packet *vsc_infopacket;
@@ -162,7 +188,6 @@ void dc_commit_updates_for_stream(struct dc *dc,
 		int surface_count,
 		struct dc_stream_state *stream,
 		struct dc_stream_update *stream_update,
-		struct dc_plane_state **plane_states,
 		struct dc_state *state);
 /*
  * Log the current stream state.
@@ -255,11 +280,14 @@ enum surface_update_type dc_check_update_surfaces_for_stream(
  */
 struct dc_stream_state *dc_create_stream_for_sink(struct dc_sink *dc_sink);
 
-void update_stream_signal(struct dc_stream_state *stream);
+void update_stream_signal(struct dc_stream_state *stream, struct dc_sink *sink);
 
 void dc_stream_retain(struct dc_stream_state *dc_stream);
 void dc_stream_release(struct dc_stream_state *dc_stream);
 
+struct dc_stream_status *dc_stream_get_status_from_state(
+	struct dc_state *state,
+	struct dc_stream_state *stream);
 struct dc_stream_status *dc_stream_get_status(
 	struct dc_stream_state *dc_stream);
 
