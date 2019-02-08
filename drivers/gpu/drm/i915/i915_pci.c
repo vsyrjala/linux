@@ -67,7 +67,7 @@
 #define IVB_CURSOR_OFFSETS \
 	.cursor_offsets = { CURSOR_A_OFFSET, IVB_CURSOR_B_OFFSET, IVB_CURSOR_C_OFFSET }
 
-#define BDW_COLORS \
+#define IVB_COLORS \
 	.color = { .degamma_lut_size = 512, .gamma_lut_size = 512 }
 #define CHV_COLORS \
 	.color = { .degamma_lut_size = 65, .gamma_lut_size = 257, \
@@ -325,6 +325,7 @@ static const struct intel_device_info intel_sandybridge_m_gt2_info = {
 
 #define GEN7_FEATURES  \
 	GEN(7), \
+	IVB_COLORS, \
 	.num_pipes = 3, \
 	.display.has_hotplug = 1, \
 	.display.has_fbc = 1, \
@@ -429,7 +430,6 @@ static const struct intel_device_info intel_haswell_gt3_info = {
 #define GEN8_FEATURES \
 	G75_FEATURES, \
 	GEN(8), \
-	BDW_COLORS, \
 	.page_sizes = I915_GTT_PAGE_SIZE_4K | \
 		      I915_GTT_PAGE_SIZE_2M, \
 	.has_logical_ring_contexts = 1, \
@@ -560,7 +560,7 @@ static const struct intel_device_info intel_skylake_gt4_info = {
 	GEN9_DEFAULT_PAGE_SIZES, \
 	GEN_DEFAULT_PIPEOFFSETS, \
 	IVB_CURSOR_OFFSETS, \
-	BDW_COLORS
+	IVB_COLORS
 
 static const struct intel_device_info intel_broxton_info = {
 	GEN9_LP_FEATURES,
