@@ -1,0 +1,32 @@
+drm drm-fixes dada163c5eab43adf2c7595bc6d562748e1eb69e
+	Merge tag 'drm-misc-fixes-2019-02-07' of git://anongit.freedesktop.org/drm/drm-misc into drm-fixes
+drm-misc drm-misc-fixes 6297388e1eddd2f1345cea5892156223995bcf2d
+	drm/omap: dsi: Hack-fix DSI bus flags
+drm-intel drm-intel-fixes d028a646e84b9b131e4ff2cb5bbdd3825d141028
+	drm/i915: Try to sanitize bogus DPLL state left over by broken SNB BIOSen
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm drm-next 1e92a2261acf48a1db4d5b9ec0437190e59c24f3
+	Merge tag 'exynos-drm-next-for-v5.1' of git://git.kernel.org/pub/scm/linux/kernel/git/daeinki/drm-exynos into drm-next
+drm-misc drm-misc-next-fixes c75ff001f4fe21a8c9f15aad799a8949aea109f7
+	drm: Put damage blob when destroy plane state
+drm-intel drm-intel-next-fixes bfeffd155283772bbe78c6a05dec7c0128ee500c
+	Linux 5.0-rc1
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next 1c7c62a37a5fc50599e1aa7e72dd0fc785fc958a
+	drm/sun4i: dsi: Fix unitialized variable warning
+drm-intel drm-intel-next-queued 73a116be688041149bbdd1f0ba25da5c4c78a306
+	drm/i915: Update DSPCNTR gamma/csc bits during crtc_enable()
+drm-intel drm-intel-next c09d39166d8a3f3788680b32dbb0a40a70de32e2
+	drm/i915: Update DRIVER_DATE to 20190207
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus 0a5cf9e88b5178d15f00f3cf35081841d80403cd
+	Merge tag 'asoc-fix-v5.0-rc5' of https://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound into for-linus
+sound-upstream for-next bb580602f3924976d8bc36c171266de73e92cbf7
+	ALSA: pcm: Define snd_pcm_lib_preallocate_*() as returning void
+drm-intel topic/core-for-CI e3a9af5b306dbedfb2a8d84676269ad39473d644
+	net/phy: Debugging for https://bugzilla.kernel.org/show_bug.cgi?id=202321
+drm-intel topic/component-typed 8857c7d065e900a0b3829c97634c99501b606541
+	i915/snd_hdac: I915 subcomponent for the snd_hdac
