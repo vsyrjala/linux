@@ -93,6 +93,7 @@ intel_plane_duplicate_state(struct drm_plane *plane)
 
 	intel_state->vma = NULL;
 	intel_state->flags = 0;
+	intel_state->need_postvbl_update = false;
 
 	return state;
 }

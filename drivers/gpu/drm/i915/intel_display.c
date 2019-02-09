@@ -13683,6 +13683,62 @@ static void intel_atomic_cleanup_work(struct work_struct *work)
 	intel_atomic_helper_free_state(i915);
 }
 
+static void intel_update_plane_postvbl(struct intel_plane *plane,
+				       const struct intel_crtc_state *new_crtc_state,
+				       const struct intel_plane_state *new_plane_state)
+{
+	if (new_plane_state->base.visible) {
+		plane->update_plane_postvbl(plane, new_crtc_state, new_plane_state);
+	} if (new_plane_state->slave) {
+		struct intel_atomic_state *state =
+			to_intel_atomic_state(new_plane_state->base.state);
+		struct intel_plane *master =
+			new_plane_state->linked_plane;
+
+		/*
+		 * We update the slave plane from this function because
+		 * programming it from the master plane's update_plane
+		 * callback runs into issues when the Y plane is
+		 * reassigned, disabled or used by a different plane.
+		 *
+		 * The slave plane is updated with the master plane's
+		 * plane_state.
+		 */
+		new_plane_state =
+			intel_atomic_get_new_plane_state(state, master);
+
+		plane->update_plane_postvbl(plane, new_crtc_state, new_plane_state);
+	}
+}
+
+static void intel_crtc_postvbl_update(struct intel_atomic_state *state,
+				      struct intel_crtc *crtc)
+{
+	const struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+	const struct intel_plane_state *new_plane_state;
+	struct intel_plane *plane;
+	int i;
+
+	if (!new_crtc_state->base.active ||
+	    needs_modeset(&new_crtc_state->base))
+		return;
+
+	for_each_new_intel_plane_in_state(state, plane, new_plane_state, i) {
+		if (crtc->pipe != plane->pipe ||
+		    !new_plane_state->need_postvbl_update ||
+		    (new_crtc_state->update_planes & BIT(plane->id)) == 0)
+			continue;
+
+		intel_update_plane_postvbl(plane, new_crtc_state,
+					   new_plane_state);
+	}
+
+	if (new_crtc_state->base.color_mgmt_changed ||
+	    new_crtc_state->update_pipe)
+		intel_color_load_luts(new_crtc_state);
+}
+
 static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 {
 	struct drm_device *dev = state->dev;
@@ -13807,15 +13863,8 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 	 */
 	drm_atomic_helper_wait_for_flip_done(dev, state);
 
-	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
-		new_intel_crtc_state = to_intel_crtc_state(new_crtc_state);
-
-		if (new_crtc_state->active &&
-		    !needs_modeset(new_crtc_state) &&
-		    (new_intel_crtc_state->base.color_mgmt_changed ||
-		     new_intel_crtc_state->update_pipe))
-			intel_color_load_luts(new_intel_crtc_state);
-	}
+	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i)
+		intel_crtc_postvbl_update(intel_state, to_intel_crtc(crtc));
 
 	/*
 	 * Now that the vblank has passed, we can go ahead and program the

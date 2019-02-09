@@ -541,6 +541,13 @@ struct intel_plane_state {
 	u32 slave;
 
 	struct drm_intel_sprite_colorkey ckey;
+
+	/*
+	 * Some plane registers are single buffered and thus
+	 * may require programming after the vblank when the
+	 * double buffered registers have latched.
+	 */
+	bool need_postvbl_update;
 };
 
 struct intel_initial_plane_config {
@@ -1016,6 +1023,9 @@ struct intel_plane {
 	void (*update_slave)(struct intel_plane *plane,
 			     const struct intel_crtc_state *crtc_state,
 			     const struct intel_plane_state *plane_state);
+	void (*update_plane_postvbl)(struct intel_plane *plane,
+				     const struct intel_crtc_state *crtc_state,
+				     const struct intel_plane_state *plane_state);
 	void (*disable_plane)(struct intel_plane *plane,
 			      const struct intel_crtc_state *crtc_state);
 	bool (*get_hw_state)(struct intel_plane *plane, enum pipe *pipe);
