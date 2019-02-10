@@ -1749,6 +1749,7 @@ g4x_sprite_check(struct intel_crtc_state *crtc_state,
 	if (IS_IVYBRIDGE(dev_priv) || IS_HASWELL(dev_priv))
 		plane_state->need_postvbl_update =
 			ivb_sprite_needs_postvbl(crtc_state, plane_state);
+	plane_state->need_postvbl_update = false;
 
 	return 0;
 }
