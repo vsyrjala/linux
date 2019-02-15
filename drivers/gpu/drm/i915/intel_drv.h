@@ -942,6 +942,9 @@ struct intel_crtc_state {
 	/* Gamma mode programmed on the pipe */
 	u32 gamma_mode;
 
+	/* CSC mode programmed on the pipe */
+	u32 csc_mode;
+
 	/* bitmask of visible planes (enum plane_id) */
 	u8 active_planes;
 	u8 nv12_planes;
@@ -2264,7 +2267,7 @@ void intel_suspend_gt_powersave(struct drm_i915_private *dev_priv);
 void gen6_rps_busy(struct drm_i915_private *dev_priv);
 void gen6_rps_reset_ei(struct drm_i915_private *dev_priv);
 void gen6_rps_idle(struct drm_i915_private *dev_priv);
-void gen6_rps_boost(struct i915_request *rq, struct intel_rps_client *rps);
+void gen6_rps_boost(struct i915_request *rq);
 void g4x_wm_get_hw_state(struct drm_i915_private *dev_priv);
 void vlv_wm_get_hw_state(struct drm_i915_private *dev_priv);
 void ilk_wm_get_hw_state(struct drm_i915_private *dev_priv);

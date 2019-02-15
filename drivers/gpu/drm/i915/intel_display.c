@@ -3971,12 +3971,6 @@ static void icl_set_pipe_chicken(struct intel_crtc *crtc)
 	 */
 	tmp |= PER_PIXEL_ALPHA_BYPASS_EN;
 
-	/*
-	 * W/A for underruns with linear/X-tiled with
-	 * WM1+ disabled.
-	 */
-	tmp |= PM_FILL_MAINTAIN_DBUF_FULLNESS;
-
 	I915_WRITE(PIPE_CHICKEN(pipe), tmp);
 }
 
@@ -13568,7 +13562,7 @@ static int do_rps_boost(struct wait_queue_entry *_wait,
 	 * vblank without our intervention, so leave RPS alone.
 	 */
 	if (!i915_request_started(rq))
-		gen6_rps_boost(rq, NULL);
+		gen6_rps_boost(rq);
 	i915_request_put(rq);
 
 	drm_crtc_vblank_put(wait->crtc);
