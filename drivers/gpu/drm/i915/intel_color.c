@@ -250,6 +250,12 @@ static void ilk_csc_convert_ctm(const struct intel_crtc_state *crtc_state,
 	}
 }
 
+static void assert_ilk_pipe_csc(const struct intel_crtc_state *crtc_state,
+				bool enable)
+{
+	WARN_ON(crtc_state->csc_enable != enable);
+}
+
 static void ilk_load_csc_matrix(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
@@ -259,16 +265,22 @@ static void ilk_load_csc_matrix(const struct intel_crtc_state *crtc_state)
 	if (crtc_state->base.ctm) {
 		u16 coeff[9];
 
+		assert_ilk_pipe_csc(crtc_state, true);
+
 		ilk_csc_convert_ctm(crtc_state, coeff);
 		ilk_update_pipe_csc(crtc, ilk_csc_off_zero, coeff,
 				    limited_color_range ?
 				    ilk_csc_postoff_limited_range :
 				    ilk_csc_off_zero);
 	} else if (crtc_state->output_format != INTEL_OUTPUT_FORMAT_RGB) {
+		assert_ilk_pipe_csc(crtc_state, true);
+
 		ilk_update_pipe_csc(crtc, ilk_csc_off_zero,
 				    ilk_csc_coeff_rgb_to_ycbcr,
 				    ilk_csc_postoff_rgb_to_ycbcr);
 	} else if (limited_color_range) {
+		assert_ilk_pipe_csc(crtc_state, true);
+
 		ilk_update_pipe_csc(crtc, ilk_csc_off_zero,
 				    ilk_csc_coeff_limited_range,
 				    ilk_csc_postoff_limited_range);
@@ -279,7 +291,9 @@ static void ilk_load_csc_matrix(const struct intel_crtc_state *crtc_state)
 		 * LUT is needed but CSC is not we need to load an
 		 * identity matrix.
 		 */
-		WARN_ON(!IS_CANNONLAKE(dev_priv) && !IS_GEMINILAKE(dev_priv));
+		WARN_ON((!IS_CANNONLAKE(dev_priv) &&
+			 !IS_GEMINILAKE(dev_priv)) ||
+			!crtc_state->base.degamma_lut);
 
 		ilk_update_pipe_csc(crtc, ilk_csc_off_zero,
 				    ilk_csc_coeff_identity,
@@ -287,6 +301,18 @@ static void ilk_load_csc_matrix(const struct intel_crtc_state *crtc_state)
 	}
 
 	I915_WRITE(PIPE_CSC_MODE(crtc->pipe), crtc_state->csc_mode);
+}
+
+static void assert_icl_pipe_csc(const struct intel_crtc_state *crtc_state,
+				bool enable)
+{
+	WARN_ON(!!(crtc_state->csc_mode & ICL_CSC_ENABLE) != enable);
+}
+
+static void assert_icl_output_csc(const struct intel_crtc_state *crtc_state,
+				  bool enable)
+{
+	WARN_ON(!!(crtc_state->csc_mode & ICL_OUTPUT_CSC_ENABLE) != enable);
 }
 
 static void icl_load_csc_matrix(const struct intel_crtc_state *crtc_state)
@@ -297,19 +323,29 @@ static void icl_load_csc_matrix(const struct intel_crtc_state *crtc_state)
 	if (crtc_state->base.ctm) {
 		u16 coeff[9];
 
+		assert_icl_pipe_csc(crtc_state, true);
+
 		ilk_csc_convert_ctm(crtc_state, coeff);
 		ilk_update_pipe_csc(crtc, ilk_csc_off_zero,
 				    coeff, ilk_csc_off_zero);
+	} else {
+		assert_icl_pipe_csc(crtc_state, false);
 	}
 
 	if (crtc_state->output_format != INTEL_OUTPUT_FORMAT_RGB) {
+		assert_icl_output_csc(crtc_state, true);
+
 		icl_update_output_csc(crtc, ilk_csc_off_zero,
 				      ilk_csc_coeff_rgb_to_ycbcr,
 				      ilk_csc_postoff_rgb_to_ycbcr);
 	} else if (crtc_state->limited_color_range) {
+		assert_icl_output_csc(crtc_state, true);
+
 		icl_update_output_csc(crtc, ilk_csc_off_zero,
 				      ilk_csc_coeff_limited_range,
 				      ilk_csc_postoff_limited_range);
+	} else {
+		assert_icl_output_csc(crtc_state, false);
 	}
 
 	I915_WRITE(PIPE_CSC_MODE(crtc->pipe), crtc_state->csc_mode);
