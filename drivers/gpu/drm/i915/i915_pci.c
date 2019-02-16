@@ -67,6 +67,10 @@
 #define IVB_CURSOR_OFFSETS \
 	.cursor_offsets = { CURSOR_A_OFFSET, IVB_CURSOR_B_OFFSET, IVB_CURSOR_C_OFFSET }
 
+#define I965_COLORS \
+	.color = { .gamma_lut_size = 129, \
+		   .gamma_lut_tests = DRM_COLOR_LUT_NON_DECREASING, \
+	}
 #define ILK_COLORS \
 	.color = { .gamma_lut_size = 1024 }
 #define IVB_COLORS \
@@ -217,7 +221,8 @@ static const struct intel_device_info intel_pineview_info = {
 	.has_coherent_ggtt = true, \
 	GEN_DEFAULT_PIPEOFFSETS, \
 	GEN_DEFAULT_PAGE_SIZES, \
-	CURSOR_OFFSETS
+	CURSOR_OFFSETS, \
+	I965_COLORS
 
 static const struct intel_device_info intel_i965g_info = {
 	GEN4_FEATURES,
