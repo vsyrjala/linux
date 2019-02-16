@@ -946,6 +946,37 @@ static int bdw_color_check(struct intel_crtc_state *crtc_state)
 	if (ret)
 		return ret;
 
+	if (crtc_state->output_format != INTEL_OUTPUT_FORMAT_RGB) {
+		/*
+		 * FIXME should multiply the matrices together, but
+		 * that would only work if no gamma LUT is present
+		 * as it should be applied between the matrices.
+		 */
+		if (crtc_state->base.ctm)
+			return -EINVAL;
+
+		/*
+		 * FIXME the CSC should come after the gamma LUT.
+		 * We should load the software gamma LUT into the
+		 * hardware degamma LUT. Assuming there isn't a
+		 * software degamma LUT of course.
+		 */
+		if (crtc_state->base.gamma_lut)
+			return -EINVAL;
+	} else if (crtc_state->limited_color_range) {
+		/*
+		 * FIXME the CSC should be after the gamma LUT.
+		 * We should load the software gamma LUT into the
+		 * hardware degamma LUT. Assuming there isn't a
+		 * software degamma LUT, or ctm. The ctm case
+		 * could be handled by adjusting the gamma LUT
+		 * instead of the CSC to perform the full->limited
+		 * range conversion.
+		 */
+		if (crtc_state->base.gamma_lut)
+			return -EINVAL;
+	}
+
 	crtc_state->gamma_enable =
 		(crtc_state->base.gamma_lut ||
 		 crtc_state->base.degamma_lut) &&
@@ -982,6 +1013,36 @@ static int glk_color_check(struct intel_crtc_state *crtc_state)
 	ret = check_luts(crtc_state);
 	if (ret)
 		return ret;
+
+	if (crtc_state->output_format != INTEL_OUTPUT_FORMAT_RGB) {
+		/*
+		 * FIXME should multiply the matrices together, but
+		 * that would only work if no gamma LUT is present
+		 * as it should be applied between the matrices.
+		 */
+		if (crtc_state->base.ctm)
+			return -EINVAL;
+
+		/*
+		 * FIXME the CSC should come after the gamma LUT.
+		 * We should load the software gamma LUT into the
+		 * hardware degamma LUT. Assuming there isn't a
+		 * software degamma LUT of course. Wouldn't be
+		 * 100% accurate on GLK+ due to the difference
+		 * between gamma and degamma LUTS, but maybe better
+		 * than failing?
+		 */
+		if (crtc_state->base.gamma_lut)
+			return -EINVAL;
+	} else if (crtc_state->limited_color_range) {
+		/*
+		 * FIXME the CSC should come after the gamma LUT.
+		 * We could adjust the gamma LUT instead of the
+		 * CSC for the full->limited range conversion.
+		 */
+		if (crtc_state->base.gamma_lut)
+			return -EINVAL;
+	}
 
 	crtc_state->gamma_enable =
 		crtc_state->base.gamma_lut &&
