@@ -704,6 +704,13 @@ void intel_color_commit(const struct intel_crtc_state *crtc_state)
 	dev_priv->display.color_commit(crtc_state);
 }
 
+int intel_color_check(struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
+
+	return dev_priv->display.color_check(crtc_state);
+}
+
 static bool need_plane_update(struct intel_plane *plane,
 			      const struct intel_crtc_state *crtc_state)
 {
@@ -820,7 +827,7 @@ static u32 chv_cgm_mode(const struct intel_crtc_state *crtc_state)
 	return cgm_mode;
 }
 
-int intel_color_check(struct intel_crtc_state *crtc_state)
+static int _intel_color_check(struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
 	const struct drm_property_blob *gamma_lut = crtc_state->base.gamma_lut;
@@ -891,6 +898,7 @@ void intel_color_init(struct intel_crtc *crtc)
 			dev_priv->display.load_luts = i9xx_load_luts;
 
 		dev_priv->display.color_commit = i9xx_color_commit;
+		dev_priv->display.color_check = _intel_color_check;
 	} else {
 		if (IS_ICELAKE(dev_priv))
 			dev_priv->display.load_luts = icl_load_luts;
@@ -907,6 +915,8 @@ void intel_color_init(struct intel_crtc *crtc)
 			dev_priv->display.color_commit = hsw_color_commit;
 		else
 			dev_priv->display.color_commit = ilk_color_commit;
+
+		dev_priv->display.color_check = _intel_color_check;
 	}
 
 	/* Enable color management support when we have degamma & gamma LUTs. */
