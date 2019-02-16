@@ -871,6 +871,43 @@ static int chv_color_check(struct intel_crtc_state *crtc_state)
 	return 0;
 }
 
+static u32 bdw_gamma_mode(const struct intel_crtc_state *crtc_state)
+{
+	if (!crtc_state->gamma_enable ||
+	    crtc_state_is_legacy_gamma(crtc_state))
+		return GAMMA_MODE_MODE_8BIT;
+	else
+		return GAMMA_MODE_MODE_SPLIT;
+}
+
+static int bdw_color_check(struct intel_crtc_state *crtc_state)
+{
+	int ret;
+
+	ret = check_luts(crtc_state);
+	if (ret)
+		return ret;
+
+	crtc_state->gamma_enable =
+		(crtc_state->base.gamma_lut ||
+		 crtc_state->base.degamma_lut) &&
+		!crtc_state->c8_planes;
+
+	crtc_state->csc_enable =
+		crtc_state->output_format != INTEL_OUTPUT_FORMAT_RGB ||
+		crtc_state->base.ctm || crtc_state->limited_color_range;
+
+	crtc_state->gamma_mode = bdw_gamma_mode(crtc_state);
+
+	crtc_state->csc_mode = 0;
+
+	ret = intel_color_add_affected_planes(crtc_state);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static u32 glk_gamma_mode(const struct intel_crtc_state *crtc_state)
 {
 	if (!crtc_state->gamma_enable ||
@@ -957,48 +994,6 @@ static int icl_color_check(struct intel_crtc_state *crtc_state)
 	return 0;
 }
 
-static int _intel_color_check(struct intel_crtc_state *crtc_state)
-{
-	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
-	const struct drm_property_blob *gamma_lut = crtc_state->base.gamma_lut;
-	const struct drm_property_blob *degamma_lut = crtc_state->base.degamma_lut;
-	bool limited_color_range = false;
-	int ret;
-
-	ret = check_luts(crtc_state);
-	if (ret)
-		return ret;
-
-	crtc_state->gamma_enable = (gamma_lut || degamma_lut) &&
-		!crtc_state->c8_planes;
-
-	if (INTEL_GEN(dev_priv) >= 9 ||
-	    IS_BROADWELL(dev_priv) || IS_HASWELL(dev_priv))
-		limited_color_range = crtc_state->limited_color_range;
-
-	crtc_state->csc_enable =
-		crtc_state->output_format != INTEL_OUTPUT_FORMAT_RGB ||
-		crtc_state->base.ctm || limited_color_range;
-
-	ret = intel_color_add_affected_planes(crtc_state);
-	if (ret)
-		return ret;
-
-	crtc_state->csc_mode = 0;
-
-	if (!crtc_state->gamma_enable ||
-	    crtc_state_is_legacy_gamma(crtc_state))
-		crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
-	else if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
-		crtc_state->gamma_mode = GAMMA_MODE_MODE_10BIT;
-	else if (INTEL_GEN(dev_priv) >= 9 || IS_BROADWELL(dev_priv))
-		crtc_state->gamma_mode = GAMMA_MODE_MODE_SPLIT;
-	else
-		crtc_state->gamma_mode = GAMMA_MODE_MODE_8BIT;
-
-	return 0;
-}
-
 void intel_color_init(struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -1036,8 +1031,10 @@ void intel_color_init(struct intel_crtc *crtc)
 			dev_priv->display.color_check = icl_color_check;
 		else if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
 			dev_priv->display.color_check = glk_color_check;
+		else if (INTEL_GEN(dev_priv) >= 8)
+			dev_priv->display.color_check = bdw_color_check;
 		else
-			dev_priv->display.color_check = _intel_color_check;
+			dev_priv->display.color_check = i9xx_color_check;
 	}
 
 	/* Enable color management support when we have degamma & gamma LUTs. */
