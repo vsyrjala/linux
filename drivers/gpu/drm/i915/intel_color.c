@@ -1011,30 +1011,31 @@ void intel_color_init(struct intel_crtc *crtc)
 			dev_priv->display.load_luts = i9xx_load_luts;
 		}
 	} else {
-		if (IS_ICELAKE(dev_priv))
-			dev_priv->display.load_luts = icl_load_luts;
-		else if (IS_CANNONLAKE(dev_priv) || IS_GEMINILAKE(dev_priv))
-			dev_priv->display.load_luts = glk_load_luts;
-		else if (INTEL_GEN(dev_priv) >= 9 || IS_BROADWELL(dev_priv))
-			dev_priv->display.load_luts = broadwell_load_luts;
-		else
-			dev_priv->display.load_luts = i9xx_load_luts;
-
-		if (INTEL_GEN(dev_priv) >= 9)
-			dev_priv->display.color_commit = skl_color_commit;
-		else if (IS_BROADWELL(dev_priv) || IS_HASWELL(dev_priv))
-			dev_priv->display.color_commit = hsw_color_commit;
-		else
-			dev_priv->display.color_commit = ilk_color_commit;
-
-		if (INTEL_GEN(dev_priv) >= 11)
+		if (INTEL_GEN(dev_priv) >= 11) {
 			dev_priv->display.color_check = icl_color_check;
-		else if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
+			dev_priv->display.color_commit = skl_color_commit;
+			dev_priv->display.load_luts = icl_load_luts;
+		} else if (IS_CANNONLAKE(dev_priv) || IS_GEMINILAKE(dev_priv)) {
 			dev_priv->display.color_check = glk_color_check;
-		else if (INTEL_GEN(dev_priv) >= 8)
+			dev_priv->display.color_commit = skl_color_commit;
+			dev_priv->display.load_luts = glk_load_luts;
+		} else if (IS_GEN(dev_priv, 9)) {
 			dev_priv->display.color_check = bdw_color_check;
-		else
+			dev_priv->display.color_commit = skl_color_commit;
+			dev_priv->display.load_luts = broadwell_load_luts;
+		} else if (IS_BROADWELL(dev_priv)) {
+			dev_priv->display.color_check = bdw_color_check;
+			dev_priv->display.color_commit = hsw_color_commit;
+			dev_priv->display.load_luts = broadwell_load_luts;
+		} else if (IS_HASWELL(dev_priv)) {
 			dev_priv->display.color_check = i9xx_color_check;
+			dev_priv->display.color_commit = hsw_color_commit;
+			dev_priv->display.load_luts = i9xx_load_luts;
+		} else {
+			dev_priv->display.color_check = i9xx_color_check;
+			dev_priv->display.color_commit = ilk_color_commit;
+			dev_priv->display.color_commit = i9xx_load_luts;
+		}
 	}
 
 	/* Enable color management support when we have degamma & gamma LUTs. */
