@@ -11548,6 +11548,9 @@ static void intel_dump_pipe_config(struct intel_crtc *crtc,
 			      pipe_config->pch_pfit.size,
 		              enableddisabled(pipe_config->pch_pfit.enabled));
 
+	DRM_DEBUG_KMS("gamma mode: 0x%08x, csc/cgm mode: 0x%08x\n",
+		      pipe_config->gamma_mode, pipe_config->csc_mode);
+
 	DRM_DEBUG_KMS("ips: %i, double wide: %i\n",
 		      pipe_config->ips_enabled, pipe_config->double_wide);
 
