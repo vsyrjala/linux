@@ -13016,6 +13016,7 @@ static int intel_atomic_check(struct drm_device *dev,
 			to_intel_crtc_state(crtc_state);
 
 		if (!needs_modeset(crtc_state) &&
+		    !crtc_state->color_mgmt_changed &&
 		    !pipe_config->update_pipe)
 			continue;
 
