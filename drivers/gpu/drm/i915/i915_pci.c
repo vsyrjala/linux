@@ -403,7 +403,8 @@ static const struct intel_device_info intel_valleyview_info = {
 	.display_mmio_offset = VLV_DISPLAY_BASE,
 	GEN_DEFAULT_PAGE_SIZES,
 	GEN_DEFAULT_PIPEOFFSETS,
-	CURSOR_OFFSETS
+	CURSOR_OFFSETS,
+	I965_COLORS,
 };
 
 #define G75_FEATURES  \
