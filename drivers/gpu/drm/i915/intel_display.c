@@ -12982,10 +12982,6 @@ static int intel_atomic_check(struct drm_device *dev,
 
 		if (needs_modeset(crtc_state))
 			any_ms = true;
-
-		intel_dump_pipe_config(to_intel_crtc(crtc), pipe_config,
-				       needs_modeset(crtc_state) ?
-				       "[modeset]" : "[fastset]");
 	}
 
 	ret = drm_dp_mst_atomic_check(state);
@@ -13010,7 +13006,25 @@ static int intel_atomic_check(struct drm_device *dev,
 		return ret;
 
 	intel_fbc_choose_crtc(dev_priv, intel_state);
-	return calc_watermark_data(intel_state);
+
+	ret = calc_watermark_data(intel_state);
+	if (ret)
+		return ret;
+
+	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, crtc_state, i) {
+		struct intel_crtc_state *pipe_config =
+			to_intel_crtc_state(crtc_state);
+
+		if (!needs_modeset(crtc_state) &&
+		    !pipe_config->update_pipe)
+			continue;
+
+		intel_dump_pipe_config(to_intel_crtc(crtc), pipe_config,
+				       needs_modeset(crtc_state) ?
+				       "[modeset]" : "[fastset]");
+	}
+
+	return 0;
 }
 
 static int intel_atomic_prepare_commit(struct drm_device *dev,
