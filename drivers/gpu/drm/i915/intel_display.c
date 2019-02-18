@@ -3233,6 +3233,9 @@ static u32 i9xx_plane_ctl_crtc(const struct intel_crtc_state *crtc_state)
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	u32 dspcntr = 0;
 
+	DRM_DEBUG_KMS("gamma_enable %d\n", crtc_state->gamma_enable);
+	DRM_DEBUG_KMS("csc_enable %d\n", crtc_state->csc_enable);
+
 	if (crtc_state->gamma_enable)
 		dspcntr |= DISPPLANE_GAMMA_ENABLE;
 
