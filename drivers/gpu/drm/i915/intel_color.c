@@ -352,6 +352,8 @@ static void i9xx_load_luts_internal(const struct intel_crtc_state *crtc_state,
 			assert_pll_enabled(dev_priv, pipe);
 	}
 
+	spin_lock_irq(&dev_priv->uncore.lock);
+
 	if (blob) {
 		const struct drm_color_lut *lut = blob->data;
 
@@ -361,21 +363,22 @@ static void i9xx_load_luts_internal(const struct intel_crtc_state *crtc_state,
 				(drm_color_lut_extract(lut[i].green, 8) << 8) |
 				drm_color_lut_extract(lut[i].blue, 8);
 
-			if (HAS_GMCH(dev_priv))
-				I915_WRITE(PALETTE(pipe, i), word);
-			else
-				I915_WRITE(LGC_PALETTE(pipe, i), word);
+			//if (HAS_GMCH(dev_priv))
+			//I915_WRITE_FW(PALETTE(pipe, i), word);
+			//else
+				I915_WRITE_FW(LGC_PALETTE(pipe, i), word);
 		}
 	} else {
 		for (i = 0; i < 256; i++) {
 			u32 word = (i << 16) | (i << 8) | i;
 
-			if (HAS_GMCH(dev_priv))
-				I915_WRITE(PALETTE(pipe, i), word);
-			else
-				I915_WRITE(LGC_PALETTE(pipe, i), word);
+			//if (HAS_GMCH(dev_priv))
+			//I915_WRITE_FW(PALETTE(pipe, i), word);
+			//else
+				I915_WRITE_FW(LGC_PALETTE(pipe, i), word);
 		}
 	}
+	spin_unlock_irq(&dev_priv->uncore.lock);
 }
 
 static void i9xx_load_luts(const struct intel_crtc_state *crtc_state)
