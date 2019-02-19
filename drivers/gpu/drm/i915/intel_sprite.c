@@ -206,6 +206,9 @@ void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state)
 		new_crtc_state->base.event = NULL;
 	}
 
+	new_crtc_state->vbl_count =
+		drm_crtc_accurate_vblank_count(&crtc->base) + 1;
+
 	local_irq_enable();
 
 	if (intel_vgpu_active(dev_priv))

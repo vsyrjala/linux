@@ -11659,6 +11659,7 @@ clear_intel_crtc_state(struct intel_crtc_state *crtc_state)
 	saved_state->dpll_hw_state = crtc_state->dpll_hw_state;
 	saved_state->pch_pfit.force_thru = crtc_state->pch_pfit.force_thru;
 	saved_state->ips_force_disable = crtc_state->ips_force_disable;
+	saved_state->vblank_work = crtc_state->vblank_work;
 	if (IS_G4X(dev_priv) ||
 	    IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
 		saved_state->wm = crtc_state->wm;
@@ -13026,6 +13027,27 @@ u32 intel_crtc_get_vblank_counter(struct intel_crtc *crtc)
 	return dev->driver->get_vblank_counter(dev, crtc->pipe);
 }
 
+void intel_crtc_vblank_work(struct drm_vblank_work *work,
+			    u64 count);
+
+static void intel_crtc_schedule_vblank_work(struct intel_atomic_state *state,
+					    struct intel_crtc_state *new_crtc_state)
+{
+	atomic_inc(&state->cleanup_count);
+
+	/*
+	 * drm_atomic_helper_swap_state() has already made
+	 * new_crtc_state->base.state NULL hence we need our own pointer.
+	 */
+	new_crtc_state->state = state;
+
+	if (!new_crtc_state->base.active ||
+	    WARN_ON(drm_vblank_work_schedule(&new_crtc_state->vblank_work,
+					     new_crtc_state->vbl_count,
+					     true) != 0))
+		intel_crtc_vblank_work(&new_crtc_state->vblank_work, 0);
+}
+
 static void intel_update_crtc(struct drm_crtc *crtc,
 			      struct drm_atomic_state *state,
 			      struct drm_crtc_state *old_crtc_state,
@@ -13067,6 +13089,10 @@ static void intel_update_crtc(struct drm_crtc *crtc,
 		i9xx_update_planes_on_crtc(to_intel_atomic_state(state), intel_crtc);
 
 	intel_finish_crtc_commit(crtc, old_crtc_state);
+
+	/* FIXME should probably schedule from within the critical section */
+	intel_crtc_schedule_vblank_work(to_intel_atomic_state(state),
+					pipe_config);
 }
 
 static void intel_update_crtcs(struct drm_atomic_state *state)
@@ -13212,11 +13238,63 @@ static void intel_atomic_cleanup_work(struct work_struct *work)
 		container_of(work, struct drm_atomic_state, commit_work);
 	struct drm_i915_private *i915 = to_i915(state->dev);
 
+	/* should be nop */
+	drm_atomic_helper_wait_for_flip_done(&i915->drm, state);
+
+	if (intel_can_enable_sagv(state))
+		intel_enable_sagv(i915);
+
 	drm_atomic_helper_cleanup_planes(&i915->drm, state);
 	drm_atomic_helper_commit_cleanup_done(state);
 	drm_atomic_state_put(state);
 
 	intel_atomic_helper_free_state(i915);
+}
+
+void intel_crtc_vblank_work(struct drm_vblank_work *work,
+			    u64 count)
+{
+	struct intel_crtc_state *new_crtc_state =
+		container_of(work, struct intel_crtc_state, vblank_work);
+	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_atomic_state *state = new_crtc_state->state;
+	struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(state, crtc);
+
+	if (new_crtc_state->base.active &&
+	    !needs_modeset(&new_crtc_state->base) &&
+	    (new_crtc_state->base.color_mgmt_changed ||
+	     new_crtc_state->update_pipe))
+		intel_color_load_luts(new_crtc_state);
+
+	/*
+	 * Now that the vblank has passed, we can go ahead and program the
+	 * optimal watermarks on platforms that need two-step watermark
+	 * programming.
+	 */
+	if (dev_priv->display.optimize_watermarks)
+		dev_priv->display.optimize_watermarks(state, new_crtc_state);
+
+	intel_post_plane_update(old_crtc_state);
+
+	if (new_crtc_state->put_domains)
+		modeset_put_power_domains(dev_priv, new_crtc_state->put_domains);
+
+	new_crtc_state->state = NULL;
+
+	if (atomic_dec_and_test(&state->cleanup_count))
+		queue_work(system_highpri_wq, &state->base.commit_work);
+}
+
+static void intel_atomic_flush_vblank_works(struct intel_atomic_state *state)
+{
+	struct intel_crtc_state *old_crtc_state;
+	struct intel_crtc *crtc;
+	int i;
+
+	for_each_old_intel_crtc_in_state(state, crtc, old_crtc_state, i)
+		drm_vblank_work_flush(&old_crtc_state->vblank_work);
 }
 
 static void intel_atomic_commit_tail(struct drm_atomic_state *state)
@@ -13228,9 +13306,10 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 	struct intel_crtc_state *new_intel_crtc_state, *old_intel_crtc_state;
 	struct drm_crtc *crtc;
 	struct intel_crtc *intel_crtc;
-	u64 put_domains[I915_MAX_PIPES] = {};
 	intel_wakeref_t wakeref = 0;
 	int i;
+
+	intel_atomic_flush_vblank_works(intel_state);
 
 	intel_atomic_commit_fence_wait(intel_state);
 
@@ -13247,7 +13326,7 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 		if (needs_modeset(new_crtc_state) ||
 		    to_intel_crtc_state(new_crtc_state)->update_pipe) {
 
-			put_domains[intel_crtc->pipe] =
+			new_intel_crtc_state->put_domains =
 				modeset_get_crtc_power_domains(crtc,
 					new_intel_crtc_state);
 		}
@@ -13306,6 +13385,9 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 		intel_modeset_verify_disabled(dev, state);
 	}
 
+	INIT_WORK(&state->commit_work, intel_atomic_cleanup_work);
+	atomic_set(&intel_state->cleanup_count, 1);
+
 	/* Complete the events for pipes that have now been disabled */
 	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
 		bool modeset = needs_modeset(new_crtc_state);
@@ -13318,63 +13400,33 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 
 			new_crtc_state->event = NULL;
 		}
+
+		/* FIXME should we do this before or after update_crtcs()? */
+		if (!new_crtc_state->active)
+			intel_crtc_schedule_vblank_work(intel_state,
+							to_intel_crtc_state(new_crtc_state));
 	}
 
 	/* Now enable the clocks, plane, pipe, and connectors that we set up. */
 	dev_priv->display.update_crtcs(state);
 
-	/* FIXME: We should call drm_atomic_helper_commit_hw_done() here
-	 * already, but still need the state for the delayed optimization. To
-	 * fix this:
-	 * - wrap the optimization/post_plane_update stuff into a per-crtc work.
-	 * - schedule that vblank worker _before_ calling hw_done
-	 * - at the start of commit_tail, cancel it _synchrously
-	 * - switch over to the vblank wait helper in the core after that since
-	 *   we don't need out special handling any more.
-	 */
-	drm_atomic_helper_wait_for_flip_done(dev, state);
-
-	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
-		new_intel_crtc_state = to_intel_crtc_state(new_crtc_state);
-
-		if (new_crtc_state->active &&
-		    !needs_modeset(new_crtc_state) &&
-		    (new_intel_crtc_state->base.color_mgmt_changed ||
-		     new_intel_crtc_state->update_pipe))
-			intel_color_load_luts(new_intel_crtc_state);
-	}
+	drm_atomic_helper_commit_hw_done(state);
 
 	/*
-	 * Now that the vblank has passed, we can go ahead and program the
-	 * optimal watermarks on platforms that need two-step watermark
-	 * programming.
+	 * FIXME intel_modeset_verify_crtc() clobbers
+	 * old_crtc_state->commit which causes explosions
+	 * int the parallel works.
 	 *
-	 * TODO: Move this (and other cleanup) to an async worker eventually.
+	 * FIXME how does this even work in the
+	 * pre-vblank work era?
 	 */
-	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
-		new_intel_crtc_state = to_intel_crtc_state(new_crtc_state);
+	if (0 && intel_state->modeset) {
+		for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+			intel_modeset_verify_crtc(crtc, state, old_crtc_state, new_crtc_state);
+		}
 
-		if (dev_priv->display.optimize_watermarks)
-			dev_priv->display.optimize_watermarks(intel_state,
-							      new_intel_crtc_state);
-	}
-
-	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
-		intel_post_plane_update(to_intel_crtc_state(old_crtc_state));
-
-		if (put_domains[i])
-			modeset_put_power_domains(dev_priv, put_domains[i]);
-
-		intel_modeset_verify_crtc(crtc, state, old_crtc_state, new_crtc_state);
-	}
-
-	if (intel_state->modeset)
 		intel_verify_planes(intel_state);
-
-	if (intel_state->modeset && intel_can_enable_sagv(state))
-		intel_enable_sagv(dev_priv);
-
-	drm_atomic_helper_commit_hw_done(state);
+	}
 
 	if (intel_state->modeset) {
 		/* As one of the primary mmio accessors, KMS has a high
@@ -13395,8 +13447,8 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 	 * schedule point (cond_resched()) here anyway to keep latencies
 	 * down.
 	 */
-	INIT_WORK(&state->commit_work, intel_atomic_cleanup_work);
-	queue_work(system_highpri_wq, &state->commit_work);
+	if (atomic_dec_and_test(&intel_state->cleanup_count))
+		queue_work(system_highpri_wq, &state->commit_work);
 }
 
 static void intel_atomic_commit_work(struct work_struct *work)
@@ -13540,6 +13592,7 @@ static int intel_atomic_commit(struct drm_device *dev,
 		if (intel_state->modeset)
 			flush_workqueue(dev_priv->modeset_wq);
 		intel_atomic_commit_tail(state);
+		drm_atomic_helper_wait_for_flip_done(dev, state);
 	}
 
 	return 0;
@@ -14431,6 +14484,9 @@ static int intel_crtc_init(struct drm_i915_private *dev_priv, enum pipe pipe)
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);
 
 	intel_color_init(intel_crtc);
+
+	drm_vblank_work_init(&crtc_state->vblank_work,
+			     &intel_crtc->base, intel_crtc_vblank_work);
 
 	WARN_ON(drm_crtc_index(&intel_crtc->base) != intel_crtc->pipe);
 
@@ -15909,9 +15965,12 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 	for_each_intel_crtc(dev, crtc) {
 		struct intel_crtc_state *crtc_state =
 			to_intel_crtc_state(crtc->base.state);
+		struct drm_vblank_work save_vblank_work =
+			crtc_state->vblank_work;
 
 		__drm_atomic_helper_crtc_destroy_state(&crtc_state->base);
 		memset(crtc_state, 0, sizeof(*crtc_state));
+		crtc_state->vblank_work = save_vblank_work;
 		crtc_state->base.crtc = &crtc->base;
 
 		crtc_state->base.active = crtc_state->base.enable =

@@ -157,6 +157,9 @@ intel_digital_connector_duplicate_state(struct drm_connector *connector)
 	return &state->base;
 }
 
+ void intel_crtc_vblank_work(struct drm_vblank_work *work,
+			     u64 count);
+
 /**
  * intel_crtc_duplicate_state - duplicate crtc state
  * @crtc: drm crtc
@@ -187,6 +190,12 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 	crtc_state->wm.need_postvbl_update = false;
 	crtc_state->fb_bits = 0;
 	crtc_state->update_planes = 0;
+
+	crtc_state->vbl_count = 0;
+	crtc_state->put_domains = 0;
+	crtc_state->state = NULL;
+	drm_vblank_work_init(&crtc_state->vblank_work,
+			     crtc, intel_crtc_vblank_work);
 
 	return &crtc_state->base;
 }

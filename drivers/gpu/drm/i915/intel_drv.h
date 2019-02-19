@@ -514,6 +514,8 @@ struct intel_atomic_state {
 	struct i915_sw_fence commit_ready;
 
 	struct llist_node freed;
+
+	atomic_t cleanup_count;
 };
 
 struct intel_plane_state {
@@ -982,6 +984,12 @@ struct intel_crtc_state {
 
 	/* Forward Error correction State */
 	bool fec_enable;
+
+	struct drm_vblank_work vblank_work;
+	struct intel_atomic_state *state;
+	u64 vbl_count;
+
+	u64 put_domains;
 };
 
 struct intel_crtc {
