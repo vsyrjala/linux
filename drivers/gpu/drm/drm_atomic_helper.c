@@ -1950,6 +1950,8 @@ int drm_atomic_helper_setup_commit(struct drm_atomic_state *state,
 	struct drm_crtc_commit *commit;
 	int i, ret;
 
+	DRM_DEBUG_KMS("state %p\n", state);
+
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 		commit = kzalloc(sizeof(*commit), GFP_KERNEL);
 		if (!commit)
@@ -1957,6 +1959,7 @@ int drm_atomic_helper_setup_commit(struct drm_atomic_state *state,
 
 		init_commit(commit, crtc);
 
+		DRM_DEBUG_KMS("%d commit %p\n", i, commit);
 		new_crtc_state->commit = commit;
 
 		ret = stall_checks(crtc, nonblock);
@@ -2180,8 +2183,11 @@ void drm_atomic_helper_commit_hw_done(struct drm_atomic_state *old_state)
 	struct drm_crtc_commit *commit;
 	int i;
 
+	DRM_DEBUG_KMS("state %p\n", old_state);
+
 	for_each_oldnew_crtc_in_state(old_state, crtc, old_crtc_state, new_crtc_state, i) {
 		commit = new_crtc_state->commit;
+		DRM_DEBUG_KMS("%d commit %p\n", i, commit);
 		if (!commit)
 			continue;
 
@@ -2225,8 +2231,11 @@ void drm_atomic_helper_commit_cleanup_done(struct drm_atomic_state *old_state)
 	struct drm_crtc_commit *commit;
 	int i;
 
+	DRM_DEBUG_KMS("state %p\n", old_state);
+
 	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
 		commit = old_crtc_state->commit;
+		DRM_DEBUG_KMS("%d commit %p\n", i, commit);
 		if (WARN_ON(!commit))
 			continue;
 
