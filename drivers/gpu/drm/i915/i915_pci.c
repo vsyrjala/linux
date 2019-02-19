@@ -79,6 +79,8 @@
 		   .degamma_lut_tests = DRM_COLOR_LUT_NON_DECREASING | \
 					DRM_COLOR_LUT_EQUAL_CHANNELS, \
 	}
+#define I9XX_COLORS \
+	.color = { .gamma_lut_size = 256 }
 
 /* Keep in gen based order, and chronological order within a gen */
 
@@ -336,6 +338,7 @@ static const struct intel_device_info intel_sandybridge_m_gt2_info = {
 	.ppgtt = INTEL_PPGTT_FULL, \
 	GEN_DEFAULT_PIPEOFFSETS, \
 	GEN_DEFAULT_PAGE_SIZES, \
+	I9XX_COLORS, \
 	IVB_CURSOR_OFFSETS
 
 #define IVB_D_PLATFORM \
