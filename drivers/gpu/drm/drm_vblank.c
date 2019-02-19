@@ -420,6 +420,17 @@ void drm_vblank_cleanup(struct drm_device *dev)
 	dev->num_crtcs = 0;
 }
 
+static void vblank_work_func(struct work_struct *_work);
+
+static void vblank_work_init(struct drm_vblank_crtc *vblank)
+{
+	INIT_WORK(&vblank->vblank_work.work, vblank_work_func);
+	spin_lock_init(&vblank->vblank_work.lock);
+	INIT_LIST_HEAD(&vblank->vblank_work.irq_list);
+	INIT_LIST_HEAD(&vblank->vblank_work.work_list);
+	init_waitqueue_head(&vblank->vblank_work.wait);
+}
+
 /**
  * drm_vblank_init - initialize vblank support
  * @dev: DRM device
@@ -454,6 +465,8 @@ int drm_vblank_init(struct drm_device *dev, unsigned int num_crtcs)
 		init_waitqueue_head(&vblank->queue);
 		timer_setup(&vblank->disable_timer, vblank_disable_fn, 0);
 		seqlock_init(&vblank->seqlock);
+
+		vblank_work_init(vblank);
 	}
 
 	DRM_INFO("Supports vblank timestamp caching Rev 2 (21.10.2013).\n");
@@ -1709,6 +1722,8 @@ static void drm_handle_vblank_events(struct drm_device *dev, unsigned int pipe)
 	trace_drm_vblank_event(pipe, seq);
 }
 
+static void drm_handle_vblank_works(struct drm_vblank_crtc *vblank);
+
 /**
  * drm_handle_vblank - handle a vblank event
  * @dev: DRM device
@@ -1764,6 +1779,8 @@ bool drm_handle_vblank(struct drm_device *dev, unsigned int pipe)
 	drm_handle_vblank_events(dev, pipe);
 
 	spin_unlock_irqrestore(&dev->event_lock, irqflags);
+
+	drm_handle_vblank_works(vblank);
 
 	if (disable_irq)
 		vblank_disable_fn(&vblank->disable_timer);
@@ -1952,3 +1969,184 @@ err_free:
 	kfree(e);
 	return ret;
 }
+
+int drm_vblank_work_schedule(struct drm_vblank_work *work, u64 count,
+			     bool nextonmiss)
+{
+	struct drm_vblank_crtc *vblank = work->vblank;
+	unsigned long irqflags;
+	int ret = 0;
+
+	spin_lock_irqsave(&vblank->vblank_work.lock, irqflags);
+
+	if (work->state != DRM_VBL_WORK_IDLE) {
+		if (work->count != count ||
+		    work->state == DRM_VBL_WORK_RUNNING)
+			ret = -EBUSY;
+		goto out;
+	}
+
+	ret = drm_vblank_get(vblank->dev, vblank->pipe);
+	if (ret)
+		goto out;
+
+	work->count = count;
+
+	if (!nextonmiss && vblank_passed(vblank->count, count)) {
+		drm_vblank_put(vblank->dev, vblank->pipe);
+		list_add_tail(&work->list, &vblank->vblank_work.work_list);
+		work->state = DRM_VBL_WORK_SCHEDULED;
+		queue_work(system_highpri_wq, &vblank->vblank_work.work);
+	} else {
+		list_add_tail(&work->list, &vblank->vblank_work.irq_list);
+		work->state = DRM_VBL_WORK_WAITING;
+	}
+ out:
+	spin_unlock_irqrestore(&vblank->vblank_work.lock, irqflags);
+
+	return ret;
+}
+EXPORT_SYMBOL(drm_vblank_work_schedule);
+
+static void vblank_work_func(struct work_struct *_work)
+{
+	struct drm_vblank_crtc *vblank =
+		container_of(_work, struct drm_vblank_crtc, vblank_work.work);
+	struct drm_vblank_work *work, *next;
+	LIST_HEAD(list);
+	u64 count;
+
+	spin_lock_irq(&vblank->vblank_work.lock);
+	list_for_each_entry_safe(work, next, &vblank->vblank_work.work_list, list) {
+		list_move_tail(&work->list, &list);
+		work->state = DRM_VBL_WORK_RUNNING;
+	}
+	spin_unlock_irq(&vblank->vblank_work.lock);
+
+	if (list_empty(&list))
+		return;
+
+	count = vblank->count;
+	list_for_each_entry(work, &list, list)
+		work->func(work, count);
+
+	spin_lock_irq(&vblank->vblank_work.lock);
+	list_for_each_entry_safe(work, next, &list, list) {
+		list_del_init(&work->list);
+		work->state = DRM_VBL_WORK_IDLE;
+	}
+	spin_unlock_irq(&vblank->vblank_work.lock);
+
+	wake_up_all(&vblank->vblank_work.wait);
+}
+
+void drm_vblank_work_init(struct drm_vblank_work *work, struct drm_crtc *crtc,
+			  void (*func)(struct drm_vblank_work *work, u64 count))
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_vblank_crtc *vblank = &dev->vblank[drm_crtc_index(crtc)];
+
+	work->vblank = vblank;
+	work->state = DRM_VBL_WORK_IDLE;
+	work->func = func;
+	INIT_LIST_HEAD(&work->list);
+}
+EXPORT_SYMBOL(drm_vblank_work_init);
+
+static void drm_handle_vblank_works(struct drm_vblank_crtc *vblank)
+{
+	struct drm_vblank_work *work, *next;
+	u64 count = vblank->count;
+	bool need_sched = false;
+
+	spin_lock(&vblank->vblank_work.lock);
+
+	list_for_each_entry_safe(work, next, &vblank->vblank_work.irq_list, list) {
+		if (vblank_passed(count, work->count)) {
+			drm_vblank_put(vblank->dev, vblank->pipe);
+			list_move_tail(&work->list, &vblank->vblank_work.work_list);
+			work->state = DRM_VBL_WORK_SCHEDULED;
+			need_sched = true;
+		}
+	}
+
+	spin_unlock(&vblank->vblank_work.lock);
+
+	if (need_sched)
+		queue_work(system_highpri_wq, &vblank->vblank_work.work);
+}
+
+static bool vblank_work_cancel(struct drm_vblank_work *work)
+{
+	struct drm_vblank_crtc *vblank = work->vblank;
+
+	switch (work->state) {
+	default:
+	case DRM_VBL_WORK_IDLE:
+	case DRM_VBL_WORK_RUNNING:
+		return false;
+	case DRM_VBL_WORK_WAITING:
+		drm_vblank_put(vblank->dev, vblank->pipe);
+		/* fall through */
+	case DRM_VBL_WORK_SCHEDULED:
+		list_del_init(&work->list);
+		work->state = DRM_VBL_WORK_IDLE;
+		return true;
+	}
+}
+
+bool drm_vblank_work_cancel(struct drm_vblank_work *work)
+{
+	struct drm_vblank_crtc *vblank = work->vblank;
+	bool cancelled;
+
+	spin_lock_irq(&vblank->vblank_work.lock);
+
+	cancelled = vblank_work_cancel(work);
+
+	spin_unlock_irq(&vblank->vblank_work.lock);
+
+	return cancelled;
+}
+EXPORT_SYMBOL(drm_vblank_work_cancel);
+
+bool drm_vblank_work_cancel_sync(struct drm_vblank_work *work)
+{
+	struct drm_vblank_crtc *vblank = work->vblank;
+	bool cancelled;
+	long ret;
+
+	spin_lock_irq(&vblank->vblank_work.lock);
+
+	cancelled = vblank_work_cancel(work);
+
+	ret = wait_event_lock_irq_timeout(vblank->vblank_work.wait,
+					  work->state == DRM_VBL_WORK_IDLE,
+					  vblank->vblank_work.lock,
+					  10 * HZ);
+
+	spin_unlock_irq(&vblank->vblank_work.lock);
+
+	WARN(!ret, "crtc %d vblank work timed out\n", vblank->pipe);
+
+	return cancelled;
+}
+EXPORT_SYMBOL(drm_vblank_work_cancel_sync);
+
+void drm_vblank_work_flush(struct drm_vblank_work *work)
+{
+	struct drm_vblank_crtc *vblank = work->vblank;
+	long ret;
+
+	spin_lock_irq(&vblank->vblank_work.lock);
+
+	ret = wait_event_lock_irq_timeout(vblank->vblank_work.wait,
+					  work->state == DRM_VBL_WORK_IDLE,
+					  vblank->vblank_work.lock,
+					  10 * HZ);
+
+	spin_unlock_irq(&vblank->vblank_work.lock);
+
+	WARN(!ret, "crtc %d vblank work timed out\n", vblank->pipe);
+}
+EXPORT_SYMBOL(drm_vblank_work_flush);

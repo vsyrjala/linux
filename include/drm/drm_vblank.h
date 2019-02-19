@@ -193,7 +193,35 @@ struct drm_vblank_crtc {
 	 * disabling functions multiple times.
 	 */
 	bool enabled;
+
+	struct {
+		struct work_struct work;
+		struct list_head irq_list, work_list;
+		spinlock_t lock;
+		wait_queue_head_t wait;
+	} vblank_work;
 };
+
+struct drm_vblank_work {
+	u64 count;
+	struct drm_vblank_crtc *vblank;
+	void (*func)(struct drm_vblank_work *work, u64 count);
+	struct list_head list;
+	enum {
+		DRM_VBL_WORK_IDLE,
+		DRM_VBL_WORK_WAITING,
+		DRM_VBL_WORK_SCHEDULED,
+		DRM_VBL_WORK_RUNNING,
+	} state;
+};
+
+int drm_vblank_work_schedule(struct drm_vblank_work *work,
+			     u64 count, bool nextonmiss);
+void drm_vblank_work_init(struct drm_vblank_work *work, struct drm_crtc *crtc,
+			  void (*func)(struct drm_vblank_work *work, u64 count));
+bool drm_vblank_work_cancel(struct drm_vblank_work *work);
+bool drm_vblank_work_cancel_sync(struct drm_vblank_work *work);
+void drm_vblank_work_flush(struct drm_vblank_work *work);
 
 int drm_vblank_init(struct drm_device *dev, unsigned int num_crtcs);
 u64 drm_crtc_vblank_count(struct drm_crtc *crtc);
