@@ -1990,6 +1990,8 @@ int drm_vblank_work_schedule(struct drm_vblank_work *work, u64 count,
 	if (ret)
 		goto out;
 
+	DRM_DEBUG_KMS("count %llu, current %lld\n", count, vblank->count);
+
 	work->count = count;
 
 	if (vblank_passed(vblank->count, count))
@@ -2000,10 +2002,12 @@ int drm_vblank_work_schedule(struct drm_vblank_work *work, u64 count,
 		drm_vblank_put(vblank->dev, vblank->pipe);
 		list_add_tail(&work->list, &vblank->vblank_work.work_list);
 		work->state = DRM_VBL_WORK_SCHEDULED;
+		DRM_DEBUG_KMS("work %p state %d\n", work, work->state);
 		queue_work(system_highpri_wq, &vblank->vblank_work.work);
 	} else {
 		list_add_tail(&work->list, &vblank->vblank_work.irq_list);
 		work->state = DRM_VBL_WORK_WAITING;
+		DRM_DEBUG_KMS("work %p state %d\n", work, work->state);
 	}
  out:
 	spin_unlock_irqrestore(&vblank->vblank_work.lock, irqflags);
@@ -2022,6 +2026,7 @@ static void vblank_work_func(struct work_struct *_work)
 
 	spin_lock_irq(&vblank->vblank_work.lock);
 	list_for_each_entry_safe(work, next, &vblank->vblank_work.work_list, list) {
+		DRM_DEBUG_KMS("pre work %p state %d\n", work, work->state);
 		list_move_tail(&work->list, &list);
 		work->state = DRM_VBL_WORK_RUNNING;
 	}
@@ -2038,6 +2043,7 @@ static void vblank_work_func(struct work_struct *_work)
 	list_for_each_entry_safe(work, next, &list, list) {
 		list_del_init(&work->list);
 		work->state = DRM_VBL_WORK_IDLE;
+		DRM_DEBUG_KMS("post work %p state %d\n", work, work->state);
 	}
 	spin_unlock_irq(&vblank->vblank_work.lock);
 
@@ -2050,10 +2056,16 @@ void drm_vblank_work_init(struct drm_vblank_work *work, struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct drm_vblank_crtc *vblank = &dev->vblank[drm_crtc_index(crtc)];
 
+	DRM_DEBUG_KMS("crtc %s, index %d work %p, vblank %p\n",
+		      crtc->name, drm_crtc_index(crtc), work, vblank);
+
+	DRM_DEBUG_KMS("work %p state %d\n", work, work->state);
 	work->vblank = vblank;
 	work->state = DRM_VBL_WORK_IDLE;
 	work->func = func;
 	INIT_LIST_HEAD(&work->list);
+
+	DRM_DEBUG_KMS("work %p state %d\n", work, work->state);
 }
 EXPORT_SYMBOL(drm_vblank_work_init);
 
@@ -2070,6 +2082,7 @@ static void drm_handle_vblank_works(struct drm_vblank_crtc *vblank)
 			drm_vblank_put(vblank->dev, vblank->pipe);
 			list_move_tail(&work->list, &vblank->vblank_work.work_list);
 			work->state = DRM_VBL_WORK_SCHEDULED;
+			DRM_DEBUG_KMS("work %p state %d\n", work, work->state);
 			need_sched = true;
 		}
 	}
@@ -2084,6 +2097,7 @@ static bool vblank_work_cancel(struct drm_vblank_work *work)
 {
 	struct drm_vblank_crtc *vblank = work->vblank;
 
+	DRM_DEBUG_KMS("work state %d\n", work->state);
 	switch (work->state) {
 	default:
 	case DRM_VBL_WORK_IDLE:
@@ -2123,6 +2137,7 @@ bool drm_vblank_work_cancel_sync(struct drm_vblank_work *work)
 	spin_lock_irq(&vblank->vblank_work.lock);
 
 	cancelled = vblank_work_cancel(work);
+	DRM_DEBUG_KMS("work state %d\n", work->state);
 
 	ret = wait_event_lock_irq_timeout(vblank->vblank_work.wait,
 					  work->state == DRM_VBL_WORK_IDLE,
@@ -2142,7 +2157,11 @@ void drm_vblank_work_flush(struct drm_vblank_work *work)
 	struct drm_vblank_crtc *vblank = work->vblank;
 	long ret;
 
+	DRM_DEBUG_KMS("work %p vblank %p\n", work, work->vblank);
+
 	spin_lock_irq(&vblank->vblank_work.lock);
+
+	DRM_DEBUG_KMS("work state %d\n", work->state);
 
 	ret = wait_event_lock_irq_timeout(vblank->vblank_work.wait,
 					  work->state == DRM_VBL_WORK_IDLE,
