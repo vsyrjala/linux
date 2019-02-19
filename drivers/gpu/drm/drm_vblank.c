@@ -1992,6 +1992,10 @@ int drm_vblank_work_schedule(struct drm_vblank_work *work, u64 count,
 
 	work->count = count;
 
+	if (vblank_passed(vblank->count, count))
+		DRM_ERROR("crtc %d vblank %llu already passed (current %llu)\n",
+			  vblank->pipe, count, vblank->count);
+
 	if (!nextonmiss && vblank_passed(vblank->count, count)) {
 		drm_vblank_put(vblank->dev, vblank->pipe);
 		list_add_tail(&work->list, &vblank->vblank_work.work_list);
