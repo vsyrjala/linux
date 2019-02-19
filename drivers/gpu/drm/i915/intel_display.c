@@ -12452,6 +12452,8 @@ verify_crtc_state(struct drm_crtc *crtc,
 	struct drm_atomic_state *old_state;
 	bool active;
 
+	DRM_DEBUG_KMS("clobbering crtc %s state %p\n",
+		      crtc->name, old_crtc_state);
 	old_state = old_crtc_state->state;
 	__drm_atomic_helper_crtc_destroy_state(old_crtc_state);
 	pipe_config = to_intel_crtc_state(old_crtc_state);
@@ -13238,8 +13240,12 @@ static void intel_atomic_cleanup_work(struct work_struct *work)
 		container_of(work, struct drm_atomic_state, commit_work);
 	struct drm_i915_private *i915 = to_i915(state->dev);
 
+	DRM_DEBUG_KMS("state %p\n", state);
+
 	/* should be nop */
 	drm_atomic_helper_wait_for_flip_done(&i915->drm, state);
+
+	DRM_DEBUG_KMS("flip done state %p\n", state);
 
 	if (intel_can_enable_sagv(state))
 		intel_enable_sagv(i915);
@@ -13262,6 +13268,11 @@ void intel_crtc_vblank_work(struct drm_vblank_work *work,
 	struct intel_crtc_state *old_crtc_state =
 		intel_atomic_get_old_crtc_state(state, crtc);
 
+	DRM_DEBUG_KMS("work %p, state %p\n", work, new_crtc_state);
+	DRM_DEBUG_KMS("crtc %p\n", crtc);
+	DRM_DEBUG_KMS("atomic state %p\n", state);
+	DRM_DEBUG_KMS("old state %p\n", old_crtc_state);
+
 	if (new_crtc_state->base.active &&
 	    !needs_modeset(&new_crtc_state->base) &&
 	    (new_crtc_state->base.color_mgmt_changed ||
@@ -13283,6 +13294,8 @@ void intel_crtc_vblank_work(struct drm_vblank_work *work,
 
 	new_crtc_state->state = NULL;
 
+	DRM_DEBUG_KMS("cleanup count %d\n", atomic_read(&state->cleanup_count));
+
 	if (atomic_dec_and_test(&state->cleanup_count))
 		queue_work(system_highpri_wq, &state->base.commit_work);
 }
@@ -13294,7 +13307,11 @@ static void intel_atomic_flush_vblank_works(struct intel_atomic_state *state)
 	int i;
 
 	for_each_old_intel_crtc_in_state(state, crtc, old_crtc_state, i)
+	{
+		DRM_DEBUG_KMS("flush %s old_state = %p\n",
+			      crtc->base.name, old_crtc_state);
 		drm_vblank_work_flush(&old_crtc_state->vblank_work);
+	}
 }
 
 static void intel_atomic_commit_tail(struct drm_atomic_state *state)
@@ -13447,6 +13464,7 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 	 * schedule point (cond_resched()) here anyway to keep latencies
 	 * down.
 	 */
+	DRM_DEBUG_KMS("cleanup count %d\n", atomic_read(&intel_state->cleanup_count));
 	if (atomic_dec_and_test(&intel_state->cleanup_count))
 		queue_work(system_highpri_wq, &state->commit_work);
 }
@@ -14485,6 +14503,8 @@ static int intel_crtc_init(struct drm_i915_private *dev_priv, enum pipe pipe)
 
 	intel_color_init(intel_crtc);
 
+	DRM_DEBUG_KMS("crtc %s, state = %p\n",
+		      intel_crtc->base.name, crtc_state);
 	drm_vblank_work_init(&crtc_state->vblank_work,
 			     &intel_crtc->base, intel_crtc_vblank_work);
 

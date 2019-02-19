@@ -194,6 +194,8 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 	crtc_state->vbl_count = 0;
 	crtc_state->put_domains = 0;
 	crtc_state->state = NULL;
+	DRM_DEBUG_KMS("crtc %s, state = %p\n",
+		      crtc->name, crtc_state);
 	drm_vblank_work_init(&crtc_state->vblank_work,
 			     crtc, intel_crtc_vblank_work);
 
