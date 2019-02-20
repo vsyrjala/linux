@@ -3551,19 +3551,7 @@ bool ilk_disable_lp_wm(struct drm_device *dev)
 
 static u8 intel_enabled_dbuf_slices_num(struct drm_i915_private *dev_priv)
 {
-	u8 enabled_slices;
-
-	/* Slice 1 will always be enabled */
-	enabled_slices = 1;
-
-	/* Gen prior to GEN11 have only one DBuf slice */
-	if (INTEL_GEN(dev_priv) < 11)
-		return enabled_slices;
-
-	if (I915_READ(DBUF_CTL_S2) & DBUF_POWER_STATE)
-		enabled_slices++;
-
-	return enabled_slices;
+	return 1;
 }
 
 /*
