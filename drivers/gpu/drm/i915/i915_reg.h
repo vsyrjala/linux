@@ -8688,7 +8688,7 @@ enum skl_power_gate {
 #define  BXT_D_CR_DRP0_DUNIT_START		8
 #define  BXT_D_CR_DRP0_DUNIT_END		11
 #define BXT_D_CR_DRP0_DUNIT(x)	_MMIO(MCHBAR_MIRROR_BASE_SNB + \
-				      _PICK_EVEN((x) - 8, BXT_D_CR_DRP0_DUNIT8,\
+				      _PIPE((x) - 8, BXT_D_CR_DRP0_DUNIT8,\
 						 BXT_D_CR_DRP0_DUNIT9))
 #define  BXT_DRAM_RANK_MASK			0x3
 #define  BXT_DRAM_RANK_SINGLE			0x1
