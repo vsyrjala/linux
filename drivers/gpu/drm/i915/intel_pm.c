@@ -4991,7 +4991,7 @@ static int skl_build_plane_wm(struct skl_ddb_allocation *ddb,
 	if (ret)
 		return ret;
 
-	if (fb->format->is_yuv && fb->format->num_planes > 1) {
+	if (fb->format->format == DRM_FORMAT_NV12) {
 		ret = skl_build_plane_wm_uv(ddb, crtc_state, plane_state,
 					    plane_id);
 		if (ret)
@@ -5018,8 +5018,7 @@ static int icl_build_plane_wm(struct skl_ddb_allocation *ddb,
 		enum plane_id y_plane_id = plane_state->linked_plane->id;
 
 		WARN_ON(!intel_wm_plane_visible(crtc_state, plane_state));
-		WARN_ON(!fb->format->is_yuv ||
-			fb->format->num_planes == 1);
+		WARN_ON(fb->format->format != DRM_FORMAT_NV12);
 
 		ret = skl_build_plane_wm_single(ddb, crtc_state, plane_state,
 						y_plane_id, 0);
