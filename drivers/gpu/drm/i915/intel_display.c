@@ -12417,8 +12417,8 @@ static void intel_atomic_commit_tail(struct drm_atomic_state *state)
 				       to_intel_crtc_state(new_crtc_state));
 
 		if (old_crtc_state->active) {
-			intel_crtc_disable_planes(intel_crtc, old_intel_crtc_state->active_planes);
-			dev_priv->display.crtc_disable(old_intel_crtc_state, state);
+			intel_crtc_disable_planes(intel_crtc, to_intel_crtc_state(old_crtc_state)->active_planes);
+			dev_priv->display.crtc_disable(to_intel_crtc_state(old_crtc_state), state);
 			intel_crtc->active = false;
 			intel_fbc_disable(intel_crtc);
 			intel_disable_shared_dpll(intel_crtc);
