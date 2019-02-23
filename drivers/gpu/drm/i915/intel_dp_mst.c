@@ -64,6 +64,14 @@ static int intel_dp_mst_compute_config(struct intel_encoder *encoder,
 		DRM_DEBUG_KMS("Setting pipe bpp to %d\n",
 			      bpp);
 	}
+
+	if (intel_conn_state->force_audio == HDMI_AUDIO_AUTO)
+		pipe_config->has_audio =
+			drm_dp_mst_port_has_audio(&intel_dp->mst_mgr, port);
+	else
+		pipe_config->has_audio =
+			intel_conn_state->force_audio == HDMI_AUDIO_ON;
+
 	/*
 	 * for MST we always configure max link bw - the spec doesn't
 	 * seem to suggest we should do otherwise.
@@ -75,9 +83,6 @@ static int intel_dp_mst_compute_config(struct intel_encoder *encoder,
 	pipe_config->pipe_bpp = bpp;
 
 	pipe_config->port_clock = intel_dp_max_link_rate(intel_dp);
-
-	if (drm_dp_mst_port_has_audio(&intel_dp->mst_mgr, port))
-		pipe_config->has_audio = true;
 
 	if (intel_conn_state->broadcast_rgb == INTEL_BROADCAST_RGB_AUTO) {
 		/*
@@ -510,6 +515,7 @@ static struct drm_connector *intel_dp_add_mst_connector(struct drm_dp_mst_topolo
 	if (ret)
 		goto err;
 
+	intel_attach_force_audio_property(connector);
 	intel_attach_broadcast_rgb_property(connector);
 
 	return connector;
