@@ -1843,7 +1843,7 @@ struct drm_i915_private {
 
 	struct dram_info {
 		u32 bandwidth_kbps;
-		u8 num_channels;
+		u8 channels; /* bitmask */
 		u8 ranks;
 		bool is_16gb_dimm;
 		bool symmetric_memory;

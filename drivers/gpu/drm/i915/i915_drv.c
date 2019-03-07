@@ -1173,14 +1173,14 @@ skl_dram_get_channels_info(struct drm_i915_private *dev_priv)
 	val = I915_READ(SKL_MAD_DIMM_CH0_0_0_0_MCHBAR_MCMAIN);
 	ret = skl_dram_get_channel_info(dev_priv, &ch0, 0, val);
 	if (ret == 0)
-		dram_info->num_channels++;
+		dram_info->channels |= BIT(0);
 
 	val = I915_READ(SKL_MAD_DIMM_CH1_0_0_0_MCHBAR_MCMAIN);
 	ret = skl_dram_get_channel_info(dev_priv, &ch1, 1, val);
 	if (ret == 0)
-		dram_info->num_channels++;
+		dram_info->channels |= BIT(1);
 
-	if (dram_info->num_channels == 0) {
+	if (dram_info->channels == 0) {
 		DRM_INFO("Number of memory channels is zero\n");
 		return -EINVAL;
 	}
@@ -1249,8 +1249,8 @@ skl_get_dram_info(struct drm_i915_private *dev_priv)
 	mem_freq_khz = DIV_ROUND_UP((val & SKL_REQ_DATA_MASK) *
 				    SKL_MEMORY_FREQ_MULTIPLIER_HZ, 1000);
 
-	dram_info->bandwidth_kbps = dram_info->num_channels *
-							mem_freq_khz * 8;
+	dram_info->bandwidth_kbps = mem_freq_khz *
+		hweight8(dram_info->channels) * 8;
 
 	if (dram_info->bandwidth_kbps == 0) {
 		DRM_INFO("Couldn't get system memory bandwidth\n");
@@ -1343,20 +1343,19 @@ static int
 bxt_get_dram_info(struct drm_i915_private *dev_priv)
 {
 	struct dram_info *dram_info = &dev_priv->dram_info;
-	u32 dram_channels;
 	u32 mem_freq_khz, val;
-	u8 num_active_channels;
 	int i;
 
 	val = I915_READ(BXT_P_CR_MC_BIOS_REQ_0_0_0);
 	mem_freq_khz = DIV_ROUND_UP((val & BXT_REQ_DATA_MASK) *
 				    BXT_MEMORY_FREQ_MULTIPLIER_HZ, 1000);
 
-	dram_channels = val & BXT_DRAM_CHANNEL_ACTIVE_MASK;
-	num_active_channels = hweight32(dram_channels);
+	dram_info->channels = (val & BXT_DRAM_CHANNEL_ACTIVE_MASK) >>
+		BXT_DRAM_CHANNEL_ACTIVE_SHIFT;
 
 	/* Each active bit represents 4-byte channel */
-	dram_info->bandwidth_kbps = (mem_freq_khz * num_active_channels * 4);
+	dram_info->bandwidth_kbps = mem_freq_khz *
+		hweight8(dram_info->channels) * 4;
 
 	if (dram_info->bandwidth_kbps == 0) {
 		DRM_INFO("Couldn't get system memory bandwidth\n");
@@ -1373,8 +1372,6 @@ bxt_get_dram_info(struct drm_i915_private *dev_priv)
 		val = I915_READ(BXT_D_CR_DRP0_DUNIT(i));
 		if (val == 0xFFFFFFFF)
 			continue;
-
-		dram_info->num_channels++;
 
 		bxt_get_dimm_info(&dimm, val);
 		type = bxt_get_dimm_type(val);
@@ -1428,9 +1425,9 @@ intel_get_dram_info(struct drm_i915_private *dev_priv)
 	if (ret)
 		return;
 
-	DRM_DEBUG_KMS("DRAM bandwidth: %u kBps, channels: %u\n",
+	DRM_DEBUG_KMS("DRAM bandwidth: %u kBps, channels: 0x%x\n",
 		      dram_info->bandwidth_kbps,
-		      dram_info->num_channels);
+		      dram_info->channels);
 
 	DRM_DEBUG_KMS("DRAM ranks: %u, 16Gb DIMMs: %s\n",
 		      dram_info->ranks, yesno(dram_info->is_16gb_dimm));
