@@ -1402,6 +1402,340 @@ bxt_get_dram_info(struct drm_i915_private *dev_priv)
 	return 0;
 }
 
+#define SA_PERF_STATUS_0_0_0_MCHBAR_PC _MMIO(MCHBAR_MIRROR_BASE_SNB + 0x5918)
+#define  SKL_QCLK_RATIO_MASK (0x7f << 0)
+#define  SKL_QCLK_RATIO_SHIT 0
+#define  SKL_QCLK_REFERENCE (1 << 7)
+#define  CNL_QCLK_RATIO_MASK (0x7f << 2)
+#define  CNL_QCLK_RATIO_SHIT 2
+#define  CNL_QCLK_REFERENCE (1 << 9)
+#define  ICL_QCLK_RATIO_MASK (0xff << 2)
+#define  ICL_QCLK_RATIO_SHIT 2
+#define  ICL_QCLK_REFERENCE (1 << 10)
+
+#define MCHBAR_CH0_CR_TC_PRE_0_0_0_MCHBAR _MMIO(MCHBAR_MIRROR_BASE_SNB + 0x4000)
+#define MCHBAR_CH1_CR_TC_PRE_0_0_0_MCHBAR _MMIO(MCHBAR_MIRROR_BASE_SNB + 0x4400)
+#define  SKL_DRAM_T_WRPRE_MASK (0x7f << 24)
+#define  SKL_DRAM_T_WRPRE_SHIFT 24
+#define  SKL_DRAM_T_RDPRE_MASK (0xf << 16)
+#define  SKL_DRAM_T_RDPRE_SHIFT 16
+#define  SKL_DRAM_T_RAS_MASK (0x7f << 8)
+#define  SKL_DRAM_T_RAS_SHIFT 8
+#define  SKL_DRAM_T_RPAB_EXT_MASK (0x3 << 6)
+#define  SKL_DRAM_T_RPAB_EXT_SHIFT 6
+#define  SKL_DRAM_T_RP_MASK (0x3f << 0)
+#define  SKL_DRAM_T_RP_SHIFT 0
+#define  CNL_DRAM_T_WRPRE_MASK (0xff << 24)
+#define  CNL_DRAM_T_WRPRE_SHIFT 24
+#define  CNL_DRAM_T_PPD_MASK (0x7 << 21)
+#define  CNL_DRAM_T_PPD_SHIFT 21
+#define  CNL_DRAM_T_RDPRE_MASK (0x1f << 16)
+#define  CNL_DRAM_T_RDPRE_SHIFT 16
+#define  CNL_DRAM_T_RAS_MASK (0x7f << 9)
+#define  CNL_DRAM_T_RAS_SHIFT 9
+#define  CNL_DRAM_T_RPAB_EXT_MASK (0x7 << 6)
+#define  CNL_DRAM_T_RPAB_EXT_SHIFT 6
+#define  CNL_DRAM_T_RP_MASK (0x3f << 0)
+#define  CNL_DRAM_T_RP_SHIFT 0
+
+struct intel_dram_timings {
+	u8 t_rp, t_rdpre, t_ras, t_bl;
+};
+
+static int icl_get_dclk(struct drm_i915_private *dev_priv)
+{
+	int ratio, ref;
+	u32 val;
+
+	val = I915_READ(SA_PERF_STATUS_0_0_0_MCHBAR_PC);
+
+	DRM_DEBUG_KMS("SA_PERF = 0x%x\n", val);
+	DRM_DEBUG_KMS("BIOS_DATA = 0x%x\n",
+		      I915_READ(SKL_MC_BIOS_DATA_0_0_0_MCHBAR_PCU));
+
+	ratio = (val & ICL_QCLK_RATIO_MASK) >> ICL_QCLK_RATIO_SHIT;
+
+	if (val & ICL_QCLK_REFERENCE)
+		ref = 6; /* 6 * 16.666 MHz = 100 MHz */
+	else
+		ref = 8; /* 8 * 16.666 MHz = 133 MHz */
+
+	return ratio * ref;
+}
+
+#if 0
+static void skl_get_dram_ch_timings(struct intel_dram_timings *t,
+				    int channel, enum intel_dram_type type,
+				    u32 val)
+{
+	t->t_rp = (val & SKL_DRAM_T_RP_MASK) >> SKL_DRAM_T_RP_SHIFT;
+	t->t_rdpre = (val & SKL_DRAM_T_RDPRE_MASK) >> SKL_DRAM_T_RDPRE_SHIFT;
+	t->t_ras = (val & SKL_DRAM_T_RAS_MASK) >> SKL_DRAM_T_RAS_SHIFT;
+	t->t_bl = type == INTEL_DRAM_DDR4 ? 4 : 8;
+
+	DRM_DEBUG_KMS("CH%d tRP=%d tRDPRE=%d tRAS=%d tBL=%d\n",
+		      channel, t->t_rp, t->t_rdpre, t->t_ras, t->t_bl);
+}
+
+static void skl_get_dram_timings(struct drm_i915_private *dev_priv,
+				 const struct dram_info *dram,
+				 struct intel_dram_timings *t)
+{
+	if (dram->channels & BIT(0)) {
+		u32 val = I915_READ(MCHBAR_CH0_CR_TC_PRE_0_0_0_MCHBAR);
+
+		skl_get_dram_ch_timings(t, 0, dram->type, val);
+	} else if (dram->channels & BIT(1)) {
+		u32 val = I915_READ(MCHBAR_CH1_CR_TC_PRE_0_0_0_MCHBAR);
+
+		skl_get_dram_ch_timings(t, 1, dram->type, val);
+	}
+}
+#endif
+
+static void cnl_get_dram_ch_timings(struct intel_dram_timings *t,
+				    int channel, enum intel_dram_type type,
+				    u32 val)
+{
+	t->t_rp = (val & CNL_DRAM_T_RP_MASK) >> CNL_DRAM_T_RP_SHIFT;
+	t->t_rdpre = (val & CNL_DRAM_T_RDPRE_MASK) >> CNL_DRAM_T_RDPRE_SHIFT;
+	t->t_ras = (val & CNL_DRAM_T_RAS_MASK) >> CNL_DRAM_T_RAS_SHIFT;
+	t->t_bl = type == INTEL_DRAM_DDR4 ? 4 : 8;
+
+	DRM_DEBUG_KMS("CH%d tRP=%d tRDPRE=%d tRAS=%d tBL=%d\n",
+		      channel, t->t_rp, t->t_rdpre, t->t_ras, t->t_bl);
+}
+
+static void cnl_get_dram_timings(struct drm_i915_private *dev_priv,
+				 const struct dram_info *dram,
+				 struct intel_dram_timings *t)
+{
+	u32 val;
+
+	if (dram->channels & BIT(0)) {
+		val = I915_READ(MCHBAR_CH0_CR_TC_PRE_0_0_0_MCHBAR);
+		cnl_get_dram_ch_timings(t, 0, dram->type, val);
+	} else if (dram->channels & BIT(1)) {
+		val = I915_READ(MCHBAR_CH1_CR_TC_PRE_0_0_0_MCHBAR);
+		cnl_get_dram_ch_timings(t, 1, dram->type, val);
+	}
+}
+
+struct intel_sagv_point {
+	u16 dclk, t_rp, t_rdpre, t_rc, t_ras, t_rcd;
+};
+
+struct intel_sagv_info {
+	struct intel_sagv_point points[3];
+	int num_points;
+};
+
+static void icl_get_sagv_points(struct drm_i915_private *dev_priv,
+				struct intel_sagv_info *si,
+				const struct intel_dram_timings *t)
+{
+	int dclk, i;
+
+	dclk = icl_get_dclk(dev_priv);
+
+	si->num_points = 3;
+
+	/*
+	 * ICL Hardcoded
+	 * Name  Description         MC clock(MHz)     DDR data rate(MT / s)  Gear
+	 * Low   Min voltage point   1066              2133                   2
+	 * Med   Max DDR rate point  Max DDR freq / 2  Max DDR freq           2
+	 * High  Min latency point   2667              Same as MC clock       1
+	 */
+	si->points[0].dclk = min(64, dclk);
+	si->points[1].dclk = dclk;
+	si->points[2].dclk = min(80, dclk);
+
+	for (i = 0; i < si->num_points; i++) {
+		struct intel_sagv_point *sp = &si->points[i];
+
+		/*
+		 * We assume these scale linearly.
+		 * Seems to match observed behaviour.
+		 */
+		sp->t_rp = DIV_ROUND_UP(t->t_rp * sp->dclk, dclk);
+		sp->t_rdpre = DIV_ROUND_UP(t->t_rdpre * sp->dclk, dclk);
+		sp->t_ras = DIV_ROUND_UP(t->t_ras * sp->dclk, dclk);
+
+		sp->t_rcd = sp->t_rp;
+		sp->t_rc = sp->t_rp + sp->t_ras;
+
+		DRM_DEBUG_KMS("SAGV %d DCLK=%d tRP=%d tRDPRE=%d tRAS=%d tRCD=%d tRC=%d\n",
+			      i, sp->dclk, sp->t_rp, sp->t_rdpre, sp->t_ras,
+			      sp->t_rcd, sp->t_rc);
+	}
+}
+
+static int icl_calc_bw(int dclk, int num, int den)
+{
+	/* multiples of 2 x 16.666MHz (100/6) */
+	return DIV_ROUND_CLOSEST(num * dclk * 2 * 100, den * 6);
+}
+
+static int icl_sagv_max_dclk(const struct intel_sagv_info *si)
+{
+	u16 dclk = 0;
+	int i;
+
+	for (i = 0; i < si->num_points; i++)
+		dclk = max(dclk, si->points[i].dclk);
+
+	return dclk;
+}
+
+struct intel_sa_info {
+	u8 deburst, mpagesize, deprogbwlimit, displayrtids;
+};
+
+static const struct intel_sa_info icl_sa_info = {
+	.deburst = 8,
+	.mpagesize = 16,
+	.deprogbwlimit = 25, /* GB/s */
+	.displayrtids = 128,
+};
+
+static void icl_get_bw_info(struct drm_i915_private *dev_priv)
+{
+	const struct dram_info *dram = &dev_priv->dram_info;
+	struct intel_sagv_info si = {};
+	struct intel_dram_timings t = {};
+	const struct intel_sa_info *sa = &icl_sa_info;
+	bool is_y_tile = true; /* assume y tile may be used */
+	int num_channels = hweight8(dram->channels);
+	int deinterleave;
+#if 0
+	int clpchpblock;
+	int pagelimit;
+#endif
+	int ipqdepth, ipqdepthpch;
+	int dclk_max;
+	int maxdebw;
+	int i;
+
+	/*
+	 * Try to muzzle SAGV to prevent it from
+	 * messing up the memory controller readout.
+	 */
+	intel_disable_sagv(dev_priv);
+
+	/*
+	 * FIXME Pcode takes an inordinate amount of time
+	 * (~250 ms observed) to crank up the memory clock
+	 * after SAGV was disabled. What is going on?
+	 */
+	wait_for(icl_get_dclk(dev_priv) != 64, 1000);
+
+	cnl_get_dram_timings(dev_priv, dram, &t);
+
+	icl_get_sagv_points(dev_priv, &si, &t);
+
+	deinterleave = DIV_ROUND_UP(num_channels, is_y_tile ? 4 : 2);
+	dclk_max = icl_sagv_max_dclk(&si);
+
+	ipqdepthpch = 16;
+
+	maxdebw = min(sa->deprogbwlimit * 1000,
+		      icl_calc_bw(dclk_max, 16, 1) * 6 / 10); /* 60% */
+#if 0
+	clpchpblock = deinterleave * 8 / num_channels;
+	pagelimit = sa->mpagesize * deinterleave * 2 / num_channels;
+#endif
+	ipqdepth = min(ipqdepthpch, sa->displayrtids / num_channels);
+
+	DRM_DEBUG_KMS("maxdebw = %d\n", maxdebw);
+	DRM_DEBUG_KMS("ipqdepth = %d\n", ipqdepth);
+	DRM_DEBUG_KMS("deinterleave = %d\n", deinterleave);
+	DRM_DEBUG_KMS("dclk_max = %d\n", dclk_max);
+
+	for (i = 0; i < ARRAY_SIZE(dev_priv->max_bw); i++) {
+		struct intel_bw_info *bi = &dev_priv->max_bw[i];
+		int clpchgroup;
+		int j;
+
+		clpchgroup = (sa->deburst * deinterleave / num_channels) << i;
+		bi->num_planes = (ipqdepth - clpchgroup) / clpchgroup + 1;
+
+		DRM_DEBUG_KMS("clpchgroup = %d\n", clpchgroup);
+		DRM_DEBUG_KMS("num_planes = %d\n", bi->num_planes);
+
+		for (j = 0; j < si.num_points; j++) {
+			const struct intel_sagv_point *sp = &si.points[j];
+			int ct, bw;
+
+			/*
+			 * Max row cycle time
+			 *
+			 * FIXME what is the logic behind the
+			 * assumed burst length?
+			 */
+			ct = max_t(int, sp->t_rc, sp->t_rp + sp->t_rcd +
+				   (clpchgroup - 1) * t.t_bl + sp->t_rdpre);
+			bw = icl_calc_bw(sp->dclk, clpchgroup * 32 * num_channels, ct);
+
+			DRM_DEBUG_KMS("ct = %d\n", ct);
+			DRM_DEBUG_KMS("bw = %d\n", bw);
+
+			bi->deratedbw[j] = min(maxdebw,
+					       bw * 9 / 10); /* 90% */
+		}
+
+		if (bi->num_planes == 1)
+			break;
+	}
+}
+
+static unsigned int icl_max_bw(struct drm_i915_private *dev_priv,
+			       int num_planes, int sagv)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev_priv->max_bw); i++) {
+		const struct intel_bw_info *bi =
+			&dev_priv->max_bw[i];
+
+		if (num_planes >= bi->num_planes)
+			return bi->deratedbw[sagv];
+	}
+
+	return 0;
+}
+
+unsigned int intel_max_data_rate(struct drm_i915_private *dev_priv,
+				 int num_planes)
+{
+	if (IS_ICELAKE(dev_priv))
+		/*
+		 * FIXME with SAGV disabled maybe we can assume
+		 * point 1 will always be used? Seems to match
+		 * the behaviour observed in the wild.
+		 */
+		return min3(icl_max_bw(dev_priv, num_planes, 0),
+			    icl_max_bw(dev_priv, num_planes, 1),
+			    icl_max_bw(dev_priv, num_planes, 2));
+	else
+		return UINT_MAX;
+}
+
+static void icl_dump_max_bw(struct drm_i915_private *dev_priv)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev_priv->max_bw); i++) {
+		const struct intel_bw_info *bi = &dev_priv->max_bw[i];
+		int j;
+
+		for (j = 0; j < ARRAY_SIZE(bi->deratedbw); j++) {
+			DRM_DEBUG_KMS("BW%d SAGV%d: num_planes=%d deratedbw=%d\n",
+				      i, j, bi->num_planes, bi->deratedbw[j]);
+		}
+	}
+}
+
 static void
 intel_get_dram_info(struct drm_i915_private *dev_priv)
 {
@@ -1622,6 +1956,10 @@ static int i915_driver_init_hw(struct drm_i915_private *dev_priv)
 	 */
 	intel_get_dram_info(dev_priv);
 
+	if (INTEL_GEN(dev_priv) >= 11) {
+		icl_get_bw_info(dev_priv);
+		icl_dump_max_bw(dev_priv);
+	}
 
 	return 0;
 

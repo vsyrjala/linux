@@ -111,6 +111,22 @@ intel_plane_destroy_state(struct drm_plane *plane,
 	drm_atomic_helper_plane_destroy_state(plane, state);
 }
 
+unsigned int intel_plane_data_rate(const struct intel_crtc_state *crtc_state,
+				   const struct intel_plane_state *plane_state)
+{
+	const struct drm_framebuffer *fb = plane_state->base.fb;
+	unsigned int cpp = 0;
+	int i;
+
+	if (!plane_state->base.visible)
+		return 0;
+
+	for (i = 0; i < fb->format->num_planes; i++)
+		cpp += fb->format->cpp[i];
+
+	return cpp * crtc_state->pixel_rate;
+}
+
 int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_state,
 					struct intel_crtc_state *new_crtc_state,
 					const struct intel_plane_state *old_plane_state,
@@ -122,6 +138,7 @@ int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_
 	new_crtc_state->active_planes &= ~BIT(plane->id);
 	new_crtc_state->nv12_planes &= ~BIT(plane->id);
 	new_crtc_state->c8_planes &= ~BIT(plane->id);
+	new_crtc_state->data_rate[plane->id] = 0;
 	new_plane_state->base.visible = false;
 
 	if (!new_plane_state->base.crtc && !old_plane_state->base.crtc)
@@ -145,6 +162,9 @@ int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_
 
 	if (new_plane_state->base.visible || old_plane_state->base.visible)
 		new_crtc_state->update_planes |= BIT(plane->id);
+
+	new_crtc_state->data_rate[plane->id] =
+		intel_plane_data_rate(new_crtc_state, new_plane_state);
 
 	return intel_plane_atomic_calc_changes(old_crtc_state,
 					       &new_crtc_state->base,

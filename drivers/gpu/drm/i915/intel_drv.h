@@ -1023,6 +1023,8 @@ struct intel_crtc_state {
 
 	struct intel_crtc_wm_state wm;
 
+	u32 data_rate[I915_MAX_PLANES];
+
 	/* Gamma mode programmed on the pipe */
 	u32 gamma_mode;
 
@@ -1186,6 +1188,7 @@ struct cxsr_latency {
 #define to_intel_plane(x) container_of(x, struct intel_plane, base)
 #define to_intel_plane_state(x) container_of(x, struct intel_plane_state, base)
 #define intel_fb_obj(x) ((x) ? to_intel_bo((x)->obj[0]) : NULL)
+#define to_intel_bw_state(x) container_of((x), struct intel_bw_state, base)
 
 struct intel_hdmi {
 	i915_reg_t hdmi_reg;
@@ -2520,11 +2523,34 @@ intel_atomic_get_crtc_state(struct drm_atomic_state *state,
 	return to_intel_crtc_state(crtc_state);
 }
 
+struct intel_bw_state {
+	struct drm_private_state base;
+
+	unsigned int data_rate[I915_MAX_PIPES];
+	u8 num_active_planes[I915_MAX_PIPES];
+};
+
+static inline struct intel_bw_state *
+intel_atomic_get_bw_state(struct intel_atomic_state *state)
+{
+	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
+	struct drm_private_state *bw_state;
+
+	bw_state = drm_atomic_get_private_obj_state(&state->base,
+						    &dev_priv->bw_obj);
+	if (IS_ERR(bw_state))
+		return ERR_CAST(bw_state);
+
+	return to_intel_bw_state(bw_state);
+}
+
 int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
 			       struct intel_crtc *intel_crtc,
 			       struct intel_crtc_state *crtc_state);
 
 /* intel_atomic_plane.c */
+unsigned int intel_plane_data_rate(const struct intel_crtc_state *crtc_state,
+				   const struct intel_plane_state *plane_state);
 void intel_update_plane(struct intel_plane *plane,
 			const struct intel_crtc_state *crtc_state,
 			const struct intel_plane_state *plane_state);
@@ -2547,6 +2573,12 @@ int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_
 					struct intel_crtc_state *crtc_state,
 					const struct intel_plane_state *old_plane_state,
 					struct intel_plane_state *intel_state);
+
+/* intel_bw.c */
+int intel_bw_init(struct drm_i915_private *dev_priv);
+int intel_bw_atomic_check(struct intel_atomic_state *state);
+void intel_bw_crtc_update(struct intel_bw_state *bw_state,
+			  const struct intel_crtc_state *crtc_state);
 
 /* intel_color.c */
 void intel_color_init(struct intel_crtc *crtc);
