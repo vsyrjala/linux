@@ -2122,12 +2122,7 @@ static const u32 icl_sdr_uv_plane_formats[] = {
 	DRM_FORMAT_P010,
 	DRM_FORMAT_P012,
 	DRM_FORMAT_P016,
-	DRM_FORMAT_Y210,
-	DRM_FORMAT_Y212,
-	DRM_FORMAT_Y216,
 	DRM_FORMAT_XVYU2101010,
-	DRM_FORMAT_XVYU12_16161616,
-	DRM_FORMAT_XVYU16161616,
 };
 
 static const u32 icl_hdr_plane_formats[] = {
