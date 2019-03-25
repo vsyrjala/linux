@@ -1402,12 +1402,6 @@ bxt_get_dram_info(struct drm_i915_private *dev_priv)
 			dram_info->type = type;
 	}
 
-	if (dram_info->type == INTEL_DRAM_UNKNOWN ||
-	    dram_info->ranks == 0) {
-		DRM_INFO("couldn't get memory information\n");
-		return -EINVAL;
-	}
-
 	return 0;
 }
 
