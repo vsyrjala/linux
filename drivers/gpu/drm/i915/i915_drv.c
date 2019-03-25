@@ -1257,7 +1257,6 @@ skl_get_dram_info(struct drm_i915_private *dev_priv)
 		return -EINVAL;
 	}
 
-	dram_info->valid = true;
 	return 0;
 }
 
@@ -1409,7 +1408,6 @@ bxt_get_dram_info(struct drm_i915_private *dev_priv)
 		return -EINVAL;
 	}
 
-	dram_info->valid = true;
 	return 0;
 }
 
