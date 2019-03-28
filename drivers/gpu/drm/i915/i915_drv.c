@@ -1442,6 +1442,27 @@ struct intel_dram_timings {
 	u8 t_rp, t_rdpre, t_ras, t_bl;
 };
 
+static int skl_get_dclk(struct drm_i915_private *dev_priv)
+{
+	int ratio, ref;
+	u32 val;
+
+	val = I915_READ(SA_PERF_STATUS_0_0_0_MCHBAR_PC);
+
+	DRM_DEBUG_KMS("SA_PERF = 0x%x\n", val);
+	DRM_DEBUG_KMS("BIOS_DATA = 0x%x\n",
+		      I915_READ(SKL_MC_BIOS_DATA_0_0_0_MCHBAR_PCU));
+
+	ratio = (val & SKL_QCLK_RATIO_MASK) >> SKL_QCLK_RATIO_SHIT;
+
+	if (val & SKL_QCLK_REFERENCE)
+		ref = 6; /* 6 * 16.666 MHz = 100 MHz */
+	else
+		ref = 8; /* 8 * 16.666 MHz = 133 MHz */
+
+	return ratio * ref;
+}
+
 static int icl_get_dclk(struct drm_i915_private *dev_priv)
 {
 	int ratio, ref;
@@ -1694,6 +1715,8 @@ static unsigned int icl_max_bw(struct drm_i915_private *dev_priv,
 {
 	int i;
 
+	flush_work(&dev_priv->bw_work);
+
 	for (i = 0; i < ARRAY_SIZE(dev_priv->max_bw); i++) {
 		const struct intel_bw_info *bi =
 			&dev_priv->max_bw[i];
@@ -1765,6 +1788,21 @@ intel_get_dram_info(struct drm_i915_private *dev_priv)
 
 	DRM_DEBUG_KMS("DRAM ranks: %u, 16Gb DIMMs: %s\n",
 		      dram_info->ranks, yesno(dram_info->is_16gb_dimm));
+
+	if (IS_GEN(dev_priv, 9)) {
+		intel_disable_sagv(dev_priv);
+		wait_for(skl_get_dclk(dev_priv) == 1000, 1000);
+		DRM_DEBUG_KMS("dclk = %d\n", skl_get_dclk(dev_priv));
+	}
+}
+
+static void intel_bw_work(struct work_struct *work)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(work, struct drm_i915_private, bw_work);
+
+	icl_get_bw_info(dev_priv);
+	icl_dump_max_bw(dev_priv);
 }
 
 static u32 gen9_edram_size_mb(struct drm_i915_private *dev_priv, u32 cap)
@@ -1957,8 +1995,8 @@ static int i915_driver_init_hw(struct drm_i915_private *dev_priv)
 	intel_get_dram_info(dev_priv);
 
 	if (INTEL_GEN(dev_priv) >= 11) {
-		icl_get_bw_info(dev_priv);
-		icl_dump_max_bw(dev_priv);
+		INIT_WORK(&dev_priv->bw_work, intel_bw_work);
+		schedule_work(&dev_priv->bw_work);
 	}
 
 	return 0;

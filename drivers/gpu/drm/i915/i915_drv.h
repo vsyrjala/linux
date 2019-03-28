@@ -1862,6 +1862,8 @@ struct drm_i915_private {
 		int deratedbw[3];
 	} max_bw[6];
 
+	struct work_struct bw_work;
+
 	struct drm_private_obj bw_obj;
 
 	struct i915_runtime_pm runtime_pm;
