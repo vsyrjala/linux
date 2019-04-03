@@ -178,16 +178,16 @@ intel_uncore_has_fifo(const struct intel_uncore *uncore)
 }
 
 void intel_uncore_sanitize(struct drm_i915_private *dev_priv);
-int intel_uncore_init(struct intel_uncore *uncore);
-void intel_uncore_prune(struct intel_uncore *uncore);
+void intel_uncore_init_early(struct intel_uncore *uncore);
+int intel_uncore_init_mmio(struct intel_uncore *uncore);
+void intel_uncore_prune_mmio_domains(struct intel_uncore *uncore);
 bool intel_uncore_unclaimed_mmio(struct intel_uncore *uncore);
 bool intel_uncore_arm_unclaimed_mmio_detection(struct intel_uncore *uncore);
-void intel_uncore_fini(struct intel_uncore *uncore);
+void intel_uncore_fini_mmio(struct intel_uncore *uncore);
 void intel_uncore_suspend(struct intel_uncore *uncore);
 void intel_uncore_resume_early(struct intel_uncore *uncore);
 void intel_uncore_runtime_resume(struct intel_uncore *uncore);
 
-u64 intel_uncore_edram_size(struct drm_i915_private *dev_priv);
 void assert_forcewakes_inactive(struct intel_uncore *uncore);
 void assert_forcewakes_active(struct intel_uncore *uncore,
 			      enum forcewake_domains fw_domains);
