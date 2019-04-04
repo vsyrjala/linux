@@ -4111,7 +4111,6 @@ skl_pipe_downscale_amount(const struct intel_crtc_state *crtc_state)
 {
 	uint_fixed_16_16_t pipe_downscale = u32_to_fixed16(1);
 	u32 src_w, src_h, dst_w, dst_h;
-	u32 pfit_size = crtc_state->pch_pfit.size;
 	uint_fixed_16_16_t fp_w_ratio, fp_h_ratio;
 	uint_fixed_16_16_t downscale_h, downscale_w;
 
@@ -4121,8 +4120,8 @@ skl_pipe_downscale_amount(const struct intel_crtc_state *crtc_state)
 
 	src_w = crtc_state->pipe_src_w;
 	src_h = crtc_state->pipe_src_h;
-	dst_w = pfit_size >> 16;
-	dst_h = pfit_size & 0xffff;
+	dst_w = drm_rect_width(&crtc_state->pch_pfit.dst);
+	dst_h = drm_rect_height(&crtc_state->pch_pfit.dst);
 
 	if (!dst_w || !dst_h)
 		return pipe_downscale;

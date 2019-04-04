@@ -5512,10 +5512,8 @@ static int skl_update_scaler_crtc(struct intel_crtc_state *crtc_state)
 	int width, height;
 
 	if (crtc_state->pch_pfit.enabled) {
-		u32 pfit_size = crtc_state->pch_pfit.size;
-
-		width = pfit_size >> 16;
-		height = pfit_size & 0xffff;
+		width = drm_rect_width(&crtc_state->pch_pfit.dst);
+		height = drm_rect_height(&crtc_state->pch_pfit.dst);
 	} else {
 		width = adjusted_mode->crtc_hdisplay;
 		height = adjusted_mode->crtc_vdisplay;
@@ -5624,11 +5622,20 @@ static void skylake_pfit_enable(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	enum pipe pipe = crtc->pipe;
 	const struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
+	struct drm_rect src = {
+		.x2 = crtc_state->pipe_src_w << 16,
+		.y2 = crtc_state->pipe_src_h << 16,
+	};
+	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
 	u16 uv_rgb_hphase, uv_rgb_vphase;
-	int pfit_w, pfit_h, hscale, vscale;
+	enum pipe pipe = crtc->pipe;
+	int width = drm_rect_width(dst);
+	int height = drm_rect_height(dst);
+	int x = dst->x1;
+	int y = dst->y1;
+	int hscale, vscale;
 	int id;
 
 	if (!crtc_state->pch_pfit.enabled)
@@ -5637,11 +5644,8 @@ static void skylake_pfit_enable(const struct intel_crtc_state *crtc_state)
 	if (WARN_ON(crtc_state->scaler_state.scaler_id < 0))
 		return;
 
-	pfit_w = (crtc_state->pch_pfit.size >> 16) & 0xFFFF;
-	pfit_h = crtc_state->pch_pfit.size & 0xFFFF;
-
-	hscale = (crtc_state->pipe_src_w << 16) / pfit_w;
-	vscale = (crtc_state->pipe_src_h << 16) / pfit_h;
+	drm_rect_calc_hscale(&src, dst, 0, INT_MAX, &hscale);
+	drm_rect_calc_vscale(&src, dst, 0, INT_MAX, &vscale);
 
 	uv_rgb_hphase = skl_scaler_calc_phase(1, hscale, false);
 	uv_rgb_vphase = skl_scaler_calc_phase(1, vscale, false);
@@ -5653,15 +5657,20 @@ static void skylake_pfit_enable(const struct intel_crtc_state *crtc_state)
 		   PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_vphase));
 	I915_WRITE(SKL_PS_HPHASE(pipe, id),
 		   PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_hphase));
-	I915_WRITE(SKL_PS_WIN_POS(pipe, id), crtc_state->pch_pfit.pos);
-	I915_WRITE(SKL_PS_WIN_SZ(pipe, id), crtc_state->pch_pfit.size);
+	I915_WRITE(SKL_PS_WIN_POS(pipe, id), x << 16 | y);
+	I915_WRITE(SKL_PS_WIN_SZ(pipe, id), width << 16 | height);
 }
 
 static void ironlake_pfit_enable(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
 	enum pipe pipe = crtc->pipe;
+	int width = drm_rect_width(dst);
+	int height = drm_rect_height(dst);
+	int x = dst->x1;
+	int y = dst->y1;
 
 	if (!crtc_state->pch_pfit.enabled)
 		return;
@@ -5675,8 +5684,8 @@ static void ironlake_pfit_enable(const struct intel_crtc_state *crtc_state)
 			   PF_PIPE_SEL_IVB(pipe));
 	else
 		I915_WRITE(PF_CTL(pipe), PF_ENABLE | PF_FILTER_MED_3x3);
-	I915_WRITE(PF_WIN_POS(pipe), crtc_state->pch_pfit.pos);
-	I915_WRITE(PF_WIN_SZ(pipe), crtc_state->pch_pfit.size);
+	I915_WRITE(PF_WIN_POS(pipe), x << 16 | y);
+	I915_WRITE(PF_WIN_SZ(pipe), width << 16 | height);
 }
 
 void hsw_enable_ips(const struct intel_crtc_state *crtc_state)
@@ -7385,8 +7394,7 @@ static bool intel_crtc_supports_double_wide(const struct intel_crtc *crtc)
 static u32 ilk_pipe_pixel_rate(const struct intel_crtc_state *crtc_state)
 {
 	u32 pixel_rate = crtc_state->base.adjusted_mode.crtc_clock;
-	u32 pfit_size = crtc_state->pch_pfit.size;
-	u64 pipe_w, pipe_h, pfit_w, pfit_h;
+	unsigned int pipe_w, pipe_h, pfit_w, pfit_h;
 
 	/*
 	 * We only use IF-ID interlacing. If we ever use
@@ -7399,8 +7407,9 @@ static u32 ilk_pipe_pixel_rate(const struct intel_crtc_state *crtc_state)
 	pipe_w = crtc_state->pipe_src_w;
 	pipe_h = crtc_state->pipe_src_h;
 
-	pfit_w = (pfit_size >> 16) & 0xFFFF;
-	pfit_h = pfit_size & 0xFFFF;
+	pfit_w = drm_rect_width(&crtc_state->pch_pfit.dst);
+	pfit_h = drm_rect_height(&crtc_state->pch_pfit.dst);
+
 	if (pipe_w < pfit_w)
 		pipe_w = pfit_w;
 	if (pipe_h < pfit_h)
@@ -9789,6 +9798,18 @@ static void ironlake_get_fdi_m_n_config(struct intel_crtc *crtc,
 				     &pipe_config->fdi_m_n, NULL);
 }
 
+static void ilk_get_pfit_pos_size(struct intel_crtc_state *crtc_state,
+				  u32 pos, u32 size)
+{
+	crtc_state->pch_pfit.dst.x1 = pos >> 16;
+	crtc_state->pch_pfit.dst.y1 = pos & 0xffff;
+
+	crtc_state->pch_pfit.dst.x2 = (size >> 16) +
+		crtc_state->pch_pfit.dst.x1;
+	crtc_state->pch_pfit.dst.y2 = (size & 0xffff) +
+		crtc_state->pch_pfit.dst.y1;
+}
+
 static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
@@ -9807,8 +9828,11 @@ static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 
 		id = i;
 		crtc_state->pch_pfit.enabled = true;
-		crtc_state->pch_pfit.pos = I915_READ(SKL_PS_WIN_POS(crtc->pipe, i));
-		crtc_state->pch_pfit.size = I915_READ(SKL_PS_WIN_SZ(crtc->pipe, i));
+
+		ilk_get_pfit_pos_size(crtc_state,
+				      I915_READ(SKL_PS_WIN_POS(crtc->pipe, i)),
+				      I915_READ(SKL_PS_WIN_SZ(crtc->pipe, i)));
+
 		scaler_state->scalers[i].in_use = true;
 		break;
 	}
@@ -9966,8 +9990,10 @@ static void ironlake_get_pfit_config(struct intel_crtc_state *crtc_state)
 		(tmp & PF_PIPE_SEL_MASK_IVB) != PF_PIPE_SEL_IVB(crtc->pipe));
 
 	crtc_state->pch_pfit.enabled = true;
-	crtc_state->pch_pfit.pos = I915_READ(PF_WIN_POS(crtc->pipe));
-	crtc_state->pch_pfit.size = I915_READ(PF_WIN_SZ(crtc->pipe));
+
+	ilk_get_pfit_pos_size(crtc_state,
+			      I915_READ(PF_WIN_POS(crtc->pipe)),
+			      I915_READ(PF_WIN_SZ(crtc->pipe)));
 }
 
 static bool ironlake_get_pipe_config(struct intel_crtc *crtc,
@@ -12209,9 +12235,8 @@ static void intel_dump_pipe_config(const struct intel_crtc_state *pipe_config,
 			      pipe_config->gmch_pfit.pgm_ratios,
 			      pipe_config->gmch_pfit.lvds_border_bits);
 	else
-		DRM_DEBUG_KMS("pch pfit: pos: 0x%08x, size: 0x%08x, %s, force thru: %s\n",
-			      pipe_config->pch_pfit.pos,
-			      pipe_config->pch_pfit.size,
+		DRM_DEBUG_KMS("pch pfit: " DRM_RECT_FMT ", %s, force thru: %s\n",
+			      DRM_RECT_ARG(&pipe_config->pch_pfit.dst),
 			      enableddisabled(pipe_config->pch_pfit.enabled),
 			      yesno(pipe_config->pch_pfit.force_thru));
 
@@ -12862,8 +12887,10 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 
 		PIPE_CONF_CHECK_BOOL(pch_pfit.enabled);
 		if (current_config->pch_pfit.enabled) {
-			PIPE_CONF_CHECK_X(pch_pfit.pos);
-			PIPE_CONF_CHECK_X(pch_pfit.size);
+			PIPE_CONF_CHECK_I(pch_pfit.dst.x1);
+			PIPE_CONF_CHECK_I(pch_pfit.dst.y1);
+			PIPE_CONF_CHECK_I(pch_pfit.dst.x2);
+			PIPE_CONF_CHECK_I(pch_pfit.dst.y2);
 		}
 
 		PIPE_CONF_CHECK_I(scaler_state.scaler_id);
