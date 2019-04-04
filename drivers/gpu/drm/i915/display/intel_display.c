@@ -5648,10 +5648,10 @@ static void skylake_pfit_enable(const struct intel_crtc_state *crtc_state)
 		id = scaler_state->scaler_id;
 		I915_WRITE(SKL_PS_CTRL(pipe, id), PS_SCALER_EN |
 			PS_FILTER_MEDIUM | scaler_state->scalers[id].mode);
-		I915_WRITE_FW(SKL_PS_VPHASE(pipe, id),
-			      PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_vphase));
-		I915_WRITE_FW(SKL_PS_HPHASE(pipe, id),
-			      PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_hphase));
+		I915_WRITE(SKL_PS_VPHASE(pipe, id),
+			   PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_vphase));
+		I915_WRITE(SKL_PS_HPHASE(pipe, id),
+			   PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_hphase));
 		I915_WRITE(SKL_PS_WIN_POS(pipe, id), crtc_state->pch_pfit.pos);
 		I915_WRITE(SKL_PS_WIN_SZ(pipe, id), crtc_state->pch_pfit.size);
 	}
