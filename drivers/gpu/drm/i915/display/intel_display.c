@@ -5601,34 +5601,34 @@ static void skylake_pfit_enable(const struct intel_crtc_state *crtc_state)
 	enum pipe pipe = crtc->pipe;
 	const struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
+	u16 uv_rgb_hphase, uv_rgb_vphase;
+	int pfit_w, pfit_h, hscale, vscale;
+	int id;
 
-	if (crtc_state->pch_pfit.enabled) {
-		u16 uv_rgb_hphase, uv_rgb_vphase;
-		int pfit_w, pfit_h, hscale, vscale;
-		int id;
+	if (!crtc_state->pch_pfit.enabled)
+		return;
 
-		if (WARN_ON(crtc_state->scaler_state.scaler_id < 0))
-			return;
+	if (WARN_ON(crtc_state->scaler_state.scaler_id < 0))
+		return;
 
-		pfit_w = (crtc_state->pch_pfit.size >> 16) & 0xFFFF;
-		pfit_h = crtc_state->pch_pfit.size & 0xFFFF;
+	pfit_w = (crtc_state->pch_pfit.size >> 16) & 0xFFFF;
+	pfit_h = crtc_state->pch_pfit.size & 0xFFFF;
 
-		hscale = (crtc_state->pipe_src_w << 16) / pfit_w;
-		vscale = (crtc_state->pipe_src_h << 16) / pfit_h;
+	hscale = (crtc_state->pipe_src_w << 16) / pfit_w;
+	vscale = (crtc_state->pipe_src_h << 16) / pfit_h;
 
-		uv_rgb_hphase = skl_scaler_calc_phase(1, hscale, false);
-		uv_rgb_vphase = skl_scaler_calc_phase(1, vscale, false);
+	uv_rgb_hphase = skl_scaler_calc_phase(1, hscale, false);
+	uv_rgb_vphase = skl_scaler_calc_phase(1, vscale, false);
 
-		id = scaler_state->scaler_id;
-		I915_WRITE(SKL_PS_CTRL(pipe, id), PS_SCALER_EN |
-			PS_FILTER_MEDIUM | scaler_state->scalers[id].mode);
-		I915_WRITE(SKL_PS_VPHASE(pipe, id),
-			   PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_vphase));
-		I915_WRITE(SKL_PS_HPHASE(pipe, id),
-			   PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_hphase));
-		I915_WRITE(SKL_PS_WIN_POS(pipe, id), crtc_state->pch_pfit.pos);
-		I915_WRITE(SKL_PS_WIN_SZ(pipe, id), crtc_state->pch_pfit.size);
-	}
+	id = scaler_state->scaler_id;
+	I915_WRITE(SKL_PS_CTRL(pipe, id), PS_SCALER_EN |
+		   PS_FILTER_MEDIUM | scaler_state->scalers[id].mode);
+	I915_WRITE(SKL_PS_VPHASE(pipe, id),
+		   PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_vphase));
+	I915_WRITE(SKL_PS_HPHASE(pipe, id),
+		   PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_hphase));
+	I915_WRITE(SKL_PS_WIN_POS(pipe, id), crtc_state->pch_pfit.pos);
+	I915_WRITE(SKL_PS_WIN_SZ(pipe, id), crtc_state->pch_pfit.size);
 }
 
 static void ironlake_pfit_enable(const struct intel_crtc_state *crtc_state)
@@ -5637,19 +5637,20 @@ static void ironlake_pfit_enable(const struct intel_crtc_state *crtc_state)
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum pipe pipe = crtc->pipe;
 
-	if (crtc_state->pch_pfit.enabled) {
-		/* Force use of hard-coded filter coefficients
-		 * as some pre-programmed values are broken,
-		 * e.g. x201.
-		 */
-		if (IS_IVYBRIDGE(dev_priv) || IS_HASWELL(dev_priv))
-			I915_WRITE(PF_CTL(pipe), PF_ENABLE | PF_FILTER_MED_3x3 |
-						 PF_PIPE_SEL_IVB(pipe));
-		else
-			I915_WRITE(PF_CTL(pipe), PF_ENABLE | PF_FILTER_MED_3x3);
-		I915_WRITE(PF_WIN_POS(pipe), crtc_state->pch_pfit.pos);
-		I915_WRITE(PF_WIN_SZ(pipe), crtc_state->pch_pfit.size);
-	}
+	if (!crtc_state->pch_pfit.enabled)
+		return;
+
+	/* Force use of hard-coded filter coefficients
+	 * as some pre-programmed values are broken,
+	 * e.g. x201.
+	 */
+	if (IS_IVYBRIDGE(dev_priv) || IS_HASWELL(dev_priv))
+		I915_WRITE(PF_CTL(pipe), PF_ENABLE | PF_FILTER_MED_3x3 |
+			   PF_PIPE_SEL_IVB(pipe));
+	else
+		I915_WRITE(PF_CTL(pipe), PF_ENABLE | PF_FILTER_MED_3x3);
+	I915_WRITE(PF_WIN_POS(pipe), crtc_state->pch_pfit.pos);
+	I915_WRITE(PF_WIN_SZ(pipe), crtc_state->pch_pfit.size);
 }
 
 void hsw_enable_ips(const struct intel_crtc_state *crtc_state)
@@ -6540,11 +6541,12 @@ static void ironlake_pfit_disable(const struct intel_crtc_state *old_crtc_state)
 
 	/* To avoid upsetting the power well on haswell only disable the pfit if
 	 * it's in use. The hw state code will make sure we get this right. */
-	if (old_crtc_state->pch_pfit.enabled) {
-		I915_WRITE(PF_CTL(pipe), 0);
-		I915_WRITE(PF_WIN_POS(pipe), 0);
-		I915_WRITE(PF_WIN_SZ(pipe), 0);
-	}
+	if (!old_crtc_state->pch_pfit.enabled)
+		return;
+
+	I915_WRITE(PF_CTL(pipe), 0);
+	I915_WRITE(PF_WIN_POS(pipe), 0);
+	I915_WRITE(PF_WIN_SZ(pipe), 0);
 }
 
 static void ironlake_crtc_disable(struct intel_crtc_state *old_crtc_state,
@@ -7354,39 +7356,35 @@ static bool intel_crtc_supports_double_wide(const struct intel_crtc *crtc)
 		(crtc->pipe == PIPE_A || IS_I915G(dev_priv));
 }
 
-static u32 ilk_pipe_pixel_rate(const struct intel_crtc_state *pipe_config)
+static u32 ilk_pipe_pixel_rate(const struct intel_crtc_state *crtc_state)
 {
-	u32 pixel_rate;
-
-	pixel_rate = pipe_config->base.adjusted_mode.crtc_clock;
+	u32 pixel_rate = crtc_state->base.adjusted_mode.crtc_clock;
+	u32 pfit_size = crtc_state->pch_pfit.size;
+	u64 pipe_w, pipe_h, pfit_w, pfit_h;
 
 	/*
 	 * We only use IF-ID interlacing. If we ever use
 	 * PF-ID we'll need to adjust the pixel_rate here.
 	 */
 
-	if (pipe_config->pch_pfit.enabled) {
-		u64 pipe_w, pipe_h, pfit_w, pfit_h;
-		u32 pfit_size = pipe_config->pch_pfit.size;
+	if (!crtc_state->pch_pfit.enabled)
+		return pixel_rate;
 
-		pipe_w = pipe_config->pipe_src_w;
-		pipe_h = pipe_config->pipe_src_h;
+	pipe_w = crtc_state->pipe_src_w;
+	pipe_h = crtc_state->pipe_src_h;
 
-		pfit_w = (pfit_size >> 16) & 0xFFFF;
-		pfit_h = pfit_size & 0xFFFF;
-		if (pipe_w < pfit_w)
-			pipe_w = pfit_w;
-		if (pipe_h < pfit_h)
-			pipe_h = pfit_h;
+	pfit_w = (pfit_size >> 16) & 0xFFFF;
+	pfit_h = pfit_size & 0xFFFF;
+	if (pipe_w < pfit_w)
+		pipe_w = pfit_w;
+	if (pipe_h < pfit_h)
+		pipe_h = pfit_h;
 
-		if (WARN_ON(!pfit_w || !pfit_h))
-			return pixel_rate;
+	if (WARN_ON(!pfit_w || !pfit_h))
+		return pixel_rate;
 
-		pixel_rate = div_u64(mul_u32_u32(pixel_rate, pipe_w * pipe_h),
-				     pfit_w * pfit_h);
-	}
-
-	return pixel_rate;
+	return div_u64(mul_u32_u32(pixel_rate, pipe_w * pipe_h),
+		       pfit_w * pfit_h);
 }
 
 static void intel_crtc_compute_pixel_rate(struct intel_crtc_state *crtc_state)
@@ -8514,9 +8512,9 @@ static bool i9xx_has_pfit(struct drm_i915_private *dev_priv)
 		IS_PINEVIEW(dev_priv) || IS_MOBILE(dev_priv);
 }
 
-static void i9xx_get_pfit_config(struct intel_crtc *crtc,
-				 struct intel_crtc_state *pipe_config)
+static void i9xx_get_pfit_config(struct intel_crtc_state *crtc_state)
 {
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	u32 tmp;
 
@@ -8536,8 +8534,8 @@ static void i9xx_get_pfit_config(struct intel_crtc *crtc,
 			return;
 	}
 
-	pipe_config->gmch_pfit.control = tmp;
-	pipe_config->gmch_pfit.pgm_ratios = I915_READ(PFIT_PGM_RATIOS);
+	crtc_state->gmch_pfit.control = tmp;
+	crtc_state->gmch_pfit.pgm_ratios = I915_READ(PFIT_PGM_RATIOS);
 }
 
 static void vlv_crtc_clock_get(struct intel_crtc *crtc,
@@ -8805,7 +8803,7 @@ static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 	intel_get_pipe_timings(crtc, pipe_config);
 	intel_get_pipe_src_size(crtc, pipe_config);
 
-	i9xx_get_pfit_config(crtc, pipe_config);
+	i9xx_get_pfit_config(pipe_config);
 
 	if (INTEL_GEN(dev_priv) >= 4) {
 		/* No way to read it out on pipes B and C */
@@ -9738,35 +9736,35 @@ static void ironlake_get_fdi_m_n_config(struct intel_crtc *crtc,
 				     &pipe_config->fdi_m_n, NULL);
 }
 
-static void skylake_get_pfit_config(struct intel_crtc *crtc,
-				    struct intel_crtc_state *pipe_config)
+static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct intel_crtc_scaler_state *scaler_state = &pipe_config->scaler_state;
-	u32 ps_ctrl = 0;
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_scaler_state *scaler_state = &crtc_state->scaler_state;
 	int id = -1;
 	int i;
 
 	/* find scaler attached to this pipe */
 	for (i = 0; i < crtc->num_scalers; i++) {
-		ps_ctrl = I915_READ(SKL_PS_CTRL(crtc->pipe, i));
-		if (ps_ctrl & PS_SCALER_EN && !(ps_ctrl & PS_PLANE_SEL_MASK)) {
-			id = i;
-			pipe_config->pch_pfit.enabled = true;
-			pipe_config->pch_pfit.pos = I915_READ(SKL_PS_WIN_POS(crtc->pipe, i));
-			pipe_config->pch_pfit.size = I915_READ(SKL_PS_WIN_SZ(crtc->pipe, i));
-			scaler_state->scalers[i].in_use = true;
-			break;
-		}
+		u32 tmp;
+
+		tmp = I915_READ(SKL_PS_CTRL(crtc->pipe, i));
+		if ((tmp & (PS_SCALER_EN | PS_PLANE_SEL_MASK)) != PS_SCALER_EN)
+			continue;
+
+		id = i;
+		crtc_state->pch_pfit.enabled = true;
+		crtc_state->pch_pfit.pos = I915_READ(SKL_PS_WIN_POS(crtc->pipe, i));
+		crtc_state->pch_pfit.size = I915_READ(SKL_PS_WIN_SZ(crtc->pipe, i));
+		scaler_state->scalers[i].in_use = true;
+		break;
 	}
 
 	scaler_state->scaler_id = id;
-	if (id >= 0) {
+	if (id >= 0)
 		scaler_state->scaler_users |= (1 << SKL_CRTC_INDEX);
-	} else {
+	else
 		scaler_state->scaler_users &= ~(1 << SKL_CRTC_INDEX);
-	}
 }
 
 static void
@@ -9896,28 +9894,27 @@ error:
 	kfree(intel_fb);
 }
 
-static void ironlake_get_pfit_config(struct intel_crtc *crtc,
-				     struct intel_crtc_state *pipe_config)
+static void ironlake_get_pfit_config(struct intel_crtc_state *crtc_state)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	u32 tmp;
 
 	tmp = I915_READ(PF_CTL(crtc->pipe));
+	if ((tmp & PF_ENABLE) == 0)
+		return;
 
-	if (tmp & PF_ENABLE) {
-		pipe_config->pch_pfit.enabled = true;
-		pipe_config->pch_pfit.pos = I915_READ(PF_WIN_POS(crtc->pipe));
-		pipe_config->pch_pfit.size = I915_READ(PF_WIN_SZ(crtc->pipe));
+	/*
+	 * We currently do not free assignements of panel fitters on
+	 * ivb/hsw (since we don't use the higher upscaling modes which
+	 * differentiates them) so just WARN about this case for now.
+	 */
+	WARN_ON(IS_GEN(dev_priv, 7) &&
+		(tmp & PF_PIPE_SEL_MASK_IVB) != PF_PIPE_SEL_IVB(crtc->pipe));
 
-		/* We currently do not free assignements of panel fitters on
-		 * ivb/hsw (since we don't use the higher upscaling modes which
-		 * differentiates them) so just WARN about this case for now. */
-		if (IS_GEN(dev_priv, 7)) {
-			WARN_ON((tmp & PF_PIPE_SEL_MASK_IVB) !=
-				PF_PIPE_SEL_IVB(crtc->pipe));
-		}
-	}
+	crtc_state->pch_pfit.enabled = true;
+	crtc_state->pch_pfit.pos = I915_READ(PF_WIN_POS(crtc->pipe));
+	crtc_state->pch_pfit.size = I915_READ(PF_WIN_SZ(crtc->pipe));
 }
 
 static bool ironlake_get_pipe_config(struct intel_crtc *crtc,
@@ -10018,7 +10015,7 @@ static bool ironlake_get_pipe_config(struct intel_crtc *crtc,
 	intel_get_pipe_timings(crtc, pipe_config);
 	intel_get_pipe_src_size(crtc, pipe_config);
 
-	ironlake_get_pfit_config(crtc, pipe_config);
+	ironlake_get_pfit_config(pipe_config);
 
 	ret = true;
 
@@ -10448,9 +10445,9 @@ static bool haswell_get_pipe_config(struct intel_crtc *crtc,
 		power_domain_mask |= BIT_ULL(power_domain);
 
 		if (INTEL_GEN(dev_priv) >= 9)
-			skylake_get_pfit_config(crtc, pipe_config);
+			skylake_get_pfit_config(pipe_config);
 		else
-			ironlake_get_pfit_config(crtc, pipe_config);
+			ironlake_get_pfit_config(pipe_config);
 	}
 
 	if (hsw_crtc_supports_ips(crtc)) {
