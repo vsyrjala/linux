@@ -11768,6 +11768,56 @@ static bool c8_planes_changed(const struct intel_crtc_state *new_crtc_state)
 	return !old_crtc_state->c8_planes != !new_crtc_state->c8_planes;
 }
 
+static int intel_pch_pfit_check_src_size(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	int max_src_w, max_src_h;
+
+	if (INTEL_GEN(dev_priv) >= 11) {
+		max_src_w = 5120;
+		max_src_h = 4320;
+	} else if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv)) {
+		max_src_w = crtc->pipe == PIPE_A ? 5120 : 4096;
+		max_src_h = 4096;
+	} else if (INTEL_GEN(dev_priv) >= 8) {
+		max_src_w = 4096;
+		max_src_h = 4096;
+	} else if (INTEL_GEN(dev_priv) >= 7) {
+		/*
+		 * PF0 7x5 capable
+		 * PF1 3x3 capable (could be switched to 7x5
+		 *                  mode on HSW when PF2 unused)
+		 * PF2 3x3 capable
+		 *
+		 * This assumes we use a 1:1 mapping between pipe and PF.
+		 */
+		max_src_w = crtc->pipe == PIPE_A ? 4096 : 2048;
+		max_src_h = 4096;
+	} else {
+		max_src_w = 4096;
+		max_src_h = 4096;
+	}
+
+	if (crtc_state->pipe_src_w > max_src_w ||
+	    crtc_state->pipe_src_h > max_src_h) {
+		DRM_DEBUG_KMS("pipe %c source size (%dx%d) exceeds pfit max (%dx%d)\n",
+			      pipe_name(crtc->pipe), crtc_state->pipe_src_w,
+			      crtc_state->pipe_src_h, max_src_w, max_src_h);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int intel_pch_pfit_check(const struct intel_crtc_state *crtc_state)
+{
+	if (!crtc_state->pch_pfit.enabled)
+		return 0;
+
+	return intel_pch_pfit_check_src_size(crtc_state);
+}
+
 static int intel_crtc_atomic_check(struct drm_crtc *crtc,
 				   struct drm_crtc_state *crtc_state)
 {
@@ -11787,6 +11837,12 @@ static int intel_crtc_atomic_check(struct drm_crtc *crtc,
 	    !WARN_ON(pipe_config->shared_dpll)) {
 		ret = dev_priv->display.crtc_compute_clock(intel_crtc,
 							   pipe_config);
+		if (ret)
+			return ret;
+	}
+
+	if (!HAS_GMCH(dev_priv)) {
+		ret = intel_pch_pfit_check(pipe_config);
 		if (ret)
 			return ret;
 	}
