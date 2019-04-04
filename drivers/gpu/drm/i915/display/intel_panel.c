@@ -172,13 +172,50 @@ intel_panel_vbt_fixed_mode(struct intel_connector *connector)
 	return fixed_mode;
 }
 
+static int intel_pch_pfit_check_src_size(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	int max_src_w, max_src_h;
+
+	if (INTEL_GEN(dev_priv) >= 8) {
+		max_src_w = 4096;
+		max_src_h = 4096;
+	} else if (INTEL_GEN(dev_priv) >= 7) {
+		/*
+		 * PF0 7x5 capable
+		 * PF1 3x3 capable (could be switched to 7x5
+		 *                  mode on HSW when PF2 unused)
+		 * PF2 3x3 capable
+		 *
+		 * This assumes we use a 1:1 mapping between pipe and PF.
+		 */
+		max_src_w = crtc->pipe == PIPE_A ? 4096 : 2048;
+		max_src_h = 4096;
+	} else {
+		max_src_w = 4096;
+		max_src_h = 4096;
+	}
+
+	if (crtc_state->pipe_src_w > max_src_w ||
+	    crtc_state->pipe_src_h > max_src_h) {
+		DRM_DEBUG_KMS("[CRTC:%d:%s] source size (%dx%d) exceeds pfit max (%dx%d)\n",
+			      crtc->base.base.id, crtc->base.name,
+			      crtc_state->pipe_src_w, crtc_state->pipe_src_h,
+			      max_src_w, max_src_h);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /* adjusted_mode has been preset to be the panel's fixed mode */
 int intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 			    const struct drm_connector_state *conn_state)
 {
 	const struct drm_display_mode *adjusted_mode =
 		&crtc_state->base.adjusted_mode;
-	int x, y, width, height;
+	int ret, x, y, width, height;
 
 	/* Native modes don't need fitting */
 	if (adjusted_mode->crtc_hdisplay == crtc_state->pipe_src_w &&
@@ -243,6 +280,17 @@ int intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 	crtc_state->pch_pfit.dst.x2 = x + width;
 	crtc_state->pch_pfit.dst.y2 = y + height;
 	crtc_state->pch_pfit.enabled = true;
+
+	/*
+	 * SKL+ have unified scalers for pipes/planes so the
+	 * checks are done in a single place for all scalers.
+	 */
+	if (INTEL_GEN(dev_priv) >= 9)
+		return 0;
+
+	ret = intel_pch_pfit_check_src_size(crtc_state);
+	if (ret)
+		return ret;
 
 	return 0;
 }
