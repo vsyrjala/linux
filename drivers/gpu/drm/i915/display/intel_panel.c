@@ -209,6 +209,39 @@ static int intel_pch_pfit_check_src_size(const struct intel_crtc_state *crtc_sta
 	return 0;
 }
 
+static int intel_pch_pfit_check_scaling(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_rect src = {
+		.x2 = crtc_state->pipe_src_w << 16,
+		.y2 = crtc_state->pipe_src_h << 16,
+	};
+	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
+	int ret, hscale, vscale, max_scale = 0x12000; /* 1.125 */
+
+	ret = drm_rect_calc_hscale(&src, dst, 0, max_scale, &hscale);
+	if (ret < 0) {
+		DRM_DEBUG_KMS("[CRTC:%d:%s] pfit horizontal downscaling (%d->%d, "
+			      DRM_FP_FMT ") exceeds max (" DRM_FP_FMT ")\n",
+			      crtc->base.base.id, crtc->base.name,
+			      crtc_state->pipe_src_w, drm_rect_width(dst),
+			      DRM_FP_ARG(hscale), DRM_FP_ARG(max_scale));
+		return ret;
+	}
+
+	ret = drm_rect_calc_vscale(&src, dst, 0, max_scale, &vscale);
+	if (ret < 0) {
+		DRM_DEBUG_KMS("[CRTC:%d:%s] pfit vertical downscaling (%d->%d, "
+			      DRM_FP_FMT ") exceeds max (" DRM_FP_FMT ")\n",
+			      crtc->base.base.id, crtc->base.name,
+			      crtc_state->pipe_src_h, drm_rect_height(dst),
+			      DRM_FP_ARG(vscale), DRM_FP_ARG(max_scale));
+		return ret;
+	}
+
+	return 0;
+}
+
 /* adjusted_mode has been preset to be the panel's fixed mode */
 int intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 			    const struct drm_connector_state *conn_state)
@@ -289,6 +322,10 @@ int intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 		return 0;
 
 	ret = intel_pch_pfit_check_src_size(crtc_state);
+	if (ret)
+		return ret;
+
+	ret = intel_pch_pfit_check_scaling(crtc_state);
 	if (ret)
 		return ret;
 
