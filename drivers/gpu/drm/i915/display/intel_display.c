@@ -11810,12 +11810,56 @@ static int intel_pch_pfit_check_src_size(const struct intel_crtc_state *crtc_sta
 	return 0;
 }
 
+static int intel_pch_pfit_check_scaling(const struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
+	struct drm_rect src = {
+		.x2 = crtc_state->pipe_src_w << 16,
+		.y2 = crtc_state->pipe_src_h << 16,
+	};
+	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
+	int ret, max_scale;
+
+	if (INTEL_GEN(dev_priv) >= 9) {
+		if (crtc_state->output_format == INTEL_OUTPUT_FORMAT_YCBCR420)
+			max_scale = 0x18000 - 1; /* < 1.5 */
+		else
+			max_scale = 0x30000 - 1; /* < 3.0 */
+	} else {
+		max_scale = 0x12000; /* 1.125 */
+	}
+
+	ret = drm_rect_calc_hscale(&src, dst, 0, max_scale);
+	if (ret < 0) {
+		DRM_DEBUG_KMS("pfit horizontal downscale (%d->%d) exceeds max (0x%x)\n",
+			      crtc_state->pipe_src_w,
+			      drm_rect_width(dst), max_scale);
+		return ret;
+	}
+
+	ret = drm_rect_calc_vscale(&src, dst, 0, max_scale);
+	if (ret < 0) {
+		DRM_DEBUG_KMS("pfit vertical downscale (%d->%d) exceeds max (0x%x)\n",
+			      crtc_state->pipe_src_h,
+			      drm_rect_height(dst), max_scale);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int intel_pch_pfit_check(const struct intel_crtc_state *crtc_state)
 {
+	int ret;
+
 	if (!crtc_state->pch_pfit.enabled)
 		return 0;
 
-	return intel_pch_pfit_check_src_size(crtc_state);
+	ret = intel_pch_pfit_check_src_size(crtc_state);
+	if (ret)
+		return ret;
+
+	return intel_pch_pfit_check_scaling(crtc_state);
 }
 
 static int intel_crtc_atomic_check(struct drm_crtc *crtc,
