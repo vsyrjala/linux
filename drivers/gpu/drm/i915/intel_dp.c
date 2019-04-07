@@ -2173,12 +2173,6 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 		intel_fixed_panel_mode(intel_connector->panel.fixed_mode,
 				       adjusted_mode);
 
-		if (INTEL_GEN(dev_priv) >= 9) {
-			ret = skl_update_scaler_crtc(pipe_config);
-			if (ret)
-				return ret;
-		}
-
 		if (HAS_GMCH(dev_priv))
 			intel_gmch_panel_fitting(intel_crtc, pipe_config,
 						 conn_state->scaling_mode);
