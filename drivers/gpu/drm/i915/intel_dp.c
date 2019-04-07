@@ -2173,9 +2173,11 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 				       adjusted_mode);
 
 		if (HAS_GMCH(dev_priv))
-			intel_gmch_panel_fitting(pipe_config, conn_state);
+			ret = intel_gmch_panel_fitting(pipe_config, conn_state);
 		else
-			intel_pch_panel_fitting(pipe_config, conn_state);
+			ret = intel_pch_panel_fitting(pipe_config, conn_state);
+		if (ret)
+			return ret;
 	}
 
 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
