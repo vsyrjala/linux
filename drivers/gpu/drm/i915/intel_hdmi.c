@@ -2260,17 +2260,22 @@ static bool hdmi_deep_color_possible(const struct intel_crtc_state *crtc_state,
 	return true;
 }
 
-static bool
+static int
 intel_hdmi_ycbcr420_config(struct intel_crtc_state *crtc_state,
 			   struct drm_connector_state *conn_state,
 			   int *clock_12bpc, int *clock_10bpc,
 			   int *clock_8bpc)
 {
 	struct drm_connector *connector = conn_state->connector;
+	const struct drm_display_mode *adjusted_mode =
+		&crtc_state->base.adjusted_mode;
+
+	if (!drm_mode_is_420_only(&connector->display_info, adjusted_mode))
+		return 0;
 
 	if (!connector->ycbcr_420_allowed) {
 		DRM_ERROR("Platform doesn't support YCBCR420 output\n");
-		return false;
+		return -EINVAL;
 	}
 
 	/* YCBCR420 TMDS rate requirement is half the pixel clock */
@@ -2280,9 +2285,7 @@ intel_hdmi_ycbcr420_config(struct intel_crtc_state *crtc_state,
 	*clock_8bpc /= 2;
 	crtc_state->output_format = INTEL_OUTPUT_FORMAT_YCBCR420;
 
-	intel_pch_panel_fitting(crtc_state, conn_state);
-
-	return true;
+	return intel_pch_panel_fitting(crtc_state, conn_state);
 }
 
 int intel_hdmi_compute_config(struct intel_encoder *encoder,
@@ -2301,6 +2304,7 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
 	int clock_12bpc = clock_8bpc * 3 / 2;
 	int desired_bpp;
 	bool force_dvi = intel_conn_state->force_audio == HDMI_AUDIO_OFF_DVI;
+	int ret;
 
 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return -EINVAL;
@@ -2329,14 +2333,11 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
 		clock_12bpc *= 2;
 	}
 
-	if (drm_mode_is_420_only(&connector->display_info, adjusted_mode)) {
-		if (!intel_hdmi_ycbcr420_config(pipe_config, conn_state,
-						&clock_12bpc, &clock_10bpc,
-						&clock_8bpc)) {
-			DRM_ERROR("Can't support YCBCR420 output\n");
-			return -EINVAL;
-		}
-	}
+	ret = intel_hdmi_ycbcr420_config(pipe_config, conn_state,
+					 &clock_12bpc, &clock_10bpc,
+					 &clock_8bpc);
+	if (ret)
+		return ret;
 
 	if (HAS_PCH_SPLIT(dev_priv) && !HAS_DDI(dev_priv))
 		pipe_config->has_pch_encoder = true;
