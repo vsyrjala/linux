@@ -173,9 +173,8 @@ intel_panel_vbt_fixed_mode(struct intel_connector *connector)
 }
 
 /* adjusted_mode has been preset to be the panel's fixed mode */
-void
-intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
-			const struct drm_connector_state *conn_state)
+int intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
+			    const struct drm_connector_state *conn_state)
 {
 	const struct drm_display_mode *adjusted_mode =
 		&crtc_state->base.adjusted_mode;
@@ -185,7 +184,7 @@ intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 	if (adjusted_mode->crtc_hdisplay == crtc_state->pipe_src_w &&
 	    adjusted_mode->crtc_vdisplay == crtc_state->pipe_src_h &&
 	    crtc_state->output_format != INTEL_OUTPUT_FORMAT_YCBCR420)
-		return;
+		return 0;
 
 	switch (conn_state->scaling_mode) {
 	case DRM_MODE_SCALE_CENTER:
@@ -236,7 +235,7 @@ intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 
 	default:
 		MISSING_CASE(conn_state->scaling_mode);
-		return;
+		return -EINVAL;
 	}
 
 	crtc_state->pch_pfit.dst.x1 = x;
@@ -244,6 +243,8 @@ intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 	crtc_state->pch_pfit.dst.x2 = x + width;
 	crtc_state->pch_pfit.dst.y2 = y + height;
 	crtc_state->pch_pfit.enabled = true;
+
+	return 0;
 }
 
 static void
@@ -379,8 +380,8 @@ static void i9xx_scale_aspect(struct intel_crtc_state *crtc_state,
 	}
 }
 
-void intel_gmch_panel_fitting(struct intel_crtc_state *crtc_state,
-			      const struct drm_connector_state *conn_state)
+int intel_gmch_panel_fitting(struct intel_crtc_state *crtc_state,
+			     const struct drm_connector_state *conn_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -429,7 +430,7 @@ void intel_gmch_panel_fitting(struct intel_crtc_state *crtc_state,
 		break;
 	default:
 		MISSING_CASE(conn_state->scaling_mode);
-		return;
+		return -EINVAL;
 	}
 
 	/* 965+ wants fuzzy fitting */
@@ -450,6 +451,8 @@ out:
 	crtc_state->gmch_pfit.control = pfit_control;
 	crtc_state->gmch_pfit.pgm_ratios = pfit_pgm_ratios;
 	crtc_state->gmch_pfit.lvds_border_bits = border;
+
+	return 0;
 }
 
 /**
