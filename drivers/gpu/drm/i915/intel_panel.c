@@ -181,12 +181,30 @@ int intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 	int scaling_mode = conn_state->scaling_mode;
 	int x, y, width, height;
 
+	x = conn_state->tv.margins.left;
+	y = conn_state->tv.margins.top;
+
+	width = adjusted_mode->crtc_hdisplay -
+		conn_state->tv.margins.left -
+		conn_state->tv.margins.right;
+	height = adjusted_mode->crtc_vdisplay -
+		conn_state->tv.margins.top -
+		conn_state->tv.margins.bottom;
+
+	if (width <= 0 || height <= 0)
+		return -EINVAL;
+
 	/* Native modes don't need fitting */
-	if (adjusted_mode->crtc_hdisplay == crtc_state->pipe_src_w &&
-	    adjusted_mode->crtc_vdisplay == crtc_state->pipe_src_h &&
+	if (x == 0 && y == 0 &&
+	    width == crtc_state->pipe_src_w &&
+	    height == crtc_state->pipe_src_h &&
 	    crtc_state->output_format != INTEL_OUTPUT_FORMAT_YCBCR420)
 		return 0;
 
+	/*
+	 * FIXME: margins and scaling_mode are implemented
+	 * in a mutually exclusive way for the time being.
+	 */
 	switch (scaling_mode) {
 	case DRM_MODE_SCALE_CENTER:
 		width = crtc_state->pipe_src_w;
@@ -224,14 +242,13 @@ int intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 		}
 		break;
 
-	case DRM_MODE_SCALE_NONE:
-		WARN_ON(adjusted_mode->crtc_hdisplay != crtc_state->pipe_src_w);
-		WARN_ON(adjusted_mode->crtc_vdisplay != crtc_state->pipe_src_h);
-		/* fall through */
 	case DRM_MODE_SCALE_FULLSCREEN:
 		x = y = 0;
 		width = adjusted_mode->crtc_hdisplay;
 		height = adjusted_mode->crtc_vdisplay;
+		break;
+
+	case DRM_MODE_SCALE_NONE:
 		break;
 
 	default:

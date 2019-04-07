@@ -732,6 +732,8 @@ intel_hdmi_compute_avi_infoframe(struct intel_encoder *encoder,
 
 	drm_hdmi_avi_infoframe_content_type(frame, conn_state);
 
+	drm_hdmi_avi_infoframe_bars(frame, conn_state);
+
 	/* TODO: handle pixel repetition for YCBCR420 outputs */
 
 	ret = hdmi_avi_infoframe_check(frame);
@@ -2274,7 +2276,7 @@ intel_hdmi_ycbcr420_config(struct intel_crtc_state *crtc_state,
 		return 0;
 
 	if (!connector->ycbcr_420_allowed) {
-		DRM_ERROR("Platform doesn't support YCBCR420 output\n");
+		DRM_DEBUG_KMS("Platform doesn't support YCBCR420 output\n");
 		return -EINVAL;
 	}
 
@@ -2285,7 +2287,7 @@ intel_hdmi_ycbcr420_config(struct intel_crtc_state *crtc_state,
 	*clock_8bpc /= 2;
 	crtc_state->output_format = INTEL_OUTPUT_FORMAT_YCBCR420;
 
-	return intel_pch_panel_fitting(crtc_state, conn_state);
+	return 0;
 }
 
 int intel_hdmi_compute_config(struct intel_encoder *encoder,
@@ -2338,6 +2340,12 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
 					 &clock_8bpc);
 	if (ret)
 		return ret;
+
+	if (!HAS_GMCH(dev_priv)) {
+		ret = intel_pch_panel_fitting(pipe_config, conn_state);
+		if (ret)
+			return ret;
+	}
 
 	if (HAS_PCH_SPLIT(dev_priv) && !HAS_DDI(dev_priv))
 		pipe_config->has_pch_encoder = true;
@@ -2808,8 +2816,11 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 		drm_object_attach_property(&connector->base,
 			connector->dev->mode_config.hdr_output_metadata_property, 0);
 
-	if (!HAS_GMCH(dev_priv))
+	if (!HAS_GMCH(dev_priv)) {
 		drm_connector_attach_max_bpc_property(connector, 8, 12);
+		drm_mode_create_tv_margin_properties(&dev_priv->drm);
+		drm_connector_attach_tv_margin_properties(connector);
+	}
 }
 
 /*
