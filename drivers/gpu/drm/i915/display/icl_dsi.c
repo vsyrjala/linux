@@ -1265,7 +1265,6 @@ static int gen11_dsi_compute_config(struct intel_encoder *encoder,
 	struct intel_dsi *intel_dsi = container_of(encoder, struct intel_dsi,
 						   base);
 	struct intel_connector *intel_connector = intel_dsi->attached_connector;
-	struct intel_crtc *crtc = to_intel_crtc(pipe_config->base.crtc);
 	const struct drm_display_mode *fixed_mode =
 					intel_connector->panel.fixed_mode;
 	struct drm_display_mode *adjusted_mode =
@@ -1273,7 +1272,7 @@ static int gen11_dsi_compute_config(struct intel_encoder *encoder,
 
 	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
 	intel_fixed_panel_mode(fixed_mode, adjusted_mode);
-	intel_pch_panel_fitting(crtc, pipe_config, conn_state->scaling_mode);
+	intel_pch_panel_fitting(pipe_config, conn_state->scaling_mode);
 
 	adjusted_mode->flags = 0;
 
