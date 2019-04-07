@@ -2226,12 +2226,12 @@ static bool hdmi_deep_color_possible(const struct intel_crtc_state *crtc_state,
 }
 
 static bool
-intel_hdmi_ycbcr420_config(struct drm_connector *connector,
-			   struct intel_crtc_state *config,
+intel_hdmi_ycbcr420_config(struct intel_crtc_state *crtc_state,
+			   struct drm_connector_state *conn_state,
 			   int *clock_12bpc, int *clock_10bpc,
 			   int *clock_8bpc)
 {
-	struct intel_crtc *intel_crtc = to_intel_crtc(config->base.crtc);
+	struct drm_connector *connector = conn_state->connector;
 
 	if (!connector->ycbcr_420_allowed) {
 		DRM_ERROR("Platform doesn't support YCBCR420 output\n");
@@ -2239,14 +2239,13 @@ intel_hdmi_ycbcr420_config(struct drm_connector *connector,
 	}
 
 	/* YCBCR420 TMDS rate requirement is half the pixel clock */
-	config->port_clock /= 2;
+	crtc_state->port_clock /= 2;
 	*clock_12bpc /= 2;
 	*clock_10bpc /= 2;
 	*clock_8bpc /= 2;
-	config->output_format = INTEL_OUTPUT_FORMAT_YCBCR420;
+	crtc_state->output_format = INTEL_OUTPUT_FORMAT_YCBCR420;
 
-	intel_pch_panel_fitting(intel_crtc, config,
-				DRM_MODE_SCALE_FULLSCREEN);
+	intel_pch_panel_fitting(crtc_state, conn_state);
 
 	return true;
 }
@@ -2296,7 +2295,7 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
 	}
 
 	if (drm_mode_is_420_only(&connector->display_info, adjusted_mode)) {
-		if (!intel_hdmi_ycbcr420_config(connector, pipe_config,
+		if (!intel_hdmi_ycbcr420_config(pipe_config, conn_state,
 						&clock_12bpc, &clock_10bpc,
 						&clock_8bpc)) {
 			DRM_ERROR("Can't support YCBCR420 output\n");
