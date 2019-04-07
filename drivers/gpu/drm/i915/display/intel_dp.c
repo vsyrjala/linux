@@ -2121,7 +2121,6 @@ intel_dp_ycbcr420_config(struct intel_dp *intel_dp,
 	const struct drm_display_mode *adjusted_mode =
 		&crtc_state->base.adjusted_mode;
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
-	int ret;
 
 	if (!drm_mode_is_420_only(info, adjusted_mode) ||
 	    !intel_dp_get_colorimetry_status(intel_dp) ||
@@ -2129,13 +2128,6 @@ intel_dp_ycbcr420_config(struct intel_dp *intel_dp,
 		return 0;
 
 	crtc_state->output_format = INTEL_OUTPUT_FORMAT_YCBCR420;
-
-	/* YCBCR 420 output conversion needs a scaler */
-	ret = skl_update_scaler_crtc(crtc_state);
-	if (ret) {
-		DRM_DEBUG_KMS("Scaler allocation for output failed\n");
-		return ret;
-	}
 
 	intel_pch_panel_fitting(crtc, crtc_state, DRM_MODE_SCALE_FULLSCREEN);
 
@@ -2192,7 +2184,6 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	else
 		ret = intel_dp_ycbcr420_config(intel_dp, &intel_connector->base,
 					       pipe_config);
-
 	if (ret)
 		return ret;
 
@@ -2207,12 +2198,6 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	if (intel_dp_is_edp(intel_dp) && intel_connector->panel.fixed_mode) {
 		intel_fixed_panel_mode(intel_connector->panel.fixed_mode,
 				       adjusted_mode);
-
-		if (INTEL_GEN(dev_priv) >= 9) {
-			ret = skl_update_scaler_crtc(pipe_config);
-			if (ret)
-				return ret;
-		}
 
 		if (HAS_GMCH(dev_priv))
 			intel_gmch_panel_fitting(intel_crtc, pipe_config,
