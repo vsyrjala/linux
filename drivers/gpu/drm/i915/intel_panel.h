@@ -26,10 +26,10 @@ void intel_panel_fini(struct intel_panel *panel);
 void intel_fixed_panel_mode(const struct drm_display_mode *fixed_mode,
 			    struct drm_display_mode *adjusted_mode);
 void intel_pch_panel_fitting(struct intel_crtc *crtc,
-			     struct intel_crtc_state *pipe_config,
+			     struct intel_crtc_state *crtc_state,
 			     int fitting_mode);
 void intel_gmch_panel_fitting(struct intel_crtc *crtc,
-			      struct intel_crtc_state *pipe_config,
+			      struct intel_crtc_state *crtc_state,
 			      int fitting_mode);
 void intel_panel_set_backlight_acpi(const struct drm_connector_state *conn_state,
 				    u32 level, u32 max);
