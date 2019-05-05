@@ -2129,7 +2129,7 @@ intel_dp_ycbcr420_config(struct intel_dp *intel_dp,
 
 	crtc_state->output_format = INTEL_OUTPUT_FORMAT_YCBCR420;
 
-	return intel_pch_panel_fitting(crtc_state, conn_state);
+	return 0;
 }
 
 bool intel_dp_limited_color_range(const struct intel_crtc_state *crtc_state,
@@ -2202,17 +2202,9 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	else
 		pipe_config->has_audio = intel_conn_state->force_audio == HDMI_AUDIO_ON;
 
-	if (intel_dp_is_edp(intel_dp) && intel_connector->panel.fixed_mode) {
+	if (intel_dp_is_edp(intel_dp) && intel_connector->panel.fixed_mode)
 		intel_fixed_panel_mode(intel_connector->panel.fixed_mode,
 				       adjusted_mode);
-
-		if (HAS_GMCH(dev_priv))
-			ret = intel_gmch_panel_fitting(pipe_config, conn_state);
-		else
-			ret = intel_pch_panel_fitting(pipe_config, conn_state);
-		if (ret)
-			return ret;
-	}
 
 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return -EINVAL;
@@ -2223,6 +2215,13 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 
 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK)
 		return -EINVAL;
+
+	if (HAS_GMCH(dev_priv) && intel_dp_is_edp(intel_dp))
+		ret = intel_gmch_panel_fitting(pipe_config, conn_state);
+	else if (!HAS_GMCH(dev_priv))
+		ret = intel_pch_panel_fitting(pipe_config, conn_state);
+	if (ret)
+		return ret;
 
 	ret = intel_dp_compute_link_config(encoder, pipe_config, conn_state);
 	if (ret < 0)
@@ -6369,6 +6368,10 @@ intel_dp_add_properties(struct intel_dp *intel_dp, struct drm_connector *connect
 	else if (INTEL_GEN(dev_priv) >= 5)
 		drm_connector_attach_max_bpc_property(connector, 6, 12);
 
+	/*
+	 * FIXME: margins and scaling_mode are implemented
+	 * in a mutually exclusive way for the time being.
+	 */
 	if (intel_dp_is_edp(intel_dp)) {
 		u32 allowed_scalers;
 
@@ -6379,7 +6382,9 @@ intel_dp_add_properties(struct intel_dp *intel_dp, struct drm_connector *connect
 		drm_connector_attach_scaling_mode_property(connector, allowed_scalers);
 
 		connector->state->scaling_mode = DRM_MODE_SCALE_ASPECT;
-
+	} else if (!HAS_GMCH(dev_priv)) {
+		drm_mode_create_tv_margin_properties(&dev_priv->drm);
+		drm_connector_attach_tv_margin_properties(connector);
 	}
 }
 
