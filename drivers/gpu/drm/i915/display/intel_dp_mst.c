@@ -36,6 +36,7 @@
 #include "intel_dp.h"
 #include "intel_dp_mst.h"
 #include "intel_dpio_phy.h"
+#include "intel_panel.h"
 
 static int intel_dp_mst_compute_link_config(struct intel_encoder *encoder,
 					    struct intel_crtc_state *crtc_state,
@@ -116,6 +117,10 @@ static int intel_dp_mst_compute_config(struct intel_encoder *encoder,
 	else
 		pipe_config->has_audio =
 			intel_conn_state->force_audio == HDMI_AUDIO_ON;
+
+	ret = intel_pch_panel_fitting(pipe_config, conn_state);
+	if (ret)
+		return ret;
 
 	/*
 	 * for MST we always configure max link bw - the spec doesn't
@@ -553,6 +558,8 @@ static struct drm_connector *intel_dp_add_mst_connector(struct drm_dp_mst_topolo
 		intel_dp->attached_connector->base.max_bpc_property;
 	if (connector->max_bpc_property)
 		drm_connector_attach_max_bpc_property(connector, 6, 12);
+
+	drm_connector_attach_tv_margin_properties(connector);
 
 	return connector;
 
