@@ -54,6 +54,7 @@
 #include <drm/drm_cache.h>
 #include <drm/drm_util.h>
 #include <drm/drm_dsc.h>
+#include <drm/drm_atomic.h>
 #include <drm/drm_connector.h>
 #include <drm/i915_mei_hdcp_interface.h>
 
@@ -873,6 +874,9 @@ struct i915_gem_mm {
 	 * All objects within this list must also be on bound_list.
 	 */
 	struct list_head userfault_list;
+
+	/* Manual runtime pm autosuspend delay for user GGTT mmaps */
+	struct intel_wakeref_auto userfault_wakeref;
 
 	/**
 	 * List of objects which are pending destruction.
@@ -1840,6 +1844,13 @@ struct drm_i915_private {
 			INTEL_DRAM_LPDDR4
 		} type;
 	} dram_info;
+
+	struct intel_bw_info {
+		int num_planes;
+		int deratedbw[3];
+	} max_bw[6];
+
+	struct drm_private_obj bw_obj;
 
 	struct i915_runtime_pm runtime_pm;
 

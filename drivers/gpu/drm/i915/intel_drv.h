@@ -885,6 +885,8 @@ struct intel_crtc_state {
 
 	struct intel_crtc_wm_state wm;
 
+	u32 data_rate[I915_MAX_PLANES];
+
 	/* Gamma mode programmed on the pipe */
 	u32 gamma_mode;
 
@@ -910,6 +912,7 @@ struct intel_crtc_state {
 		union hdmi_infoframe avi;
 		union hdmi_infoframe spd;
 		union hdmi_infoframe hdmi;
+		union hdmi_infoframe drm;
 	} infoframes;
 
 	/* HDMI scrambling status */
