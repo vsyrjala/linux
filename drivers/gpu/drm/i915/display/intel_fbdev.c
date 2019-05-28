@@ -159,6 +159,31 @@ static int intelfb_alloc(struct drm_fb_helper *helper,
 	return 0;
 }
 
+static bool intelfb_bios_fb_ok(const struct intel_framebuffer *intel_fb,
+			       const struct drm_fb_helper_surface_size *sizes)
+{
+	int width = intel_fb->base.width;
+	int height = intel_fb->base.height;
+	int depth = intel_fb->base.format->depth;
+	int bpp = intel_fb->base.format->cpp[0] * 8;
+
+	if (sizes->fb_width > width || sizes->fb_height > height) {
+		DRM_DEBUG_KMS("BIOS fb too small (%dx%d), we require (%dx%d),"
+			      " releasing it\n", width, height,
+			      sizes->fb_width, sizes->fb_height);
+		return false;
+	}
+
+	if (sizes->surface_depth != depth || sizes->surface_bpp != bpp) {
+		DRM_DEBUG_KMS("BIOS fb using wrong depth/bpp (%d/%d), we require (%d/%d),"
+			      " releasing it\n", depth, bpp,
+			      sizes->surface_depth, sizes->surface_bpp);
+		return false;
+	}
+
+	return true;
+}
+
 static int intelfb_create(struct drm_fb_helper *helper,
 			  struct drm_fb_helper_surface_size *sizes)
 {
@@ -180,13 +205,7 @@ static int intelfb_create(struct drm_fb_helper *helper,
 	void __iomem *vaddr;
 	int ret;
 
-	if (intel_fb &&
-	    (sizes->fb_width > intel_fb->base.width ||
-	     sizes->fb_height > intel_fb->base.height)) {
-		DRM_DEBUG_KMS("BIOS fb too small (%dx%d), we require (%dx%d),"
-			      " releasing it\n",
-			      intel_fb->base.width, intel_fb->base.height,
-			      sizes->fb_width, sizes->fb_height);
+	if (intel_fb && !intelfb_bios_fb_ok(intel_fb, sizes)) {
 		drm_framebuffer_put(&intel_fb->base);
 		intel_fb = ifbdev->fb = NULL;
 	}
