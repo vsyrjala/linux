@@ -1,0 +1,30 @@
+drm drm-fixes cd6c84d8f0cdc911df435bb075ba22ce3c605b07
+	Linux 5.2-rc2
+drm-misc drm-misc-fixes 95b74ce88943747fff0a3a8a6f04eecbe7b1c3ce
+	drm/qxl: drop WARN_ONCE()
+drm-intel drm-intel-fixes 57cb853d1d5b07ed4e4647ad61b0c16a9c21996e
+	Merge tag 'gvt-fixes-2019-05-21' of https://github.com/intel/gvt-linux into drm-intel-fixes
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm drm-next 14ee642c2ab0a3d8a1ded11fade692d8b77172b9
+	Merge tag 'drm-intel-next-2019-05-24' of git://anongit.freedesktop.org/drm/drm-intel into drm-next
+drm-misc drm-misc-next-fixes 51a0d1a90bff5d90a1a1c58e165928a0dd92268a
+	drm/sun4i: sun6i_mipi_dsi: Fix hsync_porch overflow
+drm-intel drm-intel-next-fixes c36beba6b296b3c05a0f29753b04775e5ae23886
+	drm/i915: Seal races between async GPU cancellation, retirement and signaling
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next 4672b1d65fc9b5a5ded911fbebb4853b892d5d89
+	Merge remote-tracking branch 'drm/drm-next' into drm-misc-next
+drm-intel drm-intel-next-queued b7bedf31252a94fb741691d2b4a3220bcdcaf9ba
+	drm/i915: Attach HDR metadata property to connector
+drm-intel drm-intel-next c0a74c732568ad347f7b3de281922808dab30504
+	drm/i915: Update DRIVER_DATE to 20190524
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus 0b074ab7fc0d575247b9cc9f93bb7e007ca38840
+	ALSA: line6: Assure canceling delayed work at disconnection
+sound-upstream for-next 968e8e9fde25ae34afd7af7e5766776526b8c467
+	Merge branch 'topic/line6-cleanup' into for-next
+drm-intel topic/core-for-CI 679dfdef2a973b52820d18ad375389195683fb91
+	net/sch_generic: Shut up noise
