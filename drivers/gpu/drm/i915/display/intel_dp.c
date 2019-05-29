@@ -1191,7 +1191,7 @@ intel_dp_aux_wait_done(struct intel_dp *intel_dp)
 	trace_i915_reg_rw(false, ch_ctl, status, sizeof(status), true);
 
 	if (!done)
-		DRM_ERROR("%s did not complete or timeout within %ums (status 0x%08x)\n",
+		DRM_ERROR("%s: did not complete or timeout within %ums (status 0x%08x)\n",
 			  intel_dp->aux.name, timeout_ms, status);
 #undef C
 
@@ -1378,8 +1378,8 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 		const u32 status = intel_uncore_read(uncore, ch_ctl);
 
 		if (status != intel_dp->aux_busy_last_status) {
-			WARN(1, "dp_aux_ch not started status 0x%08x\n",
-			     status);
+			WARN(1, "%s: not started status 0x%08x\n",
+			     intel_dp->aux.name, status);
 			intel_dp->aux_busy_last_status = status;
 		}
 
@@ -1440,7 +1440,8 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 	}
 
 	if ((status & DP_AUX_CH_CTL_DONE) == 0) {
-		DRM_ERROR("dp_aux_ch not done status 0x%08x\n", status);
+		DRM_ERROR("%s: not done status 0x%08x\n",
+			  intel_dp->aux.name, status);
 		ret = -EBUSY;
 		goto out;
 	}
@@ -1450,7 +1451,8 @@ done:
 	 * Timeouts occur when the sink is not connected
 	 */
 	if (status & DP_AUX_CH_CTL_RECEIVE_ERROR) {
-		DRM_ERROR("dp_aux_ch receive error status 0x%08x\n", status);
+		DRM_ERROR("%s: receive error status 0x%08x\n",
+			  intel_dp->aux.name, status);
 		ret = -EIO;
 		goto out;
 	}
@@ -1458,7 +1460,8 @@ done:
 	/* Timeouts occur when the device isn't connected, so they're
 	 * "normal" -- don't fill the kernel log with these */
 	if (status & DP_AUX_CH_CTL_TIME_OUT_ERROR) {
-		DRM_DEBUG_KMS("dp_aux_ch timeout status 0x%08x\n", status);
+		DRM_DEBUG_KMS("%s: timeout status 0x%08x\n",
+			      intel_dp->aux.name, status);
 		ret = -ETIMEDOUT;
 		goto out;
 	}
@@ -1473,8 +1476,8 @@ done:
 	 * drm layer takes care for the necessary retries.
 	 */
 	if (recv_bytes == 0 || recv_bytes > 20) {
-		DRM_DEBUG_KMS("Forbidden recv_bytes = %d on aux transaction\n",
-			      recv_bytes);
+		DRM_DEBUG_KMS("%s: Forbidden recv_bytes = %d on aux transaction\n",
+			      intel_dp->aux.name, recv_bytes);
 		ret = -EBUSY;
 		goto out;
 	}
