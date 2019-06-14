@@ -29,6 +29,9 @@
 #include <linux/sched/clock.h>
 #include <linux/sched/signal.h>
 
+#include "gem/i915_gem_context.h"
+#include "gt/intel_context.h"
+
 #include "i915_active.h"
 #include "i915_drv.h"
 #include "i915_globals.h"
@@ -781,8 +784,11 @@ struct i915_request *
 i915_request_create(struct intel_context *ce)
 {
 	struct i915_request *rq;
+	int err;
 
-	intel_context_timeline_lock(ce);
+	err = intel_context_timeline_lock(ce);
+	if (err)
+		return ERR_PTR(err);
 
 	/* Move our oldest request to the slab-cache (if not in use!) */
 	rq = list_first_entry(&ce->ring->request_list, typeof(*rq), ring_link);
@@ -1431,13 +1437,22 @@ long i915_request_wait(struct i915_request *rq,
 	might_sleep();
 	GEM_BUG_ON(timeout < 0);
 
-	if (i915_request_completed(rq))
+	if (dma_fence_is_signaled(&rq->fence))
 		return timeout;
 
 	if (!timeout)
 		return -ETIME;
 
 	trace_i915_request_wait_begin(rq, flags);
+
+	/*
+	 * We must never wait on the GPU while holding a lock as we
+	 * may need to perform a GPU reset. So while we don't need to
+	 * serialise wait/reset with an explicit lock, we do want
+	 * lockdep to detect potential dependency cycles.
+	 */
+	mutex_acquire(&rq->i915->gpu_error.wedge_mutex.dep_map,
+		      0, 0, _THIS_IP_);
 
 	/*
 	 * Optimistic spin before touching IRQs.
@@ -1463,8 +1478,10 @@ long i915_request_wait(struct i915_request *rq,
 	 * duration, which we currently lack.
 	 */
 	if (CONFIG_DRM_I915_SPIN_REQUEST &&
-	    __i915_spin_request(rq, state, CONFIG_DRM_I915_SPIN_REQUEST))
+	    __i915_spin_request(rq, state, CONFIG_DRM_I915_SPIN_REQUEST)) {
+		dma_fence_signal(&rq->fence);
 		goto out;
+	}
 
 	/*
 	 * This client is about to stall waiting for the GPU. In many cases
@@ -1511,6 +1528,7 @@ long i915_request_wait(struct i915_request *rq,
 	dma_fence_remove_callback(&rq->fence, &wait.cb);
 
 out:
+	mutex_release(&rq->i915->gpu_error.wedge_mutex.dep_map, 0, _THIS_IP_);
 	trace_i915_request_wait_end(rq);
 	return timeout;
 }

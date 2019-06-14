@@ -4,8 +4,10 @@
  * Copyright © 2019 Intel Corporation
  */
 
+#include "gem/i915_gem_context.h"
+#include "gem/i915_gem_pm.h"
+
 #include "i915_drv.h"
-#include "i915_gem_context.h"
 #include "i915_globals.h"
 
 #include "intel_context.h"
@@ -52,7 +54,7 @@ int __intel_context_do_pin(struct intel_context *ce)
 		intel_wakeref_t wakeref;
 
 		err = 0;
-		with_intel_runtime_pm(ce->engine->i915, wakeref)
+		with_intel_runtime_pm(&ce->engine->i915->runtime_pm, wakeref)
 			err = ce->ops->pin(ce);
 		if (err)
 			goto err;

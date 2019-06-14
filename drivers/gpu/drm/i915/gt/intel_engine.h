@@ -52,6 +52,7 @@ struct drm_printer;
 #define ENGINE_READ(...)	__ENGINE_READ_OP(read, __VA_ARGS__)
 #define ENGINE_READ_FW(...)	__ENGINE_READ_OP(read_fw, __VA_ARGS__)
 #define ENGINE_POSTING_READ(...) __ENGINE_READ_OP(posting_read, __VA_ARGS__)
+#define ENGINE_POSTING_READ16(...) __ENGINE_READ_OP(posting_read16, __VA_ARGS__)
 
 #define ENGINE_READ64(engine__, lower_reg__, upper_reg__) \
 	__ENGINE_REG_OP(read64_2x32, (engine__), \
@@ -67,6 +68,24 @@ struct drm_printer;
 #define ENGINE_WRITE16(...)	__ENGINE_WRITE_OP(write16, __VA_ARGS__)
 #define ENGINE_WRITE(...)	__ENGINE_WRITE_OP(write, __VA_ARGS__)
 #define ENGINE_WRITE_FW(...)	__ENGINE_WRITE_OP(write_fw, __VA_ARGS__)
+
+#define GEN6_RING_FAULT_REG_READ(engine__) \
+	intel_uncore_read((engine__)->uncore, RING_FAULT_REG(engine__))
+
+#define GEN6_RING_FAULT_REG_POSTING_READ(engine__) \
+	intel_uncore_posting_read((engine__)->uncore, RING_FAULT_REG(engine__))
+
+#define GEN6_RING_FAULT_REG_RMW(engine__, clear__, set__) \
+({ \
+	u32 __val; \
+\
+	__val = intel_uncore_read((engine__)->uncore, \
+				  RING_FAULT_REG(engine__)); \
+	__val &= ~(clear__); \
+	__val |= (set__); \
+	intel_uncore_write((engine__)->uncore, RING_FAULT_REG(engine__), \
+			   __val); \
+})
 
 /* seqno size is actually only a uint32, but since we plan to use MI_FLUSH_DW to
  * do the writes, and that must have qw aligned offsets, simply pretend it's 8b.
@@ -525,6 +544,8 @@ ktime_t intel_engine_get_busy_time(struct intel_engine_cs *engine);
 
 struct i915_request *
 intel_engine_find_active_request(struct intel_engine_cs *engine);
+
+u32 intel_engine_context_size(struct drm_i915_private *i915, u8 class);
 
 #if IS_ENABLED(CONFIG_DRM_I915_SELFTEST)
 
