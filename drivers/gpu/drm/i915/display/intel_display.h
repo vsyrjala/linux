@@ -551,8 +551,6 @@ void intel_crtc_arm_fifo_underrun(struct intel_crtc *crtc,
 				  struct intel_crtc_state *crtc_state);
 
 u16 skl_scaler_calc_phase(int sub, int scale, bool chroma_center);
-int skl_max_scale(const struct intel_crtc_state *crtc_state,
-		  const struct drm_format_info *format);
 u32 glk_plane_color_ctl(const struct intel_crtc_state *crtc_state,
 			const struct intel_plane_state *plane_state);
 u32 glk_plane_color_ctl_crtc(const struct intel_crtc_state *crtc_state);
