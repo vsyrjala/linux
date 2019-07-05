@@ -807,6 +807,8 @@ static void glk_force_audio_cdclk(struct drm_i915_private *dev_priv,
 	struct drm_atomic_state *state;
 	int ret;
 
+	DRM_DEBUG_KMS("%d\n", enable);
+
 	drm_modeset_acquire_init(&ctx, 0);
 	state = drm_atomic_state_alloc(&dev_priv->drm);
 	if (WARN_ON(!state))
