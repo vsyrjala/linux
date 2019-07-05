@@ -138,6 +138,35 @@ unsigned int intel_plane_data_rate(const struct intel_crtc_state *crtc_state,
 	return cpp * crtc_state->pixel_rate;
 }
 
+bool intel_plane_calc_min_cdclk(struct intel_atomic_state *state,
+				struct intel_plane *plane)
+{
+	const struct intel_plane_state *plane_state =
+		intel_atomic_get_new_plane_state(state, plane);
+	struct intel_crtc *crtc = to_intel_crtc(plane_state->base.crtc);
+	struct intel_crtc_state *crtc_state;
+
+	if (!plane_state->base.visible || !plane->min_cdclk)
+		return false;
+
+	crtc_state = intel_atomic_get_new_crtc_state(state, crtc);
+
+	crtc_state->min_cdclk[plane->id] =
+		plane->min_cdclk(crtc_state, plane_state);
+
+	DRM_DEBUG_KMS("[PLANE:%d:%s] min_cdclk %d kHz (logical cdclk %d kHz)\n",
+		      plane->base.base.id, plane->base.name,
+		      crtc_state->min_cdclk[plane->id],
+		      state->cdclk.logical.cdclk);
+
+	/* should have been populated in intel_atomic_check_planes() */
+	WARN_ON(state->cdclk.logical.cdclk == 0);
+
+	/* Does the cdclk need to be bumbed up? */
+	return crtc_state->min_cdclk[plane->id] >
+		state->cdclk.logical.cdclk;
+}
+
 int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_state,
 					struct intel_crtc_state *new_crtc_state,
 					const struct intel_plane_state *old_plane_state,
@@ -151,6 +180,7 @@ int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_
 	new_crtc_state->nv12_planes &= ~BIT(plane->id);
 	new_crtc_state->c8_planes &= ~BIT(plane->id);
 	new_crtc_state->data_rate[plane->id] = 0;
+	new_crtc_state->min_cdclk[plane->id] = 0;
 	new_plane_state->base.visible = false;
 
 	if (!new_plane_state->base.crtc && !old_plane_state->base.crtc)
