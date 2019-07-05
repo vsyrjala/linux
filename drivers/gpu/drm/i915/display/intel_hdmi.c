@@ -2168,6 +2168,9 @@ intel_hdmi_mode_valid(struct drm_connector *connector,
 	if (clock > max_dotclk)
 		return MODE_CLOCK_HIGH;
 
+	if (clock > 150000)
+		return MODE_CLOCK_HIGH;
+
 	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
 		clock *= 2;
 
@@ -2554,7 +2557,7 @@ intel_hdmi_set_edid(struct drm_connector *connector)
 
 	to_intel_connector(connector)->detect_edid = edid;
 	if (edid && edid->input & DRM_EDID_INPUT_DIGITAL) {
-		intel_hdmi->has_audio = drm_detect_monitor_audio(edid);
+		intel_hdmi->has_audio = false;//drm_detect_monitor_audio(edid);
 		intel_hdmi->has_hdmi_sink = drm_detect_hdmi_monitor(edid);
 
 		connected = true;
