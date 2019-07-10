@@ -3510,19 +3510,28 @@ static void g4x_post_disable_dp(struct intel_encoder *encoder,
 	/* Only ilk+ has port A */
 	if (port == PORT_A)
 		ilk_edp_pll_off(intel_dp, old_crtc_state);
+
+	intel_dp_dual_mode_set_tmds_output(encoder,
+					   &intel_dp->dp_dual_mode, false);
 }
 
 static void vlv_post_disable_dp(struct intel_encoder *encoder,
 				const struct intel_crtc_state *old_crtc_state,
 				const struct drm_connector_state *old_conn_state)
 {
+	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
+
 	intel_dp_link_down(encoder, old_crtc_state);
+
+	intel_dp_dual_mode_set_tmds_output(encoder,
+					   &intel_dp->dp_dual_mode, false);
 }
 
 static void chv_post_disable_dp(struct intel_encoder *encoder,
 				const struct intel_crtc_state *old_crtc_state,
 				const struct drm_connector_state *old_conn_state)
 {
+	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 
 	intel_dp_link_down(encoder, old_crtc_state);
@@ -3533,6 +3542,9 @@ static void chv_post_disable_dp(struct intel_encoder *encoder,
 	chv_data_lane_soft_reset(encoder, old_crtc_state, true);
 
 	vlv_dpio_put(dev_priv);
+
+	intel_dp_dual_mode_set_tmds_output(encoder,
+					   &intel_dp->dp_dual_mode, false);
 }
 
 static void
@@ -3748,6 +3760,9 @@ static void g4x_pre_enable_dp(struct intel_encoder *encoder,
 	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
 	enum port port = encoder->port;
 
+	intel_dp_dual_mode_set_tmds_output(encoder,
+					   &intel_dp->dp_dual_mode, true);
+
 	intel_dp_prepare(encoder, pipe_config);
 
 	/* Only ilk+ has port A */
@@ -3865,6 +3880,11 @@ static void vlv_pre_enable_dp(struct intel_encoder *encoder,
 			      const struct intel_crtc_state *pipe_config,
 			      const struct drm_connector_state *conn_state)
 {
+	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
+
+	intel_dp_dual_mode_set_tmds_output(encoder,
+					   &intel_dp->dp_dual_mode, true);
+
 	vlv_phy_pre_encoder_enable(encoder, pipe_config);
 
 	intel_enable_dp(encoder, pipe_config, conn_state);
@@ -3883,6 +3903,11 @@ static void chv_pre_enable_dp(struct intel_encoder *encoder,
 			      const struct intel_crtc_state *pipe_config,
 			      const struct drm_connector_state *conn_state)
 {
+	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
+
+	intel_dp_dual_mode_set_tmds_output(encoder,
+					   &intel_dp->dp_dual_mode, true);
+
 	chv_phy_pre_encoder_enable(encoder, pipe_config);
 
 	intel_enable_dp(encoder, pipe_config, conn_state);
