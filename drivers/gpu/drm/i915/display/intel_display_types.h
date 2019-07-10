@@ -1331,6 +1331,7 @@ struct intel_dp {
 
 	/* Downstream facing port caps */
 	struct {
+		int max_dotclock;
 		u8 max_bpc;
 	} dfp;
 };
