@@ -1335,6 +1335,7 @@ struct intel_dp {
 		int max_dotclock;
 		u8 max_bpc;
 	} dfp;
+	struct intel_dp_dual_mode dp_dual_mode;
 };
 
 enum lspcon_vendor {

@@ -612,6 +612,10 @@ intel_dp_mode_valid_downstream(struct intel_connector *connector,
 	    tmds_clock > intel_dp->dfp.max_tmds_clock)
 		return MODE_CLOCK_HIGH;
 
+	if (intel_dp->dp_dual_mode.max_tmds_clock &&
+	    tmds_clock > intel_dp->dp_dual_mode.max_tmds_clock)
+		return MODE_CLOCK_HIGH;
+
 	return MODE_OK;
 }
 
@@ -1758,6 +1762,8 @@ intel_dp_aux_init(struct intel_dp *intel_dp)
 				       aux_ch_name(dig_port->aux_ch),
 				       port_name(encoder->port));
 	intel_dp->aux.transfer = intel_dp_aux_transfer;
+
+	intel_dp->dp_dual_mode.adapter = &intel_dp->aux.ddc;
 }
 
 bool intel_dp_source_supports_hbr2(struct intel_dp *intel_dp)
@@ -5690,6 +5696,35 @@ intel_dp_set_edid(struct intel_dp *intel_dp)
 		      intel_dp->dfp.min_tmds_clock,
 		      intel_dp->dfp.max_tmds_clock);
 
+	if (drm_dp_downstream_is_tmds(intel_dp->dpcd,
+				      intel_dp->downstream_ports,
+				      edid)) {
+		/*
+		 * Most branch devices don't seem to forward the
+		 * DP dual mode i2c accesses to the dongle, so even
+		 * when you have a type2 HDMI dongle with a high TMDS
+		 * clock limit we may not be able to detect it :(
+		 * To avoid users complaining about losing high
+		 * resolution modes let's not assume type1 DVI
+		 * dongle presence when the access fails. There
+		 * doesn't seem to be any way to read the CONFIG1
+		 * pin state from the branch device.
+		 */
+		intel_dp_dual_mode_detect(connector, &intel_dp->dp_dual_mode, false);
+
+		/*
+		 * We drive LSPCON DP dual mode adaptors in PCON mode
+		 * so we should just ignore the HDMI side of it.
+		 */
+		if (intel_dp->dp_dual_mode.type == DRM_DP_DUAL_MODE_LSPCON) {
+			DRM_DEBUG_KMS("[CONNECTOR:%d:%s] Ignoring LSPCON DP dual mode adaptor presence\n",
+				      connector->base.base.id,
+				      connector->base.name);
+
+			intel_dp_dual_mode_reset(&intel_dp->dp_dual_mode);
+		}
+	}
+
 	if (edid && edid->input & DRM_EDID_INPUT_DIGITAL) {
 		intel_dp->has_hdmi_sink = drm_detect_hdmi_monitor(edid);
 		intel_dp->has_audio = drm_detect_monitor_audio(edid);
@@ -5714,6 +5749,9 @@ intel_dp_unset_edid(struct intel_dp *intel_dp)
 	intel_dp->dfp.max_dotclock = 0;
 	intel_dp->dfp.min_tmds_clock = 0;
 	intel_dp->dfp.max_tmds_clock = 0;
+
+	intel_dp->dp_dual_mode.type = DRM_DP_DUAL_MODE_NONE;
+	intel_dp->dp_dual_mode.max_tmds_clock = 0;
 }
 
 static int

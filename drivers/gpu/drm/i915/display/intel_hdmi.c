@@ -2495,7 +2495,7 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
 	return 0;
 }
 
-static void intel_dp_dual_mode_reset(struct intel_dp_dual_mode *dp_dual_mode)
+void intel_dp_dual_mode_reset(struct intel_dp_dual_mode *dp_dual_mode)
 {
 	dp_dual_mode->type = DRM_DP_DUAL_MODE_NONE;
 	dp_dual_mode->max_tmds_clock = 0;
@@ -2515,10 +2515,9 @@ intel_hdmi_unset_edid(struct intel_connector *connector)
 	connector->detect_edid = NULL;
 }
 
-static void
-intel_dp_dual_mode_detect(struct intel_connector *connector,
-			  struct intel_dp_dual_mode *dp_dual_mode,
-			  bool assume_type1_dvi)
+void intel_dp_dual_mode_detect(struct intel_connector *connector,
+			       struct intel_dp_dual_mode *dp_dual_mode,
+			       bool assume_type1_dvi)
 {
 	struct i2c_adapter *adapter = dp_dual_mode->adapter;
 	enum drm_dp_dual_mode_type type = drm_dp_dual_mode_detect(adapter);
