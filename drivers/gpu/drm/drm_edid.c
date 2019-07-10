@@ -3633,6 +3633,28 @@ drm_add_cmdb_modes(struct drm_connector *connector, u8 svd)
 	bitmap_set(hdmi->y420_cmdb_modes, vic, 1);
 }
 
+struct drm_display_mode *
+drm_display_mode_from_cea_vic(struct drm_device *dev,
+			      u8 video_code)
+{
+
+	const struct drm_display_mode *cea_mode;
+	struct drm_display_mode *newmode;
+
+	cea_mode = cea_mode_for_vic(video_code);
+	if (!cea_mode)
+		return NULL;
+
+	newmode = drm_mode_duplicate(dev, cea_mode);
+	if (!newmode)
+		return NULL;
+
+	newmode->vrefresh = 0;
+
+	return newmode;
+}
+EXPORT_SYMBOL(drm_display_mode_from_cea_vic);
+
 static int
 do_cea_modes(struct drm_connector *connector, const u8 *db, u8 len)
 {
