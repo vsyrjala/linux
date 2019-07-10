@@ -4528,6 +4528,9 @@ intel_dp_get_dpcd(struct intel_dp *intel_dp)
 			     DP_MAX_DOWNSTREAM_PORTS) < 0)
 		return false; /* downstream port status fetch failed */
 
+	DRM_DEBUG_KMS("DPCD DFP: %*ph\n", (int)sizeof(intel_dp->downstream_ports),
+		      intel_dp->downstream_ports);
+
 	return true;
 }
 
