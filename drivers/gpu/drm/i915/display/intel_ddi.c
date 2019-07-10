@@ -3585,6 +3585,9 @@ static void hsw_ddi_pre_enable_dp(struct intel_encoder *encoder,
 	else
 		WARN_ON(is_mst && port == PORT_A);
 
+	intel_dp_dual_mode_set_tmds_output(encoder,
+					   &intel_dp->dp_dual_mode, true);
+
 	intel_dp_set_link_params(intel_dp, crtc_state->port_clock,
 				 crtc_state->lane_count, is_mst);
 
@@ -3827,6 +3830,9 @@ static void intel_ddi_post_disable_dp(struct intel_encoder *encoder,
 
 	intel_ddi_clk_disable(encoder);
 	tgl_clear_psr2_transcoder_exitline(old_crtc_state);
+
+	intel_dp_dual_mode_set_tmds_output(encoder,
+					   &intel_dp->dp_dual_mode, false);
 }
 
 static void intel_ddi_post_disable_hdmi(struct intel_encoder *encoder,
