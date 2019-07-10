@@ -18,6 +18,7 @@ struct drm_encoder;
 struct drm_i915_private;
 struct intel_connector;
 struct intel_digital_port;
+struct intel_dp_dual_mode;
 struct intel_encoder;
 struct intel_crtc_state;
 struct intel_hdmi;
@@ -37,7 +38,13 @@ bool intel_hdmi_handle_sink_scrambling(struct intel_encoder *encoder,
 				       struct drm_connector *connector,
 				       bool high_tmds_clock_ratio,
 				       bool scrambling);
-void intel_dp_dual_mode_set_tmds_output(struct intel_hdmi *hdmi, bool enable);
+void intel_dp_dual_mode_detect(struct intel_connector *connector,
+			       struct intel_dp_dual_mode *dp_dual_mode,
+			       bool assume_type1_dvi);
+void intel_dp_dual_mode_reset(struct intel_dp_dual_mode *dp_dual_mode);
+void intel_dp_dual_mode_set_tmds_output(struct intel_encoder *encodr,
+					struct intel_dp_dual_mode *dp_dual_mode,
+					bool enable);
 void intel_infoframe_init(struct intel_digital_port *intel_dig_port);
 u32 intel_hdmi_infoframes_enabled(struct intel_encoder *encoder,
 				  const struct intel_crtc_state *crtc_state);

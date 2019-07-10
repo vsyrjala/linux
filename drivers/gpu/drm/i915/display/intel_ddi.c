@@ -3598,7 +3598,8 @@ static void intel_ddi_pre_enable_hdmi(struct intel_encoder *encoder,
 	int level = intel_ddi_hdmi_level(encoder);
 	struct intel_digital_port *dig_port = enc_to_dig_port(encoder);
 
-	intel_dp_dual_mode_set_tmds_output(intel_hdmi, true);
+	intel_dp_dual_mode_set_tmds_output(encoder,
+					   &intel_hdmi->dp_dual_mode, true);
 	intel_ddi_clk_select(encoder, crtc_state);
 
 	intel_display_power_get(dev_priv, dig_port->ddi_io_power_domain);
@@ -3778,7 +3779,8 @@ static void intel_ddi_post_disable_hdmi(struct intel_encoder *encoder,
 
 	intel_ddi_clk_disable(encoder);
 
-	intel_dp_dual_mode_set_tmds_output(intel_hdmi, false);
+	intel_dp_dual_mode_set_tmds_output(encoder,
+					   &intel_hdmi->dp_dual_mode, false);
 }
 
 static void icl_disable_transcoder_port_sync(const struct intel_crtc_state *old_crtc_state)

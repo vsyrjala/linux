@@ -46,6 +46,7 @@
 #include "i915_drv.h"
 #include "intel_de.h"
 
+struct i2c_adapter;
 struct drm_printer;
 struct __intel_global_objs_state;
 
@@ -1150,15 +1151,18 @@ struct cxsr_latency {
 #define to_intel_plane_state(x) container_of(x, struct intel_plane_state, uapi)
 #define intel_fb_obj(x) ((x) ? to_intel_bo((x)->obj[0]) : NULL)
 
+struct intel_dp_dual_mode {
+	struct i2c_adapter *adapter;
+	int max_tmds_clock;
+	enum drm_dp_dual_mode_type type;
+};
+
 struct intel_hdmi {
 	i915_reg_t hdmi_reg;
 	int ddc_bus;
-	struct {
-		enum drm_dp_dual_mode_type type;
-		int max_tmds_clock;
-	} dp_dual_mode;
 	bool has_hdmi_sink;
 	bool has_audio;
+	struct intel_dp_dual_mode dp_dual_mode;
 	struct intel_connector *attached_connector;
 	struct cec_notifier *cec_notifier;
 };
