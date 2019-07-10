@@ -2393,6 +2393,7 @@ static void intel_dp_info(struct seq_file *m,
 {
 	struct intel_encoder *intel_encoder = intel_connector->encoder;
 	struct intel_dp *intel_dp = enc_to_intel_dp(intel_encoder);
+	const struct drm_property_blob *edid = intel_connector->base.edid_blob_ptr;
 
 	seq_printf(m, "\tDPCD rev: %x\n", intel_dp->dpcd[DP_DPCD_REV]);
 	seq_printf(m, "\taudio support: %s\n", yesno(intel_dp->has_audio));
@@ -2400,7 +2401,8 @@ static void intel_dp_info(struct seq_file *m,
 		intel_panel_info(m, &intel_connector->panel);
 
 	drm_dp_downstream_debug(m, intel_dp->dpcd, intel_dp->downstream_ports,
-				&intel_dp->aux);
+				edid ? edid->data : NULL, &intel_dp->aux);
+
 	if (intel_connector->hdcp.shim) {
 		seq_puts(m, "\tHDCP version: ");
 		intel_hdcp_info(m, intel_connector);

@@ -5634,7 +5634,7 @@ intel_dp_set_edid(struct intel_dp *intel_dp)
 
 	intel_dp->dfp.max_bpc =
 		drm_dp_downstream_max_bpc(intel_dp->dpcd,
-					  intel_dp->downstream_ports);
+					  intel_dp->downstream_ports, edid);
 
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s] DFP max bpc %d\n",
 		      connector->base.base.id, connector->base.name,
