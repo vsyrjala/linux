@@ -1304,6 +1304,11 @@ struct intel_dp {
 
 	/* Display stream compression testing */
 	bool force_dsc_en;
+
+	/* Downstream facing port caps */
+	struct {
+		u8 max_bpc;
+	} dfp;
 };
 
 enum lspcon_vendor {
