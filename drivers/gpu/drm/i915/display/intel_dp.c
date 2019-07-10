@@ -4648,6 +4648,8 @@ intel_edp_init_dpcd(struct intel_dp *intel_dp)
 static bool
 intel_dp_get_dpcd(struct intel_dp *intel_dp)
 {
+	struct drm_i915_private *i915 = dp_to_i915(intel_dp);
+
 	if (!intel_dp_read_dpcd(intel_dp))
 		return false;
 
@@ -4705,6 +4707,10 @@ intel_dp_get_dpcd(struct intel_dp *intel_dp)
 			     intel_dp->downstream_ports,
 			     DP_MAX_DOWNSTREAM_PORTS) < 0)
 		return false; /* downstream port status fetch failed */
+
+	drm_dbg_kms(&i915->drm, "DPCD DFP: %*ph\n",
+		    (int)sizeof(intel_dp->downstream_ports),
+		    intel_dp->downstream_ports);
 
 	return true;
 }
