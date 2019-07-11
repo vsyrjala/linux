@@ -1130,6 +1130,7 @@ struct intel_dp {
 	bool link_trained;
 	bool has_audio;
 	bool reset_link_params;
+	bool use_max_params;
 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
 	u8 psr_dpcd[EDP_PSR_RECEIVER_CAP_SIZE];
 	u8 downstream_ports[DP_MAX_DOWNSTREAM_PORTS];
