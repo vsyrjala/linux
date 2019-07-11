@@ -28,6 +28,7 @@
 #include <drm/drm_dp_helper.h>
 #include <drm/i915_drm.h>
 
+#include "display/intel_display.h"
 #include "display/intel_gmbus.h"
 
 #include "i915_drv.h"
@@ -1668,6 +1669,9 @@ parse_general_definitions(struct drm_i915_private *dev_priv,
 		if (!child->device_type)
 			continue;
 
+		DRM_DEBUG_KMS("Found VBT child device with type 0x%x\n",
+			      child->device_type);
+
 		/*
 		 * Copy as much as we know (sizeof) and is available
 		 * (child_dev_size) of the child device. Accessing the data must
@@ -1730,12 +1734,13 @@ init_vbt_missing_defaults(struct drm_i915_private *dev_priv)
 	for (port = PORT_A; port < I915_MAX_PORTS; port++) {
 		struct ddi_vbt_port_info *info =
 			&dev_priv->vbt.ddi_port_info[port];
+		enum phy phy = intel_port_to_phy(dev_priv, port);
 
 		/*
 		 * VBT has the TypeC mode (native,TBT/USB) and we don't want
 		 * to detect it.
 		 */
-		if (intel_port_is_tc(dev_priv, port))
+		if (intel_phy_is_tc(dev_priv, phy))
 			continue;
 
 		info->supports_dvi = (port != PORT_A && port != PORT_E);

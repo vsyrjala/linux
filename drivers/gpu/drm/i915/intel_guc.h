@@ -35,10 +35,7 @@
 #include "i915_utils.h"
 #include "i915_vma.h"
 
-struct guc_preempt_work {
-	struct work_struct work;
-	struct intel_engine_cs *engine;
-};
+struct __guc_ads_blob;
 
 /*
  * Top level structure of GuC. It handles firmware loading and manages client
@@ -65,6 +62,8 @@ struct intel_guc {
 	} interrupts;
 
 	struct i915_vma *ads_vma;
+	struct __guc_ads_blob *ads_blob;
+
 	struct i915_vma *stage_desc_pool;
 	void *stage_desc_pool_vaddr;
 	struct ida stage_ids;
@@ -72,10 +71,6 @@ struct intel_guc {
 	void *shared_data_vaddr;
 
 	struct intel_guc_client *execbuf_client;
-	struct intel_guc_client *preempt_client;
-
-	struct guc_preempt_work preempt_work[I915_NUM_ENGINES];
-	struct workqueue_struct *preempt_wq;
 
 	DECLARE_BITMAP(doorbell_bitmap, GUC_NUM_DOORBELLS);
 	/* Cyclic counter mod pagesize	*/
@@ -87,6 +82,9 @@ struct intel_guc {
 		unsigned int count;
 		enum forcewake_domains fw_domains;
 	} send_regs;
+
+	/* Store msg (e.g. log flush) that we see while CTBs are disabled */
+	u32 mmio_msg;
 
 	/* To serialize the intel_guc_send actions */
 	struct mutex send_mutex;
@@ -181,6 +179,8 @@ static inline bool intel_guc_is_loaded(struct intel_guc *guc)
 static inline int intel_guc_sanitize(struct intel_guc *guc)
 {
 	intel_uc_fw_sanitize(&guc->fw);
+	guc->mmio_msg = 0;
+
 	return 0;
 }
 
