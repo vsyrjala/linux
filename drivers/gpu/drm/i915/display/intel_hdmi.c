@@ -2409,11 +2409,21 @@ static bool intel_has_hdmi_sink(struct intel_encoder *encoder,
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
 	const struct intel_digital_connector_state *intel_conn_state =
 		to_intel_digital_connector_state(conn_state);
+	const struct drm_display_mode *adjusted_mode =
+		&crtc_state->hw.adjusted_mode;
 
-	if (intel_conn_state->force_audio == HDMI_AUDIO_OFF_DVI)
+	if (!intel_hdmi->has_hdmi_sink ||
+	    intel_conn_state->force_audio == HDMI_AUDIO_OFF_DVI)
 		return false;
 
-	return intel_hdmi->has_hdmi_sink;
+	if (adjusted_mode->crtc_hdisplay < 256)
+		return false;
+
+	if (adjusted_mode->crtc_hsync_start -
+	    adjusted_mode->crtc_hdisplay < 16)
+		return false;
+
+	return true;
 }
 
 static bool intel_hdmi_has_audio(struct intel_encoder *encoder,
@@ -2423,8 +2433,14 @@ static bool intel_hdmi_has_audio(struct intel_encoder *encoder,
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
 	const struct intel_digital_connector_state *intel_conn_state =
 		to_intel_digital_connector_state(conn_state);
+	const struct drm_display_mode *adjusted_mode =
+		&crtc_state->hw.adjusted_mode;
 
 	if (!crtc_state->has_hdmi_sink)
+		return false;
+
+	if (adjusted_mode->crtc_htotal -
+	    adjusted_mode->crtc_hdisplay < 138)
 		return false;
 
 	if (intel_conn_state->force_audio == HDMI_AUDIO_AUTO)
@@ -2449,9 +2465,10 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return -EINVAL;
 
-	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
 	pipe_config->has_hdmi_sink =
 		intel_has_hdmi_sink(encoder, pipe_config, conn_state);
+
+	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
 
 	if (pipe_config->has_hdmi_sink)
 		pipe_config->has_infoframe = true;

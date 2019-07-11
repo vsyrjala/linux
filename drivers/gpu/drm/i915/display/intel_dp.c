@@ -2314,10 +2314,16 @@ intel_dp_ycbcr420_config(struct intel_dp *intel_dp,
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	int ret;
 
-	if (!drm_mode_is_420_only(info, adjusted_mode) ||
-	    !intel_dp_get_colorimetry_status(intel_dp) ||
-	    !connector->ycbcr_420_allowed)
+	if (!connector->ycbcr_420_allowed)
 		return 0;
+
+	if (!drm_mode_is_420_only(info, adjusted_mode))
+		return 0;
+
+	if (intel_dp->dfp.ycbcr_444_to_420) {
+		crtc_state->output_format = INTEL_OUTPUT_FORMAT_YCBCR444;
+		return 0;
+	}
 
 	crtc_state->output_format = INTEL_OUTPUT_FORMAT_YCBCR420;
 
@@ -3581,17 +3587,22 @@ void intel_dp_configure_protocol_converter(struct intel_dp *intel_dp)
 	if (intel_dp->dpcd[DP_DPCD_REV] < 0x13)
 		return;
 
-	if (!drm_dp_downstream_is_type(intel_dp->dpcd, intel_dp->downstream_ports,
-				       DP_DS_PORT_TYPE_HDMI) &&
-	    !drm_dp_downstream_is_type(intel_dp->dpcd, intel_dp->downstream_ports,
-				       DP_DS_PORT_TYPE_DP_DUALMODE))
+	if (!drm_dp_is_branch(intel_dp->dpcd))
 		return;
 
-	/* TODO: configure YCbCr 4:2:2/4:2:0 conversion */
 	if (drm_dp_dpcd_writeb(&intel_dp->aux,
 			       DP_PROTOCOL_CONVERTER_CONTROL_0, tmp) <= 0)
 		DRM_DEBUG_KMS("Failed to set protocol converter HDMI mode to %s\n",
-			      enableddisabled(tmp));
+			      enableddisabled(intel_dp->has_hdmi_sink));
+
+	tmp = 0;
+	if (intel_dp->dfp.ycbcr_444_to_420)
+		tmp |= DP_CONVERSION_TO_YCBCR420_ENABLE;
+
+	if (drm_dp_dpcd_writeb(&intel_dp->aux,
+			       DP_PROTOCOL_CONVERTER_CONTROL_1, tmp) <= 0)
+		DRM_DEBUG_KMS("Failed to set protocol converter YCbCr conversion mode to %s\n",
+			      enableddisabled(intel_dp->dfp.ycbcr_444_to_420));
 }
 
 static void intel_enable_dp(struct intel_encoder *encoder,
@@ -5130,9 +5141,7 @@ static bool
 intel_dp_needs_link_retrain(struct intel_dp *intel_dp)
 {
 	u8 link_status[DP_LINK_STATUS_SIZE];
-
-	if (!intel_dp->link_trained)
-		return false;
+	return false;
 
 	/*
 	 * While PSR source HW is enabled, it will control main-link sending
@@ -5343,8 +5352,10 @@ intel_dp_short_pulse(struct intel_dp *intel_dp)
 	drm_dp_cec_irq(&intel_dp->aux);
 
 	/* defer to the hotplug work for link retraining if needed */
-	if (intel_dp_needs_link_retrain(intel_dp))
+	if (intel_dp_needs_link_retrain(intel_dp)) {
+		DRM_DEBUG_KMS("need to retrain link\n");
 		return false;
+	}
 
 	intel_psr_short_pulse(intel_dp);
 
@@ -5688,14 +5699,10 @@ intel_dp_get_edid(struct intel_dp *intel_dp)
 }
 
 static void
-intel_dp_set_edid(struct intel_dp *intel_dp)
+intel_dp_update_dfp(struct intel_dp *intel_dp,
+		    const struct edid *edid)
 {
 	struct intel_connector *connector = intel_dp->attached_connector;
-	struct edid *edid;
-
-	intel_dp_unset_edid(intel_dp);
-	edid = intel_dp_get_edid(intel_dp);
-	connector->detect_edid = edid;
 
 	intel_dp->dfp.max_bpc =
 		drm_dp_downstream_max_bpc(intel_dp->dpcd,
@@ -5720,6 +5727,66 @@ intel_dp_set_edid(struct intel_dp *intel_dp)
 		      intel_dp->dfp.max_dotclock,
 		      intel_dp->dfp.min_tmds_clock,
 		      intel_dp->dfp.max_tmds_clock);
+}
+
+static void
+intel_dp_update_420(struct intel_dp *intel_dp)
+{
+	struct intel_connector *connector = intel_dp->attached_connector;
+	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+	bool is_branch, ycbcr_420_passthrough, ycbcr_444_to_420;
+
+	/* No YCbCr output support on gmch platforms */
+	if (HAS_GMCH(dev_priv))
+		return;
+
+	/*
+	 * ILK doesn't seem capable of DP YCbCr output. The
+	 * displayed image is severly corrupted. SNB+ is fine.
+	 */
+	if (IS_GEN(dev_priv, 5))
+		return;
+
+	is_branch = drm_dp_is_branch(intel_dp->dpcd);
+	ycbcr_420_passthrough =
+		drm_dp_downstream_420_passthrough(intel_dp->dpcd,
+						  intel_dp->downstream_ports);
+	ycbcr_444_to_420 =
+		drm_dp_downstream_444_to_420_conversion(intel_dp->dpcd,
+							intel_dp->downstream_ports);
+
+	if (INTEL_GEN(dev_priv) >= 11) {
+		/* Prefer 4:2:0 passthrough over 4:4:4->4:2:0 conversion */
+		intel_dp->dfp.ycbcr_444_to_420 =
+			ycbcr_444_to_420 && !ycbcr_420_passthrough;
+
+		/* Prefer 4:2:0 passthrough over 4:4:4->4:2:0 conversion */
+		connector->base.ycbcr_420_allowed =
+			!is_branch || ycbcr_444_to_420 || ycbcr_420_passthrough;
+	} else {
+		/* 4:4:4->4:2:0 conversion is the only way */
+		intel_dp->dfp.ycbcr_444_to_420 = ycbcr_444_to_420;
+		connector->base.ycbcr_420_allowed = ycbcr_444_to_420;
+	}
+
+	DRM_DEBUG_KMS("[CONNECTOR:%d:%s] YCbCr 4:2:0 allowed? %s, YCbCr 4:4:4->4:2:0 conversion? %s\n",
+		      connector->base.base.id, connector->base.name,
+		      yesno(connector->base.ycbcr_420_allowed),
+		      yesno(intel_dp->dfp.ycbcr_444_to_420));
+}
+
+static void
+intel_dp_set_edid(struct intel_dp *intel_dp)
+{
+	struct intel_connector *connector = intel_dp->attached_connector;
+	struct edid *edid;
+
+	intel_dp_unset_edid(intel_dp);
+	edid = intel_dp_get_edid(intel_dp);
+	connector->detect_edid = edid;
+
+	intel_dp_update_dfp(intel_dp, edid);
+	intel_dp_update_420(intel_dp);
 
 	if (drm_dp_downstream_is_tmds(intel_dp->dpcd,
 				      intel_dp->downstream_ports,
@@ -5761,11 +5828,11 @@ intel_dp_set_edid(struct intel_dp *intel_dp)
 static void
 intel_dp_unset_edid(struct intel_dp *intel_dp)
 {
-	struct intel_connector *intel_connector = intel_dp->attached_connector;
+	struct intel_connector *connector = intel_dp->attached_connector;
 
 	drm_dp_cec_unset_edid(&intel_dp->aux);
-	kfree(intel_connector->detect_edid);
-	intel_connector->detect_edid = NULL;
+	kfree(connector->detect_edid);
+	connector->detect_edid = NULL;
 
 	intel_dp->has_hdmi_sink = false;
 	intel_dp->has_audio = false;
@@ -5775,8 +5842,10 @@ intel_dp_unset_edid(struct intel_dp *intel_dp)
 	intel_dp->dfp.min_tmds_clock = 0;
 	intel_dp->dfp.max_tmds_clock = 0;
 
-	intel_dp->dp_dual_mode.type = DRM_DP_DUAL_MODE_NONE;
-	intel_dp->dp_dual_mode.max_tmds_clock = 0;
+	intel_dp->dfp.ycbcr_444_to_420 = false;
+	connector->base.ycbcr_420_allowed = false;
+
+	intel_dp_dual_mode_reset(&intel_dp->dp_dual_mode);
 }
 
 static int
@@ -7663,9 +7732,6 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 	if (!HAS_GMCH(dev_priv))
 		connector->interlace_allowed = true;
 	connector->doublescan_allowed = 0;
-
-	if (INTEL_GEN(dev_priv) >= 11)
-		connector->ycbcr_420_allowed = true;
 
 	intel_encoder->hpd_pin = intel_hpd_pin_default(dev_priv, port);
 

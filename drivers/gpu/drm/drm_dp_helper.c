@@ -615,6 +615,50 @@ int drm_dp_downstream_max_bpc(const u8 dpcd[DP_RECEIVER_CAP_SIZE],
 }
 EXPORT_SYMBOL(drm_dp_downstream_max_bpc);
 
+bool drm_dp_downstream_420_passthrough(const u8 dpcd[DP_RECEIVER_CAP_SIZE],
+				       const u8 port_cap[4])
+{
+	if (!drm_dp_is_branch(dpcd))
+		return false;
+
+	if (dpcd[DP_DPCD_REV] < 0x13)
+		return false;
+
+	switch (port_cap[0] & DP_DS_PORT_TYPE_MASK) {
+	case DP_DS_PORT_TYPE_DP:
+		return true;
+	case DP_DS_PORT_TYPE_HDMI:
+		if ((dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DETAILED_CAP_INFO_AVAILABLE) == 0)
+			return false;
+
+		return port_cap[3] & DP_DS_HDMI_YCBCR420_PASS_THROUGH;
+	default:
+		return false;
+	}
+}
+EXPORT_SYMBOL(drm_dp_downstream_420_passthrough);
+
+bool drm_dp_downstream_444_to_420_conversion(const u8 dpcd[DP_RECEIVER_CAP_SIZE],
+					     const u8 port_cap[4])
+{
+	if (dpcd[DP_DPCD_REV] < 0x13)
+		return false;
+
+	if (!drm_dp_is_branch(dpcd))
+		return false;
+
+	switch (port_cap[0] & DP_DS_PORT_TYPE_MASK) {
+	case DP_DS_PORT_TYPE_HDMI:
+		if ((dpcd[DP_DOWNSTREAMPORT_PRESENT] & DP_DETAILED_CAP_INFO_AVAILABLE) == 0)
+			return false;
+
+		return port_cap[3] & DP_DS_HDMI_YCBCR444_TO_420_CONV;
+	default:
+		return false;
+	}
+}
+EXPORT_SYMBOL(drm_dp_downstream_444_to_420_conversion);
+
 /**
  * drm_dp_downstream_mode() - return a mode for downstream facing port
  * @dpcd: DisplayPort configuration data

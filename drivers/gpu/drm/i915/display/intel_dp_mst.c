@@ -810,7 +810,7 @@ intel_dp_mst_encoder_init(struct intel_digital_port *intel_dig_port, int conn_ba
 	enum port port = intel_dig_port->base.port;
 	int ret;
 
-	if (!HAS_DP_MST(i915) || intel_dp_is_edp(intel_dp))
+	if (1 || !HAS_DP_MST(i915) || intel_dp_is_edp(intel_dp))
 		return 0;
 
 	if (INTEL_GEN(i915) < 12 && port == PORT_A)

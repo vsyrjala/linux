@@ -1334,6 +1334,7 @@ struct intel_dp {
 		int min_tmds_clock, max_tmds_clock;
 		int max_dotclock;
 		u8 max_bpc;
+		bool ycbcr_444_to_420;
 	} dfp;
 	struct intel_dp_dual_mode dp_dual_mode;
 };
