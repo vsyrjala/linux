@@ -1,0 +1,30 @@
+drm drm-fixes a0b2cf792ac9db7bb73e599e516adfb9dca8e60b
+	Merge tag 'imx-drm-fixes-2019-07-04' of git://git.pengutronix.de/git/pza/linux into drm-fixes
+drm-misc drm-misc-fixes 2f040d27080ddfffecff2be1a77107c494d0e4f4
+	drm/panfrost: Fix a double-free error
+drm-intel drm-intel-fixes d7e8a19b38c8ac1a32b6b03af049e2c88d4155db
+	drm/i915: Don't dereference request if it may have been retired when printing
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm drm-next 4cf643a39221af24a151ad2cff4e3f95f12f368e
+	Merge tag 'drm-next-5.3-2019-06-27' of git://people.freedesktop.org/~agd5f/linux into drm-next
+drm-misc drm-misc-next-fixes 7f3bbc0b817b51206948b743331c7441bf918c7f
+	drm/modes: Skip invalid cmdline mode
+drm-intel drm-intel-next-fixes c36beba6b296b3c05a0f29753b04775e5ae23886
+	drm/i915: Seal races between async GPU cancellation, retirement and signaling
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next 4f5368b5541a902f6596558b05f5c21a9770dd32
+	drm/kms: Catch mode_object lifetime errors
+drm-intel drm-intel-next-queued 5a5efbf4ef504a8136963a8ae10a3c0a1d59b479
+	drm/i915/sdvo: Fix handling if zero hbuf size
+drm-intel drm-intel-next a17ce803dffa8e34fda39f8af721a4005c451fef
+	drm/i915: Update DRIVER_DATE to 20190708
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus 0dcb4efb1095d0a1f5f681c2b94e98b009cc5d77
+	ALSA: firewire-lib: code refactoring for local variables
+sound-upstream for-next b89b889a326a7abf1c9ceef7ddbe06dbaf8c2520
+	Merge branch 'topic/hda-refresh-cleanup' into for-next
+drm-intel topic/core-for-CI 3acdd1462f96ab5d3d65f0da146805c1bdd4c881
+	mm: Show slab debug as offsets from section base not hashed pointers
