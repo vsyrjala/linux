@@ -11768,6 +11768,17 @@ static bool c8_planes_changed(const struct intel_crtc_state *new_crtc_state)
 	return !old_crtc_state->c8_planes != !new_crtc_state->c8_planes;
 }
 
+static int intel_pch_pfit_check_timings(const struct intel_crtc_state *crtc_state)
+{
+	const struct drm_display_mode *adjusted_mode =
+		&crtc_state->base.adjusted_mode;
+
+	if (adjusted_mode->crtc_vdisplay < 7)
+		return -EINVAL;
+
+	return 0;
+}
+
 static int intel_pch_pfit_check_src_size(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
@@ -11855,11 +11866,42 @@ static int intel_pch_pfit_check(const struct intel_crtc_state *crtc_state)
 	if (!crtc_state->pch_pfit.enabled)
 		return 0;
 
+	ret = intel_pch_pfit_check_timings(crtc_state);
+	if (ret)
+		return ret;
+
 	ret = intel_pch_pfit_check_src_size(crtc_state);
 	if (ret)
 		return ret;
 
 	return intel_pch_pfit_check_scaling(crtc_state);
+}
+
+static int intel_gmch_pfit_check_timings(const struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
+	const struct drm_display_mode *adjusted_mode =
+		&crtc_state->base.adjusted_mode;
+	int min;
+
+	if (INTEL_GEN(dev_priv) >= 4)
+		min = 3;
+	else
+		min = 2;
+
+	if (adjusted_mode->crtc_hdisplay < min ||
+	    adjusted_mode->crtc_vdisplay < min)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int intel_gmch_pfit_check(const struct intel_crtc_state *crtc_state)
+{
+	if ((crtc_state->gmch_pfit.control & PFIT_ENABLE) == 0)
+		return 0;
+
+	return intel_gmch_pfit_check_timings(crtc_state);
 }
 
 static int intel_crtc_atomic_check(struct drm_crtc *crtc,
@@ -11885,11 +11927,12 @@ static int intel_crtc_atomic_check(struct drm_crtc *crtc,
 			return ret;
 	}
 
-	if (!HAS_GMCH(dev_priv)) {
+	if (HAS_GMCH(dev_priv))
+		ret = intel_gmch_pfit_check(pipe_config);
+	else
 		ret = intel_pch_pfit_check(pipe_config);
-		if (ret)
-			return ret;
-	}
+	if (ret)
+		return ret;
 
 	/*
 	 * May need to update pipe gamma enable bits
