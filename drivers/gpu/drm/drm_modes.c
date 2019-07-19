@@ -752,24 +752,14 @@ EXPORT_SYMBOL(drm_mode_set_name);
  * @mode: mode
  *
  * Returns:
- * @modes's hsync rate in kHz, rounded to the nearest integer. Calculates the
- * value first if it is not yet set.
+ * @modes's hsync rate in kHz, rounded to the nearest integer
  */
 int drm_mode_hsync(const struct drm_display_mode *mode)
 {
-	unsigned int calc_val;
-
-	if (mode->hsync)
-		return mode->hsync;
-
 	if (mode->htotal <= 0)
 		return 0;
 
-	calc_val = (mode->clock * 1000) / mode->htotal; /* hsync in Hz */
-	calc_val += 500;				/* round to 1000Hz */
-	calc_val /= 1000;				/* truncate to kHz */
-
-	return calc_val;
+	return DIV_ROUND_CLOSEST(mode->clock, mode->htotal);
 }
 EXPORT_SYMBOL(drm_mode_hsync);
 
