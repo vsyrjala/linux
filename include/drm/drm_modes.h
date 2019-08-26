@@ -378,7 +378,7 @@ struct drm_display_mode {
 	 * by atomic drivers since they can store any additional data by
 	 * subclassing state structures.
 	 */
-	int private_flags;
+	u8 private_flags;
 
 	/**
 	 * @picture_aspect_ratio:
