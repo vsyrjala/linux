@@ -2472,6 +2472,8 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 		pipe_config->has_pch_encoder = true;
 
 	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
+	if (!intel_dp_is_edp(intel_dp) && !HAS_GMCH(dev_priv))
+		pipe_config->output_format = INTEL_OUTPUT_FORMAT_YCBCR444;
 
 	if (lspcon->active)
 		lspcon_ycbcr420_config(&intel_connector->base, pipe_config);
