@@ -5830,6 +5830,9 @@ intel_dp_update_dfp(struct intel_dp *intel_dp,
 						 intel_dp->downstream_ports,
 						 edid);
 
+	//if (intel_dp->dfp.max_tmds_clock)
+		///intel_dp->dfp.max_tmds_clock = 400000; //hack
+
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s] DFP max bpc %d, max dotclock %d, TMDS clock %d-%d\n",
 		      connector->base.base.id, connector->base.name,
 		      intel_dp->dfp.max_bpc,
@@ -5861,6 +5864,7 @@ intel_dp_update_420(struct intel_dp *intel_dp)
 		drm_dp_downstream_420_passthrough(intel_dp->dpcd,
 						  intel_dp->downstream_ports);
 	ycbcr_444_to_420 =
+		//false && // hack
 		drm_dp_downstream_444_to_420_conversion(intel_dp->dpcd,
 							intel_dp->downstream_ports);
 
