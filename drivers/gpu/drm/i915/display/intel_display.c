@@ -13906,8 +13906,7 @@ static int intel_atomic_check(struct drm_device *dev,
 	if (ret)
 		goto fail;
 
-	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state,
-					    new_crtc_state, i) {
+	for_each_new_intel_crtc_in_state(state, crtc, new_crtc_state, i) {
 		if (!needs_modeset(new_crtc_state) &&
 		    !new_crtc_state->update_pipe)
 			continue;
@@ -13927,8 +13926,7 @@ static int intel_atomic_check(struct drm_device *dev,
 	 * FIXME would probably be nice to know which crtc specifically
 	 * caused the failure, in cases where we can pinpoint it.
 	 */
-	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state,
-					    new_crtc_state, i)
+	for_each_new_intel_crtc_in_state(state, crtc, new_crtc_state, i)
 		intel_dump_pipe_config(new_crtc_state, state, "[failed]");
 
 	return ret;
