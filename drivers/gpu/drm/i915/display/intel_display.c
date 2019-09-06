@@ -1654,7 +1654,7 @@ static void ironlake_enable_pch_transcoder(const struct intel_crtc_state *crtc_s
 		val |= TRANS_CHICKEN2_TIMING_OVERRIDE;
 		/* configure frame start delay to match the CPU */
 		val &= ~TRANS_CHICKEN2_FRAME_START_DELAY_MASK;
-		val |= TRANS_CHICKEN2_FRAME_START_DELAY(0);
+		val |= TRANS_CHICKEN2_FRAME_START_DELAY(3);
 		I915_WRITE(reg, val);
 	}
 
@@ -1665,7 +1665,7 @@ static void ironlake_enable_pch_transcoder(const struct intel_crtc_state *crtc_s
 	if (HAS_PCH_IBX(dev_priv)) {
 		/* configure frame start delay to match the CPU */
 		val &= ~TRANS_FRAME_START_DELAY_MASK;
-		val |= TRANS_FRAME_START_DELAY(0);
+		val |= TRANS_FRAME_START_DELAY(3);
 
 		/*
 		 * Make the BPC in transcoder be consistent with
@@ -1709,7 +1709,7 @@ static void lpt_enable_pch_transcoder(struct drm_i915_private *dev_priv,
 	val |= TRANS_CHICKEN2_TIMING_OVERRIDE;
 	/* configure frame start delay to match the CPU */
 	val &= ~TRANS_CHICKEN2_FRAME_START_DELAY_MASK;
-	val |= TRANS_CHICKEN2_FRAME_START_DELAY(0);
+	val |= TRANS_CHICKEN2_FRAME_START_DELAY(3);
 	I915_WRITE(TRANS_CHICKEN2(PIPE_A), val);
 
 	val = TRANS_ENABLE;
@@ -6473,7 +6473,7 @@ static void hsw_set_frame_start_delay(const struct intel_crtc_state *crtc_state)
 
 	val = I915_READ(reg);
 	val &= ~HSW_FRAME_START_DELAY_MASK;
-	val |= HSW_FRAME_START_DELAY(0);
+	val |= HSW_FRAME_START_DELAY(3);
 	I915_WRITE(reg, val);
 }
 
@@ -8421,7 +8421,7 @@ static void i9xx_set_pipeconf(const struct intel_crtc_state *crtc_state)
 
 	pipeconf |= PIPECONF_GAMMA_MODE(crtc_state->gamma_mode);
 
-	pipeconf |= PIPECONF_FRAME_START_DELAY(0);
+	pipeconf |= PIPECONF_FRAME_START_DELAY(3);
 
 	I915_WRITE(PIPECONF(crtc->pipe), pipeconf);
 	POSTING_READ(PIPECONF(crtc->pipe));
@@ -9503,7 +9503,7 @@ static void ironlake_set_pipeconf(const struct intel_crtc_state *crtc_state)
 
 	val |= PIPECONF_GAMMA_MODE(crtc_state->gamma_mode);
 
-	val |= PIPECONF_FRAME_START_DELAY(0);
+	val |= PIPECONF_FRAME_START_DELAY(3);
 
 	I915_WRITE(PIPECONF(pipe), val);
 	POSTING_READ(PIPECONF(pipe));
@@ -16949,7 +16949,7 @@ static void intel_sanitize_frame_start_delay(const struct intel_crtc_state *crtc
 
 		val = I915_READ(reg);
 		val &= ~HSW_FRAME_START_DELAY_MASK;
-		val |= HSW_FRAME_START_DELAY(0);
+		val |= HSW_FRAME_START_DELAY(3);
 		I915_WRITE(reg, val);
 	} else {
 		i915_reg_t reg = PIPECONF(cpu_transcoder);
@@ -16957,7 +16957,7 @@ static void intel_sanitize_frame_start_delay(const struct intel_crtc_state *crtc
 
 		val = I915_READ(reg);
 		val &= ~PIPECONF_FRAME_START_DELAY_MASK;
-		val |= PIPECONF_FRAME_START_DELAY(0);
+		val |= PIPECONF_FRAME_START_DELAY(3);
 		I915_WRITE(reg, val);
 	}
 
@@ -16970,7 +16970,7 @@ static void intel_sanitize_frame_start_delay(const struct intel_crtc_state *crtc
 
 		val = I915_READ(reg);
 		val &= ~TRANS_FRAME_START_DELAY_MASK;
-		val |= TRANS_FRAME_START_DELAY(0);
+		val |= TRANS_FRAME_START_DELAY(3);
 		I915_WRITE(reg, val);
 	} else {
 		i915_reg_t reg = TRANS_CHICKEN2(crtc->pipe);
@@ -16978,7 +16978,7 @@ static void intel_sanitize_frame_start_delay(const struct intel_crtc_state *crtc
 
 		val = I915_READ(reg);
 		val &= ~TRANS_CHICKEN2_FRAME_START_DELAY_MASK;
-		val |= TRANS_CHICKEN2_FRAME_START_DELAY(0);
+		val |= TRANS_CHICKEN2_FRAME_START_DELAY(3);
 		I915_WRITE(reg, val);
 	}
 }
