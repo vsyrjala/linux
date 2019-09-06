@@ -20,6 +20,26 @@
 
 /* watermark/fifo updates */
 
+TRACE_EVENT(intel_pipe_vblank,
+	    TP_PROTO(struct drm_i915_private *dev_priv, enum pipe pipe),
+	    TP_ARGS(dev_priv, pipe),
+
+	    TP_STRUCT__entry(
+			     __field(enum pipe, pipe)
+			     __field(u32, scanline)
+			     ),
+
+	    TP_fast_assign(
+			   struct intel_crtc *crtc = intel_get_crtc_for_pipe(dev_priv, pipe);
+			   __entry->pipe = pipe;
+			   __entry->scanline = intel_get_crtc_scanline(crtc);
+			   ),
+
+	    TP_printk("pipe %c, scanline %u",
+		      pipe_name(__entry->pipe),
+		      __entry->scanline)
+);
+
 TRACE_EVENT(intel_load_luts_start,
 	    TP_PROTO(struct intel_crtc *crtc),
 	    TP_ARGS(crtc),
