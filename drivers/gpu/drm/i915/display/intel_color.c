@@ -25,6 +25,8 @@
 #include "intel_color.h"
 #include "intel_display_types.h"
 
+#include "i915_trace.h"
+
 #define CTM_COEFF_SIGN	(1ULL << 63)
 
 #define CTM_COEFF_1_0	(1ULL << 32)
@@ -1033,9 +1035,12 @@ static void chv_load_luts(const struct intel_crtc_state *crtc_state)
 
 void intel_color_load_luts(const struct intel_crtc_state *crtc_state)
 {
-	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
+	trace_intel_load_luts_start(crtc);
 	dev_priv->display.load_luts(crtc_state);
+	trace_intel_load_luts_end(crtc);
 }
 
 void intel_color_commit(const struct intel_crtc_state *crtc_state)
