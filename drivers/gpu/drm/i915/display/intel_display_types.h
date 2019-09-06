@@ -997,6 +997,8 @@ struct intel_crtc_state {
 
 	/* Bitmask to indicate slaves attached */
 	u8 sync_mode_slaves_mask;
+
+	u64 put_domains;
 };
 
 struct intel_crtc {

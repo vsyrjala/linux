@@ -14506,7 +14506,6 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_crtc_state *new_crtc_state, *old_crtc_state;
 	struct intel_crtc *crtc;
-	u64 put_domains[I915_MAX_PIPES] = {};
 	intel_wakeref_t wakeref = 0;
 	int i;
 
@@ -14522,7 +14521,7 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 		if (needs_modeset(new_crtc_state) ||
 		    new_crtc_state->update_pipe) {
 
-			put_domains[crtc->pipe] =
+			new_crtc_state->put_domains =
 				modeset_get_crtc_power_domains(new_crtc_state);
 		}
 	}
@@ -14615,8 +14614,8 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 		intel_post_plane_update(old_crtc_state);
 
-		if (put_domains[i])
-			modeset_put_power_domains(dev_priv, put_domains[i]);
+		if (new_crtc_state->put_domains)
+			modeset_put_power_domains(dev_priv, new_crtc_state->put_domains);
 
 		intel_modeset_verify_crtc(crtc, state, old_crtc_state, new_crtc_state);
 	}
