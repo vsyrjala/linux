@@ -64,8 +64,22 @@ bool intel_crtc_need_lut_load(const struct intel_crtc_state *crtc_state);
 static bool intel_crtc_need_vblank_work(struct intel_atomic_state *state,
 					const struct intel_crtc_state *crtc_state)
 {
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	const struct intel_plane_state *plane_state;
+	struct intel_plane *plane;
+	int i;
+
 	if (!crtc_state->base.active)
 		return false;
+
+	for_each_new_intel_plane_in_state(state, plane, plane_state, i) {
+		if (crtc->pipe != plane->pipe ||
+		    !plane_state->need_postvbl_update ||
+		    (crtc_state->update_planes & BIT(plane->id)) == 0)
+			continue;
+
+		return true;
+	}
 
 	return intel_crtc_need_lut_load(crtc_state) ||
 		crtc_state->wm.need_postvbl_update;
@@ -821,6 +835,31 @@ chv_update_csc(const struct intel_plane_state *plane_state)
 	I915_WRITE_FW(SPCSCCROCLAMP(plane_id), SPCSC_OMAX(1023) | SPCSC_OMIN(0));
 }
 
+static bool vlv_sprite_needs_postvbl(const struct intel_crtc_state *new_crtc_state,
+				     const struct intel_plane_state *new_plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(new_plane_state->base.plane);
+	struct intel_atomic_state *state =
+		to_intel_atomic_state(new_plane_state->base.state);
+	const struct intel_plane_state *old_plane_state =
+		intel_atomic_get_old_plane_state(state, plane);
+	bool old_is_yuv = old_plane_state->base.visible &&
+		old_plane_state->base.fb->format->is_yuv;
+	bool new_is_yuv = new_plane_state->base.visible &&
+		new_plane_state->base.fb->format->is_yuv;
+	bool old_limited_range = old_is_yuv &&
+		old_plane_state->base.color_range == DRM_COLOR_YCBCR_LIMITED_RANGE;
+	bool new_limited_range = new_is_yuv &&
+		new_plane_state->base.color_range == DRM_COLOR_YCBCR_LIMITED_RANGE;
+
+	if (!new_crtc_state->base.active ||
+	    drm_atomic_crtc_needs_modeset(&new_crtc_state->base))
+		return false;
+
+	return old_is_yuv && new_is_yuv &&
+		old_limited_range != new_limited_range;
+}
+
 #define SIN_0 0
 #define COS_0 1
 
@@ -968,6 +1007,21 @@ static void vlv_update_gamma(const struct intel_plane_state *plane_state)
 			      gamma[i]);
 }
 
+static void vlv_update_plane_postvbl(struct intel_plane *plane,
+				     const struct intel_crtc_state *crtc_state,
+				     const struct intel_plane_state *plane_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	unsigned long irqflags;
+
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+
+	vlv_update_clrc(plane_state);
+	vlv_update_gamma(plane_state);
+
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+}
+
 static void
 vlv_update_plane(struct intel_plane *plane,
 		 const struct intel_crtc_state *crtc_state,
@@ -998,6 +1052,16 @@ vlv_update_plane(struct intel_plane *plane,
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
+	/*
+	 * If the new gamma/clrc register values don't conflict with
+	 * the old state let's let's update them before the double
+	 * buffered registers, thus guaranteeing no visual artifacts.
+	 */
+	if (!plane_state->need_postvbl_update) {
+		vlv_update_clrc(plane_state);
+		vlv_update_gamma(plane_state);
+	}
+
 	I915_WRITE_FW(SPSTRIDE(pipe, plane_id),
 		      plane_state->color_plane[0].stride);
 	I915_WRITE_FW(SPPOS(pipe, plane_id), (crtc_y << 16) | crtc_x);
@@ -1024,9 +1088,6 @@ vlv_update_plane(struct intel_plane *plane,
 	I915_WRITE_FW(SPCNTR(pipe, plane_id), sprctl);
 	I915_WRITE_FW(SPSURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + sprsurf_offset);
-
-	vlv_update_clrc(plane_state);
-	vlv_update_gamma(plane_state);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
@@ -1070,6 +1131,33 @@ vlv_plane_get_hw_state(struct intel_plane *plane,
 	intel_display_power_put(dev_priv, power_domain, wakeref);
 
 	return ret;
+}
+
+static bool ivb_sprite_needs_postvbl(const struct intel_crtc_state *new_crtc_state,
+				     const struct intel_plane_state *new_plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(new_plane_state->base.plane);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	struct intel_atomic_state *state =
+		to_intel_atomic_state(new_plane_state->base.state);
+	const struct intel_plane_state *old_plane_state =
+		intel_atomic_get_old_plane_state(state, plane);
+	bool old_visible = old_plane_state->base.visible;
+	bool new_visible = new_plane_state->base.visible;
+	bool old_is_fp16 = old_visible &&
+		old_plane_state->base.fb->format->cpp[0] == 8;
+	bool new_is_fp16 = new_visible &&
+		new_plane_state->base.fb->format->cpp[0] == 8;
+
+	if (IS_BROADWELL(dev_priv))
+		return false;
+
+	if (!new_crtc_state->base.active ||
+	    drm_atomic_crtc_needs_modeset(&new_crtc_state->base))
+		return false;
+
+	return old_visible && new_visible &&
+		old_is_fp16 != new_is_fp16;
 }
 
 static u32 ivb_sprite_ctl_crtc(const struct intel_crtc_state *crtc_state)
@@ -1185,6 +1273,20 @@ static void ivb_update_gamma(const struct intel_plane_state *plane_state)
 	i++;
 }
 
+static void ivb_update_plane_postvbl(struct intel_plane *plane,
+				     const struct intel_crtc_state *crtc_state,
+				     const struct intel_plane_state *plane_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	unsigned long irqflags;
+
+	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
+
+	ivb_update_gamma(plane_state);
+
+	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
+}
+
 static void
 ivb_update_plane(struct intel_plane *plane,
 		 const struct intel_crtc_state *crtc_state,
@@ -1221,6 +1323,14 @@ ivb_update_plane(struct intel_plane *plane,
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
+	/*
+	 * If the new gamma register values don't conflict with
+	 * the old state let's let's update them before the double
+	 * buffered registers, thus guaranteeing no visual artifacts.
+	 */
+	if (!plane_state->need_postvbl_update)
+		ivb_update_gamma(plane_state);
+
 	I915_WRITE_FW(SPRSTRIDE(pipe), plane_state->color_plane[0].stride);
 	I915_WRITE_FW(SPRPOS(pipe), (crtc_y << 16) | crtc_x);
 	I915_WRITE_FW(SPRSIZE(pipe), (crtc_h << 16) | crtc_w);
@@ -1250,8 +1360,6 @@ ivb_update_plane(struct intel_plane *plane,
 	I915_WRITE_FW(SPRCTL(pipe), sprctl);
 	I915_WRITE_FW(SPRSURF(pipe),
 		      intel_plane_ggtt_offset(plane_state) + sprsurf_offset);
-
-	ivb_update_gamma(plane_state);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
@@ -1474,6 +1582,11 @@ g4x_update_plane(struct intel_plane *plane,
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
+	if (IS_G4X(dev_priv))
+		g4x_update_gamma(plane_state);
+	else
+		ilk_update_gamma(plane_state);
+
 	I915_WRITE_FW(DVSSTRIDE(pipe), plane_state->color_plane[0].stride);
 	I915_WRITE_FW(DVSPOS(pipe), (crtc_y << 16) | crtc_x);
 	I915_WRITE_FW(DVSSIZE(pipe), (crtc_h << 16) | crtc_w);
@@ -1496,11 +1609,6 @@ g4x_update_plane(struct intel_plane *plane,
 	I915_WRITE_FW(DVSCNTR(pipe), dvscntr);
 	I915_WRITE_FW(DVSSURF(pipe),
 		      intel_plane_ggtt_offset(plane_state) + dvssurf_offset);
-
-	if (IS_G4X(dev_priv))
-		g4x_update_gamma(plane_state);
-	else
-		ilk_update_gamma(plane_state);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 }
@@ -1662,10 +1770,14 @@ g4x_sprite_check(struct intel_crtc_state *crtc_state,
 	if (ret)
 		return ret;
 
-	if (INTEL_GEN(dev_priv) >= 7)
+	if (INTEL_GEN(dev_priv) >= 7) {
 		plane_state->ctl = ivb_sprite_ctl(crtc_state, plane_state);
-	else
+
+		plane_state->need_postvbl_update =
+			ivb_sprite_needs_postvbl(crtc_state, plane_state);
+	} else {
 		plane_state->ctl = g4x_sprite_ctl(crtc_state, plane_state);
+	}
 
 	return 0;
 }
@@ -1717,6 +1829,9 @@ vlv_sprite_check(struct intel_crtc_state *crtc_state,
 		return ret;
 
 	plane_state->ctl = vlv_sprite_ctl(crtc_state, plane_state);
+
+	plane_state->need_postvbl_update =
+		vlv_sprite_needs_postvbl(crtc_state, plane_state);
 
 	return 0;
 }
@@ -2670,6 +2785,7 @@ intel_sprite_plane_create(struct drm_i915_private *dev_priv,
 	if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
 		plane->max_stride = i9xx_plane_max_stride;
 		plane->update_plane = vlv_update_plane;
+		plane->update_plane_postvbl = vlv_update_plane_postvbl;
 		plane->disable_plane = vlv_disable_plane;
 		plane->get_hw_state = vlv_plane_get_hw_state;
 		plane->check_plane = vlv_sprite_check;
@@ -2682,6 +2798,7 @@ intel_sprite_plane_create(struct drm_i915_private *dev_priv,
 	} else if (INTEL_GEN(dev_priv) >= 7) {
 		plane->max_stride = g4x_sprite_max_stride;
 		plane->update_plane = ivb_update_plane;
+		plane->update_plane_postvbl = ivb_update_plane_postvbl;
 		plane->disable_plane = ivb_disable_plane;
 		plane->get_hw_state = ivb_plane_get_hw_state;
 		plane->check_plane = g4x_sprite_check;

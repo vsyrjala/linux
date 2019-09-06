@@ -14078,6 +14078,53 @@ bool intel_crtc_need_lut_load(const struct intel_crtc_state *crtc_state)
 		 crtc_state->update_pipe);
 }
 
+static void intel_update_plane_postvbl(struct intel_plane *plane,
+				       const struct intel_crtc_state *new_crtc_state,
+				       const struct intel_plane_state *new_plane_state)
+{
+	if (new_plane_state->base.visible) {
+		plane->update_plane_postvbl(plane, new_crtc_state, new_plane_state);
+	} else if (new_plane_state->planar_slave) {
+		struct intel_atomic_state *state =
+			to_intel_atomic_state(new_plane_state->base.state);
+		struct intel_plane *master =
+			new_plane_state->planar_linked_plane;
+
+		/*
+		 * We update the slave plane from this function because
+		 * programming it from the master plane's update_plane
+		 * callback runs into issues when the Y plane is
+		 * reassigned, disabled or used by a different plane.
+		 *
+		 * The slave plane is updated with the master plane's
+		 * plane_state.
+		 */
+		new_plane_state =
+			intel_atomic_get_new_plane_state(state, master);
+
+		plane->update_plane_postvbl(plane, new_crtc_state, new_plane_state);
+	}
+}
+
+static bool intel_crtc_need_plane_postvbl_update(struct intel_atomic_state *state,
+						 const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	const struct intel_plane_state *plane_state;
+	struct intel_plane *plane;
+	int i;
+
+	for_each_new_intel_plane_in_state(state, plane, plane_state, i) {
+		if (crtc->pipe != plane->pipe ||
+		    !plane_state->need_postvbl_update ||
+		    (crtc_state->update_planes & BIT(plane->id)) == 0)
+			continue;
+		return true;
+	}
+
+	return false;
+}
+
 static void intel_crtc_do_vblank_work(struct intel_atomic_state *state,
 				      struct intel_crtc_state *new_crtc_state,
 				      u64 count)
@@ -14086,6 +14133,19 @@ static void intel_crtc_do_vblank_work(struct intel_atomic_state *state,
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_crtc_state *old_crtc_state =
 		intel_atomic_get_old_crtc_state(state, crtc);
+	const struct intel_plane_state *new_plane_state;
+	struct intel_plane *plane;
+	int i;
+
+	for_each_new_intel_plane_in_state(state, plane, new_plane_state, i) {
+		if (crtc->pipe != plane->pipe ||
+		    !new_plane_state->need_postvbl_update ||
+		    (new_crtc_state->update_planes & BIT(plane->id)) == 0)
+			continue;
+
+		intel_update_plane_postvbl(plane, new_crtc_state,
+					   new_plane_state);
+	}
 
 	if (new_crtc_state->base.active &&
 	    intel_crtc_need_lut_load(new_crtc_state))
@@ -14144,7 +14204,8 @@ static void intel_update_crtc(struct intel_crtc *crtc,
 	 * regiser update can get delayed until we're already
 	 * in the active portion of the new frame.
 	 */
-	if (intel_crtc_need_lut_load(new_crtc_state))
+	if (intel_crtc_need_lut_load(new_crtc_state) ||
+	    intel_crtc_need_plane_postvbl_update(state, new_crtc_state))
 		pm_qos_update_request(&crtc->pm_qos, 0);
 
 	/* Perform vblank evasion around commit operation */
