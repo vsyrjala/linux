@@ -782,8 +782,11 @@ vlv_update_clrc(const struct intel_plane_state *plane_state)
 	enum plane_id plane_id = plane->id;
 	int contrast, brightness, sh_scale, sh_sin, sh_cos;
 
-	if (fb->format->is_yuv &&
-	    plane_state->base.color_range == DRM_COLOR_YCBCR_LIMITED_RANGE) {
+	/* Seems RGB data bypasses the CLRC always */
+	if (!fb->format->is_yuv)
+		return;
+
+	if (plane_state->base.color_range == DRM_COLOR_YCBCR_LIMITED_RANGE) {
 		/*
 		 * Expand limited range to full range:
 		 * Contrast is applied first and is used to expand Y range.
