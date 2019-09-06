@@ -44,6 +44,7 @@ struct drm_i915_private;
 struct drm_modeset_acquire_ctx;
 struct drm_plane;
 struct drm_plane_state;
+struct drm_vblank_work;
 struct i915_ggtt_view;
 struct intel_crtc;
 struct intel_crtc_state;
@@ -409,6 +410,14 @@ enum phy_fia {
 	     (__i)++) \
 		for_each_if(plane)
 
+#define for_each_old_intel_crtc_in_state(__state, crtc, old_crtc_state, __i) \
+	for ((__i) = 0; \
+	     (__i) < (__state)->base.dev->mode_config.num_crtc && \
+		     ((crtc) = to_intel_crtc((__state)->base.crtcs[__i].ptr), \
+		      (old_crtc_state) = to_intel_crtc_state((__state)->base.crtcs[__i].old_state), 1); \
+	     (__i)++) \
+		for_each_if(crtc)
+
 #define for_each_new_intel_crtc_in_state(__state, crtc, new_crtc_state, __i) \
 	for ((__i) = 0; \
 	     (__i) < (__state)->base.dev->mode_config.num_crtc && \
@@ -580,6 +589,8 @@ unsigned int i9xx_plane_max_stride(struct intel_plane *plane,
 				   u32 pixel_format, u64 modifier,
 				   unsigned int rotation);
 int bdw_get_pipemisc_bpp(struct intel_crtc *crtc);
+void intel_crtc_vblank_work(struct drm_vblank_work *work,
+			    u64 count);
 
 struct intel_display_error_state *
 intel_display_capture_error_state(struct drm_i915_private *dev_priv);

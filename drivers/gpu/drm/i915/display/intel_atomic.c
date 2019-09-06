@@ -204,6 +204,9 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 	crtc_state->fb_bits = 0;
 	crtc_state->update_planes = 0;
 	crtc_state->put_domains = 0;
+	crtc_state->state = NULL;
+	drm_vblank_work_init(&crtc_state->vblank_work,
+			     crtc, intel_crtc_vblank_work);
 
 	return &crtc_state->base;
 }

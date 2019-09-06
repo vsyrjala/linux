@@ -512,6 +512,8 @@ struct intel_atomic_state {
 	struct i915_sw_fence commit_ready;
 
 	struct llist_node freed;
+
+	atomic_t cleanup_count;
 };
 
 struct intel_plane_state {
@@ -998,6 +1000,8 @@ struct intel_crtc_state {
 	/* Bitmask to indicate slaves attached */
 	u8 sync_mode_slaves_mask;
 
+	struct drm_vblank_work vblank_work;
+	struct intel_atomic_state *state;
 	u64 put_domains;
 };
 
@@ -1044,6 +1048,8 @@ struct intel_crtc {
 
 	/* per pipe DSB related info */
 	struct intel_dsb dsb;
+
+	struct pm_qos_request pm_qos;
 };
 
 struct intel_plane {

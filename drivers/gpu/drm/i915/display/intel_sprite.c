@@ -59,6 +59,44 @@ int intel_usecs_to_scanlines(const struct drm_display_mode *adjusted_mode,
 			    1000 * adjusted_mode->crtc_htotal);
 }
 
+bool intel_crtc_need_lut_load(const struct intel_crtc_state *crtc_state);
+
+static bool intel_crtc_need_vblank_work(struct intel_atomic_state *state,
+					const struct intel_crtc_state *crtc_state)
+{
+	if (!crtc_state->base.active)
+		return false;
+
+	return intel_crtc_need_lut_load(crtc_state) ||
+		crtc_state->wm.need_postvbl_update;
+}
+
+static int intel_crtc_schedule_vblank_work(struct intel_atomic_state *state,
+					   struct intel_crtc_state *new_crtc_state,
+					   u64 vbl_count)
+{
+	int ret;
+
+	if (WARN_ON(!new_crtc_state->base.active))
+		return -EBUSY;
+
+	/*
+	 * drm_atomic_helper_swap_state() has already made
+	 * new_crtc_state->base.state NULL hence we need our own pointer.
+	 */
+	new_crtc_state->state = state;
+	atomic_inc(&state->cleanup_count);
+
+	ret = drm_vblank_work_schedule(&new_crtc_state->vblank_work,
+				       vbl_count, false);
+	if (ret) {
+		new_crtc_state->state = NULL;
+		atomic_dec(&state->cleanup_count);
+	}
+
+	return ret;
+}
+
 /* FIXME: We should instead only take spinlocks once for the entire update
  * instead of once per mmio. */
 #if IS_ENABLED(CONFIG_PROVE_LOCKING)
@@ -182,13 +220,15 @@ irq_disable:
 
 /**
  * intel_pipe_update_end() - end update of a set of display registers
+ * @state: the atomic state
  * @new_crtc_state: the new crtc state
  *
  * Mark the end of an update started with intel_pipe_update_start(). This
  * re-enables interrupts and verifies the update was actually completed
  * before a vblank.
  */
-void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state)
+int intel_pipe_update_end(struct intel_atomic_state *state,
+			  struct intel_crtc_state *new_crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->base.crtc);
 	enum pipe pipe = crtc->pipe;
@@ -196,6 +236,8 @@ void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state)
 	u32 end_vbl_count = intel_crtc_get_vblank_counter(crtc);
 	ktime_t end_vbl_time = ktime_get();
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	u64 vbl_count;
+	int ret;
 
 	trace_i915_pipe_update_end(crtc, end_vbl_count, scanline_end);
 
@@ -208,15 +250,24 @@ void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state)
 
 		spin_lock(&crtc->base.dev->event_lock);
 		drm_crtc_arm_vblank_event(&crtc->base, new_crtc_state->base.event);
+		vbl_count = new_crtc_state->base.event->sequence;
 		spin_unlock(&crtc->base.dev->event_lock);
 
 		new_crtc_state->base.event = NULL;
+	} else if (intel_crtc_need_vblank_work(state, new_crtc_state)) {
+		vbl_count = drm_crtc_accurate_vblank_count(&crtc->base) + 1;
 	}
+
+	if (intel_crtc_need_vblank_work(state, new_crtc_state))
+		ret = intel_crtc_schedule_vblank_work(state, new_crtc_state,
+						      vbl_count);
+	else
+		ret = 1;
 
 	local_irq_enable();
 
 	if (intel_vgpu_active(dev_priv))
-		return;
+		return ret;
 
 	if (crtc->debug.start_vbl_count &&
 	    crtc->debug.start_vbl_count != end_vbl_count) {
@@ -235,6 +286,7 @@ void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state)
 			 ktime_us_delta(end_vbl_time, crtc->debug.start_vbl_time),
 			 VBLANK_EVASION_TIME_US);
 #endif
+	return ret;
 }
 
 int intel_plane_check_stride(const struct intel_plane_state *plane_state)
