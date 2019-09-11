@@ -5489,6 +5489,26 @@ intel_dp_force(struct drm_connector *connector)
 	intel_display_power_put(dev_priv, aux_domain, wakeref);
 }
 
+static int add_hack_mode(struct drm_connector *connector)
+{
+	struct drm_display_mode *mode;
+	static const struct drm_display_mode t = {
+		DRM_MODE("5120x2880-30",
+			 DRM_MODE_TYPE_DRIVER |DRM_MODE_TYPE_PREFERRED,
+			 967000/2,
+			 5120, 5144, 5240, 5480, 0,
+			 2880, 2928, 2936, 2942, 0,
+			 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_NVSYNC),
+	};
+
+	mode = drm_mode_duplicate(connector->dev, &t);
+
+	if (mode)
+		drm_mode_probed_add(connector, mode);
+
+	return mode != NULL;
+}
+
 static int intel_dp_get_modes(struct drm_connector *connector)
 {
 	struct intel_connector *intel_connector = to_intel_connector(connector);
@@ -5496,7 +5516,8 @@ static int intel_dp_get_modes(struct drm_connector *connector)
 
 	edid = intel_connector->detect_edid;
 	if (edid) {
-		int ret = intel_connector_update_modes(connector, edid);
+		int ret = intel_connector_update_modes(connector, edid)
+			+ add_hack_mode(connector);
 		if (ret)
 			return ret;
 	}
