@@ -762,6 +762,7 @@ int drm_atomic_helper_check_plane_state(struct drm_plane_state *plane_state,
 					bool can_update_disabled)
 {
 	struct drm_plane *plane = plane_state->plane;
+	struct drm_crtc *crtc = crtc_state->crtc;
 	struct drm_framebuffer *fb = plane_state->fb;
 	struct drm_rect *src = &plane_state->src;
 	struct drm_rect *dst = &plane_state->dst;
@@ -786,7 +787,9 @@ int drm_atomic_helper_check_plane_state(struct drm_plane_state *plane_state,
 	}
 
 	if (!crtc_state->enable && !can_update_disabled) {
-		DRM_DEBUG_KMS("Cannot update plane of a disabled CRTC.\n");
+		DRM_DEBUG_KMS("Cannot update [PLANE:%d:%s] of disabled [CRTC:%d:%s].\n",
+			      plane->base.id, plane->name,
+			      crtc->base.id, crtc->name);
 		return -EINVAL;
 	}
 
@@ -832,7 +835,9 @@ int drm_atomic_helper_check_plane_state(struct drm_plane_state *plane_state,
 		return 0;
 
 	if (!can_position && !drm_rect_equals(dst, &clip)) {
-		DRM_DEBUG_KMS("Plane must cover entire CRTC\n");
+		DRM_DEBUG_KMS("[PLANE:%d:%s] must cover entire [CRTC:%d:%s]\n",
+			      plane->base.id, plane->name,
+			      crtc->base.id, crtc->name);
 		drm_rect_debug_print("dst: ", dst, false);
 		drm_rect_debug_print("clip: ", &clip, false);
 		return -EINVAL;
