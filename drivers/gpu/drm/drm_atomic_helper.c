@@ -761,6 +761,7 @@ int drm_atomic_helper_check_plane_state(struct drm_plane_state *plane_state,
 					bool can_position,
 					bool can_update_disabled)
 {
+	struct drm_plane *plane = plane_state->plane;
 	struct drm_framebuffer *fb = plane_state->fb;
 	struct drm_rect *src = &plane_state->src;
 	struct drm_rect *dst = &plane_state->dst;
@@ -793,12 +794,24 @@ int drm_atomic_helper_check_plane_state(struct drm_plane_state *plane_state,
 
 	/* Check scaling */
 	ret = drm_rect_calc_hscale(src, dst, min_scale, max_scale, &hscale);
-	ret |= drm_rect_calc_vscale(src, dst, min_scale, max_scale, &vscale);
 	if (ret) {
-		DRM_DEBUG_KMS("Invalid scaling of plane\n");
+		DRM_DEBUG_KMS("[PLANE:%d:%s] Invalid horizontal scaling factor: "
+			      DRM_FP_FMT " (limits: " DRM_FP_FMT " - " DRM_FP_FMT ")\n",
+			      plane->base.id, plane->name, DRM_FP_ARG(hscale),
+			      DRM_FP_ARG(min_scale), DRM_FP_ARG(max_scale));
 		drm_rect_debug_print("src: ", &plane_state->src, true);
 		drm_rect_debug_print("dst: ", &plane_state->dst, false);
-		return -ERANGE;
+		return ret;
+	}
+	ret = drm_rect_calc_vscale(src, dst, min_scale, max_scale, &vscale);
+	if (ret) {
+		DRM_DEBUG_KMS("[PLANE:%d:%s] Invalid vertical scaling factor: "
+			      DRM_FP_FMT " (limits: " DRM_FP_FMT " - " DRM_FP_FMT ")\n",
+			      plane->base.id, plane->name, DRM_FP_ARG(vscale),
+			      DRM_FP_ARG(min_scale), DRM_FP_ARG(max_scale));
+		drm_rect_debug_print("src: ", &plane_state->src, true);
+		drm_rect_debug_print("dst: ", &plane_state->dst, false);
+		return ret;
 	}
 
 	if (crtc_state->enable)

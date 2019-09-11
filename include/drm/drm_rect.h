@@ -53,21 +53,36 @@ struct drm_rect {
 #define DRM_RECT_ARG(r) drm_rect_width(r), drm_rect_height(r), (r)->x1, (r)->y1
 
 /**
- * DRM_RECT_FP_FMT - printf string for &struct drm_rect in 16.16 fixed point
+ * DRM_FP_FMT - printf string for 16.16 binary fixed point
+ *
+ * Format a 16.16 binary fixed point number as .6 decimal fixed point.
+ */
+#define DRM_FP_FMT "%d.%06u"
+/**
+ * DRM_FP_ARG - printf arguments for 16.16 binary fixed point
+ * @f: 16.16 binary fixed point number
+ *
+ * This is useful for e.g. printing plane scaling factors, which are in 16.16
+ * binary fixed point.
+ */
+#define DRM_FP_ARG(f) (f) >> 16, (((f) & 0xffff) * (1000000 >> (16 - 10))) >> 10
+
+/**
+ * DRM_RECT_FP_FMT - printf string for &struct drm_rect in 16.16 binary fixed point
+ *
+ * Format a 16.16 binary fixed point rectangle as .6 decimal fixed point.
  */
 #define DRM_RECT_FP_FMT "%d.%06ux%d.%06u%+d.%06u%+d.%06u"
 /**
- * DRM_RECT_FP_ARG - printf arguments for &struct drm_rect in 16.16 fixed point
+ * DRM_RECT_FP_ARG - printf arguments for &struct drm_rect in 16.16 binary fixed point
  * @r: rectangle struct
  *
  * This is useful for e.g. printing plane source rectangles, which are in 16.16
- * fixed point.
+ * binary fixed point.
  */
 #define DRM_RECT_FP_ARG(r) \
-		drm_rect_width(r) >> 16, ((drm_rect_width(r) & 0xffff) * 15625) >> 10, \
-		drm_rect_height(r) >> 16, ((drm_rect_height(r) & 0xffff) * 15625) >> 10, \
-		(r)->x1 >> 16, (((r)->x1 & 0xffff) * 15625) >> 10, \
-		(r)->y1 >> 16, (((r)->y1 & 0xffff) * 15625) >> 10
+	DRM_FP_ARG(drm_rect_width(r)), DRM_FP_ARG(drm_rect_height(r)), \
+	DRM_FP_ARG((r)->x1), DRM_FP_ARG((r)->y1)
 
 /**
  * drm_rect_adjust_size - adjust the size of the rectangle
