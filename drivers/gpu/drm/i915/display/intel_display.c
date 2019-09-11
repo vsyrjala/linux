@@ -3289,8 +3289,8 @@ static int skl_max_plane_width(const struct drm_framebuffer *fb,
 		 * - FP16 (already limited to 4k)
 		 * - render compression (already limited to 4k)
 		 * - KVMR sprite and cursor (don't care)
-		 * - horizontal panning (TODO verify this)
-		 * - pipe and plane scaling (TODO verify this)
+		 * - horizontal panning (seems to work fine actually)
+		 * - pipe and plane scaling (already limited to 4k)
 		 */
 		if (cpp == 8)
 			return 4096;
