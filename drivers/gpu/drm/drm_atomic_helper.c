@@ -766,7 +766,7 @@ int drm_atomic_helper_check_plane_state(struct drm_plane_state *plane_state,
 	struct drm_rect *dst = &plane_state->dst;
 	unsigned int rotation = plane_state->rotation;
 	struct drm_rect clip = {};
-	int hscale, vscale;
+	int hscale, vscale, ret;
 
 	WARN_ON(plane_state->crtc && plane_state->crtc != crtc_state->crtc);
 
@@ -792,9 +792,9 @@ int drm_atomic_helper_check_plane_state(struct drm_plane_state *plane_state,
 	drm_rect_rotate(src, fb->width << 16, fb->height << 16, rotation);
 
 	/* Check scaling */
-	hscale = drm_rect_calc_hscale(src, dst, min_scale, max_scale);
-	vscale = drm_rect_calc_vscale(src, dst, min_scale, max_scale);
-	if (hscale < 0 || vscale < 0) {
+	ret = drm_rect_calc_hscale(src, dst, min_scale, max_scale, &hscale);
+	ret |= drm_rect_calc_vscale(src, dst, min_scale, max_scale, &vscale);
+	if (ret) {
 		DRM_DEBUG_KMS("Invalid scaling of plane\n");
 		drm_rect_debug_print("src: ", &plane_state->src, true);
 		drm_rect_debug_print("dst: ", &plane_state->dst, false);

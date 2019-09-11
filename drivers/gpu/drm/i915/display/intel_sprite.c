@@ -361,12 +361,12 @@ skl_program_scaler(struct intel_plane *plane,
 	u16 y_vphase, uv_rgb_vphase;
 	int hscale, vscale;
 
-	hscale = drm_rect_calc_hscale(&plane_state->base.src,
-				      &plane_state->base.dst,
-				      0, INT_MAX);
-	vscale = drm_rect_calc_vscale(&plane_state->base.src,
-				      &plane_state->base.dst,
-				      0, INT_MAX);
+	drm_rect_calc_hscale(&plane_state->base.src,
+			     &plane_state->base.dst,
+			     0, INT_MAX, &hscale);
+	drm_rect_calc_vscale(&plane_state->base.src,
+			     &plane_state->base.dst,
+			     0, INT_MAX, &vscale);
 
 	/* TODO: handle sub-pixel coordinates */
 	if (drm_format_info_is_yuv_semiplanar(fb->format) &&

@@ -658,7 +658,7 @@ int dpu_plane_validate_multirect_v2(struct dpu_multirect_plane_states *plane)
 	}
 
 	for (i = 0; i < R_MAX; i++) {
-		int width_threshold;
+		int width_threshold, ret, hscale, vscale;
 
 		pstate[i] = to_dpu_plane_state(drm_state[i]);
 		dpu_plane[i] = to_dpu_plane(drm_state[i]->plane);
@@ -676,8 +676,10 @@ int dpu_plane_validate_multirect_v2(struct dpu_multirect_plane_states *plane)
 
 		dst[i] = drm_plane_state_dest(drm_state[i]);
 
-		if (drm_rect_calc_hscale(&src[i], &dst[i], 1, 1) != 1 ||
-		    drm_rect_calc_vscale(&src[i], &dst[i], 1, 1) != 1) {
+		ret = drm_rect_calc_hscale(&src[i], &dst[i], 1, 1, &hscale);
+		ret |= drm_rect_calc_vscale(&src[i], &dst[i], 1, 1, &vscale);
+
+		if (ret || hscale != 1 || vscale != 1) {
 			DPU_ERROR_PLANE(dpu_plane[i],
 				"scaling is not supported in multirect mode\n");
 			return -EINVAL;

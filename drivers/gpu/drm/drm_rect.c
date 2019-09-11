@@ -145,6 +145,7 @@ static int drm_calc_scale(int src, int dst)
  * @dst: destination window rectangle
  * @min_hscale: minimum allowed horizontal scaling factor
  * @max_hscale: maximum allowed horizontal scaling factor
+ * @hscale: calculated horizontal scaling factor
  *
  * Calculate the horizontal scaling factor as
  * (@src width) / (@dst width).
@@ -154,23 +155,25 @@ static int drm_calc_scale(int src, int dst)
  * pessimistic limit calculation.
  *
  * RETURNS:
- * The horizontal scaling factor, or errno of out of limits.
+ * Zero on success, or errno on out of limits.
  */
 int drm_rect_calc_hscale(const struct drm_rect *src,
 			 const struct drm_rect *dst,
-			 int min_hscale, int max_hscale)
+			 int min_hscale, int max_hscale,
+			 int *hscale)
 {
 	int src_w = drm_rect_width(src);
 	int dst_w = drm_rect_width(dst);
-	int hscale = drm_calc_scale(src_w, dst_w);
 
-	if (hscale < 0 || dst_w == 0)
-		return hscale;
+	*hscale = drm_calc_scale(src_w, dst_w);
 
-	if (hscale < min_hscale || hscale > max_hscale)
+	if (*hscale < 0 || dst_w == 0)
+		return *hscale;
+
+	if (*hscale < min_hscale || *hscale > max_hscale)
 		return -ERANGE;
 
-	return hscale;
+	return 0;
 }
 EXPORT_SYMBOL(drm_rect_calc_hscale);
 
@@ -180,6 +183,7 @@ EXPORT_SYMBOL(drm_rect_calc_hscale);
  * @dst: destination window rectangle
  * @min_vscale: minimum allowed vertical scaling factor
  * @max_vscale: maximum allowed vertical scaling factor
+ * @hscale: calculated vertical scaling factor
  *
  * Calculate the vertical scaling factor as
  * (@src height) / (@dst height).
@@ -189,23 +193,25 @@ EXPORT_SYMBOL(drm_rect_calc_hscale);
  * pessimistic limit calculation.
  *
  * RETURNS:
- * The vertical scaling factor, or errno of out of limits.
+ * Zero on success, or errno on out of limits.
  */
 int drm_rect_calc_vscale(const struct drm_rect *src,
 			 const struct drm_rect *dst,
-			 int min_vscale, int max_vscale)
+			 int min_vscale, int max_vscale,
+			 int *vscale)
 {
 	int src_h = drm_rect_height(src);
 	int dst_h = drm_rect_height(dst);
-	int vscale = drm_calc_scale(src_h, dst_h);
 
-	if (vscale < 0 || dst_h == 0)
-		return vscale;
+	*vscale = drm_calc_scale(src_h, dst_h);
 
-	if (vscale < min_vscale || vscale > max_vscale)
+	if (*vscale < 0 || dst_h == 0)
+		return *vscale;
+
+	if (*vscale < min_vscale || *vscale > max_vscale)
 		return -ERANGE;
 
-	return vscale;
+	return 0;
 }
 EXPORT_SYMBOL(drm_rect_calc_vscale);
 
