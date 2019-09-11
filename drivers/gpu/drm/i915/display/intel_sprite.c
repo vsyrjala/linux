@@ -415,12 +415,12 @@ skl_program_scaler(struct intel_plane *plane,
 	u16 y_vphase, uv_rgb_vphase;
 	int hscale, vscale;
 
-	hscale = drm_rect_calc_hscale(&plane_state->uapi.src,
-				      &plane_state->uapi.dst,
-				      0, INT_MAX);
-	vscale = drm_rect_calc_vscale(&plane_state->uapi.src,
-				      &plane_state->uapi.dst,
-				      0, INT_MAX);
+	drm_rect_calc_hscale(&plane_state->uapi.src,
+			     &plane_state->uapi.dst,
+			     0, INT_MAX, &hscale);
+	drm_rect_calc_vscale(&plane_state->uapi.src,
+			     &plane_state->uapi.dst,
+			     0, INT_MAX, &vscale);
 
 	/* TODO: handle sub-pixel coordinates */
 	if (intel_format_info_is_yuv_semiplanar(fb->format, fb->modifier) &&
@@ -1608,9 +1608,9 @@ static int g4x_sprite_min_cdclk(const struct intel_crtc_state *crtc_state,
 	pixel_rate = crtc_state->pixel_rate;
 
 	/* Horizontal downscaling limits the maximum pixel rate */
-	hscale = drm_rect_calc_hscale(&plane_state->uapi.src,
-				      &plane_state->uapi.dst,
-				      0, INT_MAX);
+	drm_rect_calc_hscale(&plane_state->uapi.src,
+			     &plane_state->uapi.dst,
+			     0, INT_MAX, &hscale);
 	if (hscale < 0x10000)
 		return pixel_rate;
 

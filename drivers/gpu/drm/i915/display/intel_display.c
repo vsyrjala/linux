@@ -6251,8 +6251,8 @@ static void skl_pfit_enable(const struct intel_crtc_state *crtc_state)
 	if (WARN_ON(crtc_state->scaler_state.scaler_id < 0))
 		return;
 
-	hscale = drm_rect_calc_hscale(&src, dst, 0, INT_MAX);
-	vscale = drm_rect_calc_vscale(&src, dst, 0, INT_MAX);
+	drm_rect_calc_hscale(&src, dst, 0, INT_MAX, &hscale);
+	drm_rect_calc_vscale(&src, dst, 0, INT_MAX, &vscale);
 
 	uv_rgb_hphase = skl_scaler_calc_phase(1, hscale, false);
 	uv_rgb_vphase = skl_scaler_calc_phase(1, vscale, false);
