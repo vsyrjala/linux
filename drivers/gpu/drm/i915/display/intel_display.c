@@ -5991,20 +5991,66 @@ u16 skl_scaler_calc_phase(int sub, int scale, bool chroma_cosited)
 	return ((phase >> 2) & PS_PHASE_MASK) | trip;
 }
 
-#define SKL_MIN_SRC_W 8
-#define SKL_MAX_SRC_W 4096
-#define SKL_MIN_SRC_H 8
-#define SKL_MAX_SRC_H 4096
-#define SKL_MIN_DST_W 8
-#define SKL_MAX_DST_W 4096
-#define SKL_MIN_DST_H 8
-#define SKL_MAX_DST_H 4096
-#define ICL_MAX_SRC_W 5120
-#define ICL_MAX_SRC_H 4096
-#define ICL_MAX_DST_W 5120
-#define ICL_MAX_DST_H 4096
-#define SKL_MIN_YUV_420_SRC_W 16
-#define SKL_MIN_YUV_420_SRC_H 16
+static void skl_scaler_max_src_size(struct intel_crtc *crtc,
+				    int *max_w, int *max_h)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+
+	if (INTEL_GEN(dev_priv) >= 11) {
+		*max_w = 5120;
+		*max_h = 4320;
+	} else if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv)) {
+		*max_w = crtc->pipe == PIPE_A ? 5120 : 4096;
+		*max_h = 4096;
+	} else {
+		*max_w = 4096;
+		*max_h = 4096;
+	}
+}
+
+static void skl_scaler_min_src_size(const struct drm_format_info *format,
+				    u64 modifier, int *min_w, int *min_h)
+{
+	if (format && intel_format_info_is_yuv_semiplanar(format, modifier)) {
+		*min_w = 16;
+		*min_h = 16;
+	} else {
+		*min_w = 8;
+		*min_h = 8;
+	}
+}
+
+static int skl_scaler_check_src_size(struct intel_crtc *crtc,
+				     unsigned int scaler_user,
+				     int src_w, int src_h,
+				     const struct drm_format_info *format,
+				     u64 modifier)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	int min_w, min_h, max_w, max_h;
+
+	skl_scaler_min_src_size(format, modifier, &min_w, &min_h);
+
+	if (src_w < min_w || src_h > min_h) {
+		drm_dbg_kms(&dev_priv->drm,
+			    "[CRTC:%d:%s] scaler_user %u: scaler source size (%dx%d) below min (%dx%d)\n",
+			    crtc->base.base.id, crtc->base.name,
+			    scaler_user, src_w, src_h, min_w, min_h);
+		return -EINVAL;
+	}
+
+	skl_scaler_max_src_size(crtc, &max_w, &max_h);
+
+	if (src_w > max_w || src_h > max_h) {
+		drm_dbg_kms(&dev_priv->drm,
+			    "[CRTC:%d:%s] scaler_user %u: scaler source size (%dx%d) above max (%dx%d)\n",
+			    crtc->base.base.id, crtc->base.name,
+			    scaler_user, src_w, src_h, max_w, max_h);
+		return -EINVAL;
+	}
+
+	return 0;
+}
 
 static int
 skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
@@ -6020,6 +6066,7 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 	struct drm_i915_private *dev_priv = to_i915(intel_crtc->base.dev);
 	const struct drm_display_mode *adjusted_mode =
 		&crtc_state->hw.adjusted_mode;
+	int ret;
 
 	/*
 	 * Src coordinates are already rotated by 270 degrees for
@@ -6067,31 +6114,12 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 		return 0;
 	}
 
-	if (format && intel_format_info_is_yuv_semiplanar(format, modifier) &&
-	    (src_h < SKL_MIN_YUV_420_SRC_H || src_w < SKL_MIN_YUV_420_SRC_W)) {
-		drm_dbg_kms(&dev_priv->drm,
-			    "Planar YUV: src dimensions not met\n");
-		return -EINVAL;
-	}
+	ret = skl_scaler_check_src_size(intel_crtc, scaler_user,
+					src_w, src_h, format, modifier);
+	if (ret)
+		return ret;
 
-	/* range checks */
-	if (src_w < SKL_MIN_SRC_W || src_h < SKL_MIN_SRC_H ||
-	    dst_w < SKL_MIN_DST_W || dst_h < SKL_MIN_DST_H ||
-	    (INTEL_GEN(dev_priv) >= 11 &&
-	     (src_w > ICL_MAX_SRC_W || src_h > ICL_MAX_SRC_H ||
-	      dst_w > ICL_MAX_DST_W || dst_h > ICL_MAX_DST_H)) ||
-	    (INTEL_GEN(dev_priv) < 11 &&
-	     (src_w > SKL_MAX_SRC_W || src_h > SKL_MAX_SRC_H ||
-	      dst_w > SKL_MAX_DST_W || dst_h > SKL_MAX_DST_H)))	{
-		drm_dbg_kms(&dev_priv->drm,
-			    "scaler_user index %u.%u: src %ux%u dst %ux%u "
-			    "size is out of scaler range\n",
-			    intel_crtc->pipe, scaler_user, src_w, src_h,
-			    dst_w, dst_h);
-		return -EINVAL;
-	}
-
-	/* mark this plane as a scaler user in crtc_state */
+	/* mark this pipe/plane as a scaler user in crtc_state */
 	scaler_state->scaler_users |= (1 << scaler_user);
 	drm_dbg_kms(&dev_priv->drm, "scaler_user index %u.%u: "
 		    "staged scaling request for %ux%u->%ux%u scaler_users = 0x%x\n",
