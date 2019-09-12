@@ -5492,14 +5492,26 @@ intel_dp_force(struct drm_connector *connector)
 static int add_hack_mode(struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
+#if 0
 	static const struct drm_display_mode t = {
 		DRM_MODE("5120x2880-30",
 			 DRM_MODE_TYPE_DRIVER |DRM_MODE_TYPE_PREFERRED,
-			 967000/2,
+			 967000*24/60,
 			 5120, 5144, 5240, 5480, 0,
 			 2880, 2928, 2936, 2942, 0,
 			 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_NVSYNC),
 	};
+#else
+#define XX (5120-4096-1)
+	static const struct drm_display_mode t = {
+		DRM_MODE("4096x2880-30",
+			 DRM_MODE_TYPE_DRIVER |DRM_MODE_TYPE_PREFERRED,
+			 967000*24/60,
+			 5120-XX, 5144-XX, 5240-XX, 5480-XX, 0,
+			 2880, 2928, 2936, 2942, 0,
+			 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_NVSYNC),
+	};
+#endif
 
 	mode = drm_mode_duplicate(connector->dev, &t);
 
