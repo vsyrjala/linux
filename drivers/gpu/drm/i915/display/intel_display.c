@@ -3936,15 +3936,15 @@ static void skl_detach_scaler(struct intel_crtc *intel_crtc, int id)
  */
 static void skl_detach_scalers(const struct intel_crtc_state *crtc_state)
 {
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	const struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
 	int i;
 
 	/* loop through and disable scalers that aren't in use */
-	for (i = 0; i < intel_crtc->num_scalers; i++) {
+	for (i = 0; i < crtc->num_scalers; i++) {
 		if (!scaler_state->scalers[i].in_use)
-			skl_detach_scaler(intel_crtc, i);
+			skl_detach_scaler(crtc, i);
 	}
 }
 
