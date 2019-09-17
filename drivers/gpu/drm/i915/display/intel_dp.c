@@ -2205,6 +2205,31 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	if (intel_dp_is_edp(intel_dp) && intel_connector->panel.fixed_mode)
 		intel_fixed_panel_mode(intel_connector->panel.fixed_mode,
 				       adjusted_mode);
+	else if (0) {
+#if 1
+		static const struct drm_display_mode t = {
+			DRM_MODE("5120x2880-30",
+				 DRM_MODE_TYPE_DRIVER |DRM_MODE_TYPE_PREFERRED,
+				 967000*24/60,
+				 5120, 5144, 5240, 5480, 0,
+				 2880, 2928, 2936, 2942, 0,
+				 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_NVSYNC),
+		};
+#else
+#define XXa (5120-4096-8)
+	static const struct drm_display_mode t = {
+		DRM_MODE("4096x2880-30",
+			 DRM_MODE_TYPE_DRIVER |DRM_MODE_TYPE_PREFERRED,
+			 967000*24/60,
+			 5120-XXa, 5144-XXa, 5240-XXa, 5480-XXa, 0,
+			 2880, 2928, 2936, 2942, 0,
+			 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_NVSYNC),
+	};
+#endif
+
+		drm_mode_copy(adjusted_mode, &t);
+		drm_mode_set_crtcinfo(adjusted_mode, 0);
+	}
 
 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return -EINVAL;
@@ -5502,7 +5527,7 @@ static int add_hack_mode(struct drm_connector *connector)
 			 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_NVSYNC),
 	};
 #else
-#define XX (5120-4096-1)
+#define XX (5120-4096)
 	static const struct drm_display_mode t = {
 		DRM_MODE("4096x2880-30",
 			 DRM_MODE_TYPE_DRIVER |DRM_MODE_TYPE_PREFERRED,
@@ -5512,6 +5537,7 @@ static int add_hack_mode(struct drm_connector *connector)
 			 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_NVSYNC),
 	};
 #endif
+	//return 0; //
 
 	mode = drm_mode_duplicate(connector->dev, &t);
 
