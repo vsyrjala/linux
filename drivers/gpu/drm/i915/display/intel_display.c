@@ -4428,10 +4428,7 @@ static void intel_update_pipe_config(const struct intel_crtc_state *old_crtc_sta
 		   ((new_crtc_state->pipe_src_w - 1) << 16) |
 		   (new_crtc_state->pipe_src_h - 1));
 
-	/* on skylake this is done by detaching scalers */
 	if (INTEL_GEN(dev_priv) >= 9) {
-		skl_detach_scalers(new_crtc_state);
-
 		if (new_crtc_state->pch_pfit.enabled)
 			skylake_pfit_enable(new_crtc_state);
 	} else if (HAS_PCH_SPLIT(dev_priv)) {
@@ -14674,10 +14671,11 @@ static void intel_begin_crtc_commit(struct intel_atomic_state *state,
 	    new_crtc_state->update_pipe)
 		intel_color_commit(new_crtc_state);
 
+	if (INTEL_GEN(dev_priv) >= 9)
+		skl_detach_scalers(new_crtc_state);
+
 	if (new_crtc_state->update_pipe)
 		intel_update_pipe_config(old_crtc_state, new_crtc_state);
-	else if (INTEL_GEN(dev_priv) >= 9)
-		skl_detach_scalers(new_crtc_state);
 
 	if (INTEL_GEN(dev_priv) >= 9 || IS_BROADWELL(dev_priv))
 		bdw_set_pipemisc(new_crtc_state);
