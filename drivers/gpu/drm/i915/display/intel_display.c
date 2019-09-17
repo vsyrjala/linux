@@ -5401,6 +5401,71 @@ u16 skl_scaler_calc_phase(int sub, int scale, bool chroma_cosited)
 	return ((phase >> 2) & PS_PHASE_MASK) | trip;
 }
 
+static int skl_scaler_max_scale(const struct intel_crtc_state *crtc_state,
+				int src_w, const struct drm_format_info *format)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
+
+	/* pipe scaler YUV 4:2:0 output */
+	if (!format &&
+	    crtc_state->output_format == INTEL_OUTPUT_FORMAT_YCBCR420)
+		return 0x18000 - 1; /* < 1.5 */
+
+	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
+		return 0x30000 - 1; /* < 3.0 */
+
+	/* plane scaler YUV 4:2:0 input */
+	if (format && drm_format_info_is_yuv_semiplanar(format))
+		return 0x20000 - 1; /* < 2.0 */
+
+	if (!skl_can_use_hq_scaler(crtc_state) && src_w > 2048)
+		return 0x20000 - 1; /* < 2.0 */
+
+	return 0x30000 - 1; /* < 3.0 */
+}
+
+static int skl_scaler_check_scaling(const struct intel_crtc_state *crtc_state,
+				    unsigned int scaler_user,
+				    int src_w, int src_h,
+				    int dst_w, int dst_h,
+				    const struct drm_format_info *format)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct drm_rect src = {
+		.x2 = src_w << 16,
+		.y2 = src_h << 16,
+	};
+	struct drm_rect dst = {
+		.x2 = dst_w,
+		.y2 = dst_h,
+	};
+	int ret, hscale, vscale, max_scale;
+
+	max_scale = skl_scaler_max_scale(crtc_state, src_w, format);
+
+	ret = drm_rect_calc_hscale(&src, &dst, 0, max_scale, &hscale);
+	if (ret) {
+		DRM_DEBUG_KMS("[CRTC:%d:%s] scaler_user %u: horizontal downscaling (" DRM_RECT_FP_FMT
+			      " -> " DRM_RECT_FMT ") (" DRM_FP_FMT ") exceeds max (" DRM_FP_FMT ")\n",
+			      crtc->base.base.id, crtc->base.name, scaler_user,
+			      DRM_RECT_FP_ARG(&src), DRM_RECT_ARG(&dst),
+			      DRM_FP_ARG(hscale), DRM_FP_ARG(max_scale));
+		return ret;
+	}
+
+	ret = drm_rect_calc_vscale(&src, &dst, 0, max_scale, &vscale);
+	if (ret) {
+		DRM_DEBUG_KMS("[CRTC:%d:%s] scaler_user %u: vertical downscaling (" DRM_RECT_FP_FMT
+			      " -> " DRM_RECT_FMT ") (" DRM_FP_FMT ") exceeds max (" DRM_FP_FMT ")\n",
+			      crtc->base.base.id, crtc->base.name, scaler_user,
+			      DRM_RECT_FP_ARG(&src), DRM_RECT_ARG(&dst),
+			      DRM_FP_ARG(vscale), DRM_FP_ARG(max_scale));
+		return ret;
+	}
+
+	return 0;
+}
+
 static void skl_scaler_max_src_size(struct intel_crtc *crtc,
 				    int *max_w, int *max_h)
 {
@@ -5549,6 +5614,11 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 		return ret;
 
 	ret = skl_scaler_check_pipe_src_size(crtc_state, scaler_user);
+	if (ret)
+		return ret;
+
+	ret = skl_scaler_check_scaling(crtc_state, scaler_user,
+				       src_w, src_h, dst_w, dst_h, format);
 	if (ret)
 		return ret;
 
