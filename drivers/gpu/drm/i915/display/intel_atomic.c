@@ -328,6 +328,50 @@ static void skl_update_hq_scaler(struct intel_crtc_scaler_state *scaler_state,
 	scaler_state->scalers[*scaler_id].in_use = true;
 }
 
+static u32 skl_crtc_scaler_mode(const struct intel_crtc_state *crtc_state)
+{
+	if (skl_can_use_hq_scaler(crtc_state))
+		return SKL_PS_SCALER_MODE_HQ;
+	else
+		return SKL_PS_SCALER_MODE_DYN;
+}
+
+static u32 skl_plane_scaler_mode(const struct intel_crtc_state *crtc_state,
+				 const struct intel_plane_state *plane_state)
+{
+	const struct drm_framebuffer *fb = plane_state->hw.fb;
+
+	if (drm_format_info_is_yuv_semiplanar(fb->format))
+		return SKL_PS_SCALER_MODE_NV12;
+	else
+		return skl_crtc_scaler_mode(crtc_state);
+}
+
+static u32 glk_crtc_scaler_mode(void)
+{
+	return PS_SCALER_MODE_NORMAL;
+}
+
+static u32 glk_plane_scaler_mode(const struct intel_plane_state *plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	const struct drm_framebuffer *fb = plane_state->hw.fb;
+	struct intel_plane *linked = plane_state->planar_linked_plane;
+
+	/*
+	 * On icl+ HDR planes we only use the scaler for
+	 * scaling. They have a dedicated chroma upsampler, so
+	 * we don't need the scaler to upsample the UV plane.
+	 */
+	if (drm_format_info_is_yuv_semiplanar(fb->format) &&
+	    !icl_is_hdr_plane(dev_priv, plane->id))
+		return PS_SCALER_MODE_PLANAR |
+			(linked ? PS_PLANE_Y_SEL(linked->id) : 0);
+	else
+		return PS_SCALER_MODE_NORMAL;
+}
+
 static enum scaler intel_allocate_scaler(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -347,61 +391,66 @@ static enum scaler intel_allocate_scaler(struct intel_crtc_state *crtc_state)
 	return INVALID_SCALER;
 }
 
-static void intel_atomic_setup_scaler(struct intel_crtc_state *crtc_state,
-				      int num_scalers_need,
-				      const char *name, int idx,
-				      struct intel_plane_state *plane_state,
-				      enum scaler *scaler_id)
+static void intel_crtc_setup_scaler(struct intel_crtc_state *crtc_state)
 {
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc_state->uapi.crtc);
-	struct drm_i915_private *dev_priv = to_i915(intel_crtc->base.dev);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
+	enum scaler *scaler_id = &crtc_state->pch_pfit.scaler_id;
 	u32 mode;
 
 	if (*scaler_id == INVALID_SCALER)
 		*scaler_id = intel_allocate_scaler(crtc_state);
 
-	if (drm_WARN(&dev_priv->drm, *scaler_id == INVALID_SCALER,
-		     "Cannot find scaler for %s:%d\n", name, idx))
+	if (drm_WARN_ON(&dev_priv->drm, *scaler_id == INVALID_SCALER))
 		return;
 
-	/* set scaler mode */
-	if (plane_state && plane_state->hw.fb &&
-	    plane_state->hw.fb->format->is_yuv &&
-	    plane_state->hw.fb->format->num_planes > 1) {
-		struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
-		if (IS_GEN(dev_priv, 9) &&
-		    !IS_GEMINILAKE(dev_priv)) {
-			mode = SKL_PS_SCALER_MODE_NV12;
-		} else if (icl_is_hdr_plane(dev_priv, plane->id)) {
-			/*
-			 * On gen11+'s HDR planes we only use the scaler for
-			 * scaling. They have a dedicated chroma upsampler, so
-			 * we don't need the scaler to upsample the UV plane.
-			 */
-			mode = PS_SCALER_MODE_NORMAL;
-		} else {
-			struct intel_plane *linked =
-				plane_state->planar_linked_plane;
+	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
+		mode = glk_crtc_scaler_mode();
+	else
+		mode = skl_crtc_scaler_mode(crtc_state);
 
-			mode = PS_SCALER_MODE_PLANAR;
-
-			if (linked)
-				mode |= PS_PLANE_Y_SEL(linked->id);
-		}
-	} else if (INTEL_GEN(dev_priv) > 9 || IS_GEMINILAKE(dev_priv)) {
-		mode = PS_SCALER_MODE_NORMAL;
-	} else if (num_scalers_need == 1 && intel_crtc->num_scalers > 1) {
+	if (mode == SKL_PS_SCALER_MODE_HQ)
 		skl_update_hq_scaler(scaler_state, scaler_id);
-		mode = SKL_PS_SCALER_MODE_HQ;
-	} else {
-		mode = SKL_PS_SCALER_MODE_DYN;
-	}
 
-	drm_dbg_kms(&dev_priv->drm, "Attached scaler id %u.%u to %s:%d\n",
-		    intel_crtc->pipe, *scaler_id, name, idx);
 	scaler_state->scalers[*scaler_id].mode = mode;
+
+	DRM_DEBUG_KMS("[CRTC:%d:%s] Attached scaler %u to pipe\n",
+		      crtc->base.base.id, crtc->base.name, *scaler_id);
+}
+
+static void intel_plane_setup_scaler(struct intel_crtc_state *crtc_state,
+				     struct intel_plane_state *plane_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_scaler_state *scaler_state =
+		&crtc_state->scaler_state;
+	enum scaler *scaler_id = &plane_state->scaler_id;
+	u32 mode;
+
+	if (*scaler_id == INVALID_SCALER)
+		*scaler_id = intel_allocate_scaler(crtc_state);
+
+	if (WARN_ON(*scaler_id == INVALID_SCALER))
+		return;
+
+	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
+		mode = glk_plane_scaler_mode(plane_state);
+	else
+		mode = skl_plane_scaler_mode(crtc_state, plane_state);
+
+	if (mode == SKL_PS_SCALER_MODE_HQ)
+		skl_update_hq_scaler(scaler_state, scaler_id);
+
+	scaler_state->scalers[*scaler_id].mode = mode;
+
+	drm_dbg_kms(&dev_priv->drm,
+		    "[CRTC:%d:%s] Attached scaler %u to [PLANE:%d:%s]\n",
+		    crtc->base.base.id, crtc->base.name, *scaler_id,
+		    plane->base.base.id, plane->base.name);
 }
 
 /**
@@ -459,23 +508,13 @@ int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
 
 	/* walkthrough scaler_users bits and start assigning scalers */
 	for (i = 0; i < sizeof(scaler_state->scaler_users) * 8; i++) {
-		int *scaler_id;
-		const char *name;
-		int idx;
-
 		/* skip if scaler not required */
 		if (!(scaler_state->scaler_users & (1 << i)))
 			continue;
 
 		if (i == SKL_CRTC_INDEX) {
-			name = "CRTC";
-			idx = intel_crtc->base.base.id;
-
-			/* panel fitter case: assign as a crtc scaler */
-			scaler_id = &crtc_state->pch_pfit.scaler_id;
+			intel_crtc_setup_scaler(crtc_state);
 		} else {
-			name = "PLANE";
-
 			/* plane scaler case: assign as a plane scaler */
 			/* find the plane that set the bit as scaler_user */
 			plane = drm_state->planes[i].ptr;
@@ -506,7 +545,6 @@ int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
 			}
 
 			intel_plane = to_intel_plane(plane);
-			idx = plane->base.id;
 
 			/* plane on different crtc cannot be a scaler user of this crtc */
 			if (drm_WARN_ON(&dev_priv->drm,
@@ -515,11 +553,9 @@ int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
 
 			plane_state = intel_atomic_get_new_plane_state(intel_state,
 								       intel_plane);
-			scaler_id = &plane_state->scaler_id;
-		}
 
-		intel_atomic_setup_scaler(crtc_state, num_scalers_need,
-					  name, idx, plane_state, scaler_id);
+			intel_plane_setup_scaler(crtc_state, plane_state);
+		}
 	}
 
 	return 0;
