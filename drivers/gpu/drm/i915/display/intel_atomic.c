@@ -301,6 +301,24 @@ intel_crtc_destroy_state(struct drm_crtc *crtc,
 	kfree(crtc_state);
 }
 
+bool skl_can_use_hq_scaler(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	const struct intel_crtc_scaler_state *scaler_state =
+		&crtc_state->scaler_state;
+
+	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
+		return false;
+
+	/*
+	 * When only scaler 1 is in use on a pipe with two
+	 * scalers it can operate in high quality (HQ) mode.
+	 */
+	return crtc->num_scalers > 1 && !crtc_state->nv12_planes &&
+		is_power_of_2(scaler_state->scaler_users);
+}
+
 static void intel_atomic_setup_scaler(struct intel_crtc_scaler_state *scaler_state,
 				      int num_scalers_need, struct intel_crtc *intel_crtc,
 				      const char *name, int idx,

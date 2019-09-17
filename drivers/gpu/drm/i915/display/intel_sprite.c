@@ -2211,10 +2211,12 @@ static int skl_plane_max_scale(struct drm_i915_private *dev_priv,
 			       const struct drm_framebuffer *fb)
 {
 	/*
-	 * We don't yet know the final source width nor
-	 * whether we can use the HQ scaler mode. Assume
-	 * the best case.
-	 * FIXME need to properly check this later.
+	 * On pre-glk the max scale factor depends on whether
+	 * the HQ scaler can be used and/or whether the final
+	 * scaler source width exceeds 2k. We don't know the
+	 * answer to either question yet so we assume the best
+	 * case. skl_scaler_check_scaling() will double check
+	 * this for us later.
 	 */
 	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv) ||
 	    !intel_format_info_is_yuv_semiplanar(fb->format, fb->modifier))
