@@ -1791,6 +1791,12 @@ static int skl_plane_check_nv12_rotation(const struct intel_plane_state *plane_s
 static int skl_plane_max_scale(struct drm_i915_private *dev_priv,
 			       const struct drm_framebuffer *fb)
 {
+	/*
+	 * We don't yet know the final source width nor
+	 * whether we can use the HQ scaler mode. Assume
+	 * the best case. skl_scaler_check_scaling() will
+	 * double check this for us later.
+	 */
 	if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv) ||
 	    !drm_format_info_is_yuv_semiplanar(fb->format))
 		return 0x30000 - 1;
