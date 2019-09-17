@@ -3921,14 +3921,14 @@ static bool i9xx_plane_get_hw_state(struct intel_plane *plane,
 	return ret;
 }
 
-static void skl_detach_scaler(struct intel_crtc *intel_crtc, int id)
+static void skl_detach_scaler(struct intel_crtc *intel_crtc, enum scaler scaler_id)
 {
 	struct drm_device *dev = intel_crtc->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
 
-	I915_WRITE(SKL_PS_CTRL(intel_crtc->pipe, id), 0);
-	I915_WRITE(SKL_PS_WIN_POS(intel_crtc->pipe, id), 0);
-	I915_WRITE(SKL_PS_WIN_SZ(intel_crtc->pipe, id), 0);
+	I915_WRITE(SKL_PS_CTRL(intel_crtc->pipe, scaler_id), 0);
+	I915_WRITE(SKL_PS_WIN_POS(intel_crtc->pipe, scaler_id), 0);
+	I915_WRITE(SKL_PS_WIN_SZ(intel_crtc->pipe, scaler_id), 0);
 }
 
 /*
@@ -3939,7 +3939,7 @@ static void skl_detach_scalers(const struct intel_crtc_state *crtc_state)
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	const struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
-	int i;
+	enum scaler i;
 
 	/* loop through and disable scalers that aren't in use */
 	for (i = 0; i < crtc->num_scalers; i++) {
@@ -5548,7 +5548,7 @@ static int skl_scaler_check_pipe_src_size(const struct intel_crtc_state *crtc_st
 
 static int
 skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
-		  unsigned int scaler_user, int *scaler_id,
+		  unsigned int scaler_user, enum scaler *scaler_id,
 		  int src_w, int src_h, int dst_w, int dst_h,
 		  const struct drm_format_info *format, bool need_scaler)
 {
@@ -5589,10 +5589,10 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 	 * Here scaler state in crtc_state is set free so that
 	 * scaler can be assigned to other user. Actual register
 	 * update to free the scaler is done in plane/panel-fit programming.
-	 * For this purpose crtc/plane_state->scaler_id isn't reset here.
+	 * For this purpose crtc/plane_state->scaler isn't reset here.
 	 */
 	if (force_detach || !need_scaler) {
-		if (*scaler_id >= 0) {
+		if (*scaler_id != INVALID_SCALER) {
 			scaler_state->scaler_users &= ~(1 << scaler_user);
 			scaler_state->scalers[*scaler_id].in_use = 0;
 
@@ -5600,7 +5600,7 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 				"Staged freeing scaler id %d scaler_users = 0x%x\n",
 				intel_crtc->pipe, scaler_user, *scaler_id,
 				scaler_state->scaler_users);
-			*scaler_id = -1;
+			*scaler_id = INVALID_SCALER;
 		}
 		return 0;
 	}
@@ -5685,7 +5685,7 @@ static int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 				drm_rect_height(&plane_state->base.dst),
 				fb ? fb->format : NULL, need_scaler);
 
-	if (ret || plane_state->scaler_id < 0)
+	if (ret || plane_state->scaler_id == INVALID_SCALER)
 		return ret;
 
 	/* check colorkey */
@@ -5736,7 +5736,7 @@ static int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 
 static void skylake_scaler_disable(struct intel_crtc *crtc)
 {
-	int i;
+	enum scaler i;
 
 	for (i = 0; i < crtc->num_scalers; i++)
 		skl_detach_scaler(crtc, i);
@@ -5753,6 +5753,7 @@ static void skylake_pfit_enable(const struct intel_crtc_state *crtc_state)
 		.y2 = crtc_state->pipe_src_h << 16,
 	};
 	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
+	enum scaler scaler_id = scaler_state->scaler_id;
 	u16 uv_rgb_hphase, uv_rgb_vphase;
 	enum pipe pipe = crtc->pipe;
 	int width = drm_rect_width(dst);
@@ -5760,12 +5761,11 @@ static void skylake_pfit_enable(const struct intel_crtc_state *crtc_state)
 	int x = dst->x1;
 	int y = dst->y1;
 	int hscale, vscale;
-	int id;
 
 	if (!crtc_state->pch_pfit.enabled)
 		return;
 
-	if (WARN_ON(crtc_state->scaler_state.scaler_id < 0))
+	if (WARN_ON(scaler_id == INVALID_SCALER))
 		return;
 
 	drm_rect_calc_hscale(&src, dst, 0, INT_MAX, &hscale);
@@ -5774,15 +5774,14 @@ static void skylake_pfit_enable(const struct intel_crtc_state *crtc_state)
 	uv_rgb_hphase = skl_scaler_calc_phase(1, hscale, false);
 	uv_rgb_vphase = skl_scaler_calc_phase(1, vscale, false);
 
-	id = scaler_state->scaler_id;
-	I915_WRITE(SKL_PS_CTRL(pipe, id), PS_SCALER_EN |
-		   PS_FILTER_MEDIUM | scaler_state->scalers[id].mode);
-	I915_WRITE(SKL_PS_VPHASE(pipe, id),
+	I915_WRITE(SKL_PS_CTRL(pipe, scaler_id), PS_SCALER_EN |
+		   PS_FILTER_MEDIUM | scaler_state->scalers[scaler_id].mode);
+	I915_WRITE(SKL_PS_VPHASE(pipe, scaler_id),
 		   PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_vphase));
-	I915_WRITE(SKL_PS_HPHASE(pipe, id),
+	I915_WRITE(SKL_PS_HPHASE(pipe, scaler_id),
 		   PS_Y_PHASE(0) | PS_UV_RGB_PHASE(uv_rgb_hphase));
-	I915_WRITE(SKL_PS_WIN_POS(pipe, id), x << 16 | y);
-	I915_WRITE(SKL_PS_WIN_SZ(pipe, id), width << 16 | height);
+	I915_WRITE(SKL_PS_WIN_POS(pipe, scaler_id), x << 16 | y);
+	I915_WRITE(SKL_PS_WIN_SZ(pipe, scaler_id), width << 16 | height);
 }
 
 static void ironlake_pfit_enable(const struct intel_crtc_state *crtc_state)
@@ -9939,8 +9938,8 @@ static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_crtc_scaler_state *scaler_state = &crtc_state->scaler_state;
-	int id = -1;
-	int i;
+	enum scaler scaler_id = INVALID_SCALER;
+	enum scaler i;
 
 	/* find scaler attached to this pipe */
 	for (i = 0; i < crtc->num_scalers; i++) {
@@ -9950,7 +9949,7 @@ static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 		if ((tmp & (PS_SCALER_EN | PS_PLANE_SEL_MASK)) != PS_SCALER_EN)
 			continue;
 
-		id = i;
+		scaler_id = i;
 		crtc_state->pch_pfit.enabled = true;
 
 		ilk_get_pfit_pos_size(crtc_state,
@@ -9961,8 +9960,8 @@ static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 		break;
 	}
 
-	scaler_state->scaler_id = id;
-	if (id >= 0)
+	scaler_state->scaler_id = scaler_id;
+	if (scaler_id != INVALID_SCALER)
 		scaler_state->scaler_users |= (1 << SKL_CRTC_INDEX);
 	else
 		scaler_state->scaler_users &= ~(1 << SKL_CRTC_INDEX);
@@ -12348,7 +12347,7 @@ static void intel_dump_pipe_config(const struct intel_crtc_state *pipe_config,
 		      pipe_config->pixel_rate);
 
 	if (INTEL_GEN(dev_priv) >= 9)
-		DRM_DEBUG_KMS("num_scalers: %d, scaler_users: 0x%x, scaler_id: %d\n",
+		DRM_DEBUG_KMS("num_scalers: %d, scaler_users: 0x%x, scaler: %d\n",
 			      crtc->num_scalers,
 			      pipe_config->scaler_state.scaler_users,
 		              pipe_config->scaler_state.scaler_id);
@@ -15145,7 +15144,7 @@ static void intel_crtc_init_scalers(struct intel_crtc *crtc,
 	struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	int i;
+	enum scaler i;
 
 	crtc->num_scalers = RUNTIME_INFO(dev_priv)->num_scalers[crtc->pipe];
 	if (!crtc->num_scalers)
@@ -15158,7 +15157,7 @@ static void intel_crtc_init_scalers(struct intel_crtc *crtc,
 		scaler->mode = 0;
 	}
 
-	scaler_state->scaler_id = -1;
+	scaler_state->scaler_id = INVALID_SCALER;
 }
 
 #define INTEL_CRTC_FUNCS \

@@ -540,14 +540,12 @@ struct intel_plane_state {
 
 	/*
 	 * scaler_id
-	 *    = -1 : not using a scaler
-	 *    >=  0 : using a scalers
 	 *
 	 * plane requiring a scaler:
 	 *   - During check_plane, its bit is set in
 	 *     crtc_state->scaler_state.scaler_users by calling helper function
 	 *     update_scaler_plane.
-	 *   - scaler_id indicates the scaler it got assigned.
+	 *   - scaler indicates the scaler it got assigned.
 	 *
 	 * plane doesn't require a scaler:
 	 *   - this can happen when scaling is no more required or plane simply
@@ -556,7 +554,7 @@ struct intel_plane_state {
 	 *     crtc_state->scaler_state.scaler_users by calling helper function
 	 *     update_scaler_plane.
 	 */
-	int scaler_id;
+	enum scaler scaler_id;
 
 	/*
 	 * linked_plane:
@@ -595,8 +593,7 @@ struct intel_scaler {
 };
 
 struct intel_crtc_scaler_state {
-#define SKL_NUM_SCALERS 2
-	struct intel_scaler scalers[SKL_NUM_SCALERS];
+	struct intel_scaler scalers[I915_MAX_SCALERS];
 
 	/*
 	 * scaler_users: keeps track of users requesting scalers on this crtc.
@@ -619,7 +616,7 @@ struct intel_crtc_scaler_state {
 	unsigned scaler_users;
 
 	/* scaler used by crtc for panel fitting purpose */
-	int scaler_id;
+	enum scaler scaler_id;
 };
 
 /* drm_mode->private_flags */

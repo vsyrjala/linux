@@ -350,9 +350,9 @@ skl_program_scaler(struct intel_plane *plane,
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	const struct drm_framebuffer *fb = plane_state->base.fb;
 	enum pipe pipe = plane->pipe;
-	int scaler_id = plane_state->scaler_id;
-	const struct intel_scaler *scaler =
-		&crtc_state->scaler_state.scalers[scaler_id];
+	enum scaler scaler_id = plane_state->scaler_id;
+	const struct intel_crtc_scaler_state *scaler_state =
+		&crtc_state->scaler_state;
 	int crtc_x = plane_state->base.dst.x1;
 	int crtc_y = plane_state->base.dst.y1;
 	u32 crtc_w = drm_rect_width(&plane_state->base.dst);
@@ -387,7 +387,8 @@ skl_program_scaler(struct intel_plane *plane,
 	}
 
 	I915_WRITE_FW(SKL_PS_CTRL(pipe, scaler_id),
-		      PS_SCALER_EN | PS_PLANE_SEL(plane->id) | scaler->mode);
+		      PS_SCALER_EN | PS_PLANE_SEL(plane->id) |
+		      scaler_state->scalers[scaler_id].mode);
 	I915_WRITE_FW(SKL_PS_VPHASE(pipe, scaler_id),
 		      PS_Y_PHASE(y_vphase) | PS_UV_RGB_PHASE(uv_rgb_vphase));
 	I915_WRITE_FW(SKL_PS_HPHASE(pipe, scaler_id),
@@ -566,7 +567,7 @@ skl_program_plane(struct intel_plane *plane,
 		keymsk |= PLANE_KEYMSK_ALPHA_ENABLE;
 
 	/* The scaler will handle the output position */
-	if (plane_state->scaler_id >= 0) {
+	if (plane_state->scaler_id != INVALID_SCALER) {
 		crtc_x = 0;
 		crtc_y = 0;
 	}
@@ -628,7 +629,7 @@ skl_program_plane(struct intel_plane *plane,
 	I915_WRITE_FW(PLANE_SURF(pipe, plane_id),
 		      intel_plane_ggtt_offset(plane_state) + surf_addr);
 
-	if (!slave && plane_state->scaler_id >= 0)
+	if (!slave && plane_state->scaler_id != INVALID_SCALER)
 		skl_program_scaler(plane, crtc_state, plane_state);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);

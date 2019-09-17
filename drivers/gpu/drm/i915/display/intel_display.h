@@ -145,6 +145,22 @@ static inline bool transcoder_is_dsi(enum transcoder transcoder)
 }
 
 /*
+ * SKL+ pipe scaler:
+ * Each pipe has one or two scalers which can be
+ * assigned to either scale the pipe (similar to
+ * the old dedicated panel fitter) or to scale
+ * any universal plane.
+ */
+enum scaler {
+	INVALID_SCALER = -1,
+
+	SCALER_1 = 0,
+	SCALER_2,
+
+	I915_MAX_SCALERS,
+};
+
+/*
  * Global legacy plane identifier. Valid only for primary/sprite
  * planes on pre-g4x, and only for primary planes on g4x-bdw.
  */

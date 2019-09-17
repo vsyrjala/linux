@@ -249,13 +249,13 @@ static void intel_atomic_setup_scaler(struct intel_crtc_scaler_state *scaler_sta
 				      int num_scalers_need, struct intel_crtc *intel_crtc,
 				      const char *name, int idx,
 				      struct intel_plane_state *plane_state,
-				      int *scaler_id)
+				      enum scaler *scaler_id)
 {
 	struct drm_i915_private *dev_priv = to_i915(intel_crtc->base.dev);
-	int j;
+	enum scaler j;
 	u32 mode;
 
-	if (*scaler_id < 0) {
+	if (*scaler_id == INVALID_SCALER) {
 		/* find a free scaler */
 		for (j = 0; j < intel_crtc->num_scalers; j++) {
 			if (scaler_state->scalers[j].in_use)
@@ -267,7 +267,7 @@ static void intel_atomic_setup_scaler(struct intel_crtc_scaler_state *scaler_sta
 		}
 	}
 
-	if (WARN(*scaler_id < 0, "Cannot find scaler for %s:%d\n", name, idx))
+	if (WARN(*scaler_id == INVALID_SCALER, "Cannot find scaler for %s:%d\n", name, idx))
 		return;
 
 	/* set scaler mode */
@@ -296,11 +296,11 @@ static void intel_atomic_setup_scaler(struct intel_crtc_scaler_state *scaler_sta
 	} else if (num_scalers_need == 1 && intel_crtc->num_scalers > 1) {
 		/*
 		 * when only 1 scaler is in use on a pipe with 2 scalers
-		 * scaler 0 operates in high quality (HQ) mode.
+		 * scaler 1 operates in high quality (HQ) mode.
 		 * In this case use scaler 0 to take advantage of HQ mode
 		 */
 		scaler_state->scalers[*scaler_id].in_use = 0;
-		*scaler_id = 0;
+		*scaler_id = SCALER_1;
 		scaler_state->scalers[0].in_use = 1;
 		mode = SKL_PS_SCALER_MODE_HQ;
 	} else {
