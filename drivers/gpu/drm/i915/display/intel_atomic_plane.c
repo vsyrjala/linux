@@ -49,7 +49,7 @@ static void intel_plane_state_reset(struct intel_plane_state *plane_state,
 
 	__drm_atomic_helper_plane_state_reset(&plane_state->uapi, &plane->base);
 
-	plane_state->scaler_id = -1;
+	plane_state->scaler_id = INVALID_SCALER;
 }
 
 struct intel_plane *intel_plane_alloc(void)

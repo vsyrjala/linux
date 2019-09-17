@@ -404,7 +404,7 @@ skl_program_scaler(struct intel_plane *plane,
 	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 	const struct drm_framebuffer *fb = plane_state->hw.fb;
 	enum pipe pipe = plane->pipe;
-	int scaler_id = plane_state->scaler_id;
+	enum scaler scaler_id = plane_state->scaler_id;
 	const struct intel_scaler *scaler =
 		&crtc_state->scaler_state.scalers[scaler_id];
 	int crtc_x = plane_state->uapi.dst.x1;
@@ -633,7 +633,7 @@ skl_program_plane(struct intel_plane *plane,
 		keymsk |= PLANE_KEYMSK_ALPHA_ENABLE;
 
 	/* The scaler will handle the output position */
-	if (plane_state->scaler_id >= 0) {
+	if (plane_state->scaler_id != INVALID_SCALER) {
 		crtc_x = 0;
 		crtc_y = 0;
 	}
@@ -684,7 +684,7 @@ skl_program_plane(struct intel_plane *plane,
 	intel_de_write_fw(dev_priv, PLANE_SURF(pipe, plane_id),
 			  intel_plane_ggtt_offset(plane_state) + surf_addr);
 
-	if (plane_state->scaler_id >= 0)
+	if (plane_state->scaler_id != INVALID_SCALER)
 		skl_program_scaler(plane, crtc_state, plane_state);
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
