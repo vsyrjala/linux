@@ -4510,15 +4510,15 @@ static void skl_detach_scaler(struct intel_crtc *intel_crtc, enum scaler scaler_
  */
 static void skl_detach_scalers(const struct intel_crtc_state *crtc_state)
 {
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	const struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
-	enum scaler i;
+	enum scaler scaler_id;
 
 	/* loop through and disable scalers that aren't in use */
-	for (i = 0; i < intel_crtc->num_scalers; i++) {
-		if (!scaler_state->scalers[i].in_use)
-			skl_detach_scaler(intel_crtc, i);
+	for_each_scaler(crtc, scaler_id) {
+		if (!scaler_state->scalers[scaler_id].in_use)
+			skl_detach_scaler(crtc, scaler_id);
 	}
 }
 
@@ -6382,10 +6382,10 @@ static int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 void skl_scaler_disable(const struct intel_crtc_state *old_crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(old_crtc_state->uapi.crtc);
-	enum scaler i;
+	enum scaler scaler_id;
 
-	for (i = 0; i < crtc->num_scalers; i++)
-		skl_detach_scaler(crtc, i);
+	for_each_scaler(crtc, scaler_id)
+		skl_detach_scaler(crtc, scaler_id);
 }
 
 static void skl_pfit_enable(const struct intel_crtc_state *crtc_state)
@@ -10577,22 +10577,22 @@ static void skl_get_pfit_config(struct intel_crtc_state *crtc_state)
 	enum scaler i;
 
 	/* find scaler attached to this pipe */
-	for (i = 0; i < crtc->num_scalers; i++) {
+	for_each_scaler(crtc, i) {
 		u32 ctl, pos, size;
 
-		ctl = intel_de_read(dev_priv, SKL_PS_CTRL(crtc->pipe, i));
+		ctl = intel_de_read(dev_priv, SKL_PS_CTRL(crtc->pipe, scaler_id));
 		if ((ctl & (PS_SCALER_EN | PS_PLANE_SEL_MASK)) != PS_SCALER_EN)
 			continue;
 
 		scaler_id = i;
 		crtc_state->pch_pfit.enabled = true;
 
-		pos = intel_de_read(dev_priv, SKL_PS_WIN_POS(crtc->pipe, i));
-		size = intel_de_read(dev_priv, SKL_PS_WIN_SZ(crtc->pipe, i));
+		pos = intel_de_read(dev_priv, SKL_PS_WIN_POS(crtc->pipe, scaler_id));
+		size = intel_de_read(dev_priv, SKL_PS_WIN_SZ(crtc->pipe, scaler_id));
 
 		ilk_get_pfit_pos_size(crtc_state, pos, size);
 
-		scaler_state->scalers[i].in_use = true;
+		scaler_state->scalers[scaler_id].in_use = true;
 		break;
 	}
 

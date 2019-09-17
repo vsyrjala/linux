@@ -2573,27 +2573,26 @@ static void intel_scaler_info(struct seq_file *m, struct intel_crtc *crtc)
 {
 	const struct intel_crtc_state *crtc_state =
 		to_intel_crtc_state(crtc->base.state);
-	int num_scalers = crtc->num_scalers;
-	int i;
+	const struct intel_crtc_scaler_state *scaler_state =
+		&crtc_state->scaler_state;
+	enum scaler scaler_id;
 
 	/* Not all platformas have a scaler */
-	if (num_scalers) {
-		seq_printf(m, "\tnum_scalers=%d, scaler_users=%x scaler=%d",
-			   num_scalers,
-			   crtc_state->scaler_state.scaler_users,
-			   crtc_state->scaler_state.scaler_id);
-
-		for (i = 0; i < num_scalers; i++) {
-			const struct intel_scaler *sc =
-				&crtc_state->scaler_state.scalers[i];
-
-			seq_printf(m, ", scalers[%d]: use=%s, mode=%x",
-				   i, yesno(sc->in_use), sc->mode);
-		}
-		seq_puts(m, "\n");
-	} else {
+	if (crtc->num_scalers == 0) {
 		seq_puts(m, "\tNo scalers available on this platform\n");
+		return;
 	}
+
+	seq_printf(m, "\tnum_scalers=%d, scaler_users=%x scaler=%d",
+		   crtc->num_scalers, scaler_state->scaler_users,
+		   scaler_state->scaler_id);
+
+	for_each_scaler(crtc, scaler_id)
+		seq_printf(m, ", scalers[%d]: use=%s, mode=%x", scaler_id,
+			   yesno(scaler_state->scalers[scaler_id].in_use),
+			   scaler_state->scalers[scaler_id].mode);
+
+	seq_puts(m, "\n");
 }
 
 static void intel_crtc_info(struct seq_file *m, struct intel_crtc *crtc)
