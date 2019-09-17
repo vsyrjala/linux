@@ -15312,10 +15312,7 @@ static void intel_pipe_fastset(const struct intel_crtc_state *old_crtc_state,
 	 */
 	intel_set_pipe_src_size(new_crtc_state);
 
-	/* on skylake this is done by detaching scalers */
 	if (INTEL_GEN(dev_priv) >= 9) {
-		skl_detach_scalers(new_crtc_state);
-
 		if (new_crtc_state->pch_pfit.enabled)
 			skl_pfit_enable(new_crtc_state);
 	} else if (HAS_PCH_SPLIT(dev_priv)) {
@@ -15358,11 +15355,11 @@ static void commit_pipe_config(struct intel_atomic_state *state,
 		    new_crtc_state->update_pipe)
 			intel_color_commit(new_crtc_state);
 
-		if (INTEL_GEN(dev_priv) >= 9)
-			skl_detach_scalers(new_crtc_state);
-
 		if (INTEL_GEN(dev_priv) >= 9 || IS_BROADWELL(dev_priv))
 			bdw_set_pipemisc(new_crtc_state);
+
+		if (INTEL_GEN(dev_priv) >= 9)
+			skl_detach_scalers(new_crtc_state);
 
 		if (new_crtc_state->update_pipe)
 			intel_pipe_fastset(old_crtc_state, new_crtc_state);
