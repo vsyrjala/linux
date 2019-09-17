@@ -379,7 +379,7 @@ int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
 			idx = intel_crtc->base.base.id;
 
 			/* panel fitter case: assign as a crtc scaler */
-			scaler_id = &scaler_state->scaler_id;
+			scaler_id = &crtc_state->pch_pfit.scaler_id;
 		} else {
 			name = "PLANE";
 

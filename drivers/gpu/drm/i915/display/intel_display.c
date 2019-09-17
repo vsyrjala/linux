@@ -5645,7 +5645,7 @@ static int skl_update_scaler_crtc(struct intel_crtc_state *crtc_state)
 
 	return skl_update_scaler(crtc_state, !crtc_state->base.active,
 				 SKL_CRTC_INDEX,
-				 &crtc_state->scaler_state.scaler_id,
+				 &crtc_state->pch_pfit.scaler_id,
 				 crtc_state->pipe_src_w, crtc_state->pipe_src_h,
 				 width, height, NULL,
 				 crtc_state->pch_pfit.enabled);
@@ -5753,7 +5753,7 @@ static void skylake_pfit_enable(const struct intel_crtc_state *crtc_state)
 		.y2 = crtc_state->pipe_src_h << 16,
 	};
 	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
-	enum scaler scaler_id = scaler_state->scaler_id;
+	enum scaler scaler_id = crtc_state->pch_pfit.scaler_id;
 	u16 uv_rgb_hphase, uv_rgb_vphase;
 	enum pipe pipe = crtc->pipe;
 	int width = drm_rect_width(dst);
@@ -9938,18 +9938,19 @@ static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_crtc_scaler_state *scaler_state = &crtc_state->scaler_state;
-	enum scaler scaler_id = INVALID_SCALER;
-	enum scaler i;
+	enum scaler scaler_id;
+
+	crtc_state->pch_pfit.scaler_id = INVALID_SCALER;
 
 	/* find scaler attached to this pipe */
-	for_each_scaler(crtc, i) {
+	for_each_scaler(crtc, scaler_id) {
 		u32 tmp;
 
 		tmp = I915_READ(SKL_PS_CTRL(crtc->pipe, scaler_id));
 		if ((tmp & (PS_SCALER_EN | PS_PLANE_SEL_MASK)) != PS_SCALER_EN)
 			continue;
 
-		scaler_id = i;
+		crtc_state->pch_pfit.scaler_id = scaler_id;
 		crtc_state->pch_pfit.enabled = true;
 
 		ilk_get_pfit_pos_size(crtc_state,
@@ -9960,8 +9961,7 @@ static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 		break;
 	}
 
-	scaler_state->scaler_id = scaler_id;
-	if (scaler_id != INVALID_SCALER)
+	if (crtc_state->pch_pfit.scaler_id != INVALID_SCALER)
 		scaler_state->scaler_users |= (1 << SKL_CRTC_INDEX);
 	else
 		scaler_state->scaler_users &= ~(1 << SKL_CRTC_INDEX);
@@ -12350,7 +12350,7 @@ static void intel_dump_pipe_config(const struct intel_crtc_state *pipe_config,
 		DRM_DEBUG_KMS("num_scalers: %d, scaler_users: 0x%x, scaler: %d\n",
 			      crtc->num_scalers,
 			      pipe_config->scaler_state.scaler_users,
-		              pipe_config->scaler_state.scaler_id);
+			      pipe_config->pch_pfit.scaler_id);
 
 	if (HAS_GMCH(dev_priv))
 		DRM_DEBUG_KMS("gmch pfit: control: 0x%08x, ratios: 0x%08x, lvds border: 0x%08x\n",
@@ -13015,8 +13015,8 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 			PIPE_CONF_CHECK_I(pch_pfit.dst.x2);
 			PIPE_CONF_CHECK_I(pch_pfit.dst.y2);
 		}
+		PIPE_CONF_CHECK_I(pch_pfit.scaler_id);
 
-		PIPE_CONF_CHECK_I(scaler_state.scaler_id);
 		PIPE_CONF_CHECK_CLOCK_FUZZY(pixel_rate);
 
 		PIPE_CONF_CHECK_X(gamma_mode);
@@ -15155,7 +15155,7 @@ static void intel_crtc_init_scalers(struct intel_crtc *crtc,
 		scaler_state->scalers[scaler_id].mode = 0;
 	}
 
-	scaler_state->scaler_id = INVALID_SCALER;
+	crtc_state->pch_pfit.scaler_id = INVALID_SCALER;
 }
 
 #define INTEL_CRTC_FUNCS \

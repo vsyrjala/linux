@@ -2716,7 +2716,7 @@ static void intel_scaler_info(struct seq_file *m, struct intel_crtc *crtc)
 
 	seq_printf(m, "\tnum_scalers=%d, scaler_users=%x scaler=%d",
 		   crtc->num_scalers, scaler_state->scaler_users,
-		   scaler_state->scaler_id);
+		   crtc_state->pch_pfit.scaler_id);
 
 	for_each_scaler(crtc, scaler_id)
 		seq_printf(m, ", scalers[%d]: use=%s, mode=%x", scaler_id,
