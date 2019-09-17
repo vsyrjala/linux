@@ -175,6 +175,57 @@ intel_panel_vbt_fixed_mode(struct intel_connector *connector)
 	return fixed_mode;
 }
 
+static int intel_pch_pfit_check_dst_window(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	const struct drm_display_mode *adjusted_mode =
+		&crtc_state->hw.adjusted_mode;
+	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
+	int width = drm_rect_width(dst);
+	int height = drm_rect_height(dst);
+	int x = dst->x1;
+	int y = dst->y1;
+
+	if (adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE &&
+	    (y & 1 || height & 1)) {
+		drm_dbg_kms(&dev_priv->drm,
+			    "[CRTC:%d:%s] pfit window (" DRM_RECT_FMT ") misaligned for interlaced output\n",
+			    crtc->base.base.id, crtc->base.name, DRM_RECT_ARG(dst));
+		return -EINVAL;
+	}
+
+	/*
+	 * "Restriction : When pipe scaling is enabled, the scaled
+	 *  output must equal the pipe active area, so Pipe active
+	 *  size = (2 * PF window position) + PF window size."
+	 *
+	 * The vertical direction seems more forgiving than the
+	 * horizontal direction, but still has some issues so
+	 * let's follow the same hard rule for both.
+	 */
+	if (adjusted_mode->crtc_hdisplay - width != 2 * x ||
+	    adjusted_mode->crtc_vdisplay - height != 2 * y) {
+		drm_dbg_kms(&dev_priv->drm,
+			    "[CRTC:%d:%s] pfit window (" DRM_RECT_FMT ") not centered\n",
+			    crtc->base.base.id, crtc->base.name, DRM_RECT_ARG(dst));
+		return -EINVAL;
+	}
+
+	/*
+	 * "Restriction : The X position must not be programmed
+	 *  to be 1 (28:16=0 0000 0000 0001b)."
+	 */
+	if (INTEL_GEN(dev_priv) < 9 && x == 1) {
+		drm_dbg_kms(&dev_priv->drm,
+			    "[CRTC:%d:%s] pfit window (" DRM_RECT_FMT ") badly positioned\n",
+			    crtc->base.base.id, crtc->base.name, DRM_RECT_ARG(dst));
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int intel_pch_pfit_check_src_size(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -367,6 +418,10 @@ int intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 	 */
 	if (INTEL_GEN(dev_priv) >= 9)
 		return 0;
+
+	ret = intel_pch_pfit_check_dst_window(crtc_state);
+	if (ret)
+		return ret;
 
 	ret = intel_pch_pfit_check_src_size(crtc_state);
 	if (ret)
