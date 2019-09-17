@@ -1557,7 +1557,7 @@ g4x_sprite_check_scaling(struct intel_crtc_state *crtc_state,
 		return -EINVAL;
 	}
 
-	if (width_bytes > 4096 || fb->pitches[0] > 4096) {
+	if (fb->pitches[0] > 4096) {
 		DRM_DEBUG_KMS("Stride (%u) exceeds hardware max with scaling (%u)\n",
 			      fb->pitches[0], 4096);
 		return -EINVAL;
