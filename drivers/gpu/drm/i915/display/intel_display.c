@@ -6228,7 +6228,7 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 	if (force_detach || !need_scaler) {
 		if (*scaler_id != INVALID_SCALER) {
 			scaler_state->scaler_users &= ~(1 << scaler_user);
-			scaler_state->scalers[*scaler_id].in_use = 0;
+			scaler_state->scalers[*scaler_id].in_use = false;
 
 			drm_dbg_kms(&dev_priv->drm,
 				    "scaler_user index %u.%u: "
