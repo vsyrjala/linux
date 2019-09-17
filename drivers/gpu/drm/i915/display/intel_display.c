@@ -5594,7 +5594,7 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 	if (force_detach || !need_scaler) {
 		if (*scaler_id != INVALID_SCALER) {
 			scaler_state->scaler_users &= ~(1 << scaler_user);
-			scaler_state->scalers[*scaler_id].in_use = 0;
+			scaler_state->scalers[*scaler_id].in_use = false;
 
 			DRM_DEBUG_KMS("scaler_user index %u.%u: "
 				"Staged freeing scaler id %d scaler_users = 0x%x\n",
@@ -15151,7 +15151,7 @@ static void intel_crtc_init_scalers(struct intel_crtc *crtc,
 		return;
 
 	for_each_scaler(crtc, scaler_id) {
-		scaler_state->scalers[scaler_id].in_use = 0;
+		scaler_state->scalers[scaler_id].in_use = false;
 		scaler_state->scalers[scaler_id].mode = 0;
 	}
 
