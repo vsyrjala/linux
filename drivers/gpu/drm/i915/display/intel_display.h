@@ -335,6 +335,9 @@ enum phy_fia {
 	for ((__t) = 0; (__t) < I915_MAX_TRANSCODERS; (__t)++)	\
 		for_each_if ((__mask) & (1 << (__t)))
 
+#define for_each_scaler(__crtc, __s) \
+	for ((__s) = 0; (__s) < (__crtc)->num_scalers; (__s)++)
+
 #define for_each_universal_plane(__dev_priv, __pipe, __p)		\
 	for ((__p) = 0;							\
 	     (__p) < RUNTIME_INFO(__dev_priv)->num_sprites[(__pipe)] + 1;	\

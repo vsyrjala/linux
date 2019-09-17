@@ -3939,12 +3939,12 @@ static void skl_detach_scalers(const struct intel_crtc_state *crtc_state)
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	const struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
-	enum scaler i;
+	enum scaler scaler_id;
 
 	/* loop through and disable scalers that aren't in use */
-	for (i = 0; i < crtc->num_scalers; i++) {
-		if (!scaler_state->scalers[i].in_use)
-			skl_detach_scaler(crtc, i);
+	for_each_scaler(crtc, scaler_id) {
+		if (!scaler_state->scalers[scaler_id].in_use)
+			skl_detach_scaler(crtc, scaler_id);
 	}
 }
 
@@ -5736,10 +5736,10 @@ static int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 
 static void skylake_scaler_disable(struct intel_crtc *crtc)
 {
-	enum scaler i;
+	enum scaler scaler_id;
 
-	for (i = 0; i < crtc->num_scalers; i++)
-		skl_detach_scaler(crtc, i);
+	for_each_scaler(crtc, scaler_id)
+		skl_detach_scaler(crtc, scaler_id);
 }
 
 static void skylake_pfit_enable(const struct intel_crtc_state *crtc_state)
@@ -9942,10 +9942,10 @@ static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 	enum scaler i;
 
 	/* find scaler attached to this pipe */
-	for (i = 0; i < crtc->num_scalers; i++) {
+	for_each_scaler(crtc, i) {
 		u32 tmp;
 
-		tmp = I915_READ(SKL_PS_CTRL(crtc->pipe, i));
+		tmp = I915_READ(SKL_PS_CTRL(crtc->pipe, scaler_id));
 		if ((tmp & (PS_SCALER_EN | PS_PLANE_SEL_MASK)) != PS_SCALER_EN)
 			continue;
 
@@ -9953,10 +9953,10 @@ static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 		crtc_state->pch_pfit.enabled = true;
 
 		ilk_get_pfit_pos_size(crtc_state,
-				      I915_READ(SKL_PS_WIN_POS(crtc->pipe, i)),
-				      I915_READ(SKL_PS_WIN_SZ(crtc->pipe, i)));
+				      I915_READ(SKL_PS_WIN_POS(crtc->pipe, scaler_id)),
+				      I915_READ(SKL_PS_WIN_SZ(crtc->pipe, scaler_id)));
 
-		scaler_state->scalers[i].in_use = true;
+		scaler_state->scalers[scaler_id].in_use = true;
 		break;
 	}
 
@@ -15144,17 +15144,15 @@ static void intel_crtc_init_scalers(struct intel_crtc *crtc,
 	struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	enum scaler i;
+	enum scaler scaler_id;
 
 	crtc->num_scalers = RUNTIME_INFO(dev_priv)->num_scalers[crtc->pipe];
 	if (!crtc->num_scalers)
 		return;
 
-	for (i = 0; i < crtc->num_scalers; i++) {
-		struct intel_scaler *scaler = &scaler_state->scalers[i];
-
-		scaler->in_use = 0;
-		scaler->mode = 0;
+	for_each_scaler(crtc, scaler_id) {
+		scaler_state->scalers[scaler_id].in_use = 0;
+		scaler_state->scalers[scaler_id].mode = 0;
 	}
 
 	scaler_state->scaler_id = INVALID_SCALER;

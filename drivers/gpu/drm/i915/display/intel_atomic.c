@@ -257,7 +257,7 @@ static void intel_atomic_setup_scaler(struct intel_crtc_scaler_state *scaler_sta
 
 	if (*scaler_id == INVALID_SCALER) {
 		/* find a free scaler */
-		for (j = 0; j < intel_crtc->num_scalers; j++) {
+		for_each_scaler(intel_crtc, j) {
 			if (scaler_state->scalers[j].in_use)
 				continue;
 
