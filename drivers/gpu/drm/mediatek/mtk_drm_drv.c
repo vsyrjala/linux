@@ -289,7 +289,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		goto err_component_unbind;
 	}
 
-	ret = dma_set_max_seg_size(dma_dev, (unsigned int)DMA_BIT_MASK(32));
+	ret = 0;//dma_set_max_seg_size(dma_dev, (unsigned int)DMA_BIT_MASK(32));
 	if (ret) {
 		dev_err(dma_dev, "Failed to set DMA segment size\n");
 		goto err_unset_dma_parms;
