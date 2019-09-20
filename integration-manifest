@@ -1,0 +1,32 @@
+drm drm-fixes e6bb711600db23eef2fa0c16a2d361e17b45bb28
+	Merge tag 'drm-misc-fixes-2019-09-12' of git://anongit.freedesktop.org/drm/drm-misc into drm-fixes
+drm-misc drm-misc-fixes 21670bd78a25001cf8ef2679b378c73fb73b904f
+	drm/lima: fix lima_gem_wait() return value
+drm-intel drm-intel-fixes 4d856f72c10ecb060868ed10ff1b1453943fc6c8
+	Linux 5.3
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm drm-next 945b584c94f8c665b2df3834a8a6a8faf256cd5f
+	Merge branch 'linux-5.4' of git://github.com/skeggsb/linux into drm-next
+drm-misc drm-misc-next-fixes 65e51e30d8625c82ddfe405da46124e9bbffaa71
+	drm/panfrost: Prevent race when handling page fault
+drm-intel drm-intel-next-fixes a95819a173788bec7414d260f76f42a9934890b4
+	drm/i915: Extend Haswell GT1 PSMI workaround to all
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next 455d56ce809fcc540dc029a05db074855269dc33
+	drm/v3d: clean caches at the end of render jobs on request from user space
+drm-intel drm-intel-next-queued e5de91e68c5ccaf4ef3e5aa265b469e186ebfa65
+	Revert "drm/i915/tgl: Implement Wa_1406941453"
+drm-intel drm-intel-next be91233b1053d9725d3a437e3da44ccff2639477
+	drm/i915: Update DRIVER_DATE to 20190822
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus bd9c10bc663dd2eaac8fe39dad0f18cd21527446
+	ALSA: hda/realtek - PCI quirk for Medion E4254
+sound-upstream for-next bd9c10bc663dd2eaac8fe39dad0f18cd21527446
+	ALSA: hda/realtek - PCI quirk for Medion E4254
+drm-intel topic/core-for-CI a15a0fc0699a77944c004014ad343c5731fe52eb
+	HAX iommu/intel: Ignore igfx_off
+drm drm-5.4-merge 4862bccb89898d5a4820daf9bff820593c77a305
+	Merge branch 'drm-next' of ssh://git.freedesktop.org/git/drm/drm
