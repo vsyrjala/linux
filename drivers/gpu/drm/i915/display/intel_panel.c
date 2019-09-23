@@ -422,6 +422,15 @@ int intel_pch_panel_fitting(struct intel_crtc_state *crtc_state,
 	crtc_state->pch_pfit.dst.y2 = y + height;
 	crtc_state->pch_pfit.enabled = true;
 
+	if (crtc_state->output_format == INTEL_OUTPUT_FORMAT_YCBCR420 &&
+	    (x & 1 || width & 1 || y & 1 || height & 1)) {
+		DRM_DEBUG_KMS("[CRTC:%d:%s] panel fitter window (" DRM_RECT_FMT
+			      ") misaligned for YCbCr 4:2:0 output\n",
+			      crtc->base.base.id, crtc->base.name,
+			      DRM_RECT_ARG(&crtc_state->pch_pfit.dst));
+		return -EINVAL;
+	}
+
 	/*
 	 * SKL+ have unified scalers for pipes/planes so the
 	 * checks are done in a single place for all scalers.
