@@ -2329,20 +2329,28 @@ int intel_modeset_calc_cdclk(struct intel_atomic_state *state)
 	if (ret)
 		return ret;
 
-	if (!intel_cdclk_changed(&dev_priv->cdclk.logical,
-				 &state->cdclk.logical) &&
-	    !intel_cdclk_changed(&dev_priv->cdclk.actual,
-				 &state->cdclk.actual))
-		return 0;
-
 	/*
 	 * Writes to dev_priv->cdclk.{actual,logical} must protected
 	 * by holding all the crtc mutexes even if we don't end up
 	 * touching the hardware
 	 */
-	ret = intel_atomic_lock_global_state(state);
-	if (ret)
-		return ret;
+	if (intel_cdclk_changed(&dev_priv->cdclk.actual,
+				&state->cdclk.actual)) {
+		/*
+		 * Also serialize commits across all crtcs
+		 * if the actual hw needs to be poked.
+		 */
+		ret = intel_atomic_serialize_global_state(state);
+		if (ret)
+			return ret;
+	} else if (intel_cdclk_changed(&dev_priv->cdclk.logical,
+				       &state->cdclk.logical)) {
+		ret = intel_atomic_lock_global_state(state);
+		if (ret)
+			return ret;
+	} else {
+		return 0;
+	}
 
 	if (is_power_of_2(state->active_pipes) &&
 	    intel_cdclk_needs_cd2x_update(dev_priv,
