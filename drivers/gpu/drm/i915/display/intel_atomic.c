@@ -245,27 +245,39 @@ bool skl_can_use_hq_scaler(const struct intel_crtc_state *crtc_state)
 		is_power_of_2(scaler_state->scaler_users);
 }
 
-static void intel_atomic_setup_scaler(struct intel_crtc_scaler_state *scaler_state,
-				      int num_scalers_need, struct intel_crtc *intel_crtc,
+static enum scaler intel_allocate_scaler(struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
+	struct intel_crtc_scaler_state *scaler_state =
+		&crtc_state->scaler_state;
+	enum scaler scaler_id;
+
+	for_each_scaler(crtc, scaler_id) {
+		if (scaler_state->scalers[scaler_id].in_use)
+			continue;
+
+		scaler_state->scalers[scaler_id].in_use = true;
+
+		return scaler_id;
+	}
+
+	return INVALID_SCALER;
+}
+
+static void intel_atomic_setup_scaler(struct intel_crtc_state *crtc_state,
+				      int num_scalers_need,
 				      const char *name, int idx,
 				      struct intel_plane_state *plane_state,
 				      enum scaler *scaler_id)
 {
+	struct intel_crtc_scaler_state *scaler_state =
+		&crtc_state->scaler_state;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(intel_crtc->base.dev);
-	enum scaler j;
 	u32 mode;
 
-	if (*scaler_id == INVALID_SCALER) {
-		/* find a free scaler */
-		for_each_scaler(intel_crtc, j) {
-			if (scaler_state->scalers[j].in_use)
-				continue;
-
-			*scaler_id = j;
-			scaler_state->scalers[*scaler_id].in_use = true;
-			break;
-		}
-	}
+	if (*scaler_id == INVALID_SCALER)
+		*scaler_id = intel_allocate_scaler(crtc_state);
 
 	if (WARN(*scaler_id == INVALID_SCALER, "Cannot find scaler for %s:%d\n", name, idx))
 		return;
@@ -414,9 +426,8 @@ int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
 			scaler_id = &plane_state->scaler_id;
 		}
 
-		intel_atomic_setup_scaler(scaler_state, num_scalers_need,
-					  intel_crtc, name, idx,
-					  plane_state, scaler_id);
+		intel_atomic_setup_scaler(crtc_state, num_scalers_need,
+					  name, idx, plane_state, scaler_id);
 	}
 
 	return 0;
