@@ -20,6 +20,7 @@ struct intel_atomic_state;
 struct intel_connector;
 struct intel_crtc;
 struct intel_crtc_state;
+struct intel_plane;
 
 int intel_digital_connector_atomic_get_property(struct drm_connector *connector,
 						const struct drm_connector_state *state,
@@ -56,6 +57,8 @@ int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
 			       struct intel_crtc *intel_crtc,
 			       struct intel_crtc_state *crtc_state);
 bool skl_can_use_hq_scaler(const struct intel_crtc_state *crtc_state);
+int intel_plane_scaler_user(struct intel_plane *plane);
+int intel_crtc_scaler_user(void);
 
 int _intel_atomic_lock_global_state(struct intel_atomic_state *state);
 
