@@ -6043,45 +6043,38 @@ static int skl_scaler_max_vscale(const struct intel_crtc_state *crtc_state,
 
 static int skl_scaler_check_scaling(const struct intel_crtc_state *crtc_state,
 				    unsigned int scaler_user,
-				    int src_w, int src_h,
-				    int dst_w, int dst_h,
+				    const struct drm_rect *src,
+				    const struct drm_rect *dst,
 				    const struct drm_format_info *format,
 				    u64 modifier)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	struct drm_rect src = {
-		.x2 = src_w << 16,
-		.y2 = src_h << 16,
-	};
-	struct drm_rect dst = {
-		.x2 = dst_w,
-		.y2 = dst_h,
-	};
 	int ret, hscale, vscale, max_hscale, max_vscale;
+	int src_w = drm_rect_width(src) >> 16;
 
 	max_hscale = skl_scaler_max_hscale(crtc_state, format, modifier);
 
-	ret = drm_rect_calc_hscale(&src, &dst, 0, max_hscale, &hscale);
+	ret = drm_rect_calc_hscale(src, dst, 0, max_hscale, &hscale);
 	if (ret) {
 		drm_dbg_kms(&dev_priv->drm,
 			    "[CRTC:%d:%s] scaler_user %u: horizontal downscaling (" DRM_RECT_FP_FMT
 			    " -> " DRM_RECT_FMT ") (" DRM_FP_FMT ") exceeds max (" DRM_FP_FMT ")\n",
 			    crtc->base.base.id, crtc->base.name, scaler_user,
-			    DRM_RECT_FP_ARG(&src), DRM_RECT_ARG(&dst),
+			    DRM_RECT_FP_ARG(src), DRM_RECT_ARG(dst),
 			    DRM_FP_ARG(hscale), DRM_FP_ARG(max_hscale));
 		return ret;
 	}
 
 	max_vscale = skl_scaler_max_vscale(crtc_state, src_w, format, modifier);
 
-	ret = drm_rect_calc_vscale(&src, &dst, 0, max_vscale, &vscale);
+	ret = drm_rect_calc_vscale(src, dst, 0, max_vscale, &vscale);
 	if (ret) {
 		drm_dbg_kms(&dev_priv->drm,
 			    "[CRTC:%d:%s] scaler_user %u: vertical downscaling (" DRM_RECT_FP_FMT
 			    " -> " DRM_RECT_FMT ") (" DRM_FP_FMT ") exceeds max (" DRM_FP_FMT ")\n",
 			    crtc->base.base.id, crtc->base.name, scaler_user,
-			    DRM_RECT_FP_ARG(&src), DRM_RECT_ARG(&dst),
+			    DRM_RECT_FP_ARG(src), DRM_RECT_ARG(dst),
 			    DRM_FP_ARG(vscale), DRM_FP_ARG(max_vscale));
 		return ret;
 	}
@@ -6120,11 +6113,13 @@ static void skl_scaler_min_src_size(const struct drm_format_info *format,
 
 static int skl_scaler_check_src_size(struct intel_crtc *crtc,
 				     unsigned int scaler_user,
-				     int src_w, int src_h,
+				     const struct drm_rect *src,
 				     const struct drm_format_info *format,
 				     u64 modifier)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	int src_w = drm_rect_width(src) >> 16;
+	int src_h = drm_rect_height(src) >> 16;
 	int min_w, min_h, max_w, max_h;
 
 	skl_scaler_min_src_size(format, modifier, &min_w, &min_h);
@@ -6179,41 +6174,20 @@ static int skl_scaler_check_pipe_src_size(const struct intel_crtc_state *crtc_st
 }
 
 static int
-skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
+skl_update_scaler(struct intel_crtc_state *crtc_state,
 		  unsigned int scaler_user, enum scaler *scaler_id,
-		  int src_w, int src_h, int dst_w, int dst_h,
+		  const struct drm_rect *src,
+		  const struct drm_rect *dst,
 		  const struct drm_format_info *format,
 		  u64 modifier, bool need_scaler)
 {
 	struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
-	struct intel_crtc *intel_crtc =
-		to_intel_crtc(crtc_state->uapi.crtc);
-	struct drm_i915_private *dev_priv = to_i915(intel_crtc->base.dev);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	const struct drm_display_mode *adjusted_mode =
 		&crtc_state->hw.adjusted_mode;
 	int ret;
-
-	/*
-	 * Src coordinates are already rotated by 270 degrees for
-	 * the 90/270 degree plane rotation cases (to match the
-	 * GTT mapping), hence no need to account for rotation here.
-	 */
-	if (src_w != dst_w || src_h != dst_h)
-		need_scaler = true;
-
-	/*
-	 * Scaling/fitting not supported in IF-ID mode in GEN9+
-	 * TODO: Interlace fetch mode doesn't support YUV420 planar formats.
-	 * Once NV12 is enabled, handle it here while allocating scaler
-	 * for NV12.
-	 */
-	if (INTEL_GEN(dev_priv) >= 9 && crtc_state->hw.enable &&
-	    need_scaler && adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE) {
-		drm_dbg_kms(&dev_priv->drm,
-			    "Pipe/Plane scaling not supported with IF-ID mode\n");
-		return -EINVAL;
-	}
 
 	/*
 	 * if plane is being disabled or scaler is no more required or force detach
@@ -6225,23 +6199,31 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 	 * update to free the scaler is done in plane/panel-fit programming.
 	 * For this purpose crtc/plane_state->scaler isn't reset here.
 	 */
-	if (force_detach || !need_scaler) {
+	if (!need_scaler) {
 		if (*scaler_id != INVALID_SCALER) {
 			scaler_state->scaler_users &= ~BIT(scaler_user);
 			scaler_state->scalers[*scaler_id].in_use = false;
 
 			drm_dbg_kms(&dev_priv->drm,
-				    "scaler_user index %u.%u: "
+				    "[CRTC:%d:%s] scaler_user %u: "
 				    "Staged freeing scaler id %d scaler_users = 0x%x\n",
-				    intel_crtc->pipe, scaler_user, *scaler_id,
+				    crtc->base.base.id, crtc->base.name,
+				    scaler_user, *scaler_id,
 				    scaler_state->scaler_users);
 			*scaler_id = INVALID_SCALER;
 		}
 		return 0;
 	}
 
-	ret = skl_scaler_check_src_size(intel_crtc, scaler_user,
-					src_w, src_h, format, modifier);
+	if (adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE) {
+		drm_dbg_kms(&dev_priv->drm,
+			    "[CRTC:%d:%s] Pipe/Plane scaling not supported with IF-ID mode\n",
+			    crtc->base.base.id, crtc->base.name);
+		return -EINVAL;
+	}
+
+	ret = skl_scaler_check_src_size(crtc, scaler_user,
+					src, format, modifier);
 	if (ret)
 		return ret;
 
@@ -6250,41 +6232,62 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 		return ret;
 
 	ret = skl_scaler_check_scaling(crtc_state, scaler_user,
-				       src_w, src_h, dst_w, dst_h,
-				       format, modifier);
+				       src, dst, format, modifier);
 	if (ret)
 		return ret;
 
 	/* mark this pipe/plane as a scaler user in crtc_state */
 	scaler_state->scaler_users |= BIT(scaler_user);
-	drm_dbg_kms(&dev_priv->drm, "scaler_user index %u.%u: "
-		    "staged scaling request for %ux%u->%ux%u scaler_users = 0x%x\n",
-		    intel_crtc->pipe, scaler_user, src_w, src_h, dst_w, dst_h,
-		    scaler_state->scaler_users);
+	drm_dbg_kms(&dev_priv->drm, "[CRTC:%d:%s] scaler_user %u: "
+		    "staged scaling request for " DRM_RECT_FP_FMT " -> " DRM_RECT_FMT " scaler_users = 0x%x\n",
+		    crtc->base.base.id, crtc->base.name,
+		    scaler_user, DRM_RECT_FP_ARG(src),
+		    DRM_RECT_ARG(dst), scaler_state->scaler_users);
 
 	return 0;
 }
 
 static int skl_update_scaler_crtc(struct intel_crtc_state *crtc_state)
 {
-	const struct drm_display_mode *adjusted_mode =
-		&crtc_state->hw.adjusted_mode;
-	int width, height;
+	struct drm_rect src = {
+		.x2 = crtc_state->pipe_src_w << 16,
+		.y2 = crtc_state->pipe_src_h << 16,
+	};
 
-	if (crtc_state->pch_pfit.enabled) {
-		width = drm_rect_width(&crtc_state->pch_pfit.dst);
-		height = drm_rect_height(&crtc_state->pch_pfit.dst);
-	} else {
-		width = adjusted_mode->crtc_hdisplay;
-		height = adjusted_mode->crtc_vdisplay;
-	}
-
-	return skl_update_scaler(crtc_state, !crtc_state->hw.active,
+	return skl_update_scaler(crtc_state,
 				 intel_crtc_scaler_user(),
 				 &crtc_state->pch_pfit.scaler_id,
-				 crtc_state->pipe_src_w, crtc_state->pipe_src_h,
-				 width, height, NULL, 0,
+				 &src, &crtc_state->pch_pfit.dst, NULL, 0,
+				 crtc_state->hw.enable &&
 				 crtc_state->pch_pfit.enabled);
+}
+
+static bool intel_plane_is_scaled(const struct intel_plane_state *plane_state)
+{
+	int src_w = drm_rect_width(&plane_state->uapi.src) >> 16;
+	int src_h = drm_rect_height(&plane_state->uapi.src) >> 16;
+	int dst_w = drm_rect_width(&plane_state->uapi.dst);
+	int dst_h = drm_rect_height(&plane_state->uapi.dst);
+
+	return plane_state->uapi.visible &&
+		(src_w != dst_w || src_h != dst_h);
+}
+
+static bool skl_plane_needs_scaler(struct intel_plane_state *plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	const struct drm_framebuffer *fb = plane_state->hw.fb;
+
+	if (!plane_state->uapi.visible)
+		return false;
+
+	/* Pre-gen11 and SDR planes always need a scaler for planar formats. */
+	if (!icl_is_hdr_plane(dev_priv, plane->id) &&
+	    drm_format_info_is_yuv_semiplanar(fb->format))
+		return true;
+
+	return intel_plane_is_scaled(plane_state);
 }
 
 /**
@@ -6299,27 +6302,16 @@ static int skl_update_scaler_crtc(struct intel_crtc_state *crtc_state)
 static int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 				   struct intel_plane_state *plane_state)
 {
-	struct intel_plane *intel_plane =
-		to_intel_plane(plane_state->uapi.plane);
-	struct drm_i915_private *dev_priv = to_i915(intel_plane->base.dev);
-	struct drm_framebuffer *fb = plane_state->hw.fb;
-	bool force_detach = !fb || !plane_state->uapi.visible;
-	bool need_scaler = false;
+	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
+	const struct drm_framebuffer *fb = plane_state->hw.fb;
 
-	/* Pre-gen11 and SDR planes always need a scaler for planar formats. */
-	if (!icl_is_hdr_plane(dev_priv, intel_plane->id) &&
-	    fb && intel_format_info_is_yuv_semiplanar(fb->format, fb->modifier))
-		need_scaler = true;
-
-	return skl_update_scaler(crtc_state, force_detach,
-				 intel_plane_scaler_user(intel_plane),
+	return skl_update_scaler(crtc_state,
+				 intel_plane_scaler_user(plane),
 				 &plane_state->scaler_id,
-				 drm_rect_width(&plane_state->uapi.src) >> 16,
-				 drm_rect_height(&plane_state->uapi.src) >> 16,
-				 drm_rect_width(&plane_state->uapi.dst),
-				 drm_rect_height(&plane_state->uapi.dst),
+				 &plane_state->uapi.src,
+				 &plane_state->uapi.dst,
 				 fb ? fb->format : NULL, fb ? fb->modifier : 0,
-				 need_scaler);
+				 skl_plane_needs_scaler(plane_state));
 }
 
 void skl_scaler_disable(const struct intel_crtc_state *old_crtc_state)
@@ -12420,16 +12412,6 @@ static bool intel_wm_need_update(const struct intel_plane_state *cur,
 	return false;
 }
 
-static bool needs_scaling(const struct intel_plane_state *state)
-{
-	int src_w = drm_rect_width(&state->uapi.src) >> 16;
-	int src_h = drm_rect_height(&state->uapi.src) >> 16;
-	int dst_w = drm_rect_width(&state->uapi.dst);
-	int dst_h = drm_rect_height(&state->uapi.dst);
-
-	return (src_w != dst_w || src_h != dst_h);
-}
-
 int intel_plane_atomic_calc_changes(const struct intel_crtc_state *old_crtc_state,
 				    struct intel_crtc_state *crtc_state,
 				    const struct intel_plane_state *old_plane_state,
@@ -12547,8 +12529,8 @@ int intel_plane_atomic_calc_changes(const struct intel_crtc_state *old_crtc_stat
 	if (plane->id != PLANE_CURSOR &&
 	    (IS_GEN_RANGE(dev_priv, 5, 6) ||
 	     IS_IVYBRIDGE(dev_priv)) &&
-	    (turn_on || (!needs_scaling(old_plane_state) &&
-			 needs_scaling(plane_state))))
+	    (turn_on || (!intel_plane_is_scaled(old_plane_state) &&
+			 intel_plane_is_scaled(plane_state))))
 		crtc_state->disable_lp_wm = true;
 
 	return 0;
