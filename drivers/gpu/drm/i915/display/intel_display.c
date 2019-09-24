@@ -6303,7 +6303,6 @@ static int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 		to_intel_plane(plane_state->uapi.plane);
 	struct drm_i915_private *dev_priv = to_i915(intel_plane->base.dev);
 	struct drm_framebuffer *fb = plane_state->hw.fb;
-	int ret;
 	bool force_detach = !fb || !plane_state->uapi.visible;
 	bool need_scaler = false;
 
@@ -6312,71 +6311,15 @@ static int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 	    fb && intel_format_info_is_yuv_semiplanar(fb->format, fb->modifier))
 		need_scaler = true;
 
-	ret = skl_update_scaler(crtc_state, force_detach,
-				intel_plane_scaler_user(intel_plane),
-				&plane_state->scaler_id,
-				drm_rect_width(&plane_state->uapi.src) >> 16,
-				drm_rect_height(&plane_state->uapi.src) >> 16,
-				drm_rect_width(&plane_state->uapi.dst),
-				drm_rect_height(&plane_state->uapi.dst),
-				fb ? fb->format : NULL,
-				fb ? fb->modifier : 0,
-				need_scaler);
-
-	if (ret || plane_state->scaler_id == INVALID_SCALER)
-		return ret;
-
-	/* check colorkey */
-	if (plane_state->ckey.flags) {
-		drm_dbg_kms(&dev_priv->drm,
-			    "[PLANE:%d:%s] scaling with color key not allowed",
-			    intel_plane->base.base.id,
-			    intel_plane->base.name);
-		return -EINVAL;
-	}
-
-	/* Check src format */
-	switch (fb->format->format) {
-	case DRM_FORMAT_RGB565:
-	case DRM_FORMAT_XBGR8888:
-	case DRM_FORMAT_XRGB8888:
-	case DRM_FORMAT_ABGR8888:
-	case DRM_FORMAT_ARGB8888:
-	case DRM_FORMAT_XRGB2101010:
-	case DRM_FORMAT_XBGR2101010:
-	case DRM_FORMAT_ARGB2101010:
-	case DRM_FORMAT_ABGR2101010:
-	case DRM_FORMAT_YUYV:
-	case DRM_FORMAT_YVYU:
-	case DRM_FORMAT_UYVY:
-	case DRM_FORMAT_VYUY:
-	case DRM_FORMAT_NV12:
-	case DRM_FORMAT_P010:
-	case DRM_FORMAT_P012:
-	case DRM_FORMAT_P016:
-	case DRM_FORMAT_Y210:
-	case DRM_FORMAT_Y212:
-	case DRM_FORMAT_Y216:
-	case DRM_FORMAT_XVYU2101010:
-	case DRM_FORMAT_XVYU12_16161616:
-	case DRM_FORMAT_XVYU16161616:
-		break;
-	case DRM_FORMAT_XBGR16161616F:
-	case DRM_FORMAT_ABGR16161616F:
-	case DRM_FORMAT_XRGB16161616F:
-	case DRM_FORMAT_ARGB16161616F:
-		if (INTEL_GEN(dev_priv) >= 11)
-			break;
-		/* fall through */
-	default:
-		drm_dbg_kms(&dev_priv->drm,
-			    "[PLANE:%d:%s] FB:%d unsupported scaling format 0x%x\n",
-			    intel_plane->base.base.id, intel_plane->base.name,
-			    fb->base.id, fb->format->format);
-		return -EINVAL;
-	}
-
-	return 0;
+	return skl_update_scaler(crtc_state, force_detach,
+				 intel_plane_scaler_user(intel_plane),
+				 &plane_state->scaler_id,
+				 drm_rect_width(&plane_state->uapi.src) >> 16,
+				 drm_rect_height(&plane_state->uapi.src) >> 16,
+				 drm_rect_width(&plane_state->uapi.dst),
+				 drm_rect_height(&plane_state->uapi.dst),
+				 fb ? fb->format : NULL, fb ? fb->modifier : 0,
+				 need_scaler);
 }
 
 void skl_scaler_disable(const struct intel_crtc_state *old_crtc_state)
