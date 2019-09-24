@@ -6052,6 +6052,34 @@ static int skl_scaler_check_src_size(struct intel_crtc *crtc,
 	return 0;
 }
 
+static int skl_scaler_check_pipe_src_size(const struct intel_crtc_state *crtc_state,
+					  unsigned int scaler_user)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	int max_w, max_h;
+
+	/*
+	 * The pipe scaler does not use all the bits of PIPESRC on the
+	 * earlier platforms. So even when we're scaling a plane the
+	 * *pipe* source size can't be too large. For simplicity we
+	 * assume the limits match the scaler source size limits.
+	 * Might not be 100% true, but good enough for now.
+	 */
+	skl_scaler_max_src_size(crtc, &max_w, &max_h);
+
+	if (crtc_state->pipe_src_w > max_w || crtc_state->pipe_src_h > max_h) {
+		drm_dbg_kms(&dev_priv->drm,
+			    "[CRTC:%d:%s] scaler_user %u: pipe source size (%dx%d) above max (%dx%d)\n",
+			    crtc->base.base.id, crtc->base.name,
+			    scaler_user, crtc_state->pipe_src_w,
+			    crtc_state->pipe_src_h, max_w, max_h);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int
 skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 		  unsigned int scaler_user, int *scaler_id,
@@ -6116,6 +6144,10 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 
 	ret = skl_scaler_check_src_size(intel_crtc, scaler_user,
 					src_w, src_h, format, modifier);
+	if (ret)
+		return ret;
+
+	ret = skl_scaler_check_pipe_src_size(crtc_state, scaler_user);
 	if (ret)
 		return ret;
 
