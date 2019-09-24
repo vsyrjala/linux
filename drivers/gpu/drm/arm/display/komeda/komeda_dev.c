@@ -25,6 +25,8 @@ static int komeda_register_show(struct seq_file *sf, void *x)
 	struct komeda_dev *mdev = sf->private;
 	int i;
 
+	seq_puts(sf, "\n====== Komeda register dump =========\n");
+
 	if (mdev->funcs->dump_register)
 		mdev->funcs->dump_register(mdev, sf);
 
@@ -91,9 +93,19 @@ config_id_show(struct device *dev, struct device_attribute *attr, char *buf)
 }
 static DEVICE_ATTR_RO(config_id);
 
+static ssize_t
+aclk_hz_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct komeda_dev *mdev = dev_to_mdev(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", clk_get_rate(mdev->aclk));
+}
+static DEVICE_ATTR_RO(aclk_hz);
+
 static struct attribute *komeda_sysfs_entries[] = {
 	&dev_attr_core_id.attr,
 	&dev_attr_config_id.attr,
+	&dev_attr_aclk_hz.attr,
 	NULL,
 };
 
