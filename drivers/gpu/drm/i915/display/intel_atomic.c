@@ -245,6 +245,15 @@ bool skl_can_use_hq_scaler(const struct intel_crtc_state *crtc_state)
 		is_power_of_2(scaler_state->scaler_users);
 }
 
+static void skl_update_hq_scaler(struct intel_crtc_scaler_state *scaler_state,
+				 enum scaler *scaler_id)
+{
+	/* Only scaler 1 can operate in HQ mode */
+	scaler_state->scalers[*scaler_id].in_use = false;
+	*scaler_id = SCALER_1;
+	scaler_state->scalers[*scaler_id].in_use = true;
+}
+
 static enum scaler intel_allocate_scaler(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
@@ -306,14 +315,7 @@ static void intel_atomic_setup_scaler(struct intel_crtc_state *crtc_state,
 	} else if (INTEL_GEN(dev_priv) > 9 || IS_GEMINILAKE(dev_priv)) {
 		mode = PS_SCALER_MODE_NORMAL;
 	} else if (num_scalers_need == 1 && intel_crtc->num_scalers > 1) {
-		/*
-		 * when only 1 scaler is in use on a pipe with 2 scalers
-		 * scaler 1 operates in high quality (HQ) mode.
-		 * In this case use scaler 0 to take advantage of HQ mode
-		 */
-		scaler_state->scalers[*scaler_id].in_use = false;
-		*scaler_id = SCALER_1;
-		scaler_state->scalers[0].in_use = true;
+		skl_update_hq_scaler(scaler_state, scaler_id);
 		mode = SKL_PS_SCALER_MODE_HQ;
 	} else {
 		mode = SKL_PS_SCALER_MODE_DYN;
