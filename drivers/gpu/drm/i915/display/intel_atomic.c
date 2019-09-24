@@ -227,6 +227,16 @@ intel_crtc_destroy_state(struct drm_crtc *crtc,
 	drm_atomic_helper_crtc_destroy_state(crtc, state);
 }
 
+int intel_plane_scaler_user(struct intel_plane *plane)
+{
+	return drm_plane_index(&plane->base);
+}
+
+int intel_crtc_scaler_user(void)
+{
+	return SKL_CRTC_INDEX;
+}
+
 bool skl_can_use_hq_scaler(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);

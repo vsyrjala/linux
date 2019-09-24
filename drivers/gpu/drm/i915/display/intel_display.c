@@ -5593,7 +5593,7 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 	 */
 	if (force_detach || !need_scaler) {
 		if (*scaler_id != INVALID_SCALER) {
-			scaler_state->scaler_users &= ~(1 << scaler_user);
+			scaler_state->scaler_users &= ~BIT(scaler_user);
 			scaler_state->scalers[*scaler_id].in_use = false;
 
 			DRM_DEBUG_KMS("scaler_user index %u.%u: "
@@ -5620,7 +5620,7 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 		return ret;
 
 	/* mark this pipe/plane as a scaler user in crtc_state */
-	scaler_state->scaler_users |= (1 << scaler_user);
+	scaler_state->scaler_users |= BIT(scaler_user);
 	DRM_DEBUG_KMS("scaler_user index %u.%u: "
 		"staged scaling request for %ux%u->%ux%u scaler_users = 0x%x\n",
 		intel_crtc->pipe, scaler_user, src_w, src_h, dst_w, dst_h,
@@ -5644,7 +5644,7 @@ static int skl_update_scaler_crtc(struct intel_crtc_state *crtc_state)
 	}
 
 	return skl_update_scaler(crtc_state, !crtc_state->base.active,
-				 SKL_CRTC_INDEX,
+				 intel_crtc_scaler_user(),
 				 &crtc_state->pch_pfit.scaler_id,
 				 crtc_state->pipe_src_w, crtc_state->pipe_src_h,
 				 width, height, NULL,
@@ -5677,7 +5677,7 @@ static int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 		need_scaler = true;
 
 	ret = skl_update_scaler(crtc_state, force_detach,
-				drm_plane_index(&intel_plane->base),
+				intel_plane_scaler_user(intel_plane),
 				&plane_state->scaler_id,
 				drm_rect_width(&plane_state->base.src) >> 16,
 				drm_rect_height(&plane_state->base.src) >> 16,
@@ -9962,9 +9962,7 @@ static void skylake_get_pfit_config(struct intel_crtc_state *crtc_state)
 	}
 
 	if (crtc_state->pch_pfit.scaler_id != INVALID_SCALER)
-		scaler_state->scaler_users |= (1 << SKL_CRTC_INDEX);
-	else
-		scaler_state->scaler_users &= ~(1 << SKL_CRTC_INDEX);
+		scaler_state->scaler_users |= BIT(intel_crtc_scaler_user());
 }
 
 static void
