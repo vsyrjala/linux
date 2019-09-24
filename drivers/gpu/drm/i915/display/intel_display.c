@@ -11981,6 +11981,8 @@ static int intel_crtc_atomic_check(struct drm_crtc *_crtc,
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_crtc_state *crtc_state =
 		to_intel_crtc_state(_crtc_state);
+	struct intel_atomic_state *state =
+		to_intel_atomic_state(crtc_state->base.state);
 	int ret;
 	bool mode_changed = needs_modeset(crtc_state);
 
@@ -12038,14 +12040,12 @@ static int intel_crtc_atomic_check(struct drm_crtc *_crtc,
 	if (INTEL_GEN(dev_priv) >= 9) {
 		if (mode_changed || crtc_state->update_pipe)
 			ret = skl_update_scaler_crtc(crtc_state);
-
 		if (!ret)
 			ret = icl_check_nv12_planes(crtc_state);
 		if (!ret)
 			ret = skl_check_pipe_max_pixel_rate(crtc, crtc_state);
 		if (!ret)
-			ret = intel_atomic_setup_scalers(dev_priv, crtc,
-							 crtc_state);
+			ret = intel_atomic_setup_scalers(state, crtc);
 	}
 
 	if (HAS_IPS(dev_priv))
