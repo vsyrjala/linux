@@ -145,6 +145,10 @@ int intel_digital_connector_atomic_check(struct drm_connector *conn,
 	    new_conn_state->base.picture_aspect_ratio != old_conn_state->base.picture_aspect_ratio ||
 	    new_conn_state->base.content_type != old_conn_state->base.content_type ||
 	    new_conn_state->base.scaling_mode != old_conn_state->base.scaling_mode ||
+	    new_conn_state->base.tv.margins.left != old_conn_state->base.tv.margins.left ||
+	    new_conn_state->base.tv.margins.right != old_conn_state->base.tv.margins.right ||
+	    new_conn_state->base.tv.margins.top != old_conn_state->base.tv.margins.top ||
+	    new_conn_state->base.tv.margins.bottom != old_conn_state->base.tv.margins.bottom ||
 	    !blob_equal(new_conn_state->base.hdr_output_metadata,
 			old_conn_state->base.hdr_output_metadata))
 		crtc_state->mode_changed = true;
