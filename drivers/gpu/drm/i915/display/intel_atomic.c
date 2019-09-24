@@ -410,6 +410,9 @@ static void intel_crtc_setup_scaler(struct intel_crtc_state *crtc_state)
 	enum scaler *scaler_id = &crtc_state->pch_pfit.scaler_id;
 	u32 mode;
 
+	if ((scaler_state->scaler_users & BIT(intel_crtc_scaler_user())) == 0)
+		return;
+
 	if (*scaler_id == INVALID_SCALER)
 		*scaler_id = intel_allocate_scaler(crtc_state);
 
@@ -426,8 +429,8 @@ static void intel_crtc_setup_scaler(struct intel_crtc_state *crtc_state)
 
 	scaler_state->scalers[*scaler_id].mode = mode;
 
-	DRM_DEBUG_KMS("[CRTC:%d:%s] Attached scaler %u to pipe\n",
-		      crtc->base.base.id, crtc->base.name, *scaler_id);
+	drm_dbg_kms(&dev_priv->drm, "[CRTC:%d:%s] Attached scaler %u to pipe\n",
+		    crtc->base.base.id, crtc->base.name, *scaler_id);
 }
 
 static void intel_plane_setup_scaler(struct intel_crtc_state *crtc_state,
@@ -440,6 +443,9 @@ static void intel_plane_setup_scaler(struct intel_crtc_state *crtc_state,
 		&crtc_state->scaler_state;
 	enum scaler *scaler_id = &plane_state->scaler_id;
 	u32 mode;
+
+	if ((scaler_state->scaler_users & BIT(intel_plane_scaler_user(plane))) == 0)
+		return;
 
 	if (*scaler_id == INVALID_SCALER)
 		*scaler_id = intel_allocate_scaler(crtc_state);
@@ -463,11 +469,37 @@ static void intel_plane_setup_scaler(struct intel_crtc_state *crtc_state,
 		    plane->base.base.id, plane->base.name);
 }
 
+static int skl_add_scaled_planes(struct intel_atomic_state *state,
+				 struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+	const struct intel_crtc_scaler_state *scaler_state =
+		&crtc_state->scaler_state;
+	struct intel_plane *plane;
+
+	for_each_intel_plane_on_crtc(&dev_priv->drm, crtc, plane) {
+		int scaler_user = intel_plane_scaler_user(plane);
+		struct intel_plane_state *plane_state;
+
+		if ((scaler_state->scaler_users & BIT(scaler_user)) == 0)
+			continue;
+
+		plane_state = intel_atomic_get_plane_state(state, plane);
+		if (IS_ERR(plane_state))
+			return PTR_ERR(plane_state);
+
+		crtc_state->update_planes |= BIT(plane->id);
+	}
+
+	return 0;
+}
+
 /**
  * intel_atomic_setup_scalers() - setup scalers for crtc per staged requests
- * @dev_priv: i915 device
- * @intel_crtc: intel crtc
- * @crtc_state: incoming crtc_state to validate and setup scalers
+ * @state: the atomic state
+ * @crtc: the crtc
  *
  * This function sets up scalers based on staged scaling requests for
  * a @crtc and its planes. It is called from crtc level check path. If request
@@ -480,92 +512,48 @@ static void intel_plane_setup_scaler(struct intel_crtc_state *crtc_state,
  *         0 - scalers were setup succesfully
  *         error code - otherwise
  */
-int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
-			       struct intel_crtc *intel_crtc,
-			       struct intel_crtc_state *crtc_state)
+int intel_atomic_setup_scalers(struct intel_atomic_state *state,
+			       struct intel_crtc *crtc)
 {
-	struct drm_plane *plane = NULL;
-	struct intel_plane *intel_plane;
-	struct intel_plane_state *plane_state = NULL;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+	const struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(state, crtc);
 	struct intel_crtc_scaler_state *scaler_state =
-		&crtc_state->scaler_state;
-	struct drm_atomic_state *drm_state = crtc_state->uapi.state;
-	struct intel_atomic_state *intel_state = to_intel_atomic_state(drm_state);
-	int num_scalers_need;
+		&new_crtc_state->scaler_state;
+	struct intel_plane_state *new_plane_state;
+	struct intel_plane *plane;
+	int num_scaler_users = hweight32(scaler_state->scaler_users);
 	int i;
 
-	num_scalers_need = hweight32(scaler_state->scaler_users);
-
-	/*
-	 * High level flow:
-	 * - staged scaler requests are already in scaler_state->scaler_users
-	 * - check whether staged scaling requests can be supported
-	 * - add planes using scalers that aren't in current transaction
-	 * - assign scalers to requested users
-	 * - as part of plane commit, scalers will be committed
-	 *   (i.e., either attached or detached) to respective planes in hw
-	 * - as part of crtc_commit, scaler will be either attached or detached
-	 *   to crtc in hw
-	 */
-
-	/* fail if required scalers > available scalers */
-	if (num_scalers_need > intel_crtc->num_scalers){
+	if (num_scaler_users > crtc->num_scalers) {
 		drm_dbg_kms(&dev_priv->drm,
-			    "Too many scaling requests %d > %d\n",
-			    num_scalers_need, intel_crtc->num_scalers);
+			    "[CRTC:%d:%s] Too many scaling requests %d > %d\n",
+			    crtc->base.base.id, crtc->base.name,
+			    num_scaler_users, crtc->num_scalers);
 		return -EINVAL;
 	}
 
-	/* walkthrough scaler_users bits and start assigning scalers */
-	for (i = 0; i < sizeof(scaler_state->scaler_users) * 8; i++) {
-		/* skip if scaler not required */
-		if (!(scaler_state->scaler_users & (1 << i)))
+	if (skl_can_use_hq_scaler(old_crtc_state) !=
+	    skl_can_use_hq_scaler(new_crtc_state)) {
+		int ret;
+
+		ret = skl_add_scaled_planes(state, crtc);
+		if (ret)
+			return ret;
+
+		if (scaler_state->scaler_users & BIT(intel_crtc_scaler_user()))
+			new_crtc_state->update_pipe = true;
+	}
+
+	intel_crtc_setup_scaler(new_crtc_state);
+
+	for_each_new_intel_plane_in_state(state, plane, new_plane_state, i) {
+		if (plane->pipe != crtc->pipe)
 			continue;
 
-		if (i == SKL_CRTC_INDEX) {
-			intel_crtc_setup_scaler(crtc_state);
-		} else {
-			/* plane scaler case: assign as a plane scaler */
-			/* find the plane that set the bit as scaler_user */
-			plane = drm_state->planes[i].ptr;
-
-			/*
-			 * to enable/disable hq mode, add planes that are using scaler
-			 * into this transaction
-			 */
-			if (!plane) {
-				struct drm_plane_state *state;
-
-				/*
-				 * GLK+ scalers don't have a HQ mode so it
-				 * isn't necessary to change between HQ and dyn mode
-				 * on those platforms.
-				 */
-				if (INTEL_GEN(dev_priv) >= 10 || IS_GEMINILAKE(dev_priv))
-					continue;
-
-				plane = drm_plane_from_index(&dev_priv->drm, i);
-				state = drm_atomic_get_plane_state(drm_state, plane);
-				if (IS_ERR(state)) {
-					drm_dbg_kms(&dev_priv->drm,
-						    "Failed to add [PLANE:%d] to drm_state\n",
-						    plane->base.id);
-					return PTR_ERR(state);
-				}
-			}
-
-			intel_plane = to_intel_plane(plane);
-
-			/* plane on different crtc cannot be a scaler user of this crtc */
-			if (drm_WARN_ON(&dev_priv->drm,
-					intel_plane->pipe != intel_crtc->pipe))
-				continue;
-
-			plane_state = intel_atomic_get_new_plane_state(intel_state,
-								       intel_plane);
-
-			intel_plane_setup_scaler(crtc_state, plane_state);
-		}
+		intel_plane_setup_scaler(new_crtc_state, new_plane_state);
 	}
 
 	return 0;

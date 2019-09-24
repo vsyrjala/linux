@@ -53,9 +53,8 @@ struct intel_crtc_state *
 intel_atomic_get_crtc_state(struct drm_atomic_state *state,
 			    struct intel_crtc *crtc);
 
-int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
-			       struct intel_crtc *intel_crtc,
-			       struct intel_crtc_state *crtc_state);
+int intel_atomic_setup_scalers(struct intel_atomic_state *state,
+			       struct intel_crtc *crtc);
 bool skl_can_use_hq_scaler(const struct intel_crtc_state *crtc_state);
 int intel_plane_scaler_user(struct intel_plane *plane);
 int intel_crtc_scaler_user(void);
