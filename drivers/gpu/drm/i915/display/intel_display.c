@@ -11270,12 +11270,12 @@ found:
 		goto fail;
 	}
 
-	crtc_state->base.active = crtc_state->base.enable = true;
+	crtc_state->uapi.active = crtc_state->uapi.enable = true;
 
 	if (!mode)
 		mode = &load_detect_mode;
 
-	ret = drm_atomic_set_mode_for_crtc(&crtc_state->base, mode);
+	ret = drm_atomic_set_mode_for_crtc(&crtc_state->uapi, mode);
 	if (ret)
 		goto fail;
 
