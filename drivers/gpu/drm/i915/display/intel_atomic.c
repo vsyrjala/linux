@@ -193,6 +193,7 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 		return NULL;
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &crtc_state->base);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, &crtc_state->uapi);
 
 	crtc_state->update_pipe = false;
 	crtc_state->disable_lp_wm = false;
@@ -204,22 +205,27 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 	crtc_state->fb_bits = 0;
 	crtc_state->update_planes = 0;
 
-	return &crtc_state->base;
+	return &crtc_state->uapi;
 }
 
 /**
  * intel_crtc_destroy_state - destroy crtc state
- * @crtc: drm crtc
- * @state: the state to destroy
+ * @_crtc: drm crtc
+ * @_crtc_state: the state to destroy
  *
  * Destroys the crtc state (both common and Intel-specific) for the
  * specified crtc.
  */
 void
-intel_crtc_destroy_state(struct drm_crtc *crtc,
-			 struct drm_crtc_state *state)
+intel_crtc_destroy_state(struct drm_crtc *_crtc,
+			 struct drm_crtc_state *_crtc_state)
 {
-	drm_atomic_helper_crtc_destroy_state(crtc, state);
+	struct intel_crtc *crtc = to_intel_crtc(_crtc);
+	struct intel_crtc_state *crtc_state =
+		to_intel_crtc_state(_crtc_state);
+
+	__drm_atomic_helper_crtc_destroy_state(&crtc_state->base);
+	drm_atomic_helper_crtc_destroy_state(&crtc->base, &crtc_state->uapi);
 }
 
 static void intel_atomic_setup_scaler(struct intel_crtc_scaler_state *scaler_state,
@@ -318,7 +324,7 @@ int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
 	struct intel_plane_state *plane_state = NULL;
 	struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
-	struct drm_atomic_state *drm_state = crtc_state->base.state;
+	struct drm_atomic_state *drm_state = crtc_state->uapi.state;
 	struct intel_atomic_state *intel_state = to_intel_atomic_state(drm_state);
 	int num_scalers_need;
 	int i;

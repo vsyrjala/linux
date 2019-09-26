@@ -1058,7 +1058,7 @@ intel_color_add_affected_planes(struct intel_crtc_state *new_crtc_state)
 	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_atomic_state *state =
-		to_intel_atomic_state(new_crtc_state->base.state);
+		to_intel_atomic_state(new_crtc_state->uapi.state);
 	const struct intel_crtc_state *old_crtc_state =
 		intel_atomic_get_old_crtc_state(state, crtc);
 	struct intel_plane *plane;

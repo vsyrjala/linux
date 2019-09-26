@@ -203,14 +203,14 @@ void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state)
 	 * Would be slightly nice to just grab the vblank count and arm the
 	 * event outside of the critical section - the spinlock might spin for a
 	 * while ... */
-	if (new_crtc_state->base.event) {
+	if (new_crtc_state->uapi.event) {
 		WARN_ON(drm_crtc_vblank_get(&crtc->base) != 0);
 
 		spin_lock(&crtc->base.dev->event_lock);
-		drm_crtc_arm_vblank_event(&crtc->base, new_crtc_state->base.event);
+		drm_crtc_arm_vblank_event(&crtc->base, new_crtc_state->uapi.event);
 		spin_unlock(&crtc->base.dev->event_lock);
 
-		new_crtc_state->base.event = NULL;
+		new_crtc_state->uapi.event = NULL;
 	}
 
 	local_irq_enable();
