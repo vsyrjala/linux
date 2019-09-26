@@ -448,3 +448,179 @@ intel_atomic_get_crtc_state(struct drm_atomic_state *state,
 
 	return to_intel_crtc_state(crtc_state);
 }
+
+static int stall_checks(struct drm_crtc *crtc, bool nonblock)
+{
+	struct drm_crtc_commit *commit, *stall_commit = NULL;
+	bool completed = true;
+	int i;
+	long ret = 0;
+
+	spin_lock(&crtc->commit_lock);
+	i = 0;
+	list_for_each_entry(commit, &crtc->commit_list, commit_entry) {
+		if (i == 0) {
+			completed = try_wait_for_completion(&commit->flip_done);
+			/* Userspace is not allowed to get ahead of the previous
+			 * commit with nonblocking ones. */
+			if (!completed && nonblock) {
+				spin_unlock(&crtc->commit_lock);
+				return -EBUSY;
+			}
+		} else if (i == 1) {
+			stall_commit = drm_crtc_commit_get(commit);
+			break;
+		}
+
+		i++;
+	}
+	spin_unlock(&crtc->commit_lock);
+
+	if (!stall_commit)
+		return 0;
+
+	/* We don't want to let commits get ahead of cleanup work too much,
+	 * stalling on 2nd previous commit means triple-buffer won't ever stall.
+	 */
+	ret = wait_for_completion_interruptible_timeout(&stall_commit->cleanup_done,
+							10*HZ);
+	if (ret == 0)
+		DRM_ERROR("[CRTC:%d:%s] cleanup_done timed out\n",
+			  crtc->base.id, crtc->name);
+
+	drm_crtc_commit_put(stall_commit);
+
+	return ret < 0 ? ret : 0;
+}
+
+static void release_crtc_commit(struct completion *completion)
+{
+	struct drm_crtc_commit *commit = container_of(completion,
+						      typeof(*commit),
+						      flip_done);
+
+	drm_crtc_commit_put(commit);
+}
+
+static void init_commit(struct drm_crtc_commit *commit, struct drm_crtc *crtc)
+{
+	init_completion(&commit->flip_done);
+	init_completion(&commit->hw_done);
+	init_completion(&commit->cleanup_done);
+	INIT_LIST_HEAD(&commit->commit_entry);
+	kref_init(&commit->ref);
+	commit->crtc = crtc;
+}
+
+static struct drm_crtc_commit *
+crtc_or_fake_commit(struct drm_atomic_state *state, struct drm_crtc *crtc)
+{
+	if (crtc) {
+		struct drm_crtc_state *new_crtc_state;
+
+		new_crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+
+		return new_crtc_state->commit;
+	}
+
+	if (!state->fake_commit) {
+		state->fake_commit = kzalloc(sizeof(*state->fake_commit), GFP_KERNEL);
+		if (!state->fake_commit)
+			return NULL;
+
+		init_commit(state->fake_commit, NULL);
+	}
+
+	return state->fake_commit;
+}
+
+int intel_atomic_setup_commit(struct intel_atomic_state *state,
+			      bool nonblock)
+{
+	struct intel_crtc *crtc;
+	struct intel_crtc_state *old_crtc_state, *new_crtc_state;
+	struct drm_connector *conn;
+	struct drm_connector_state *old_conn_state, *new_conn_state;
+	struct drm_plane *plane;
+	struct drm_plane_state *old_plane_state, *new_plane_state;
+	struct drm_crtc_commit *commit;
+	int i, ret;
+
+	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+		commit = kzalloc(sizeof(*commit), GFP_KERNEL);
+		if (!commit)
+			return -ENOMEM;
+
+		init_commit(commit, &crtc->base);
+
+		new_crtc_state->uapi.commit = commit;
+
+		ret = stall_checks(&crtc->base, nonblock);
+		if (ret)
+			return ret;
+
+		/* Drivers only send out events when at least either current or
+		 * new CRTC state is active. Complete right away if everything
+		 * stays off. */
+		if (!old_crtc_state->base.active && !new_crtc_state->base.active) {
+			complete_all(&commit->flip_done);
+			continue;
+		}
+
+		/* Legacy cursor updates are fully unsynced. */
+		if (state->base.legacy_cursor_update) {
+			complete_all(&commit->flip_done);
+			continue;
+		}
+
+		if (!new_crtc_state->uapi.event) {
+			commit->event = kzalloc(sizeof(*commit->event),
+						GFP_KERNEL);
+			if (!commit->event)
+				return -ENOMEM;
+
+			new_crtc_state->uapi.event = commit->event;
+		}
+
+		new_crtc_state->uapi.event->base.completion = &commit->flip_done;
+		new_crtc_state->uapi.event->base.completion_release = release_crtc_commit;
+		drm_crtc_commit_get(commit);
+
+		commit->abort_completion = true;
+
+		state->base.crtcs[i].commit = commit;
+		drm_crtc_commit_get(commit);
+	}
+
+	for_each_oldnew_connector_in_state(&state->base, conn, old_conn_state, new_conn_state, i) {
+		/* Userspace is not allowed to get ahead of the previous
+		 * commit with nonblocking ones. */
+		if (nonblock && old_conn_state->commit &&
+		    !try_wait_for_completion(&old_conn_state->commit->flip_done))
+			return -EBUSY;
+
+		/* Always track connectors explicitly for e.g. link retraining. */
+		commit = crtc_or_fake_commit(&state->base, new_conn_state->crtc ?: old_conn_state->crtc);
+		if (!commit)
+			return -ENOMEM;
+
+		new_conn_state->commit = drm_crtc_commit_get(commit);
+	}
+
+	for_each_oldnew_plane_in_state(&state->base, plane, old_plane_state, new_plane_state, i) {
+		/* Userspace is not allowed to get ahead of the previous
+		 * commit with nonblocking ones. */
+		if (nonblock && old_plane_state->commit &&
+		    !try_wait_for_completion(&old_plane_state->commit->flip_done))
+			return -EBUSY;
+
+		/* Always track planes explicitly for async pageflip support. */
+		commit = crtc_or_fake_commit(&state->base, new_plane_state->crtc ?: old_plane_state->crtc);
+		if (!commit)
+			return -ENOMEM;
+
+		new_plane_state->commit = drm_crtc_commit_get(commit);
+	}
+
+	return 0;
+}
