@@ -16796,8 +16796,10 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 			to_intel_crtc_state(crtc->base.state);
 
 		__drm_atomic_helper_crtc_destroy_state(&crtc_state->base);
+		__drm_atomic_helper_crtc_destroy_state(&crtc_state->uapi);
 		memset(crtc_state, 0, sizeof(*crtc_state));
 		__drm_atomic_helper_crtc_reset(&crtc->base, &crtc_state->base);
+		__drm_atomic_helper_crtc_reset(&crtc->base, &crtc_state->uapi);
 
 		crtc_state->base.active = crtc_state->base.enable =
 			dev_priv->display.get_pipe_config(crtc, crtc_state);
