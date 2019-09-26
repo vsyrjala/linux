@@ -14804,12 +14804,12 @@ intel_legacy_cursor_update(struct drm_plane *_plane,
 	 * take the slowpath. Only changing fb or position should be
 	 * in the fastpath.
 	 */
-	if (old_plane_state->uapi.crtc != &crtc->base ||
-	    old_plane_state->uapi.src_w != src_w ||
-	    old_plane_state->uapi.src_h != src_h ||
-	    old_plane_state->uapi.crtc_w != crtc_w ||
-	    old_plane_state->uapi.crtc_h != crtc_h ||
-	    !old_plane_state->uapi.fb != !fb)
+	if (old_plane_state->base.crtc != &crtc->base ||
+	    old_plane_state->base.src_w != src_w ||
+	    old_plane_state->base.src_h != src_h ||
+	    old_plane_state->base.src_w != crtc_w ||
+	    old_plane_state->base.crtc_h != crtc_h ||
+	    !old_plane_state->base.fb != !fb)
 		goto slow;
 
 	new_plane_state = to_intel_plane_state(intel_plane_duplicate_state(&plane->base));
