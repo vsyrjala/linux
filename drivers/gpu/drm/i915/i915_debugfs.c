@@ -4212,7 +4212,7 @@ static int i915_drrs_ctl_set(void *data, u64 val)
 		    !crtc_state->has_drrs)
 			goto out;
 
-		commit = crtc_state->base.commit;
+		commit = crtc_state->uapi.commit;
 		if (commit) {
 			ret = wait_for_completion_interruptible(&commit->hw_done);
 			if (ret)
@@ -4283,7 +4283,7 @@ i915_fifo_underrun_reset_write(struct file *filp,
 			return ret;
 
 		crtc_state = to_intel_crtc_state(intel_crtc->base.state);
-		commit = crtc_state->base.commit;
+		commit = crtc_state->uapi.commit;
 		if (commit) {
 			ret = wait_for_completion_interruptible(&commit->hw_done);
 			if (!ret)

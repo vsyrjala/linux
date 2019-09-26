@@ -2208,7 +2208,7 @@ static bool hdmi_deep_color_possible(const struct intel_crtc_state *crtc_state,
 {
 	struct drm_i915_private *dev_priv =
 		to_i915(crtc_state->base.crtc->dev);
-	struct drm_atomic_state *state = crtc_state->base.state;
+	struct drm_atomic_state *state = crtc_state->uapi.state;
 	struct drm_connector_state *connector_state;
 	struct drm_connector *connector;
 	const struct drm_display_mode *adjusted_mode =

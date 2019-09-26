@@ -5915,7 +5915,7 @@ static void intel_post_plane_update(struct intel_crtc_state *old_crtc_state)
 	struct intel_crtc *crtc = to_intel_crtc(old_crtc_state->base.crtc);
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct drm_atomic_state *state = old_crtc_state->base.state;
+	struct drm_atomic_state *state = old_crtc_state->uapi.state;
 	struct intel_crtc_state *pipe_config =
 		intel_atomic_get_new_crtc_state(to_intel_atomic_state(state),
 						crtc);
@@ -5958,7 +5958,7 @@ static void intel_pre_plane_update(struct intel_crtc_state *old_crtc_state,
 	struct intel_crtc *crtc = to_intel_crtc(old_crtc_state->base.crtc);
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct drm_atomic_state *state = old_crtc_state->base.state;
+	struct drm_atomic_state *state = old_crtc_state->uapi.state;
 	struct drm_plane *primary = crtc->base.primary;
 	struct drm_plane_state *old_primary_state =
 		drm_atomic_get_old_plane_state(state, primary);
@@ -7196,7 +7196,7 @@ static int ironlake_check_fdi_lanes(struct drm_device *dev, enum pipe pipe,
 				     struct intel_crtc_state *pipe_config)
 {
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	struct drm_atomic_state *state = pipe_config->base.state;
+	struct drm_atomic_state *state = pipe_config->uapi.state;
 	struct intel_crtc *other_crtc;
 	struct intel_crtc_state *other_crtc_state;
 
@@ -7347,7 +7347,7 @@ static bool hsw_compute_ips_config(struct intel_crtc_state *crtc_state)
 	struct drm_i915_private *dev_priv =
 		to_i915(crtc_state->base.crtc->dev);
 	struct intel_atomic_state *intel_state =
-		to_intel_atomic_state(crtc_state->base.state);
+		to_intel_atomic_state(crtc_state->uapi.state);
 
 	if (!hsw_crtc_state_ips_capable(crtc_state))
 		return false;
@@ -9675,7 +9675,7 @@ static int ironlake_crtc_compute_clock(struct intel_crtc *crtc,
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_atomic_state *state =
-		to_intel_atomic_state(crtc_state->base.state);
+		to_intel_atomic_state(crtc_state->uapi.state);
 	const struct intel_limit *limit;
 	int refclk = 120000;
 
@@ -10100,7 +10100,7 @@ static int haswell_crtc_compute_clock(struct intel_crtc *crtc,
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_atomic_state *state =
-		to_intel_atomic_state(crtc_state->base.state);
+		to_intel_atomic_state(crtc_state->uapi.state);
 
 	if (!intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DSI) ||
 	    INTEL_GEN(dev_priv) >= 11) {
@@ -11749,7 +11749,7 @@ static int icl_check_nv12_planes(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->base.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	struct intel_atomic_state *state = to_intel_atomic_state(crtc_state->base.state);
+	struct intel_atomic_state *state = to_intel_atomic_state(crtc_state->uapi.state);
 	struct intel_plane *plane, *linked;
 	struct intel_plane_state *plane_state;
 	int i;
@@ -11821,7 +11821,7 @@ static bool c8_planes_changed(const struct intel_crtc_state *new_crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->base.crtc);
 	struct intel_atomic_state *state =
-		to_intel_atomic_state(new_crtc_state->base.state);
+		to_intel_atomic_state(new_crtc_state->uapi.state);
 	const struct intel_crtc_state *old_crtc_state =
 		intel_atomic_get_old_crtc_state(state, crtc);
 
@@ -11980,7 +11980,7 @@ compute_baseline_pipe_bpp(struct intel_crtc *crtc,
 			  struct intel_crtc_state *pipe_config)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	struct drm_atomic_state *state = pipe_config->base.state;
+	struct drm_atomic_state *state = pipe_config->uapi.state;
 	struct drm_connector *connector;
 	struct drm_connector_state *connector_state;
 	int bpp, i;
@@ -12332,10 +12332,12 @@ clear_intel_crtc_state(struct intel_crtc_state *crtc_state)
 	    IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
 		saved_state->wm = crtc_state->wm;
 
-	/* Keep base drm_crtc_state intact, only clear our extended struct */
-	BUILD_BUG_ON(offsetof(struct intel_crtc_state, base));
-	memcpy(&crtc_state->base + 1, &saved_state->base + 1,
-	       sizeof(*crtc_state) - sizeof(crtc_state->base));
+	/* Keep uapi+base drm_crtc_state intact, only clear our extended struct */
+	BUILD_BUG_ON(sizeof(crtc_state->uapi) != sizeof(crtc_state->base));
+	BUILD_BUG_ON(offsetof(struct intel_crtc_state, uapi) != 0);
+	BUILD_BUG_ON(offsetof(struct intel_crtc_state, base) != sizeof(crtc_state->uapi));
+	memcpy(&crtc_state->uapi + 2, &saved_state->uapi + 2,
+	       sizeof(*crtc_state) - sizeof(crtc_state->uapi) - sizeof(crtc_state->base));
 
 	kfree(saved_state);
 	return 0;
@@ -12345,7 +12347,7 @@ static int
 intel_modeset_pipe_config(struct intel_crtc_state *pipe_config)
 {
 	struct drm_crtc *crtc = pipe_config->base.crtc;
-	struct drm_atomic_state *state = pipe_config->base.state;
+	struct drm_atomic_state *state = pipe_config->uapi.state;
 	struct intel_encoder *encoder;
 	struct drm_connector *connector;
 	struct drm_connector_state *connector_state;
@@ -13194,12 +13196,12 @@ verify_crtc_state(struct intel_crtc *crtc,
 	struct drm_atomic_state *state;
 	bool active;
 
-	state = old_crtc_state->base.state;
+	state = old_crtc_state->uapi.state;
 	__drm_atomic_helper_crtc_destroy_state(&old_crtc_state->base);
 	pipe_config = old_crtc_state;
 	memset(pipe_config, 0, sizeof(*pipe_config));
 	pipe_config->base.crtc = &crtc->base;
-	pipe_config->base.state = state;
+	pipe_config->uapi.state = state;
 
 	DRM_DEBUG_KMS("[CRTC:%d:%s]\n", crtc->base.base.id, crtc->base.name);
 
@@ -13585,6 +13587,42 @@ static void intel_crtc_check_fastset(const struct intel_crtc_state *old_crtc_sta
 	new_crtc_state->has_drrs = old_crtc_state->has_drrs;
 }
 
+static void clear_crtc_state(struct drm_crtc_state *base,
+			     const struct drm_crtc_state *uapi)
+{
+	struct drm_crtc_state *current_state;
+	struct drm_crtc *crtc = base->crtc;
+
+	/* FIXME ugly hack to avoid clobbering crtc->state */
+	current_state = crtc->state;
+
+	__drm_atomic_helper_crtc_destroy_state(base);
+	memset(base, 0, sizeof(*base));
+	__drm_atomic_helper_crtc_reset(crtc, base);
+
+	crtc->state = current_state;
+}
+
+static void copy_crtc_state(struct drm_crtc_state *base,
+			    struct drm_crtc_state *uapi)
+{
+	struct drm_crtc_state *current_state;
+	struct drm_crtc *crtc = base->crtc;
+
+	WARN_ON(base->crtc != uapi->crtc);
+
+	__drm_atomic_helper_crtc_destroy_state(base);
+
+	/* FIXME ugly hack to avoid clobbering crtc->state */
+	current_state = crtc->state;
+
+	crtc->state = uapi;
+	__drm_atomic_helper_crtc_duplicate_state(crtc, base);
+	base->state = NULL; /* make sure we never use this! */
+
+	crtc->state = current_state;
+}
+
 /**
  * intel_atomic_check - validate state object
  * @dev: drm device
@@ -13611,6 +13649,16 @@ static int intel_atomic_check(struct drm_device *dev,
 	ret = drm_atomic_helper_check_modeset(dev, &state->base);
 	if (ret)
 		goto fail;
+
+	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state,
+					    new_crtc_state, i) {
+		if (new_crtc_state->uapi.enable)
+			copy_crtc_state(&new_crtc_state->base,
+					&new_crtc_state->uapi);
+		else if (old_crtc_state->uapi.enable)
+			clear_crtc_state(&new_crtc_state->base,
+					 &new_crtc_state->uapi);
+	}
 
 	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state,
 					    new_crtc_state, i) {
@@ -14370,21 +14418,26 @@ static void fb_obj_bump_render_priority(struct drm_i915_gem_object *obj)
  * Returns 0 on success, negative error code on failure.
  */
 int
-intel_prepare_plane_fb(struct drm_plane *plane,
-		       struct drm_plane_state *new_state)
+intel_prepare_plane_fb(struct drm_plane *_plane,
+		       struct drm_plane_state *_new_plane_state)
 {
-	struct intel_atomic_state *intel_state =
-		to_intel_atomic_state(new_state->state);
-	struct drm_i915_private *dev_priv = to_i915(plane->dev);
-	struct drm_framebuffer *fb = new_state->fb;
+	struct intel_plane *plane = to_intel_plane(_plane);
+	struct intel_plane_state *new_plane_state =
+		to_intel_plane_state(_new_plane_state);
+	struct intel_atomic_state *state =
+		to_intel_atomic_state(new_plane_state->uapi.state);
+	const struct intel_plane_state *old_plane_state =
+		intel_atomic_get_old_plane_state(state, plane);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
+	struct drm_framebuffer *fb = new_plane_state->base.fb;
 	struct drm_i915_gem_object *obj = intel_fb_obj(fb);
-	struct drm_i915_gem_object *old_obj = intel_fb_obj(plane->state->fb);
+	struct drm_i915_gem_object *old_obj = intel_fb_obj(old_plane_state->base.fb);
 	int ret;
 
 	if (old_obj) {
 		struct intel_crtc_state *crtc_state =
-			intel_atomic_get_new_crtc_state(intel_state,
-							to_intel_crtc(plane->state->crtc));
+			intel_atomic_get_new_crtc_state(state,
+							to_intel_crtc(old_plane_state->base.crtc));
 
 		/* Big Hammer, we also need to ensure that any pending
 		 * MI_WAIT_FOR_EVENT inside a user batch buffer on the
@@ -14398,7 +14451,7 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 		 * can safely continue.
 		 */
 		if (needs_modeset(crtc_state)) {
-			ret = i915_sw_fence_await_reservation(&intel_state->commit_ready,
+			ret = i915_sw_fence_await_reservation(&state->commit_ready,
 							      old_obj->base.resv, NULL,
 							      false, 0,
 							      GFP_KERNEL);
@@ -14407,9 +14460,9 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 		}
 	}
 
-	if (new_state->fence) { /* explicit fencing */
-		ret = i915_sw_fence_await_dma_fence(&intel_state->commit_ready,
-						    new_state->fence,
+	if (new_plane_state->uapi.fence) { /* explicit fencing */
+		ret = i915_sw_fence_await_dma_fence(&state->commit_ready,
+						    new_plane_state->uapi.fence,
 						    I915_FENCE_TIMEOUT,
 						    GFP_KERNEL);
 		if (ret < 0)
@@ -14429,7 +14482,7 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 		return ret;
 	}
 
-	ret = intel_plane_pin_fb(to_intel_plane_state(new_state));
+	ret = intel_plane_pin_fb(new_plane_state);
 
 	mutex_unlock(&dev_priv->drm.struct_mutex);
 	i915_gem_object_unpin_pages(obj);
@@ -14439,10 +14492,10 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 	fb_obj_bump_render_priority(obj);
 	intel_frontbuffer_flush(obj->frontbuffer, ORIGIN_DIRTYFB);
 
-	if (!new_state->fence) { /* implicit fencing */
+	if (!new_plane_state->uapi.fence) { /* implicit fencing */
 		struct dma_fence *fence;
 
-		ret = i915_sw_fence_await_reservation(&intel_state->commit_ready,
+		ret = i915_sw_fence_await_reservation(&state->commit_ready,
 						      obj->base.resv, NULL,
 						      false, I915_FENCE_TIMEOUT,
 						      GFP_KERNEL);
@@ -14451,11 +14504,12 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 
 		fence = dma_resv_get_excl_rcu(obj->base.resv);
 		if (fence) {
-			add_rps_boost_after_vblank(new_state->crtc, fence);
+			add_rps_boost_after_vblank(new_plane_state->base.crtc, fence);
 			dma_fence_put(fence);
 		}
 	} else {
-		add_rps_boost_after_vblank(new_state->crtc, new_state->fence);
+		add_rps_boost_after_vblank(new_plane_state->base.crtc,
+					   new_plane_state->uapi.fence);
 	}
 
 	/*
@@ -14466,9 +14520,9 @@ intel_prepare_plane_fb(struct drm_plane *plane,
 	 * that are not quite steady state without resorting to forcing
 	 * maximum clocks following a vblank miss (see do_rps_boost()).
 	 */
-	if (!intel_state->rps_interactive) {
+	if (!state->rps_interactive) {
 		intel_rps_mark_interactive(dev_priv, true);
-		intel_state->rps_interactive = true;
+		state->rps_interactive = true;
 	}
 
 	return 0;
@@ -14484,21 +14538,24 @@ intel_prepare_plane_fb(struct drm_plane *plane,
  * Must be called with struct_mutex held.
  */
 void
-intel_cleanup_plane_fb(struct drm_plane *plane,
-		       struct drm_plane_state *old_state)
+intel_cleanup_plane_fb(struct drm_plane *_plane,
+		       struct drm_plane_state *_old_plane_state)
 {
-	struct intel_atomic_state *intel_state =
-		to_intel_atomic_state(old_state->state);
-	struct drm_i915_private *dev_priv = to_i915(plane->dev);
+	struct intel_plane *plane = to_intel_plane(_plane);
+	struct intel_plane_state *old_plane_state =
+		to_intel_plane_state(_old_plane_state);
+	struct intel_atomic_state *state =
+		to_intel_atomic_state(old_plane_state->uapi.state);
+	struct drm_i915_private *dev_priv = to_i915(plane->base.dev);
 
-	if (intel_state->rps_interactive) {
+	if (state->rps_interactive) {
 		intel_rps_mark_interactive(dev_priv, false);
-		intel_state->rps_interactive = false;
+		state->rps_interactive = false;
 	}
 
 	/* Should only be called after a successful intel_prepare_plane_fb()! */
 	mutex_lock(&dev_priv->drm.struct_mutex);
-	intel_plane_unpin_fb(to_intel_plane_state(old_state));
+	intel_plane_unpin_fb(old_plane_state);
 	mutex_unlock(&dev_priv->drm.struct_mutex);
 }
 
@@ -14515,7 +14572,7 @@ skl_max_scale(const struct intel_crtc_state *crtc_state,
 		return DRM_PLANE_HELPER_NO_SCALING;
 
 	crtc_clock = crtc_state->base.adjusted_mode.crtc_clock;
-	max_dotclk = to_intel_atomic_state(crtc_state->base.state)->cdclk.logical.cdclk;
+	max_dotclk = to_intel_atomic_state(crtc_state->uapi.state)->cdclk.logical.cdclk;
 
 	if (IS_GEMINILAKE(dev_priv) || INTEL_GEN(dev_priv) >= 10)
 		max_dotclk *= 2;
@@ -14726,8 +14783,8 @@ intel_legacy_cursor_update(struct drm_plane *_plane,
 	 * the plane.  This prevents our async update's changes from getting
 	 * overridden by a previous synchronous update's state.
 	 */
-	if (old_plane_state->base.commit &&
-	    !try_wait_for_completion(&old_plane_state->base.commit->hw_done))
+	if (old_plane_state->uapi.commit &&
+	    !try_wait_for_completion(&old_plane_state->uapi.commit->hw_done))
 		goto slow;
 
 	/*
@@ -14753,16 +14810,16 @@ intel_legacy_cursor_update(struct drm_plane *_plane,
 		goto out_free;
 	}
 
-	drm_atomic_set_fb_for_plane(&new_plane_state->base, fb);
+	drm_atomic_set_fb_for_plane(&new_plane_state->uapi, fb);
 
-	new_plane_state->base.src_x = src_x;
-	new_plane_state->base.src_y = src_y;
-	new_plane_state->base.src_w = src_w;
-	new_plane_state->base.src_h = src_h;
-	new_plane_state->base.crtc_x = crtc_x;
-	new_plane_state->base.crtc_y = crtc_y;
-	new_plane_state->base.crtc_w = crtc_w;
-	new_plane_state->base.crtc_h = crtc_h;
+	new_plane_state->uapi.src_x = src_x;
+	new_plane_state->uapi.src_y = src_y;
+	new_plane_state->uapi.src_w = src_w;
+	new_plane_state->uapi.src_h = src_h;
+	new_plane_state->uapi.crtc_x = crtc_x;
+	new_plane_state->uapi.crtc_y = crtc_y;
+	new_plane_state->uapi.crtc_w = crtc_w;
+	new_plane_state->uapi.crtc_h = crtc_h;
 
 	ret = intel_plane_atomic_check_with_state(crtc_state, new_crtc_state,
 						  old_plane_state, new_plane_state);
@@ -14783,7 +14840,7 @@ intel_legacy_cursor_update(struct drm_plane *_plane,
 				plane->frontbuffer_bit);
 
 	/* Swap plane state */
-	plane->base.state = &new_plane_state->base;
+	plane->base.state = &new_plane_state->uapi;
 
 	/*
 	 * We cannot swap crtc_state as it may be in use by an atomic commit or
@@ -14808,11 +14865,11 @@ out_unlock:
 	mutex_unlock(&dev_priv->drm.struct_mutex);
 out_free:
 	if (new_crtc_state)
-		intel_crtc_destroy_state(&crtc->base, &new_crtc_state->base);
+		intel_crtc_destroy_state(&crtc->base, &new_crtc_state->uapi);
 	if (ret)
-		intel_plane_destroy_state(&plane->base, &new_plane_state->base);
+		intel_plane_destroy_state(&plane->base, &new_plane_state->uapi);
 	else
-		intel_plane_destroy_state(&plane->base, &old_plane_state->base);
+		intel_plane_destroy_state(&plane->base, &old_plane_state->uapi);
 	return ret;
 
 slow:
@@ -15135,6 +15192,7 @@ static int intel_crtc_init(struct drm_i915_private *dev_priv, enum pipe pipe)
 		goto fail;
 	}
 	__drm_atomic_helper_crtc_reset(&intel_crtc->base, &crtc_state->base);
+	__drm_atomic_helper_crtc_reset(&intel_crtc->base, &crtc_state->uapi);
 	intel_crtc->config = crtc_state;
 
 	primary = intel_primary_plane_create(dev_priv, pipe);
