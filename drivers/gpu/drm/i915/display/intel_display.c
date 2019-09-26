@@ -14254,7 +14254,7 @@ static int intel_atomic_commit(struct drm_device *dev,
 		return ret;
 	}
 
-	ret = drm_atomic_helper_setup_commit(&state->base, nonblock);
+	ret = intel_atomic_setup_commit(state, nonblock);
 	if (!ret)
 		ret = drm_atomic_helper_swap_state(&state->base, true);
 

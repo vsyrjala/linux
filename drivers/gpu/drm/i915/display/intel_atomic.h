@@ -55,4 +55,7 @@ const struct intel_plane_state *
 __intel_atomic_get_current_plane_state(struct intel_atomic_state *state,
 				       struct intel_plane *plane);
 
+int intel_atomic_setup_commit(struct intel_atomic_state *state,
+			      bool nonblock);
+
 #endif /* __INTEL_ATOMIC_H__ */
