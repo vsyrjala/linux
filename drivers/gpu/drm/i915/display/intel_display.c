@@ -3107,18 +3107,18 @@ out:
 }
 
 static void
-intel_set_plane_visible(struct intel_crtc_state *crtc_state,
-			struct intel_plane_state *plane_state,
+intel_set_plane_visible(struct drm_crtc_state *crtc_state,
+			struct drm_plane_state *plane_state,
 			bool visible)
 {
-	struct intel_plane *plane = to_intel_plane(plane_state->base.plane);
+	struct drm_plane *plane = plane_state->plane;
 
-	plane_state->base.visible = visible;
+	plane_state->visible = visible;
 
 	if (visible)
-		crtc_state->base.plane_mask |= drm_plane_mask(&plane->base);
+		crtc_state->plane_mask |= drm_plane_mask(plane);
 	else
-		crtc_state->base.plane_mask &= ~drm_plane_mask(&plane->base);
+		crtc_state->plane_mask &= ~drm_plane_mask(plane);
 }
 
 static void fixup_active_planes(struct intel_crtc_state *crtc_state)
@@ -3150,7 +3150,8 @@ static void intel_plane_disable_noatomic(struct intel_crtc *crtc,
 		      plane->base.base.id, plane->base.name,
 		      crtc->base.base.id, crtc->base.name);
 
-	intel_set_plane_visible(crtc_state, plane_state, false);
+	intel_set_plane_visible(&crtc_state->base, &plane_state->base, false);
+	intel_set_plane_visible(&crtc_state->uapi, &plane_state->uapi, false);
 	fixup_active_planes(crtc_state);
 	crtc_state->data_rate[plane->id] = 0;
 
@@ -16755,7 +16756,8 @@ static void readout_plane_state(struct drm_i915_private *dev_priv)
 		crtc = intel_get_crtc_for_pipe(dev_priv, pipe);
 		crtc_state = to_intel_crtc_state(crtc->base.state);
 
-		intel_set_plane_visible(crtc_state, plane_state, visible);
+		intel_set_plane_visible(&crtc_state->base,
+					&plane_state->base, visible);
 
 		DRM_DEBUG_KMS("[PLANE:%d:%s] hw state readout: %s, pipe %c\n",
 			      plane->base.base.id, plane->base.name,
