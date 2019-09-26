@@ -16960,6 +16960,9 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 		intel_bw_crtc_update(bw_state, crtc_state);
 
 		intel_pipe_config_sanity_check(dev_priv, crtc_state);
+
+		copy_crtc_state(&crtc_state->uapi,
+				&crtc_state->base);
 	}
 }
 
