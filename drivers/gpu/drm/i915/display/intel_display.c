@@ -7044,12 +7044,11 @@ static void i9xx_crtc_disable(struct intel_crtc_state *old_crtc_state,
 		i830_enable_pipe(dev_priv, pipe);
 }
 
-static void intel_crtc_disable_noatomic(struct drm_crtc *crtc,
+static void intel_crtc_disable_noatomic(struct intel_crtc *crtc,
 					struct drm_modeset_acquire_ctx *ctx)
 {
 	struct intel_encoder *encoder;
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct drm_i915_private *dev_priv = to_i915(crtc->dev);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_bw_state *bw_state =
 		to_intel_bw_state(dev_priv->bw_obj.state);
 	enum intel_display_power_domain domain;
@@ -7057,31 +7056,32 @@ static void intel_crtc_disable_noatomic(struct drm_crtc *crtc,
 	u64 domains;
 	struct drm_atomic_state *state;
 	struct intel_crtc_state *crtc_state;
+	struct intel_crtc_state *old_crtc_state;
 	int ret;
 
-	if (!intel_crtc->active)
+	if (!crtc->active)
 		return;
 
-	for_each_intel_plane_on_crtc(&dev_priv->drm, intel_crtc, plane) {
+	for_each_intel_plane_on_crtc(&dev_priv->drm, crtc, plane) {
 		const struct intel_plane_state *plane_state =
 			to_intel_plane_state(plane->base.state);
 
 		if (plane_state->base.visible)
-			intel_plane_disable_noatomic(intel_crtc, plane);
+			intel_plane_disable_noatomic(crtc, plane);
 	}
 
-	state = drm_atomic_state_alloc(crtc->dev);
+	state = drm_atomic_state_alloc(crtc->base.dev);
 	if (!state) {
 		DRM_DEBUG_KMS("failed to disable [CRTC:%d:%s], out of memory",
-			      crtc->base.id, crtc->name);
+			      crtc->base.base.id, crtc->base.name);
 		return;
 	}
 
 	state->acquire_ctx = ctx;
 
 	/* Everything's already locked, -EDEADLK can't happen. */
-	crtc_state = intel_atomic_get_crtc_state(state, intel_crtc);
-	ret = drm_atomic_add_affected_connectors(state, crtc);
+	crtc_state = intel_atomic_get_crtc_state(state, crtc);
+	ret = drm_atomic_add_affected_connectors(state, &crtc->base);
 
 	WARN_ON(IS_ERR(crtc_state) || ret);
 
@@ -7090,33 +7090,41 @@ static void intel_crtc_disable_noatomic(struct drm_crtc *crtc,
 	drm_atomic_state_put(state);
 
 	DRM_DEBUG_KMS("[CRTC:%d:%s] hw state adjusted, was enabled, now disabled\n",
-		      crtc->base.id, crtc->name);
+		      crtc->base.base.id, crtc->base.name);
 
-	WARN_ON(drm_atomic_set_mode_for_crtc(crtc->state, NULL) < 0);
-	crtc->state->active = false;
-	intel_crtc->active = false;
-	crtc->enabled = false;
-	crtc->state->connector_mask = 0;
-	crtc->state->encoder_mask = 0;
+	old_crtc_state = to_intel_crtc_state(crtc->base.state);
 
-	for_each_encoder_on_crtc(crtc->dev, crtc, encoder)
+	WARN_ON(drm_atomic_set_mode_for_crtc(&old_crtc_state->base, NULL) < 0);
+	old_crtc_state->base.active = false;
+	old_crtc_state->base.connector_mask = 0;
+	old_crtc_state->base.encoder_mask = 0;
+
+	WARN_ON(drm_atomic_set_mode_for_crtc(&old_crtc_state->uapi, NULL) < 0);
+	old_crtc_state->uapi.active = false;
+	old_crtc_state->uapi.connector_mask = 0;
+	old_crtc_state->uapi.encoder_mask = 0;
+
+	crtc->active = false;
+	crtc->base.enabled = false;
+
+	for_each_encoder_on_crtc(&dev_priv->drm, &crtc->base, encoder)
 		encoder->base.crtc = NULL;
 
-	intel_fbc_disable(intel_crtc);
-	intel_update_watermarks(intel_crtc);
-	intel_disable_shared_dpll(to_intel_crtc_state(crtc->state));
+	intel_fbc_disable(crtc);
+	intel_update_watermarks(crtc);
+	intel_disable_shared_dpll(old_crtc_state);
 
-	domains = intel_crtc->enabled_power_domains;
+	domains = crtc->enabled_power_domains;
 	for_each_power_domain(domain, domains)
 		intel_display_power_put_unchecked(dev_priv, domain);
-	intel_crtc->enabled_power_domains = 0;
+	crtc->enabled_power_domains = 0;
 
-	dev_priv->active_pipes &= ~BIT(intel_crtc->pipe);
-	dev_priv->min_cdclk[intel_crtc->pipe] = 0;
-	dev_priv->min_voltage_level[intel_crtc->pipe] = 0;
+	dev_priv->active_pipes &= ~BIT(crtc->pipe);
+	dev_priv->min_cdclk[crtc->pipe] = 0;
+	dev_priv->min_voltage_level[crtc->pipe] = 0;
 
-	bw_state->data_rate[intel_crtc->pipe] = 0;
-	bw_state->num_active_planes[intel_crtc->pipe] = 0;
+	bw_state->data_rate[crtc->pipe] = 0;
+	bw_state->num_active_planes[crtc->pipe] = 0;
 }
 
 /*
@@ -16586,7 +16594,7 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc,
 	/* Adjust the state of the output pipe according to whether we
 	 * have active connectors/encoders. */
 	if (crtc_state->base.active && !intel_crtc_has_encoders(crtc))
-		intel_crtc_disable_noatomic(&crtc->base, ctx);
+		intel_crtc_disable_noatomic(crtc, ctx);
 
 	if (crtc_state->base.active || HAS_GMCH(dev_priv)) {
 		/*
