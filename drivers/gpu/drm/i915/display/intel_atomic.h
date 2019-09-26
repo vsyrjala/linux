@@ -16,8 +16,10 @@ struct drm_crtc_state;
 struct drm_device;
 struct drm_i915_private;
 struct drm_property;
+struct intel_atomic_state;
 struct intel_crtc;
 struct intel_crtc_state;
+struct intel_plane;
 
 int intel_digital_connector_atomic_get_property(struct drm_connector *connector,
 						const struct drm_connector_state *state,
@@ -45,5 +47,9 @@ intel_atomic_get_crtc_state(struct drm_atomic_state *state,
 int intel_atomic_setup_scalers(struct drm_i915_private *dev_priv,
 			       struct intel_crtc *intel_crtc,
 			       struct intel_crtc_state *crtc_state);
+
+const struct intel_plane_state *
+__intel_atomic_get_current_plane_state(struct intel_atomic_state *state,
+				       struct intel_plane *plane);
 
 #endif /* __INTEL_ATOMIC_H__ */

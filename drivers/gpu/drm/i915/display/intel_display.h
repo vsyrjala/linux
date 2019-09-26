@@ -440,6 +440,15 @@ enum phy_fia {
 	     (__i)--) \
 		for_each_if(crtc)
 
+#define intel_for_each_plane_mask(plane, dev, plane_mask) \
+	list_for_each_entry((plane), &(dev)->mode_config.plane_list, base.head) \
+		for_each_if ((plane_mask) & drm_plane_mask(&(plane)->base))
+
+#define intel_atomic_crtc_state_for_each_plane_state(plane, plane_state, crtc_state, state) \
+	intel_for_each_plane_mask((plane), (state)->base.dev, (crtc_state)->base.plane_mask) \
+		for_each_if (((plane_state) =				\
+			      __intel_atomic_get_current_plane_state((state), (plane))))
+
 void intel_link_compute_m_n(u16 bpp, int nlanes,
 			    int pixel_clock, int link_clock,
 			    struct intel_link_m_n *m_n,

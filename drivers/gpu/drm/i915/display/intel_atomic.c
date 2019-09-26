@@ -442,3 +442,13 @@ intel_atomic_get_crtc_state(struct drm_atomic_state *state,
 
 	return to_intel_crtc_state(crtc_state);
 }
+
+const struct intel_plane_state *
+__intel_atomic_get_current_plane_state(struct intel_atomic_state *state,
+				       struct intel_plane *plane)
+{
+	if (state->base.planes[drm_plane_index(&plane->base)].state)
+		return to_intel_plane_state(state->base.planes[drm_plane_index(&plane->base)].state);
+
+	return to_intel_plane_state(plane->base.state);
+}
