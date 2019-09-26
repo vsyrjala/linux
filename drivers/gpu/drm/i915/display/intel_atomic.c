@@ -443,6 +443,31 @@ intel_atomic_get_crtc_state(struct drm_atomic_state *state,
 	return to_intel_crtc_state(crtc_state);
 }
 
+int intel_atomic_add_affected_planes(struct intel_atomic_state *state,
+				     struct intel_crtc *crtc)
+{
+	const struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(state, crtc);
+	struct intel_plane *plane;
+
+	WARN_ON(!intel_atomic_get_new_crtc_state(state, crtc));
+
+	DRM_DEBUG_ATOMIC("Adding all current planes for [CRTC:%d:%s] to %p\n",
+			 crtc->base.base.id, crtc->base.name, state);
+
+	intel_for_each_plane_mask(plane, state->base.dev,
+				  old_crtc_state->base.plane_mask) {
+		struct intel_plane_state *plane_state =
+			intel_atomic_get_plane_state(state, plane);
+
+		if (IS_ERR(plane_state))
+			return PTR_ERR(plane_state);
+	}
+
+	return 0;
+
+}
+
 const struct intel_plane_state *
 __intel_atomic_get_current_plane_state(struct intel_atomic_state *state,
 				       struct intel_plane *plane)
