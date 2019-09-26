@@ -13603,24 +13603,28 @@ static void clear_crtc_state(struct drm_crtc_state *base,
 	crtc->state = current_state;
 }
 
-static void copy_crtc_state(struct drm_crtc_state *base,
-			    struct drm_crtc_state *uapi)
+static void copy_crtc_state(struct drm_crtc_state *dst,
+			    const struct drm_crtc_state *src)
 {
-	struct drm_crtc_state *current_state;
-	struct drm_crtc *crtc = base->crtc;
+	WARN_ON(dst->crtc != src->crtc);
 
-	WARN_ON(base->crtc != uapi->crtc);
+	__drm_atomic_helper_crtc_destroy_state(dst);
 
-	__drm_atomic_helper_crtc_destroy_state(base);
+	*dst = *src;
 
-	/* FIXME ugly hack to avoid clobbering crtc->state */
-	current_state = crtc->state;
+	if (dst->mode_blob)
+		drm_property_blob_get(dst->mode_blob);
+	if (dst->degamma_lut)
+		drm_property_blob_get(dst->degamma_lut);
+	if (dst->ctm)
+		drm_property_blob_get(dst->ctm);
+	if (dst->gamma_lut)
+		drm_property_blob_get(dst->gamma_lut);
 
-	crtc->state = uapi;
-	__drm_atomic_helper_crtc_duplicate_state(crtc, base);
-	base->state = NULL; /* make sure we never use this! */
-
-	crtc->state = current_state;
+	/* make sure we never use these! */
+	dst->commit = NULL;
+	dst->event = NULL;
+	dst->state = NULL;
 }
 
 /**

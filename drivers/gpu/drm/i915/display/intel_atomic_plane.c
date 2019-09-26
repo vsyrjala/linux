@@ -157,24 +157,21 @@ static void clear_plane_state(struct drm_plane_state *base,
 	plane->state = current_state;
 }
 
-static void copy_plane_state(struct drm_plane_state *base,
-			     struct drm_plane_state *uapi)
+static void copy_plane_state(struct drm_plane_state *dst,
+			     const struct drm_plane_state *src)
 {
-	struct drm_plane_state *current_state;
-	struct drm_plane *plane = base->plane;
+	WARN_ON(dst->plane != src->plane);
 
-	WARN_ON(base->plane != uapi->plane);
+	__drm_atomic_helper_plane_destroy_state(dst);
 
-	__drm_atomic_helper_plane_destroy_state(base);
+	*dst = *src;
 
-	/* FIXME ugly hack to avoid clobbering plane->state */
-	current_state = plane->state;
+	if (dst->fb)
+		drm_framebuffer_get(dst->fb);
 
-	plane->state = uapi;
-	__drm_atomic_helper_plane_duplicate_state(plane, base);
-	base->state = NULL; /* make sure we never use this! */
-
-	plane->state = current_state;
+	dst->fence = NULL;
+	dst->commit = NULL;
+	dst->fb_damage_clips = NULL;
 }
 
 int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_state,
