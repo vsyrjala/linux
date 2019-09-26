@@ -449,6 +449,30 @@ intel_atomic_get_crtc_state(struct drm_atomic_state *state,
 	return to_intel_crtc_state(crtc_state);
 }
 
+int intel_atomic_add_affected_planes(struct intel_atomic_state *state,
+				     struct intel_crtc *crtc)
+{
+	const struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(state, crtc);
+	struct drm_plane *plane;
+
+	WARN_ON(!intel_atomic_get_new_crtc_state(state, crtc));
+
+	DRM_DEBUG_ATOMIC("Adding all current planes for [CRTC:%d:%s] to %p\n",
+			 crtc->base.base.id, crtc->base.name, state);
+
+	drm_for_each_plane_mask(plane, state->base.dev, old_crtc_state->base.plane_mask) {
+		struct intel_plane_state *plane_state =
+			intel_atomic_get_plane_state(state, to_intel_plane(plane));
+
+		if (IS_ERR(plane_state))
+			return PTR_ERR(plane_state);
+	}
+
+	return 0;
+
+}
+
 static int stall_checks(struct drm_crtc *crtc, bool nonblock)
 {
 	struct drm_crtc_commit *commit, *stall_commit = NULL;
