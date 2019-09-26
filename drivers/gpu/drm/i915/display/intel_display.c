@@ -14846,9 +14846,9 @@ intel_legacy_cursor_update(struct drm_plane *_plane,
 	if (ret)
 		goto out_unlock;
 
-	intel_frontbuffer_flush(to_intel_frontbuffer(fb), ORIGIN_FLIP);
+	intel_frontbuffer_flush(to_intel_frontbuffer(new_plane_state->base.fb), ORIGIN_FLIP);
 	intel_frontbuffer_track(to_intel_frontbuffer(old_plane_state->base.fb),
-				to_intel_frontbuffer(fb),
+				to_intel_frontbuffer(new_plane_state->base.fb),
 				plane->frontbuffer_bit);
 
 	/* Swap plane state */
