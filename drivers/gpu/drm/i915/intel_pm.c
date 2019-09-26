@@ -3119,7 +3119,7 @@ static int ilk_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 
 	pipe_wm = &crtc_state->wm.ilk.optimal;
 
-	drm_atomic_crtc_state_for_each_plane_state(plane, plane_state, &crtc_state->base) {
+	intel_atomic_crtc_state_for_each_plane_state(plane, plane_state, &crtc_state->base, state) {
 		const struct intel_plane_state *ps = to_intel_plane_state(plane_state);
 
 		if (plane->type == DRM_PLANE_TYPE_PRIMARY)
@@ -4154,7 +4154,7 @@ int skl_check_pipe_max_pixel_rate(struct intel_crtc *intel_crtc,
 	if (!crtc_state->base.enable)
 		return 0;
 
-	drm_atomic_crtc_state_for_each_plane_state(plane, drm_plane_state, &crtc_state->base) {
+	intel_atomic_crtc_state_for_each_plane_state(plane, drm_plane_state, &crtc_state->base, state) {
 		uint_fixed_16_16_t plane_downscale;
 		uint_fixed_16_16_t fp_9_div_8 = div_fixed16(9, 8);
 		int bpp;
@@ -4255,7 +4255,7 @@ skl_get_total_relative_data_rate(struct intel_crtc_state *crtc_state,
 		return 0;
 
 	/* Calculate and cache data rate for each plane */
-	drm_atomic_crtc_state_for_each_plane_state(plane, drm_plane_state, &crtc_state->base) {
+	intel_atomic_crtc_state_for_each_plane_state(plane, drm_plane_state, &crtc_state->base, state) {
 		enum plane_id plane_id = to_intel_plane(plane)->id;
 		const struct intel_plane_state *plane_state =
 			to_intel_plane_state(drm_plane_state);
@@ -4279,6 +4279,7 @@ static u64
 icl_get_total_relative_data_rate(struct intel_crtc_state *crtc_state,
 				 u64 *plane_data_rate)
 {
+	struct drm_atomic_state *state = crtc_state->uapi.state;
 	struct drm_plane *plane;
 	const struct drm_plane_state *drm_plane_state;
 	u64 total_data_rate = 0;
@@ -4287,7 +4288,7 @@ icl_get_total_relative_data_rate(struct intel_crtc_state *crtc_state,
 		return 0;
 
 	/* Calculate and cache data rate for each plane */
-	drm_atomic_crtc_state_for_each_plane_state(plane, drm_plane_state, &crtc_state->base) {
+	intel_atomic_crtc_state_for_each_plane_state(plane, drm_plane_state, &crtc_state->base, state) {
 		const struct intel_plane_state *plane_state =
 			to_intel_plane_state(drm_plane_state);
 		enum plane_id plane_id = to_intel_plane(plane)->id;
@@ -5083,6 +5084,7 @@ static int icl_build_plane_wm(struct intel_crtc_state *crtc_state,
 
 static int skl_build_pipe_wm(struct intel_crtc_state *crtc_state)
 {
+	struct drm_atomic_state *state = crtc_state->uapi.state;
 	struct drm_i915_private *dev_priv = to_i915(crtc_state->base.crtc->dev);
 	struct skl_pipe_wm *pipe_wm = &crtc_state->wm.skl.optimal;
 	struct drm_plane *plane;
@@ -5095,8 +5097,8 @@ static int skl_build_pipe_wm(struct intel_crtc_state *crtc_state)
 	 */
 	memset(pipe_wm->planes, 0, sizeof(pipe_wm->planes));
 
-	drm_atomic_crtc_state_for_each_plane_state(plane, drm_plane_state,
-						   &crtc_state->base) {
+	intel_atomic_crtc_state_for_each_plane_state(plane, drm_plane_state,
+						     &crtc_state->base, state) {
 		const struct intel_plane_state *plane_state =
 			to_intel_plane_state(drm_plane_state);
 
