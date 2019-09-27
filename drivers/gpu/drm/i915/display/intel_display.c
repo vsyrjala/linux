@@ -14077,12 +14077,12 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 		bool modeset = needs_modeset(new_crtc_state);
 
 		/* Complete events for now disable pipes here. */
-		if (modeset && !new_crtc_state->base.active && new_crtc_state->base.event) {
+		if (modeset && !new_crtc_state->base.active && new_crtc_state->uapi.event) {
 			spin_lock_irq(&dev->event_lock);
-			drm_crtc_send_vblank_event(&crtc->base, new_crtc_state->base.event);
+			drm_crtc_send_vblank_event(&crtc->base, new_crtc_state->uapi.event);
 			spin_unlock_irq(&dev->event_lock);
 
-			new_crtc_state->base.event = NULL;
+			new_crtc_state->uapi.event = NULL;
 		}
 	}
 
