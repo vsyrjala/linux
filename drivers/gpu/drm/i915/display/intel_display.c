@@ -4417,7 +4417,7 @@ static void intel_update_pipe_config(const struct intel_crtc_state *old_crtc_sta
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 
 	/* drm_atomic_helper_update_legacy_modeset_state might not be called. */
-	crtc->base.mode = new_crtc_state->base.mode;
+	crtc->base.mode = new_crtc_state->uapi.mode;
 
 	/*
 	 * Update pipe size and adjust fitter if needed: the reason for this is
