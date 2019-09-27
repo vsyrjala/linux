@@ -104,6 +104,10 @@ int intel_execlists_submission_init(struct intel_engine_cs *engine);
  */
 #define LRC_HEADER_PAGES LRC_PPHWSP_PN
 
+/* Space within PPHWSP reserved to be used as scratch */
+#define LRC_PPHWSP_SCRATCH		0x34
+#define LRC_PPHWSP_SCRATCH_ADDR		(LRC_PPHWSP_SCRATCH * sizeof(u32))
+
 void intel_execlists_set_default_submission(struct intel_engine_cs *engine);
 
 void intel_lr_context_reset(struct intel_engine_cs *engine,
@@ -130,5 +134,9 @@ intel_execlists_clone_virtual(struct i915_gem_context *ctx,
 int intel_virtual_engine_attach_bond(struct intel_engine_cs *engine,
 				     const struct intel_engine_cs *master,
 				     const struct intel_engine_cs *sibling);
+
+struct intel_engine_cs *
+intel_virtual_engine_get_sibling(struct intel_engine_cs *engine,
+				 unsigned int sibling);
 
 #endif /* _INTEL_LRC_H_ */
