@@ -14061,6 +14061,12 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 	if (state->modeset) {
 		drm_atomic_helper_update_legacy_modeset_state(dev, &state->base);
 
+		for_each_new_intel_crtc_in_state(state, crtc, new_crtc_state, i) {
+			if (new_crtc_state->base.enable)
+				drm_calc_timestamping_constants(&crtc->base,
+								&new_crtc_state->base.adjusted_mode);
+		}
+
 		intel_set_cdclk_pre_plane_update(dev_priv,
 						 &state->cdclk.actual,
 						 &dev_priv->cdclk.actual,
