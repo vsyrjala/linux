@@ -13612,6 +13612,10 @@ static void clear_crtc_state(struct drm_crtc_state *base,
 	memset(base, 0, sizeof(*base));
 	__drm_atomic_helper_crtc_reset(crtc, base);
 
+	base->active_changed = uapi->active_changed;
+	base->mode_changed = uapi->mode_changed;
+	base->connectors_changed = uapi->connectors_changed;
+
 	crtc->state = current_state;
 }
 
