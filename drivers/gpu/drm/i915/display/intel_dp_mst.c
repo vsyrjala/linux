@@ -159,22 +159,20 @@ static int intel_dp_mst_compute_config(struct intel_encoder *encoder,
 
 static int
 intel_dp_mst_atomic_check(struct drm_connector *connector,
-			  struct drm_atomic_state *_state)
+			  struct drm_atomic_state *state)
 {
-	struct intel_atomic_state *state =
-		to_intel_atomic_state(_state);
 	struct drm_connector_state *new_conn_state =
-		drm_atomic_get_new_connector_state(&state->base, connector);
+		drm_atomic_get_new_connector_state(state, connector);
 	struct drm_connector_state *old_conn_state =
-		drm_atomic_get_old_connector_state(&state->base, connector);
+		drm_atomic_get_old_connector_state(state, connector);
 	struct intel_connector *intel_connector =
 		to_intel_connector(connector);
-	struct intel_crtc *new_crtc = to_intel_crtc(new_conn_state->crtc);
-	struct intel_crtc_state *crtc_state;
+	struct drm_crtc *new_crtc = new_conn_state->crtc;
+	struct drm_crtc_state *crtc_state;
 	struct drm_dp_mst_topology_mgr *mgr;
 	int ret;
 
-	ret = intel_digital_connector_atomic_check(connector, &state->base);
+	ret = intel_digital_connector_atomic_check(connector, state);
 	if (ret)
 		return ret;
 
@@ -185,16 +183,16 @@ intel_dp_mst_atomic_check(struct drm_connector *connector,
 	 * connector
 	 */
 	if (new_crtc) {
-		crtc_state = intel_atomic_get_new_crtc_state(state, new_crtc);
+		crtc_state = drm_atomic_get_new_crtc_state(state, new_crtc);
 
 		if (!crtc_state ||
-		    !intel_atomic_crtc_needs_modeset(crtc_state) ||
-		    crtc_state->base.enable)
+		    !drm_atomic_crtc_needs_modeset(crtc_state) ||
+		    crtc_state->enable)
 			return 0;
 	}
 
 	mgr = &enc_to_mst(old_conn_state->best_encoder)->primary->dp.mst_mgr;
-	ret = drm_dp_atomic_release_vcpi_slots(&state->base, mgr,
+	ret = drm_dp_atomic_release_vcpi_slots(state, mgr,
 					       intel_connector->port);
 
 	return ret;
