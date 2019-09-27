@@ -1,0 +1,32 @@
+drm drm-fixes e6bb711600db23eef2fa0c16a2d361e17b45bb28
+	Merge tag 'drm-misc-fixes-2019-09-12' of git://anongit.freedesktop.org/drm/drm-misc into drm-fixes
+drm-misc drm-misc-fixes a0ecd6fdbf5d648123a7315c695fb6850d702835
+	drm/komeda: prevent memory leak in komeda_wb_connector_add
+drm-intel drm-intel-fixes 4d856f72c10ecb060868ed10ff1b1453943fc6c8
+	Linux 5.3
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm drm-next 3e2cb6d89325dc36a03937a2b82fc7eb902c96b0
+	Merge tag 'drm-fixes-5.4-2019-09-25' of git://people.freedesktop.org/~agd5f/linux into drm-next
+drm-misc drm-misc-next-fixes 65e51e30d8625c82ddfe405da46124e9bbffaa71
+	drm/panfrost: Prevent race when handling page fault
+drm-intel drm-intel-next-fixes 458863e08e13ecf22b9ba1ee6d4baba0ce9990ea
+	drm/i915: Mark contents as dirty on a write fault
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next d6cb013579e743bc7bc5590ca35a1943f2b8f3c8
+	drm/komeda: SW workaround for D71 doesn't flush shadow registers
+drm-intel drm-intel-next-queued 9cd6c339e34ab13479fb139b0b9f5ffc9743bfc1
+	drm/i915: Update DRIVER_DATE to 20190927
+drm-intel drm-intel-next be91233b1053d9725d3a437e3da44ccff2639477
+	drm/i915: Update DRIVER_DATE to 20190822
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus f41f900568d9ffd896cc941db7021eb14bd55910
+	ALSA: usb-audio: Add DSD support for EVGA NU Audio
+sound-upstream for-next f41f900568d9ffd896cc941db7021eb14bd55910
+	ALSA: usb-audio: Add DSD support for EVGA NU Audio
+drm-intel topic/core-for-CI a15a0fc0699a77944c004014ad343c5731fe52eb
+	HAX iommu/intel: Ignore igfx_off
+drm drm-5.4-merge 4862bccb89898d5a4820daf9bff820593c77a305
+	Merge branch 'drm-next' of ssh://git.freedesktop.org/git/drm/drm
