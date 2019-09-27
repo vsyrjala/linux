@@ -556,7 +556,7 @@ struct _drm_plane_state {
 	 * &drm_plane_helper_funcs.prepare_fb callback. See drm_gem_fb_prepare_fb()
 	 * and drm_gem_fb_simple_display_pipe_prepare_fb() for suitable helpers.
 	 */
-	struct dma_fence *fence;
+	struct dma_fence *_fence;
 
 	/**
 	 * @crtc_x:
@@ -660,7 +660,7 @@ struct _drm_plane_state {
 	 * coodinates of the attached framebuffer. Note that unlike plane src,
 	 * damage clips are not in 16.16 fixed point.
 	 */
-	struct drm_property_blob *fb_damage_clips;
+	struct drm_property_blob *_fb_damage_clips;
 
 	/** @src: clipped source coordinates of the plane (in 16.16) */
 	/** @dst: clipped destination coordinates of the plane */
@@ -680,10 +680,10 @@ struct _drm_plane_state {
 	 *
 	 * May be NULL.
 	 */
-	struct drm_crtc_commit *commit;
+	struct drm_crtc_commit *_commit;
 
 	/** @state: backpointer to global drm_atomic_state */
-	struct drm_atomic_state *state;
+	struct drm_atomic_state *_state;
 };
 
 struct intel_plane_state {
@@ -1204,7 +1204,7 @@ struct _drm_crtc_state {
 	 * userspace one frame too late. This doesn't allow for a real atomic
 	 * update, but it should avoid tearing.
 	 */
-	struct drm_pending_vblank_event *event;
+	struct drm_pending_vblank_event *_event;
 
 	/**
 	 * @commit:
@@ -1213,10 +1213,10 @@ struct _drm_crtc_state {
 	 * various phases. This is never cleared, except when we destroy the
 	 * state, so that subsequent commits can synchronize with previous ones.
 	 */
-	struct drm_crtc_commit *commit;
+	struct drm_crtc_commit *_commit;
 
 	/** @state: backpointer to global drm_atomic_state */
-	struct drm_atomic_state *state;
+	struct drm_atomic_state *_state;
 };
 
 struct intel_crtc_state {
