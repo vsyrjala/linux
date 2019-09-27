@@ -1402,7 +1402,8 @@ static int g4x_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 	const struct g4x_wm_state *active = &old_crtc_state->wm.g4x.optimal;
 	enum plane_id plane_id;
 
-	if (!new_crtc_state->base.active || drm_atomic_crtc_needs_modeset(&new_crtc_state->base)) {
+	if (!new_crtc_state->base.active ||
+	    intel_atomic_crtc_needs_modeset(new_crtc_state)) {
 		*intermediate = *optimal;
 
 		intermediate->cxsr = false;
@@ -1830,7 +1831,7 @@ static int vlv_compute_pipe_wm(struct intel_crtc_state *crtc_state)
 		&crtc_state->wm.vlv.fifo_state;
 	int num_active_planes = hweight8(crtc_state->active_planes &
 					 ~BIT(PLANE_CURSOR));
-	bool needs_modeset = drm_atomic_crtc_needs_modeset(&crtc_state->base);
+	bool needs_modeset = intel_atomic_crtc_needs_modeset(crtc_state);
 	const struct intel_plane_state *old_plane_state;
 	const struct intel_plane_state *new_plane_state;
 	struct intel_plane *plane;
@@ -2035,7 +2036,8 @@ static int vlv_compute_intermediate_wm(struct intel_crtc_state *new_crtc_state)
 	const struct vlv_wm_state *active = &old_crtc_state->wm.vlv.optimal;
 	int level;
 
-	if (!new_crtc_state->base.active || drm_atomic_crtc_needs_modeset(&new_crtc_state->base)) {
+	if (!new_crtc_state->base.active ||
+	    intel_atomic_crtc_needs_modeset(new_crtc_state)) {
 		*intermediate = *optimal;
 
 		intermediate->cxsr = false;
@@ -3182,7 +3184,8 @@ static int ilk_compute_intermediate_wm(struct intel_crtc_state *newstate)
 	 * and after the vblank.
 	 */
 	*a = newstate->wm.ilk.optimal;
-	if (!newstate->base.active || drm_atomic_crtc_needs_modeset(&newstate->base) ||
+	if (!newstate->base.active ||
+	    intel_atomic_crtc_needs_modeset(newstate) ||
 	    intel_state->skip_intermediate_wm)
 		return 0;
 
@@ -5553,7 +5556,7 @@ static int skl_wm_add_affected_planes(struct intel_atomic_state *state,
 		 * power well the hardware state will go out of sync
 		 * with the software state.
 		 */
-		if (!drm_atomic_crtc_needs_modeset(&new_crtc_state->base) &&
+		if (!intel_atomic_crtc_needs_modeset(new_crtc_state) &&
 		    skl_plane_wm_equals(dev_priv,
 					&old_crtc_state->wm.skl.optimal.planes[plane_id],
 					&new_crtc_state->wm.skl.optimal.planes[plane_id]))

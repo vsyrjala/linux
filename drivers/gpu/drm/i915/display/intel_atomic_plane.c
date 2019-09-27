@@ -56,7 +56,7 @@ struct intel_plane *intel_plane_alloc(void)
 		return ERR_PTR(-ENOMEM);
 	}
 
-	__drm_atomic_helper_plane_reset(&plane->base, &plane_state->base);
+	__drm_atomic_helper_plane_reset(&plane->base, (struct drm_plane_state *)&plane_state->base);
 	__drm_atomic_helper_plane_reset(&plane->base, &plane_state->uapi);
 	plane_state->scaler_id = -1;
 
@@ -87,7 +87,7 @@ intel_plane_duplicate_state(struct drm_plane *plane)
 	if (!plane_state)
 		return NULL;
 
-	__drm_atomic_helper_plane_duplicate_state(plane, &plane_state->base);
+	__drm_atomic_helper_plane_duplicate_state(plane, (struct drm_plane_state *)&plane_state->base);
 	__drm_atomic_helper_plane_duplicate_state(plane, &plane_state->uapi);
 
 	plane_state->vma = NULL;
@@ -114,7 +114,7 @@ intel_plane_destroy_state(struct drm_plane *_plane,
 
 	WARN_ON(plane_state->vma);
 
-	__drm_atomic_helper_plane_destroy_state(&plane_state->base);
+	__drm_atomic_helper_plane_destroy_state((struct drm_plane_state *)&plane_state->base);
 	drm_atomic_helper_plane_destroy_state(&plane->base, &plane_state->uapi);
 }
 
@@ -186,10 +186,10 @@ int intel_plane_atomic_check_with_state(const struct intel_crtc_state *old_crtc_
 
 	/* FIXME adjust state for bigjoiner here */
 	if (new_crtc_state->uapi.enable && new_plane_state->uapi.fb)
-		copy_plane_state(&new_plane_state->base,
+		copy_plane_state((struct drm_plane_state *)&new_plane_state->base,
 				 &new_plane_state->uapi);
 	else
-		clear_plane_state(&new_plane_state->base,
+		clear_plane_state((struct drm_plane_state *)&new_plane_state->base,
 				  &new_plane_state->uapi);
 
 	plane = to_intel_plane(new_plane_state->base.plane);

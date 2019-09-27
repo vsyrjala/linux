@@ -2256,7 +2256,7 @@ static int intel_modeset_all_pipes(struct intel_atomic_state *state)
 			return PTR_ERR(crtc_state);
 
 		if (!crtc_state->base.active ||
-		    drm_atomic_crtc_needs_modeset(&crtc_state->base))
+		    intel_atomic_crtc_needs_modeset(crtc_state))
 			continue;
 
 		crtc_state->base.mode_changed = true;
@@ -2309,7 +2309,7 @@ int intel_modeset_calc_cdclk(struct intel_atomic_state *state)
 		crtc = intel_get_crtc_for_pipe(dev_priv, pipe);
 		crtc_state = intel_atomic_get_new_crtc_state(state, crtc);
 		if (crtc_state &&
-		    drm_atomic_crtc_needs_modeset(&crtc_state->base))
+		    intel_atomic_crtc_needs_modeset(crtc_state))
 			pipe = INVALID_PIPE;
 	} else {
 		pipe = INVALID_PIPE;

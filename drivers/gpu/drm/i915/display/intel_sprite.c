@@ -1586,8 +1586,8 @@ g4x_sprite_check(struct intel_crtc_state *crtc_state,
 		}
 	}
 
-	ret = drm_atomic_helper_check_plane_state(&plane_state->base,
-						  &crtc_state->base,
+	ret = drm_atomic_helper_check_plane_state((struct drm_plane_state *)&plane_state->base,
+						  (struct drm_crtc_state *)&crtc_state->base,
 						  min_scale, max_scale,
 						  true, true);
 	if (ret)
@@ -1643,8 +1643,8 @@ vlv_sprite_check(struct intel_crtc_state *crtc_state,
 	if (ret)
 		return ret;
 
-	ret = drm_atomic_helper_check_plane_state(&plane_state->base,
-						  &crtc_state->base,
+	ret = drm_atomic_helper_check_plane_state((struct drm_plane_state *)&plane_state->base,
+						  (struct drm_crtc_state *)&crtc_state->base,
 						  DRM_PLANE_HELPER_NO_SCALING,
 						  DRM_PLANE_HELPER_NO_SCALING,
 						  true, true);
@@ -1808,8 +1808,8 @@ static int skl_plane_check(struct intel_crtc_state *crtc_state,
 		max_scale = skl_max_scale(crtc_state, fb->format);
 	}
 
-	ret = drm_atomic_helper_check_plane_state(&plane_state->base,
-						  &crtc_state->base,
+	ret = drm_atomic_helper_check_plane_state((struct drm_plane_state *)&plane_state->base,
+						  (struct drm_crtc_state *)&crtc_state->base,
 						  min_scale, max_scale,
 						  true, true);
 	if (ret)

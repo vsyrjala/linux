@@ -514,9 +514,181 @@ struct intel_atomic_state {
 	struct llist_node freed;
 };
 
+/**
+ * struct drm_plane_state - mutable plane state
+ *
+ * Please not that the destination coordinates @crtc_x, @crtc_y, @crtc_h and
+ * @crtc_w and the source coordinates @src_x, @src_y, @src_h and @src_w are the
+ * raw coordinates provided by userspace. Drivers should use
+ * drm_atomic_helper_check_plane_state() and only use the derived rectangles in
+ * @src and @dst to program the hardware.
+ */
+struct _drm_plane_state {
+	/** @plane: backpointer to the plane */
+	struct drm_plane *plane;
+
+	/**
+	 * @crtc:
+	 *
+	 * Currently bound CRTC, NULL if disabled. Do not this write directly,
+	 * use drm_atomic_set_crtc_for_plane()
+	 */
+	struct drm_crtc *crtc;
+
+	/**
+	 * @fb:
+	 *
+	 * Currently bound framebuffer. Do not write this directly, use
+	 * drm_atomic_set_fb_for_plane()
+	 */
+	struct drm_framebuffer *fb;
+
+	/**
+	 * @fence:
+	 *
+	 * Optional fence to wait for before scanning out @fb. The core atomic
+	 * code will set this when userspace is using explicit fencing. Do not
+	 * write this field directly for a driver's implicit fence, use
+	 * drm_atomic_set_fence_for_plane() to ensure that an explicit fence is
+	 * preserved.
+	 *
+	 * Drivers should store any implicit fence in this from their
+	 * &drm_plane_helper_funcs.prepare_fb callback. See drm_gem_fb_prepare_fb()
+	 * and drm_gem_fb_simple_display_pipe_prepare_fb() for suitable helpers.
+	 */
+	struct dma_fence *fence;
+
+	/**
+	 * @crtc_x:
+	 *
+	 * Left position of visible portion of plane on crtc, signed dest
+	 * location allows it to be partially off screen.
+	 */
+
+	int32_t crtc_x;
+	/**
+	 * @crtc_y:
+	 *
+	 * Upper position of visible portion of plane on crtc, signed dest
+	 * location allows it to be partially off screen.
+	 */
+	int32_t crtc_y;
+
+	/** @crtc_w: width of visible portion of plane on crtc */
+	/** @crtc_h: height of visible portion of plane on crtc */
+	uint32_t crtc_w, crtc_h;
+
+	/**
+	 * @src_x: left position of visible portion of plane within plane (in
+	 * 16.16 fixed point).
+	 */
+	uint32_t src_x;
+	/**
+	 * @src_y: upper position of visible portion of plane within plane (in
+	 * 16.16 fixed point).
+	 */
+	uint32_t src_y;
+	/** @src_w: width of visible portion of plane (in 16.16) */
+	/** @src_h: height of visible portion of plane (in 16.16) */
+	uint32_t src_h, src_w;
+
+	/**
+	 * @alpha:
+	 * Opacity of the plane with 0 as completely transparent and 0xffff as
+	 * completely opaque. See drm_plane_create_alpha_property() for more
+	 * details.
+	 */
+	u16 alpha;
+
+	/**
+	 * @pixel_blend_mode:
+	 * The alpha blending equation selection, describing how the pixels from
+	 * the current plane are composited with the background. Value can be
+	 * one of DRM_MODE_BLEND_*
+	 */
+	uint16_t pixel_blend_mode;
+
+	/**
+	 * @rotation:
+	 * Rotation of the plane. See drm_plane_create_rotation_property() for
+	 * more details.
+	 */
+	unsigned int rotation;
+
+	/**
+	 * @zpos:
+	 * Priority of the given plane on crtc (optional).
+	 *
+	 * Note that multiple active planes on the same crtc can have an
+	 * identical zpos value. The rule to solving the conflict is to compare
+	 * the plane object IDs; the plane with a higher ID must be stacked on
+	 * top of a plane with a lower ID.
+	 *
+	 * See drm_plane_create_zpos_property() and
+	 * drm_plane_create_zpos_immutable_property() for more details.
+	 */
+	unsigned int zpos;
+
+	/**
+	 * @normalized_zpos:
+	 * Normalized value of zpos: unique, range from 0 to N-1 where N is the
+	 * number of active planes for given crtc. Note that the driver must set
+	 * &drm_mode_config.normalize_zpos or call drm_atomic_normalize_zpos() to
+	 * update this before it can be trusted.
+	 */
+	unsigned int normalized_zpos;
+
+	/**
+	 * @color_encoding:
+	 *
+	 * Color encoding for non RGB formats
+	 */
+	enum drm_color_encoding color_encoding;
+
+	/**
+	 * @color_range:
+	 *
+	 * Color range for non RGB formats
+	 */
+	enum drm_color_range color_range;
+
+	/**
+	 * @fb_damage_clips:
+	 *
+	 * Blob representing damage (area in plane framebuffer that changed
+	 * since last plane update) as an array of &drm_mode_rect in framebuffer
+	 * coodinates of the attached framebuffer. Note that unlike plane src,
+	 * damage clips are not in 16.16 fixed point.
+	 */
+	struct drm_property_blob *fb_damage_clips;
+
+	/** @src: clipped source coordinates of the plane (in 16.16) */
+	/** @dst: clipped destination coordinates of the plane */
+	struct drm_rect src, dst;
+
+	/**
+	 * @visible:
+	 *
+	 * Visibility of the plane. This can be false even if fb!=NULL and
+	 * crtc!=NULL, due to clipping.
+	 */
+	bool visible;
+
+	/**
+	 * @commit: Tracks the pending commit to prevent use-after-free conditions,
+	 * and for async plane updates.
+	 *
+	 * May be NULL.
+	 */
+	struct drm_crtc_commit *commit;
+
+	/** @state: backpointer to global drm_atomic_state */
+	struct drm_atomic_state *state;
+};
+
 struct intel_plane_state {
 	struct drm_plane_state uapi;
-	struct drm_plane_state base;
+	struct _drm_plane_state base;
 	struct i915_ggtt_view view;
 	struct i915_vma *vma;
 	unsigned long flags;
@@ -749,9 +921,307 @@ enum intel_output_format {
 	INTEL_OUTPUT_FORMAT_YCBCR444,
 };
 
+/**
+ * struct drm_crtc_state - mutable CRTC state
+ *
+ * Note that the distinction between @enable and @active is rather subtle:
+ * Flipping @active while @enable is set without changing anything else may
+ * never return in a failure from the &drm_mode_config_funcs.atomic_check
+ * callback. Userspace assumes that a DPMS On will always succeed. In other
+ * words: @enable controls resource assignment, @active controls the actual
+ * hardware state.
+ *
+ * The three booleans active_changed, connectors_changed and mode_changed are
+ * intended to indicate whether a full modeset is needed, rather than strictly
+ * describing what has changed in a commit. See also:
+ * drm_atomic_crtc_needs_modeset()
+ *
+ * WARNING: Transitional helpers (like drm_helper_crtc_mode_set() or
+ * drm_helper_crtc_mode_set_base()) do not maintain many of the derived control
+ * state like @plane_mask so drivers not converted over to atomic helpers should
+ * not rely on these being accurate!
+ */
+struct _drm_crtc_state {
+	/** @crtc: backpointer to the CRTC */
+	struct drm_crtc *crtc;
+
+	/**
+	 * @enable: Whether the CRTC should be enabled, gates all other state.
+	 * This controls reservations of shared resources. Actual hardware state
+	 * is controlled by @active.
+	 */
+	bool enable;
+
+	/**
+	 * @active: Whether the CRTC is actively displaying (used for DPMS).
+	 * Implies that @enable is set. The driver must not release any shared
+	 * resources if @active is set to false but @enable still true, because
+	 * userspace expects that a DPMS ON always succeeds.
+	 *
+	 * Hence drivers must not consult @active in their various
+	 * &drm_mode_config_funcs.atomic_check callback to reject an atomic
+	 * commit. They can consult it to aid in the computation of derived
+	 * hardware state, since even in the DPMS OFF state the display hardware
+	 * should be as much powered down as when the CRTC is completely
+	 * disabled through setting @enable to false.
+	 */
+	bool active;
+
+	/**
+	 * @planes_changed: Planes on this crtc are updated. Used by the atomic
+	 * helpers and drivers to steer the atomic commit control flow.
+	 */
+	bool planes_changed : 1;
+
+	/**
+	 * @mode_changed: @mode or @enable has been changed. Used by the atomic
+	 * helpers and drivers to steer the atomic commit control flow. See also
+	 * drm_atomic_crtc_needs_modeset().
+	 *
+	 * Drivers are supposed to set this for any CRTC state changes that
+	 * require a full modeset. They can also reset it to false if e.g. a
+	 * @mode change can be done without a full modeset by only changing
+	 * scaler settings.
+	 */
+	bool mode_changed : 1;
+
+	/**
+	 * @active_changed: @active has been toggled. Used by the atomic
+	 * helpers and drivers to steer the atomic commit control flow. See also
+	 * drm_atomic_crtc_needs_modeset().
+	 */
+	bool active_changed : 1;
+
+	/**
+	 * @connectors_changed: Connectors to this crtc have been updated,
+	 * either in their state or routing. Used by the atomic
+	 * helpers and drivers to steer the atomic commit control flow. See also
+	 * drm_atomic_crtc_needs_modeset().
+	 *
+	 * Drivers are supposed to set this as-needed from their own atomic
+	 * check code, e.g. from &drm_encoder_helper_funcs.atomic_check
+	 */
+	bool connectors_changed : 1;
+	/**
+	 * @zpos_changed: zpos values of planes on this crtc have been updated.
+	 * Used by the atomic helpers and drivers to steer the atomic commit
+	 * control flow.
+	 */
+	bool zpos_changed : 1;
+	/**
+	 * @color_mgmt_changed: Color management properties have changed
+	 * (@gamma_lut, @degamma_lut or @ctm). Used by the atomic helpers and
+	 * drivers to steer the atomic commit control flow.
+	 */
+	bool color_mgmt_changed : 1;
+
+	/**
+	 * @no_vblank:
+	 *
+	 * Reflects the ability of a CRTC to send VBLANK events. This state
+	 * usually depends on the pipeline configuration, and the main usuage
+	 * is CRTCs feeding a writeback connector operating in oneshot mode.
+	 * In this case the VBLANK event is only generated when a job is queued
+	 * to the writeback connector, and we want the core to fake VBLANK
+	 * events when this part of the pipeline hasn't changed but others had
+	 * or when the CRTC and connectors are being disabled.
+	 *
+	 * __drm_atomic_helper_crtc_duplicate_state() will not reset the value
+	 * from the current state, the CRTC driver is then responsible for
+	 * updating this field when needed.
+	 *
+	 * Note that the combination of &drm_crtc_state.event == NULL and
+	 * &drm_crtc_state.no_blank == true is valid and usually used when the
+	 * writeback connector attached to the CRTC has a new job queued. In
+	 * this case the driver will send the VBLANK event on its own when the
+	 * writeback job is complete.
+	 */
+	bool no_vblank : 1;
+
+	/**
+	 * @plane_mask: Bitmask of drm_plane_mask(plane) of planes attached to
+	 * this CRTC.
+	 */
+	u32 plane_mask;
+
+	/**
+	 * @connector_mask: Bitmask of drm_connector_mask(connector) of
+	 * connectors attached to this CRTC.
+	 */
+	u32 connector_mask;
+
+	/**
+	 * @encoder_mask: Bitmask of drm_encoder_mask(encoder) of encoders
+	 * attached to this CRTC.
+	 */
+	u32 encoder_mask;
+
+	/**
+	 * @adjusted_mode:
+	 *
+	 * Internal display timings which can be used by the driver to handle
+	 * differences between the mode requested by userspace in @mode and what
+	 * is actually programmed into the hardware.
+	 *
+	 * For drivers using &drm_bridge, this stores hardware display timings
+	 * used between the CRTC and the first bridge. For other drivers, the
+	 * meaning of the adjusted_mode field is purely driver implementation
+	 * defined information, and will usually be used to store the hardware
+	 * display timings used between the CRTC and encoder blocks.
+	 */
+	struct drm_display_mode adjusted_mode;
+
+	/**
+	 * @mode:
+	 *
+	 * Display timings requested by userspace. The driver should try to
+	 * match the refresh rate as close as possible (but note that it's
+	 * undefined what exactly is close enough, e.g. some of the HDMI modes
+	 * only differ in less than 1% of the refresh rate). The active width
+	 * and height as observed by userspace for positioning planes must match
+	 * exactly.
+	 *
+	 * For external connectors where the sink isn't fixed (like with a
+	 * built-in panel), this mode here should match the physical mode on the
+	 * wire to the last details (i.e. including sync polarities and
+	 * everything).
+	 */
+	struct drm_display_mode mode;
+
+	/**
+	 * @mode_blob: &drm_property_blob for @mode, for exposing the mode to
+	 * atomic userspace.
+	 */
+	struct drm_property_blob *mode_blob;
+
+	/**
+	 * @degamma_lut:
+	 *
+	 * Lookup table for converting framebuffer pixel data before apply the
+	 * color conversion matrix @ctm. See drm_crtc_enable_color_mgmt(). The
+	 * blob (if not NULL) is an array of &struct drm_color_lut.
+	 */
+	struct drm_property_blob *degamma_lut;
+
+	/**
+	 * @ctm:
+	 *
+	 * Color transformation matrix. See drm_crtc_enable_color_mgmt(). The
+	 * blob (if not NULL) is a &struct drm_color_ctm.
+	 */
+	struct drm_property_blob *ctm;
+
+	/**
+	 * @gamma_lut:
+	 *
+	 * Lookup table for converting pixel data after the color conversion
+	 * matrix @ctm.  See drm_crtc_enable_color_mgmt(). The blob (if not
+	 * NULL) is an array of &struct drm_color_lut.
+	 */
+	struct drm_property_blob *gamma_lut;
+
+	/**
+	 * @target_vblank:
+	 *
+	 * Target vertical blank period when a page flip
+	 * should take effect.
+	 */
+	u32 target_vblank;
+
+	/**
+	 * @async_flip:
+	 *
+	 * This is set when DRM_MODE_PAGE_FLIP_ASYNC is set in the legacy
+	 * PAGE_FLIP IOCTL. It's not wired up for the atomic IOCTL itself yet.
+	 */
+	bool async_flip;
+
+	/**
+	 * @vrr_enabled:
+	 *
+	 * Indicates if variable refresh rate should be enabled for the CRTC.
+	 * Support for the requested vrr state will depend on driver and
+	 * hardware capabiltiy - lacking support is not treated as failure.
+	 */
+	bool vrr_enabled;
+
+	/**
+	 * @self_refresh_active:
+	 *
+	 * Used by the self refresh helpers to denote when a self refresh
+	 * transition is occurring. This will be set on enable/disable callbacks
+	 * when self refresh is being enabled or disabled. In some cases, it may
+	 * not be desirable to fully shut off the crtc during self refresh.
+	 * CRTC's can inspect this flag and determine the best course of action.
+	 */
+	bool self_refresh_active;
+
+	/**
+	 * @event:
+	 *
+	 * Optional pointer to a DRM event to signal upon completion of the
+	 * state update. The driver must send out the event when the atomic
+	 * commit operation completes. There are two cases:
+	 *
+	 *  - The event is for a CRTC which is being disabled through this
+	 *    atomic commit. In that case the event can be send out any time
+	 *    after the hardware has stopped scanning out the current
+	 *    framebuffers. It should contain the timestamp and counter for the
+	 *    last vblank before the display pipeline was shut off. The simplest
+	 *    way to achieve that is calling drm_crtc_send_vblank_event()
+	 *    somewhen after drm_crtc_vblank_off() has been called.
+	 *
+	 *  - For a CRTC which is enabled at the end of the commit (even when it
+	 *    undergoes an full modeset) the vblank timestamp and counter must
+	 *    be for the vblank right before the first frame that scans out the
+	 *    new set of buffers. Again the event can only be sent out after the
+	 *    hardware has stopped scanning out the old buffers.
+	 *
+	 *  - Events for disabled CRTCs are not allowed, and drivers can ignore
+	 *    that case.
+	 *
+	 * This can be handled by the drm_crtc_send_vblank_event() function,
+	 * which the driver should call on the provided event upon completion of
+	 * the atomic commit. Note that if the driver supports vblank signalling
+	 * and timestamping the vblank counters and timestamps must agree with
+	 * the ones returned from page flip events. With the current vblank
+	 * helper infrastructure this can be achieved by holding a vblank
+	 * reference while the page flip is pending, acquired through
+	 * drm_crtc_vblank_get() and released with drm_crtc_vblank_put().
+	 * Drivers are free to implement their own vblank counter and timestamp
+	 * tracking though, e.g. if they have accurate timestamp registers in
+	 * hardware.
+	 *
+	 * For hardware which supports some means to synchronize vblank
+	 * interrupt delivery with committing display state there's also
+	 * drm_crtc_arm_vblank_event(). See the documentation of that function
+	 * for a detailed discussion of the constraints it needs to be used
+	 * safely.
+	 *
+	 * If the device can't notify of flip completion in a race-free way
+	 * at all, then the event should be armed just after the page flip is
+	 * committed. In the worst case the driver will send the event to
+	 * userspace one frame too late. This doesn't allow for a real atomic
+	 * update, but it should avoid tearing.
+	 */
+	struct drm_pending_vblank_event *event;
+
+	/**
+	 * @commit:
+	 *
+	 * This tracks how the commit for this update proceeds through the
+	 * various phases. This is never cleared, except when we destroy the
+	 * state, so that subsequent commits can synchronize with previous ones.
+	 */
+	struct drm_crtc_commit *commit;
+
+	/** @state: backpointer to global drm_atomic_state */
+	struct drm_atomic_state *state;
+};
+
 struct intel_crtc_state {
 	struct drm_crtc_state uapi;
-	struct drm_crtc_state base;
+	struct _drm_crtc_state base;
 
 	/**
 	 * quirks - bitfield with hw state readout quirks

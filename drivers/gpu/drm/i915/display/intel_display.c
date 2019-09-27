@@ -518,7 +518,7 @@ icl_wa_scalerclkgating(struct drm_i915_private *dev_priv, enum pipe pipe,
 static bool
 needs_modeset(const struct intel_crtc_state *state)
 {
-	return drm_atomic_crtc_needs_modeset(&state->base);
+	return intel_atomic_crtc_needs_modeset(state);
 }
 
 /*
@@ -3150,7 +3150,8 @@ static void intel_plane_disable_noatomic(struct intel_crtc *crtc,
 		      plane->base.base.id, plane->base.name,
 		      crtc->base.base.id, crtc->base.name);
 
-	intel_set_plane_visible(&crtc_state->base, &plane_state->base, false);
+	intel_set_plane_visible((struct drm_crtc_state *)&crtc_state->base,
+				(struct drm_plane_state *)&plane_state->base, false);
 	intel_set_plane_visible(&crtc_state->uapi, &plane_state->uapi, false);
 	fixup_active_planes(crtc_state);
 	crtc_state->data_rate[plane->id] = 0;
@@ -3762,8 +3763,8 @@ i9xx_plane_check(struct intel_crtc_state *crtc_state,
 	if (ret)
 		return ret;
 
-	ret = drm_atomic_helper_check_plane_state(&plane_state->base,
-						  &crtc_state->base,
+	ret = drm_atomic_helper_check_plane_state((struct drm_plane_state *)&plane_state->base,
+						  (struct drm_crtc_state *)&crtc_state->base,
 						  DRM_PLANE_HELPER_NO_SCALING,
 						  DRM_PLANE_HELPER_NO_SCALING,
 						  i9xx_plane_has_windowing(plane),
@@ -7094,7 +7095,7 @@ static void intel_crtc_disable_noatomic(struct intel_crtc *crtc,
 
 	old_crtc_state = to_intel_crtc_state(crtc->base.state);
 
-	WARN_ON(drm_atomic_set_mode_for_crtc(&old_crtc_state->base, NULL) < 0);
+	WARN_ON(drm_atomic_set_mode_for_crtc((struct drm_crtc_state *)&old_crtc_state->base, NULL) < 0);
 	old_crtc_state->base.active = false;
 	old_crtc_state->base.connector_mask = 0;
 	old_crtc_state->base.encoder_mask = 0;
@@ -10679,8 +10680,8 @@ static int intel_check_cursor(struct intel_crtc_state *crtc_state,
 		return -EINVAL;
 	}
 
-	ret = drm_atomic_helper_check_plane_state(&plane_state->base,
-						  &crtc_state->base,
+	ret = drm_atomic_helper_check_plane_state((struct drm_plane_state *)&plane_state->base,
+						  (struct drm_crtc_state *)&crtc_state->base,
 						  DRM_PLANE_HELPER_NO_SCALING,
 						  DRM_PLANE_HELPER_NO_SCALING,
 						  true, true);
@@ -13206,10 +13207,12 @@ verify_crtc_state(struct intel_crtc *crtc,
 	bool active;
 
 	state = old_crtc_state->uapi.state;
-	__drm_atomic_helper_crtc_destroy_state(&old_crtc_state->base);
+	__drm_atomic_helper_crtc_destroy_state((struct drm_crtc_state *)&old_crtc_state->base);
+	__drm_atomic_helper_crtc_destroy_state((struct drm_crtc_state *)&old_crtc_state->uapi);
 	pipe_config = old_crtc_state;
 	memset(pipe_config, 0, sizeof(*pipe_config));
 	pipe_config->base.crtc = &crtc->base;
+	pipe_config->uapi.crtc = &crtc->base;
 	pipe_config->uapi.state = state;
 
 	DRM_DEBUG_KMS("[CRTC:%d:%s]\n", crtc->base.base.id, crtc->base.name);
@@ -13666,10 +13669,10 @@ static int intel_atomic_check(struct drm_device *dev,
 	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state,
 					    new_crtc_state, i) {
 		if (new_crtc_state->uapi.enable)
-			copy_crtc_state(&new_crtc_state->base,
+			copy_crtc_state((struct drm_crtc_state *)&new_crtc_state->base,
 					&new_crtc_state->uapi);
 		else if (old_crtc_state->uapi.enable)
-			clear_crtc_state(&new_crtc_state->base,
+			clear_crtc_state((struct drm_crtc_state *)&new_crtc_state->base,
 					 &new_crtc_state->uapi);
 	}
 
@@ -15204,7 +15207,7 @@ static int intel_crtc_init(struct drm_i915_private *dev_priv, enum pipe pipe)
 		ret = -ENOMEM;
 		goto fail;
 	}
-	__drm_atomic_helper_crtc_reset(&intel_crtc->base, &crtc_state->base);
+	__drm_atomic_helper_crtc_reset(&intel_crtc->base, (struct drm_crtc_state *)&crtc_state->base);
 	__drm_atomic_helper_crtc_reset(&intel_crtc->base, &crtc_state->uapi);
 	intel_crtc->config = crtc_state;
 
@@ -16764,8 +16767,8 @@ static void readout_plane_state(struct drm_i915_private *dev_priv)
 		crtc = intel_get_crtc_for_pipe(dev_priv, pipe);
 		crtc_state = to_intel_crtc_state(crtc->base.state);
 
-		intel_set_plane_visible(&crtc_state->base,
-					&plane_state->base, visible);
+		intel_set_plane_visible((struct drm_crtc_state *)&crtc_state->base,
+					(struct drm_plane_state *)&plane_state->base, visible);
 
 		DRM_DEBUG_KMS("[PLANE:%d:%s] hw state readout: %s, pipe %c\n",
 			      plane->base.base.id, plane->base.name,
@@ -16796,10 +16799,10 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 		struct intel_crtc_state *crtc_state =
 			to_intel_crtc_state(crtc->base.state);
 
-		__drm_atomic_helper_crtc_destroy_state(&crtc_state->base);
+		__drm_atomic_helper_crtc_destroy_state((struct drm_crtc_state *)&crtc_state->base);
 		__drm_atomic_helper_crtc_destroy_state(&crtc_state->uapi);
 		memset(crtc_state, 0, sizeof(*crtc_state));
-		__drm_atomic_helper_crtc_reset(&crtc->base, &crtc_state->base);
+		__drm_atomic_helper_crtc_reset(&crtc->base, (struct drm_crtc_state *)&crtc_state->base);
 		__drm_atomic_helper_crtc_reset(&crtc->base, &crtc_state->uapi);
 
 		crtc_state->base.active = crtc_state->base.enable =
@@ -16915,7 +16918,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 			crtc->base.mode.hdisplay = crtc_state->pipe_src_w;
 			crtc->base.mode.vdisplay = crtc_state->pipe_src_h;
 			intel_mode_from_pipe_config(&crtc_state->base.adjusted_mode, crtc_state);
-			WARN_ON(drm_atomic_set_mode_for_crtc(&crtc_state->base, &crtc->base.mode));
+			WARN_ON(drm_atomic_set_mode_for_crtc((struct drm_crtc_state *)&crtc_state->base, &crtc->base.mode));
 
 			/*
 			 * The initial mode needs to be set in order to keep
@@ -16963,7 +16966,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 		intel_pipe_config_sanity_check(dev_priv, crtc_state);
 
 		copy_crtc_state(&crtc_state->uapi,
-				&crtc_state->base);
+				(struct drm_crtc_state *)&crtc_state->base);
 	}
 }
 

@@ -58,4 +58,6 @@ __intel_atomic_get_current_plane_state(struct intel_atomic_state *state,
 int intel_atomic_setup_commit(struct intel_atomic_state *state,
 			      bool nonblock);
 
+bool intel_atomic_crtc_needs_modeset(const struct intel_crtc_state *crtc_state);
+
 #endif /* __INTEL_ATOMIC_H__ */

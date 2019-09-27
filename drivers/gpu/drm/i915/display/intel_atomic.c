@@ -192,7 +192,7 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 	if (!crtc_state)
 		return NULL;
 
-	__drm_atomic_helper_crtc_duplicate_state(crtc, &crtc_state->base);
+	__drm_atomic_helper_crtc_duplicate_state(crtc, (struct drm_crtc_state *)&crtc_state->base);
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &crtc_state->uapi);
 
 	crtc_state->update_pipe = false;
@@ -224,7 +224,7 @@ intel_crtc_destroy_state(struct drm_crtc *_crtc,
 	struct intel_crtc_state *crtc_state =
 		to_intel_crtc_state(_crtc_state);
 
-	__drm_atomic_helper_crtc_destroy_state(&crtc_state->base);
+	__drm_atomic_helper_crtc_destroy_state((struct drm_crtc_state *)&crtc_state->base);
 	drm_atomic_helper_crtc_destroy_state(&crtc->base, &crtc_state->uapi);
 }
 
@@ -658,4 +658,12 @@ int intel_atomic_setup_commit(struct intel_atomic_state *state,
 	}
 
 	return 0;
+}
+
+bool intel_atomic_crtc_needs_modeset(const struct intel_crtc_state *crtc_state)
+{
+	return crtc_state->base.mode_changed ||
+		crtc_state->base.active_changed ||
+		crtc_state->base.connectors_changed;
+
 }

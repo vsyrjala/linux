@@ -22,6 +22,7 @@
  *
  */
 
+#include "intel_atomic.h"
 #include "intel_color.h"
 #include "intel_display_types.h"
 
@@ -1064,7 +1065,7 @@ intel_color_add_affected_planes(struct intel_crtc_state *new_crtc_state)
 	struct intel_plane *plane;
 
 	if (!new_crtc_state->base.active ||
-	    drm_atomic_crtc_needs_modeset(&new_crtc_state->base))
+	    intel_atomic_crtc_needs_modeset(new_crtc_state))
 		return 0;
 
 	if (new_crtc_state->gamma_enable == old_crtc_state->gamma_enable &&
