@@ -6105,7 +6105,9 @@ static void intel_pre_plane_update(struct intel_crtc_state *old_crtc_state,
 			intel_atomic_get_new_plane_state(intel_state,
 							 to_intel_plane(primary));
 
-		intel_fbc_pre_update(crtc, pipe_config, new_primary_state);
+		if (intel_fbc_pre_update(crtc, pipe_config, new_primary_state))
+			intel_wait_for_vblank(dev_priv, crtc->pipe);
+
 		/*
 		 * Gen2 reports pipe underruns whenever all planes are disabled.
 		 * So disable underrun reporting before all the planes get disabled.
