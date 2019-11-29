@@ -993,9 +993,13 @@ static void acpi_bus_get_flags(struct acpi_device *device)
 	if (acpi_has_method(device->handle, "_RMV"))
 		device->flags.removable = 1;
 
+	/* Presence of _EJ0 indicates 'hot_removable' */
+	if (acpi_has_method(device->handle, "_EJ0"))
+		device->flags.hot_removable = 1;
+
 	/* Presence of _EJD|_EJ0 indicates 'ejectable' */
 	if (acpi_has_method(device->handle, "_EJD") ||
-	    acpi_has_method(device->handle, "_EJ0"))
+	    device->flags.hot_removable)
 		device->flags.ejectable = 1;
 }
 
@@ -1089,7 +1093,7 @@ static bool is_ejectable_bay(struct acpi_device *adev)
 {
 	acpi_handle handle = adev->handle;
 
-	if (acpi_has_method(handle, "_EJ0") && acpi_device_is_battery(adev))
+	if (adev->flags.hot_removable && acpi_device_is_battery(adev))
 		return true;
 
 	return acpi_bay_match(handle);

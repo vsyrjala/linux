@@ -200,7 +200,8 @@ struct acpi_device_flags {
 	u32 coherent_dma:1;
 	u32 cca_seen:1;
 	u32 enumeration_by_parent:1;
-	u32 reserved:19;
+	u32 hot_removable:1;
+	u32 reserved:18;
 };
 
 /* File System */

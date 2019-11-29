@@ -991,7 +991,7 @@ static int acpi_pci_set_power_state(struct pci_dev *dev, pci_power_t state)
 	int error = -EINVAL;
 
 	/* If the ACPI device has _EJ0, ignore the device */
-	if (!adev || acpi_has_method(adev->handle, "_EJ0"))
+	if (!adev || adev->flags.hot_removable)
 		return -ENODEV;
 
 	switch (state) {

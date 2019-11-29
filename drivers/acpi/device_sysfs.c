@@ -576,7 +576,7 @@ int acpi_device_setup_files(struct acpi_device *dev)
 	 * If device has _EJ0, 'eject' file is created that is used to trigger
 	 * hot-removal function from userland.
 	 */
-	if (acpi_has_method(dev->handle, "_EJ0")) {
+	if (dev->flags.hot_removable) {
 		result = device_create_file(&dev->dev, &dev_attr_eject);
 		if (result)
 			return result;
@@ -623,7 +623,7 @@ void acpi_device_remove_files(struct acpi_device *dev)
 	/*
 	 * If device has _EJ0, remove 'eject' file.
 	 */
-	if (acpi_has_method(dev->handle, "_EJ0"))
+	if (dev->flags.hot_removable)
 		device_remove_file(&dev->dev, &dev_attr_eject);
 
 	if (acpi_has_method(dev->handle, "_SUN"))

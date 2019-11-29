@@ -259,7 +259,7 @@ static acpi_status acpiphp_add_context(acpi_handle handle, u32 lvl, void *data,
 	 * If this is a dock device, its _EJ0 should be executed by the dock
 	 * notify handler after calling _DCK.
 	 */
-	if (!is_dock_device(adev) && acpi_has_method(handle, "_EJ0"))
+	if (!is_dock_device(adev) && adev->flags.hot_removable)
 		newfunc->flags = FUNC_HAS_EJ0;
 
 	if (acpi_has_method(handle, "_STA"))
