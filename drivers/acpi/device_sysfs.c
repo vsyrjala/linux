@@ -566,7 +566,7 @@ int acpi_device_setup_files(struct acpi_device *dev)
 			goto end;
 	}
 
-	if (acpi_has_method(dev->handle, "_STA")) {
+	if (dev->flags.dynamic_status) {
 		result = device_create_file(&dev->dev, &dev_attr_status);
 		if (result)
 			goto end;
@@ -638,7 +638,7 @@ void acpi_device_remove_files(struct acpi_device *dev)
 		device_remove_file(&dev->dev, &dev_attr_adr);
 	device_remove_file(&dev->dev, &dev_attr_modalias);
 	device_remove_file(&dev->dev, &dev_attr_hid);
-	if (acpi_has_method(dev->handle, "_STA"))
+	if (dev->flags.dynamic_status)
 		device_remove_file(&dev->dev, &dev_attr_status);
 	if (dev->handle)
 		device_remove_file(&dev->dev, &dev_attr_path);

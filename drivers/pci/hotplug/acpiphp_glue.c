@@ -262,7 +262,7 @@ static acpi_status acpiphp_add_context(acpi_handle handle, u32 lvl, void *data,
 	if (!is_dock_device(adev) && adev->flags.hot_removable)
 		newfunc->flags = FUNC_HAS_EJ0;
 
-	if (acpi_has_method(handle, "_STA"))
+	if (adev->flags.dynamic_status)
 		newfunc->flags |= FUNC_HAS_STA;
 
 	/* search for objects that share the same slot */
