@@ -84,6 +84,11 @@ struct intel_fbc_state {
 	s8 fence_id;
 };
 
+struct intel_fbc_bo {
+	struct drm_i915_gem_object *obj;
+	struct i915_vma *vma;
+};
+
 struct intel_fbc {
 	struct drm_i915_private *i915;
 	const struct intel_fbc_funcs *funcs;
@@ -96,7 +101,7 @@ struct intel_fbc {
 	struct mutex lock;
 	unsigned int busy_bits;
 
-	struct i915_stolen_fb compressed_fb, compressed_llb;
+	struct intel_fbc_bo compressed_fb, compressed_llb;
 
 	enum intel_fbc_id id;
 
@@ -334,17 +339,18 @@ static void i8xx_fbc_program_cfb(struct intel_fbc *fbc)
 	struct drm_i915_private *i915 = fbc->i915;
 
 	drm_WARN_ON(&i915->drm,
-		    range_overflows_end_t(u64, i915_gem_stolen_area_address(i915),
-					  i915_gem_stolen_node_offset(&fbc->compressed_fb),
+		    range_overflows_end_t(u64, i915->dsm.stolen.start,
+					  fbc->compressed_fb.obj->stolen->start,
 					  U32_MAX));
 	drm_WARN_ON(&i915->drm,
-		    range_overflows_end_t(u64, i915_gem_stolen_area_address(i915),
-					  i915_gem_stolen_node_offset(&fbc->compressed_llb),
+		    range_overflows_end_t(u64, i915->dsm.stolen.start,
+					  fbc->compressed_llb.obj->stolen->start,
 					  U32_MAX));
+
 	intel_de_write(i915, FBC_CFB_BASE,
-		       i915_gem_stolen_node_address(i915, &fbc->compressed_fb));
+		       i915->dsm.stolen.start + fbc->compressed_fb.obj->stolen->start);
 	intel_de_write(i915, FBC_LL_BASE,
-		       i915_gem_stolen_node_address(i915, &fbc->compressed_llb));
+		       i915->dsm.stolen.start + fbc->compressed_llb.obj->stolen->start);
 }
 
 static const struct intel_fbc_funcs i8xx_fbc_funcs = {
@@ -452,7 +458,7 @@ static void g4x_fbc_program_cfb(struct intel_fbc *fbc)
 	struct drm_i915_private *i915 = fbc->i915;
 
 	intel_de_write(i915, DPFC_CB_BASE,
-		       i915_gem_stolen_node_offset(&fbc->compressed_fb));
+		       fbc->compressed_fb.obj->stolen->start);
 }
 
 static const struct intel_fbc_funcs g4x_fbc_funcs = {
@@ -504,7 +510,7 @@ static void ilk_fbc_program_cfb(struct intel_fbc *fbc)
 	struct drm_i915_private *i915 = fbc->i915;
 
 	intel_de_write(i915, ILK_DPFC_CB_BASE(fbc->id),
-		       i915_gem_stolen_node_offset(&fbc->compressed_fb));
+		       fbc->compressed_fb.obj->stolen->start);
 }
 
 static const struct intel_fbc_funcs ilk_fbc_funcs = {
@@ -710,6 +716,41 @@ static void intel_fbc_deactivate(struct intel_fbc *fbc, const char *reason)
 	fbc->no_fbc_reason = reason;
 }
 
+static int alloc_bo(struct drm_i915_private *i915,
+		    struct intel_fbc_bo *bo,
+		    unsigned int size)
+{
+	struct drm_i915_gem_object *obj;
+	struct i915_vma *vma;
+
+	obj = i915_gem_object_create_stolen(i915, size);
+	if (IS_ERR(obj))
+		return PTR_ERR(obj);
+
+	vma = i915_gem_object_ggtt_pin(obj, NULL, 0, 4096, PIN_MAPPABLE);
+	if (IS_ERR(vma)) {
+		i915_gem_object_put(obj);
+		return PTR_ERR(vma);
+	}
+
+	bo->vma = vma;
+	bo->obj = obj;
+
+	return 0;
+}
+
+static void free_bo(struct drm_i915_private *i915,
+		    struct intel_fbc_bo *bo)
+{
+	if (bo->vma)
+		i915_vma_unpin(bo->vma);
+	if (bo->obj)
+		i915_gem_object_put(bo->obj);
+
+	bo->vma = NULL;
+	bo->obj = NULL;
+}
+
 static u64 intel_fbc_cfb_base_max(struct drm_i915_private *i915)
 {
 	if (DISPLAY_VER(i915) >= 5 || IS_G4X(i915))
@@ -760,17 +801,17 @@ static int find_compression_limit(struct intel_fbc *fbc,
 	u64 end = intel_fbc_stolen_end(i915);
 	int ret, limit = min_limit;
 
+	(void)end;
+
 	size /= limit;
 
 	/* Try to over-allocate to reduce reallocations and fragmentation. */
-	ret = i915_gem_stolen_insert_node_in_range(i915, &fbc->compressed_fb,
-						   size <<= 1, 4096, 0, end);
+	ret = alloc_bo(i915, &fbc->compressed_fb, size <<= 1);
 	if (ret == 0)
 		return limit;
 
 	for (; limit <= intel_fbc_max_limit(i915); limit <<= 1) {
-		ret = i915_gem_stolen_insert_node_in_range(i915, &fbc->compressed_fb,
-							   size >>= 1, 4096, 0, end);
+		ret = alloc_bo(i915, &fbc->compressed_fb, size >>= 1);
 		if (ret == 0)
 			return limit;
 	}
@@ -784,14 +825,11 @@ static int intel_fbc_alloc_cfb(struct intel_fbc *fbc,
 	struct drm_i915_private *i915 = fbc->i915;
 	int ret;
 
-	drm_WARN_ON(&i915->drm,
-		    i915_gem_stolen_node_allocated(&fbc->compressed_fb));
-	drm_WARN_ON(&i915->drm,
-		    i915_gem_stolen_node_allocated(&fbc->compressed_llb));
+	drm_WARN_ON(&i915->drm, fbc->compressed_fb.obj);
+	drm_WARN_ON(&i915->drm, fbc->compressed_llb.obj);
 
 	if (DISPLAY_VER(i915) < 5 && !IS_G4X(i915)) {
-		ret = i915_gem_stolen_insert_node(i915, &fbc->compressed_llb,
-						  4096, 4096);
+		ret = alloc_bo(i915, &fbc->compressed_llb, 4096);
 		if (ret)
 			goto err;
 	}
@@ -807,12 +845,12 @@ static int intel_fbc_alloc_cfb(struct intel_fbc *fbc,
 
 	drm_dbg_kms(&i915->drm,
 		    "reserved %llu bytes of contiguous stolen space for FBC, limit: %d\n",
-		    i915_gem_stolen_node_size(&fbc->compressed_fb), fbc->limit);
+		    fbc->compressed_fb.obj->stolen->size, fbc->limit);
+
 	return 0;
 
 err_llb:
-	if (i915_gem_stolen_node_allocated(&fbc->compressed_llb))
-		i915_gem_stolen_remove_node(i915, &fbc->compressed_llb);
+	free_bo(i915, &fbc->compressed_llb);
 err:
 	if (i915_gem_stolen_initialized(i915))
 		drm_info_once(&i915->drm, "not enough stolen space for compressed buffer (need %d more bytes), disabling. Hint: you may be able to increase stolen memory size in the BIOS to avoid this.\n", size);
@@ -839,10 +877,8 @@ static void __intel_fbc_cleanup_cfb(struct intel_fbc *fbc)
 	if (WARN_ON(intel_fbc_hw_is_active(fbc)))
 		return;
 
-	if (i915_gem_stolen_node_allocated(&fbc->compressed_llb))
-		i915_gem_stolen_remove_node(i915, &fbc->compressed_llb);
-	if (i915_gem_stolen_node_allocated(&fbc->compressed_fb))
-		i915_gem_stolen_remove_node(i915, &fbc->compressed_fb);
+	free_bo(i915, &fbc->compressed_fb);
+	free_bo(i915, &fbc->compressed_llb);
 }
 
 void intel_fbc_cleanup(struct drm_i915_private *i915)
@@ -1172,9 +1208,12 @@ static bool intel_fbc_is_cfb_ok(const struct intel_plane_state *plane_state)
 	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
 	struct intel_fbc *fbc = plane->fbc;
 
+	if (!fbc->compressed_fb.obj)
+		return false;
+
 	return intel_fbc_min_limit(plane_state) <= fbc->limit &&
 		intel_fbc_cfb_size(plane_state) <= fbc->limit *
-			i915_gem_stolen_node_size(&fbc->compressed_fb);
+		fbc->compressed_fb.obj->stolen->size;
 }
 
 static bool intel_fbc_is_ok(const struct intel_plane_state *plane_state)
@@ -1963,11 +2002,118 @@ DEFINE_DEBUGFS_ATTRIBUTE(intel_fbc_debugfs_false_color_fops,
 			 intel_fbc_debugfs_false_color_set,
 			 "%llu\n");
 
+static int i915_gtt_open(struct inode *inode, struct file *file,
+			 struct drm_i915_gem_object *obj)
+{
+	struct i915_vma *vma;
+	void __iomem *map;
+
+	if (!obj)
+		return -EINVAL;
+
+	vma = i915_gem_object_ggtt_pin(obj, NULL, 0, 0, PIN_MAPPABLE);
+	if (IS_ERR(vma))
+		return PTR_ERR(vma);
+
+	map = i915_vma_pin_iomap(vma);
+	i915_vma_unpin(vma);
+	if (IS_ERR(map))
+		return PTR_ERR(map);
+
+	file->private_data = vma;
+
+	i_size_write(inode, vma->node.size);
+
+	return 0;
+}
+
+static int i915_gtt_release(struct inode *inode, struct file *file)
+{
+	struct i915_vma *vma = file->private_data;
+
+	i915_vma_unpin_iomap(vma);
+
+	return 0;
+}
+
+static ssize_t i915_gtt_read(struct file *file, char __user *ubuf,
+			     size_t count, loff_t *pos)
+{
+	struct i915_vma *vma = file->private_data;
+	void __iomem *map = vma->iomap + *pos;
+
+	count = min_t(size_t, count, vma->node.size - *pos);
+
+	if (copy_to_user(ubuf, map, count))
+		return -EFAULT;
+
+	*pos += count;
+
+	return count;
+}
+
+static ssize_t i915_gtt_write(struct file *file, const char __user *ubuf,
+			      size_t count, loff_t *pos)
+{
+	struct i915_vma *vma = file->private_data;
+	void __iomem *map = vma->iomap + *pos;
+
+	count = min_t(size_t, count, vma->node.size - *pos);
+
+	if (copy_from_user(map, ubuf, count))
+		return -EFAULT;
+
+	*pos += count;
+
+	return count;
+}
+
+static int intel_fbc_debugfs_cfb_open(struct inode *inode, struct file *file)
+{
+	struct intel_fbc *fbc = inode->i_private;
+
+	return i915_gtt_open(inode, file, fbc->compressed_fb.obj);
+}
+
+static int intel_fbc_debugfs_llb_open(struct inode *inode, struct file *file)
+{
+	struct intel_fbc *fbc = inode->i_private;
+
+	return i915_gtt_open(inode, file, fbc->compressed_llb.obj);
+}
+
+static const struct file_operations intel_fbc_debugfs_cfb_fops = {
+	.owner = THIS_MODULE,
+	.open = intel_fbc_debugfs_cfb_open,
+	.read = i915_gtt_read,
+	.write = i915_gtt_write,
+	.llseek = default_llseek,
+	.release = i915_gtt_release,
+};
+
+static const struct file_operations intel_fbc_debugfs_llb_fops = {
+	.owner = THIS_MODULE,
+	.open = intel_fbc_debugfs_llb_open,
+	.read = i915_gtt_read,
+	.write = i915_gtt_write,
+	.llseek = default_llseek,
+	.release = i915_gtt_release,
+};
+
 static void intel_fbc_debugfs_add(struct intel_fbc *fbc,
 				  struct dentry *parent)
 {
+	struct drm_i915_private *i915 = fbc->i915;
+
 	debugfs_create_file("i915_fbc_status", 0444, parent,
 			    fbc, &intel_fbc_debugfs_status_fops);
+
+	debugfs_create_file("i915_fbc_cfb", 0444, parent,
+			    fbc, &intel_fbc_debugfs_cfb_fops);
+
+	if (DISPLAY_VER(i915) < 5 && !IS_G4X(i915))
+		debugfs_create_file("i915_fbc_llb", 0444, parent,
+				    fbc, &intel_fbc_debugfs_llb_fops);
 
 	if (fbc->funcs->set_false_color)
 		debugfs_create_file_unsafe("i915_fbc_false_color", 0644, parent,
