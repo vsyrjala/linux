@@ -1906,6 +1906,19 @@ intel_ddi_transcoder_func_reg_val_get(const struct intel_crtc_state *crtc_state)
 		temp |= DDI_PORT_WIDTH(crtc_state->lane_count);
 	}
 
+	if (IS_GEN_RANGE(dev_priv, 8, 10) &&
+	    crtc_state->master_transcoder != INVALID_TRANSCODER) {
+		u8 master_select;
+
+		if (crtc_state->master_transcoder == TRANSCODER_EDP)
+			master_select = 0;
+		else
+			master_select = crtc_state->master_transcoder + 1;
+
+		temp |= TRANS_DDI_PORT_SYNC_ENABLE |
+			TRANS_DDI_PORT_SYNC_MASTER_SELECT(master_select);
+	}
+
 	return temp;
 }
 
@@ -1954,6 +1967,9 @@ void intel_ddi_disable_transcoder_func(const struct intel_crtc_state *crtc_state
 		val &= ~(TRANS_DDI_FUNC_ENABLE | TRANS_DDI_PORT_MASK |
 			 TRANS_DDI_DP_VC_PAYLOAD_ALLOC);
 	}
+	if (IS_GEN_RANGE(dev_priv, 8, 10))
+		val &= ~(TRANS_DDI_PORT_SYNC_ENABLE |
+			 TRANS_DDI_PORT_SYNC_MASTER_SELECT_MASK);
 	I915_WRITE(reg, val);
 
 	if (dev_priv->quirks & QUIRK_INCREASE_DDI_DISABLED_TIME &&
