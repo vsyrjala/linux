@@ -55,6 +55,7 @@ struct intel_plane_state;
 struct intel_remapped_info;
 struct intel_rotation_info;
 struct intel_crtc_state;
+struct intel_atomic_state;
 
 enum i915_gpio {
 	GPIOA,
@@ -644,5 +645,8 @@ void assert_pipe(struct drm_i915_private *dev_priv,
 
 #define I915_STATE_WARN_ON(x)						\
 	I915_STATE_WARN((x), "%s", "WARN_ON(" __stringify(x) ")")
+
+bool intel_connector_needs_modeset(struct intel_atomic_state *state,
+				   struct drm_connector *connector);
 
 #endif

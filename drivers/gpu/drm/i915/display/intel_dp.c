@@ -6557,11 +6557,79 @@ static const struct drm_connector_funcs intel_dp_connector_funcs = {
 	.atomic_duplicate_state = intel_digital_connector_duplicate_state,
 };
 
+static int intel_dp_add_tiled_connectors(struct intel_atomic_state *state,
+				   int tile_group_id)
+{
+	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
+	struct drm_connector_list_iter conn_iter;
+	struct drm_connector *connector;
+	int ret = 0;
+
+	if (INTEL_GEN(dev_priv) < 9)
+		return 0;
+
+	drm_connector_list_iter_begin(&dev_priv->drm, &conn_iter);
+	drm_for_each_connector_iter(connector, &conn_iter) {
+		struct drm_connector_state *conn_state;
+		struct intel_crtc_state *crtc_state;
+		struct intel_crtc *crtc;
+
+		if (!connector->has_tile ||
+		    connector->tile_group->id != tile_group_id)
+			continue;
+
+		conn_state = drm_atomic_get_connector_state(&state->base, connector);
+		if (IS_ERR(conn_state)) {
+			ret = PTR_ERR(conn_state);
+			break;
+		}
+
+		crtc = to_intel_crtc(conn_state->crtc);
+
+		if (!crtc)
+			continue;
+
+		crtc_state = intel_atomic_get_crtc_state(&state->base, crtc);
+		if (IS_ERR(crtc_state)) {
+			ret = PTR_ERR(crtc_state);
+			break;
+		}
+
+		crtc_state->uapi.mode_changed = true;
+
+		ret = drm_atomic_add_affected_planes(&state->base, &crtc->base);
+		if (ret)
+			break;
+	}
+	drm_connector_list_iter_begin(&dev_priv->drm, &conn_iter);
+
+	return ret;
+}
+
+static int intel_dp_connector_atomic_check(struct drm_connector *conn,
+					   struct drm_atomic_state *_state)
+{
+	struct intel_atomic_state *state = to_intel_atomic_state(_state);
+	int ret;
+
+	ret = intel_digital_connector_atomic_check(conn, &state->base);
+	if (ret)
+		return ret;
+
+	if (conn->has_tile) {
+		ret = intel_dp_add_tiled_connectors(state, conn->tile_group->id);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static const struct drm_connector_helper_funcs intel_dp_connector_helper_funcs = {
 	.detect_ctx = intel_dp_detect,
 	.get_modes = intel_dp_get_modes,
 	.mode_valid = intel_dp_mode_valid,
-	.atomic_check = intel_digital_connector_atomic_check,
+	.atomic_check = intel_dp_connector_atomic_check,
 };
 
 static const struct drm_encoder_funcs intel_dp_enc_funcs = {
