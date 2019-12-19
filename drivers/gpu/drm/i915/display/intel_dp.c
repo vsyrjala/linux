@@ -624,8 +624,22 @@ intel_dp_mode_valid(struct drm_connector *connector,
 	u16 dsc_max_output_bpp = 0;
 	u8 dsc_slice_count = 0;
 
+	if (mode->hdisplay != 1920 || mode->vdisplay != 1080 ||
+	    mode->vsync_start != 1084)
+		return MODE_PANEL;
+
+	//if (connector->connector_type_id == 2 && mode->clock != 74250)
+	//return MODE_PANEL;
+
 	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return MODE_NO_DBLESCAN;
+
+	// hax to force sync polarity to match
+	mode->flags &= ~(DRM_MODE_FLAG_PHSYNC|
+			 DRM_MODE_FLAG_NHSYNC|
+			 DRM_MODE_FLAG_PVSYNC|
+			 DRM_MODE_FLAG_NVSYNC);
+	mode->flags |= DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC;
 
 	max_dotclk = intel_dp_downstream_max_dotclock(intel_dp);
 
@@ -5602,6 +5616,41 @@ bool intel_digital_port_connected(struct intel_encoder *encoder)
 	return is_connected;
 }
 
+static void setup_fake_tile(struct drm_connector *connector)
+{
+	char id[] = "vsyrjala";
+	struct drm_tile_group *tg;
+
+	DRM_DEBUG_KMS("fake tile setup\n");
+
+	connector->has_tile = true;
+	connector->num_h_tile = 2;
+	connector->num_v_tile = 1;
+	connector->tile_h_size = 1920;
+	connector->tile_v_size = 1080;
+	connector->tile_h_loc =
+		connector->connector_type_id == 2;
+	connector->tile_v_loc = 0;
+	connector->tile_is_single_monitor = false;
+
+	tg = drm_mode_get_tile_group(connector->dev, id);
+	if (!tg)
+		tg = drm_mode_create_tile_group(connector->dev, id);
+	if (!tg)
+		return;
+
+	if (connector->tile_group != tg) {
+		/* if we haven't got a pointer,
+		   take the reference, drop ref to old tile group */
+		if (connector->tile_group)
+			drm_mode_put_tile_group(connector->dev, connector->tile_group);
+		connector->tile_group = tg;
+	} else {
+		/* if same tile group, then release the ref we just took. */
+		drm_mode_put_tile_group(connector->dev, tg);
+	}
+}
+
 static struct edid *
 intel_dp_get_edid(struct intel_dp *intel_dp)
 {
@@ -5614,9 +5663,16 @@ intel_dp_get_edid(struct intel_dp *intel_dp)
 			return NULL;
 
 		return drm_edid_duplicate(intel_connector->edid);
-	} else
-		return drm_get_edid(&intel_connector->base,
+	} else {
+		struct edid *edid;
+
+		edid = drm_get_edid(&intel_connector->base,
 				    &intel_dp->aux.ddc);
+		// hax for tile
+		if (edid)
+			setup_fake_tile(&intel_connector->base);
+		return edid;
+	}
 }
 
 static void
