@@ -4648,7 +4648,14 @@ static int intel_ddi_compute_config_late(struct intel_encoder *encoder,
 			intel_ddi_port_sync_transcoders(crtc_state,
 							connector->tile_group->id);
 
-	crtc_state->master_transcoder = ffs(port_sync_transcoders) - 1;
+	/*
+	 * The EDP transcoder can't be enslaved
+	 * hence it must always be the master.
+	 */
+	if (port_sync_transcoders & BIT(TRANSCODER_EDP))
+		crtc_state->master_transcoder = TRANSCODER_EDP;
+	else
+		crtc_state->master_transcoder = ffs(port_sync_transcoders) - 1;
 
 	if (crtc_state->master_transcoder == crtc_state->cpu_transcoder) {
 		crtc_state->master_transcoder = INVALID_TRANSCODER;
