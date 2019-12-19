@@ -279,12 +279,21 @@ static void intel_overlay_flip_prepare(struct intel_overlay *overlay,
 				       struct i915_vma *vma)
 {
 	enum pipe pipe = overlay->crtc->pipe;
+	struct intel_frontbuffer *from, *to;
 
 	WARN_ON(overlay->old_vma);
 
-	intel_frontbuffer_track(overlay->vma ? overlay->vma->obj->frontbuffer : NULL,
-				vma ? vma->obj->frontbuffer : NULL,
-				INTEL_FRONTBUFFER_OVERLAY(pipe));
+	if (overlay->vma)
+		from = intel_frontbuffer_get(overlay->vma->obj);
+	if (vma)
+		to = intel_frontbuffer_get(vma->obj);
+
+	intel_frontbuffer_track(from, to, INTEL_FRONTBUFFER_OVERLAY(pipe));
+
+	if (to)
+		intel_frontbuffer_put(to);
+	if (from)
+		intel_frontbuffer_put(from);
 
 	intel_frontbuffer_flip_prepare(overlay->i915,
 				       INTEL_FRONTBUFFER_OVERLAY(pipe));
@@ -668,8 +677,8 @@ static void update_colorkey(struct intel_overlay *overlay,
 	if (overlay->color_key_enabled)
 		flags |= DST_KEY_ENABLE;
 
-	if (state->base.visible)
-		format = state->base.fb->format->format;
+	if (state->uapi.visible)
+		format = state->hw.fb->format->format;
 
 	switch (format) {
 	case DRM_FORMAT_C8:
@@ -758,15 +767,13 @@ static int intel_overlay_do_put_image(struct intel_overlay *overlay,
 
 	atomic_inc(&dev_priv->gpu_error.pending_fb_pin);
 
-	i915_gem_object_lock(new_bo);
 	vma = i915_gem_object_pin_to_display_plane(new_bo,
 						   0, NULL, PIN_MAPPABLE);
-	i915_gem_object_unlock(new_bo);
 	if (IS_ERR(vma)) {
 		ret = PTR_ERR(vma);
 		goto out_pin_section;
 	}
-	intel_frontbuffer_flush(new_bo->frontbuffer, ORIGIN_DIRTYFB);
+	i915_gem_object_flush_frontbuffer(new_bo, ORIGIN_DIRTYFB);
 
 	if (!overlay->active) {
 		u32 oconfig;

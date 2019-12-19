@@ -29,6 +29,13 @@ struct intel_gt;
 #define CACHELINE_BYTES 64
 #define CACHELINE_DWORDS (CACHELINE_BYTES / sizeof(u32))
 
+#define ENGINE_TRACE(e, fmt, ...) do {					\
+	const struct intel_engine_cs *e__ __maybe_unused = (e);		\
+	GEM_TRACE("%s %s: " fmt,					\
+		  dev_name(e__->i915->drm.dev), e__->name,		\
+		  ##__VA_ARGS__);					\
+} while (0)
+
 /*
  * The register defines to be used with the following macros need to accept a
  * base param, e.g:
@@ -206,12 +213,10 @@ void intel_engine_fini_breadcrumbs(struct intel_engine_cs *engine);
 void intel_engine_disarm_breadcrumbs(struct intel_engine_cs *engine);
 
 static inline void
-intel_engine_queue_breadcrumbs(struct intel_engine_cs *engine)
+intel_engine_signal_breadcrumbs(struct intel_engine_cs *engine)
 {
 	irq_work_queue(&engine->breadcrumbs.irq_work);
 }
-
-void intel_engine_breadcrumbs_irq(struct intel_engine_cs *engine);
 
 void intel_engine_reset_breadcrumbs(struct intel_engine_cs *engine);
 void intel_engine_fini_breadcrumbs(struct intel_engine_cs *engine);
@@ -296,7 +301,7 @@ ktime_t intel_engine_get_busy_time(struct intel_engine_cs *engine);
 struct i915_request *
 intel_engine_find_active_request(struct intel_engine_cs *engine);
 
-u32 intel_engine_context_size(struct drm_i915_private *i915, u8 class);
+u32 intel_engine_context_size(struct intel_gt *gt, u8 class);
 
 #if IS_ENABLED(CONFIG_DRM_I915_SELFTEST)
 

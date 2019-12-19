@@ -43,7 +43,7 @@ static int __gt_unpark(struct intel_wakeref *wf)
 	struct intel_gt *gt = container_of(wf, typeof(*gt), wakeref);
 	struct drm_i915_private *i915 = gt->i915;
 
-	GEM_TRACE("\n");
+	GT_TRACE(gt, "\n");
 
 	i915_globals_unpark();
 
@@ -61,9 +61,7 @@ static int __gt_unpark(struct intel_wakeref *wf)
 	gt->awake = intel_display_power_get(i915, POWER_DOMAIN_GT_IRQ);
 	GEM_BUG_ON(!gt->awake);
 
-	if (NEEDS_RC6_CTX_CORRUPTION_WA(i915))
-		intel_uncore_forcewake_get(&i915->uncore, FORCEWAKE_ALL);
-
+	intel_rc6_unpark(&gt->rc6);
 	intel_rps_unpark(&gt->rps);
 	i915_pmu_gt_unparked(i915);
 
@@ -78,24 +76,21 @@ static int __gt_park(struct intel_wakeref *wf)
 	intel_wakeref_t wakeref = fetch_and_zero(&gt->awake);
 	struct drm_i915_private *i915 = gt->i915;
 
-	GEM_TRACE("\n");
+	GT_TRACE(gt, "\n");
 
 	intel_gt_park_requests(gt);
 
 	i915_vma_parked(gt);
 	i915_pmu_gt_parked(i915);
 	intel_rps_park(&gt->rps);
+	intel_rc6_park(&gt->rc6);
 
 	/* Everything switched off, flush any residual interrupt just in case */
 	intel_synchronize_irq(i915);
 
-	if (NEEDS_RC6_CTX_CORRUPTION_WA(i915)) {
-		intel_rc6_ctx_wa_check(&i915->gt.rc6);
-		intel_uncore_forcewake_put(&i915->uncore, FORCEWAKE_ALL);
-	}
-
+	/* Defer dropping the display power well for 100ms, it's slow! */
 	GEM_BUG_ON(!wakeref);
-	intel_display_power_put(i915, POWER_DOMAIN_GT_IRQ, wakeref);
+	intel_display_power_put_async(i915, POWER_DOMAIN_GT_IRQ, wakeref);
 
 	i915_globals_park();
 
@@ -147,7 +142,7 @@ void intel_gt_sanitize(struct intel_gt *gt, bool force)
 	enum intel_engine_id id;
 	intel_wakeref_t wakeref;
 
-	GEM_TRACE("force:%s\n", yesno(force));
+	GT_TRACE(gt, "force:%s", yesno(force));
 
 	/* Use a raw wakeref to avoid calling intel_display_power_get early */
 	wakeref = intel_runtime_pm_get(gt->uncore->rpm);
@@ -194,7 +189,7 @@ int intel_gt_resume(struct intel_gt *gt)
 	enum intel_engine_id id;
 	int err = 0;
 
-	GEM_TRACE("\n");
+	GT_TRACE(gt, "\n");
 
 	/*
 	 * After resume, we may need to poke into the pinned kernel
@@ -256,6 +251,7 @@ static void wait_for_suspend(struct intel_gt *gt)
 		 * the gpu quiet.
 		 */
 		intel_gt_set_wedged(gt);
+		intel_gt_retire_requests(gt);
 	}
 
 	intel_gt_pm_wait_for_idle(gt);
@@ -306,20 +302,19 @@ void intel_gt_suspend_late(struct intel_gt *gt)
 
 	intel_gt_sanitize(gt, false);
 
-	GEM_TRACE("\n");
+	GT_TRACE(gt, "\n");
 }
 
 void intel_gt_runtime_suspend(struct intel_gt *gt)
 {
 	intel_uc_runtime_suspend(&gt->uc);
 
-	GEM_TRACE("\n");
+	GT_TRACE(gt, "\n");
 }
 
 int intel_gt_runtime_resume(struct intel_gt *gt)
 {
-	GEM_TRACE("\n");
-
+	GT_TRACE(gt, "\n");
 	intel_gt_init_swizzling(gt);
 
 	return intel_uc_runtime_resume(&gt->uc);
