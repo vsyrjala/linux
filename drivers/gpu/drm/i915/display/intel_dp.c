@@ -6557,11 +6557,178 @@ static const struct drm_connector_funcs intel_dp_connector_funcs = {
 	.atomic_duplicate_state = intel_digital_connector_duplicate_state,
 };
 
+static int intel_modeset_tile_group(struct intel_atomic_state *state,
+				    int tile_group_id)
+{
+	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
+	struct drm_connector_list_iter conn_iter;
+	struct drm_connector *connector;
+	int ret = 0;
+
+	drm_connector_list_iter_begin(&dev_priv->drm, &conn_iter);
+	drm_for_each_connector_iter(connector, &conn_iter) {
+		struct drm_connector_state *conn_state;
+		struct intel_crtc_state *crtc_state;
+		struct intel_crtc *crtc;
+
+		if (!connector->has_tile ||
+		    connector->tile_group->id != tile_group_id)
+			continue;
+
+		conn_state = drm_atomic_get_connector_state(&state->base, connector);
+		if (IS_ERR(conn_state)) {
+			ret = PTR_ERR(conn_state);
+			break;
+		}
+
+		crtc = to_intel_crtc(conn_state->crtc);
+
+		if (!crtc)
+			continue;
+
+		crtc_state = intel_atomic_get_crtc_state(&state->base, crtc);
+		if (IS_ERR(crtc_state)) {
+			ret = PTR_ERR(crtc_state);
+			break;
+		}
+
+		crtc_state->uapi.mode_changed = true;
+
+		ret = drm_atomic_add_affected_planes(&state->base, &crtc->base);
+		if (ret)
+			break;
+	}
+	drm_connector_list_iter_begin(&dev_priv->drm, &conn_iter);
+
+	return ret;
+}
+
+static int intel_modeset_affected_transcoders(struct intel_atomic_state *state, u8 transcoders)
+{
+	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
+	struct intel_crtc *crtc;
+
+	if (transcoders == 0)
+		return 0;
+
+	/*
+	 * Argh. can't see cpu_transcoder without adding the crtc to the state.
+	 * try to avoid adding everything by first dealing with the cases where
+	 * pipe == transcoder (ie. not EDP transcoder).;
+	 */
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
+		struct intel_crtc_state *crtc_state;
+		int ret;
+
+		if ((transcoders & BIT(crtc->pipe)) == 0)
+			continue;
+
+		crtc_state = intel_atomic_get_crtc_state(&state->base, crtc);
+		if (IS_ERR(crtc_state))
+			return PTR_ERR(crtc_state);
+
+		if (!crtc_state->hw.enable)
+			continue;
+
+		crtc_state->uapi.mode_changed = true;
+
+		ret = drm_atomic_add_affected_connectors(&state->base, &crtc->base);
+		if (ret)
+			return ret;
+
+		ret = drm_atomic_add_affected_planes(&state->base, &crtc->base);
+		if (ret)
+			return ret;
+
+		WARN_ON((enum transcoder)crtc->pipe != crtc_state->cpu_transcoder);
+
+		transcoders &= ~BIT(crtc_state->cpu_transcoder);
+	}
+
+	if (transcoders == 0)
+		return 0;
+
+	/* And finally look through everything to find the missing EDP transcoder */
+	WARN_ON(transcoders != BIT(TRANSCODER_EDP));
+
+	for_each_intel_crtc(&dev_priv->drm, crtc) {
+		struct intel_crtc_state *crtc_state;
+		int ret;
+
+		crtc_state = intel_atomic_get_crtc_state(&state->base, crtc);
+		if (IS_ERR(crtc_state))
+			return PTR_ERR(crtc_state);
+
+		if (!crtc_state->hw.enable ||
+		    (transcoders & BIT(crtc_state->cpu_transcoder)) == 0)
+			continue;
+
+		crtc_state->uapi.mode_changed = true;
+
+		ret = drm_atomic_add_affected_connectors(&state->base, &crtc->base);
+		if (ret)
+			return ret;
+
+		ret = drm_atomic_add_affected_planes(&state->base, &crtc->base);
+		if (ret)
+			return ret;
+
+		transcoders &= ~BIT(crtc_state->cpu_transcoder);
+	}
+
+	WARN_ON(transcoders != 0);
+
+	return 0;
+}
+
+static int intel_modeset_synced_crtcs(struct intel_atomic_state *state,
+				      struct drm_connector *connector)
+{
+	const struct drm_connector_state *old_conn_state =
+		drm_atomic_get_old_connector_state(&state->base, connector);
+	const struct intel_crtc_state *old_crtc_state;
+	struct intel_crtc *crtc;
+
+	crtc = to_intel_crtc(old_conn_state->crtc);
+	if (!crtc)
+		return 0;
+
+	old_crtc_state = intel_atomic_get_old_crtc_state(state, crtc);
+
+	if (!old_crtc_state->hw.active)
+		return 0;
+
+	return intel_modeset_affected_transcoders(state,
+						  (old_crtc_state->sync_mode_slaves_mask |
+						   BIT(old_crtc_state->master_transcoder)) &
+						  ~BIT(old_crtc_state->cpu_transcoder));
+}
+
+static int intel_dp_connector_atomic_check(struct drm_connector *conn,
+					   struct drm_atomic_state *_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(conn->dev);
+	struct intel_atomic_state *state = to_intel_atomic_state(_state);
+	int ret;
+
+	ret = intel_digital_connector_atomic_check(conn, &state->base);
+	if (ret)
+		return ret;
+
+	if (INTEL_GEN(dev_priv) >= 9 && conn->has_tile) {
+		ret = intel_modeset_tile_group(state, conn->tile_group->id);
+		if (ret)
+			return ret;
+	}
+
+	return intel_modeset_synced_crtcs(state, conn);
+}
+
 static const struct drm_connector_helper_funcs intel_dp_connector_helper_funcs = {
 	.detect_ctx = intel_dp_detect,
 	.get_modes = intel_dp_get_modes,
 	.mode_valid = intel_dp_mode_valid,
-	.atomic_check = intel_digital_connector_atomic_check,
+	.atomic_check = intel_dp_connector_atomic_check,
 };
 
 static const struct drm_encoder_funcs intel_dp_enc_funcs = {
