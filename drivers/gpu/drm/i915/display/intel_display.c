@@ -14099,7 +14099,7 @@ static int intel_port_sync_atomic_check(struct intel_atomic_state *state)
 	 */
 	for_each_new_intel_crtc_in_state(state, crtc, new_crtc_state, i) {
 		if (needs_modeset(new_crtc_state) &&
-		    new_crtc_state->master_transcoder) {
+		    new_crtc_state->master_transcoder != INVALID_TRANSCODER) {
 			ret = intel_modeset_transcoders(state,
 							BIT(new_crtc_state->master_transcoder));
 			if (ret)
