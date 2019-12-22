@@ -1122,7 +1122,7 @@ sanitize:
 	dev_priv->cdclk.hw.vco = -1;
 }
 
-static void skl_init_cdclk(struct drm_i915_private *dev_priv)
+static void skl_cdclk_init_hw(struct drm_i915_private *dev_priv)
 {
 	struct intel_cdclk_config cdclk_config;
 
@@ -1151,7 +1151,7 @@ static void skl_init_cdclk(struct drm_i915_private *dev_priv)
 	skl_set_cdclk(dev_priv, &cdclk_config, INVALID_PIPE);
 }
 
-static void skl_uninit_cdclk(struct drm_i915_private *dev_priv)
+static void skl_cdclk_uninit_hw(struct drm_i915_private *dev_priv)
 {
 	struct intel_cdclk_config cdclk_config = dev_priv->cdclk.hw;
 
@@ -1681,7 +1681,7 @@ sanitize:
 	dev_priv->cdclk.hw.vco = -1;
 }
 
-static void bxt_init_cdclk(struct drm_i915_private *dev_priv)
+static void bxt_cdclk_init_hw(struct drm_i915_private *dev_priv)
 {
 	struct intel_cdclk_config cdclk_config;
 
@@ -1706,7 +1706,7 @@ static void bxt_init_cdclk(struct drm_i915_private *dev_priv)
 	bxt_set_cdclk(dev_priv, &cdclk_config, INVALID_PIPE);
 }
 
-static void bxt_uninit_cdclk(struct drm_i915_private *dev_priv)
+static void bxt_cdclk_uninit_hw(struct drm_i915_private *dev_priv)
 {
 	struct intel_cdclk_config cdclk_config = dev_priv->cdclk.hw;
 
@@ -1719,7 +1719,7 @@ static void bxt_uninit_cdclk(struct drm_i915_private *dev_priv)
 }
 
 /**
- * intel_cdclk_init - Initialize CDCLK
+ * intel_cdclk_init_hw - Initialize CDCLK hardware
  * @i915: i915 device
  *
  * Initialize CDCLK. This consists mainly of initializing dev_priv->cdclk.hw and
@@ -1727,27 +1727,27 @@ static void bxt_uninit_cdclk(struct drm_i915_private *dev_priv)
  * during the display core initialization sequence, after which the DMC will
  * take care of turning CDCLK off/on as needed.
  */
-void intel_cdclk_init(struct drm_i915_private *i915)
+void intel_cdclk_init_hw(struct drm_i915_private *i915)
 {
 	if (IS_GEN9_LP(i915) || INTEL_GEN(i915) >= 10)
-		bxt_init_cdclk(i915);
+		bxt_cdclk_init_hw(i915);
 	else if (IS_GEN9_BC(i915))
-		skl_init_cdclk(i915);
+		skl_cdclk_init_hw(i915);
 }
 
 /**
- * intel_cdclk_uninit - Uninitialize CDCLK
+ * intel_cdclk_uninit_hw - Uninitialize CDCLK hardware
  * @i915: i915 device
  *
  * Uninitialize CDCLK. This is done only during the display core
  * uninitialization sequence.
  */
-void intel_cdclk_uninit(struct drm_i915_private *i915)
+void intel_cdclk_uninit_hw(struct drm_i915_private *i915)
 {
 	if (INTEL_GEN(i915) >= 10 || IS_GEN9_LP(i915))
-		bxt_uninit_cdclk(i915);
+		bxt_cdclk_uninit_hw(i915);
 	else if (IS_GEN9_BC(i915))
-		skl_uninit_cdclk(i915);
+		skl_cdclk_uninit_hw(i915);
 }
 
 /**
