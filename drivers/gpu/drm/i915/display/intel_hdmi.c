@@ -2474,8 +2474,6 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
 		intel_has_hdmi_sink(encoder, pipe_config, conn_state);
 
 	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
-	if (pipe_config->has_hdmi_sink && !HAS_GMCH(dev_priv) && !IS_GEN(dev_priv, 5))
-		pipe_config->output_format = INTEL_OUTPUT_FORMAT_YCBCR444;
 
 	if (pipe_config->has_hdmi_sink)
 		pipe_config->has_infoframe = true;
