@@ -2416,6 +2416,15 @@ static bool intel_hdmi_limited_color_range(const struct intel_crtc_state *crtc_s
 	}
 }
 
+static bool intel_hdmi_has_hdmi_sink(struct intel_encoder *encoder,
+				     const struct intel_crtc_state *crtc_state,
+				     const struct drm_connector_state *conn_state)
+{
+	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
+
+	return intel_has_hdmi_sink(intel_hdmi, conn_state);
+}
+
 static bool intel_hdmi_has_audio(struct intel_encoder *encoder,
 				 const struct intel_crtc_state *crtc_state,
 				 const struct drm_connector_state *conn_state)
@@ -2437,7 +2446,6 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
 			      struct intel_crtc_state *pipe_config,
 			      struct drm_connector_state *conn_state)
 {
-	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	struct drm_display_mode *adjusted_mode = &pipe_config->hw.adjusted_mode;
 	struct drm_connector *connector = conn_state->connector;
@@ -2448,8 +2456,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
 		return -EINVAL;
 
 	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
-	pipe_config->has_hdmi_sink = intel_has_hdmi_sink(intel_hdmi,
-							 conn_state);
+	pipe_config->has_hdmi_sink =
+		intel_hdmi_has_hdmi_sink(encoder, pipe_config, conn_state);
 
 	if (pipe_config->has_hdmi_sink)
 		pipe_config->has_infoframe = true;
