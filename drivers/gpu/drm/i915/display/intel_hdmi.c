@@ -2402,6 +2402,23 @@ static bool intel_hdmi_limited_color_range(const struct intel_crtc_state *crtc_s
 	}
 }
 
+static bool intel_hdmi_has_audio(struct intel_encoder *encoder,
+				 const struct intel_crtc_state *crtc_state,
+				 const struct drm_connector_state *conn_state)
+{
+	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
+	const struct intel_digital_connector_state *intel_conn_state =
+		to_intel_digital_connector_state(conn_state);
+
+	if (!crtc_state->has_hdmi_sink)
+		return false;
+
+	if (intel_conn_state->force_audio == HDMI_AUDIO_AUTO)
+		return intel_hdmi->has_audio;
+	else
+		return intel_conn_state->force_audio == HDMI_AUDIO_ON;
+}
+
 int intel_hdmi_compute_config(struct intel_encoder *encoder,
 			      struct intel_crtc_state *pipe_config,
 			      struct drm_connector_state *conn_state)
@@ -2441,13 +2458,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
 	if (HAS_PCH_SPLIT(dev_priv) && !HAS_DDI(dev_priv))
 		pipe_config->has_pch_encoder = true;
 
-	if (pipe_config->has_hdmi_sink) {
-		if (intel_conn_state->force_audio == HDMI_AUDIO_AUTO)
-			pipe_config->has_audio = intel_hdmi->has_audio;
-		else
-			pipe_config->has_audio =
-				intel_conn_state->force_audio == HDMI_AUDIO_ON;
-	}
+	pipe_config->has_audio =
+		intel_hdmi_has_audio(encoder, pipe_config, conn_state);
 
 	ret = intel_hdmi_compute_clock(encoder, pipe_config, force_dvi);
 	if (ret)
