@@ -5993,7 +5993,8 @@ u16 skl_scaler_calc_phase(int sub, int scale, bool chroma_cosited)
 
 /* Common cases for both horizontal and vertical scaling */
 static int skl_scaler_max_scale(const struct intel_crtc_state *crtc_state,
-				const struct drm_format_info *format)
+				const struct drm_format_info *format,
+				u64 modifier)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc_state->uapi.crtc->dev);
 
@@ -6005,18 +6006,19 @@ static int skl_scaler_max_scale(const struct intel_crtc_state *crtc_state,
 		return 0x30000 - 1; /* < 3.0 */
 
 	/* plane scaler YUV 4:2:0 input */
-	if (format && drm_format_info_is_yuv_semiplanar(format))
+	if (format && intel_format_info_is_yuv_semiplanar(format, modifier))
 		return 0x20000 - 1; /* < 2.0 */
 
 	return 0;
 }
 
 static int skl_scaler_max_hscale(const struct intel_crtc_state *crtc_state,
-				 const struct drm_format_info *format)
+				 const struct drm_format_info *format,
+				 u64 modifier)
 {
 	int max_hscale;
 
-	max_hscale = skl_scaler_max_scale(crtc_state, format);
+	max_hscale = skl_scaler_max_scale(crtc_state, format, modifier);
 	if (max_hscale)
 		return max_hscale;
 
@@ -6024,11 +6026,12 @@ static int skl_scaler_max_hscale(const struct intel_crtc_state *crtc_state,
 }
 
 static int skl_scaler_max_vscale(const struct intel_crtc_state *crtc_state,
-				 int src_w, const struct drm_format_info *format)
+				 int src_w, const struct drm_format_info *format,
+				 u64 modifier)
 {
 	int max_vscale;
 
-	max_vscale = skl_scaler_max_scale(crtc_state, format);
+	max_vscale = skl_scaler_max_scale(crtc_state, format, modifier);
 	if (max_vscale)
 		return max_vscale;
 
@@ -6042,7 +6045,8 @@ static int skl_scaler_check_scaling(const struct intel_crtc_state *crtc_state,
 				    unsigned int scaler_user,
 				    int src_w, int src_h,
 				    int dst_w, int dst_h,
-				    const struct drm_format_info *format)
+				    const struct drm_format_info *format,
+				    u64 modifier)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
@@ -6056,7 +6060,7 @@ static int skl_scaler_check_scaling(const struct intel_crtc_state *crtc_state,
 	};
 	int ret, hscale, vscale, max_hscale, max_vscale;
 
-	max_hscale = skl_scaler_max_hscale(crtc_state, format);
+	max_hscale = skl_scaler_max_hscale(crtc_state, format, modifier);
 
 	ret = drm_rect_calc_hscale(&src, &dst, 0, max_hscale, &hscale);
 	if (ret) {
@@ -6069,7 +6073,7 @@ static int skl_scaler_check_scaling(const struct intel_crtc_state *crtc_state,
 		return ret;
 	}
 
-	max_vscale = skl_scaler_max_vscale(crtc_state, src_w, format);
+	max_vscale = skl_scaler_max_vscale(crtc_state, src_w, format, modifier);
 
 	ret = drm_rect_calc_vscale(&src, &dst, 0, max_vscale, &vscale);
 	if (ret) {
@@ -6246,7 +6250,8 @@ skl_update_scaler(struct intel_crtc_state *crtc_state, bool force_detach,
 		return ret;
 
 	ret = skl_scaler_check_scaling(crtc_state, scaler_user,
-				       src_w, src_h, dst_w, dst_h, format);
+				       src_w, src_h, dst_w, dst_h,
+				       format, modifier);
 	if (ret)
 		return ret;
 
