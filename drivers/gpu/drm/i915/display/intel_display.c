@@ -6284,7 +6284,7 @@ static bool skl_plane_needs_scaler(struct intel_plane_state *plane_state)
 
 	/* Pre-gen11 and SDR planes always need a scaler for planar formats. */
 	if (!icl_is_hdr_plane(dev_priv, plane->id) &&
-	    drm_format_info_is_yuv_semiplanar(fb->format))
+	    intel_format_info_is_yuv_semiplanar(fb->format, fb->modifier))
 		return true;
 
 	return intel_plane_is_scaled(plane_state);
