@@ -341,7 +341,7 @@ static u32 skl_plane_scaler_mode(const struct intel_crtc_state *crtc_state,
 {
 	const struct drm_framebuffer *fb = plane_state->hw.fb;
 
-	if (drm_format_info_is_yuv_semiplanar(fb->format))
+	if (intel_format_info_is_yuv_semiplanar(fb->format, fb->modifier))
 		return SKL_PS_SCALER_MODE_NV12;
 	else
 		return skl_crtc_scaler_mode(crtc_state);
@@ -365,7 +365,7 @@ static u32 glk_plane_scaler_mode(const struct intel_plane_state *plane_state)
 	 * we don't need the scaler to upsample the UV plane.
 	 */
 	if (!icl_is_hdr_plane(dev_priv, plane->id) &&
-	    drm_format_info_is_yuv_semiplanar(fb->format))
+	    intel_format_info_is_yuv_semiplanar(fb->format, fb->modifier))
 		return PS_SCALER_MODE_PLANAR |
 			(linked ? PS_PLANE_Y_SEL(linked->id) : 0);
 	else
