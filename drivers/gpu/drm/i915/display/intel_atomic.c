@@ -364,8 +364,8 @@ static u32 glk_plane_scaler_mode(const struct intel_plane_state *plane_state)
 	 * scaling. They have a dedicated chroma upsampler, so
 	 * we don't need the scaler to upsample the UV plane.
 	 */
-	if (drm_format_info_is_yuv_semiplanar(fb->format) &&
-	    !icl_is_hdr_plane(dev_priv, plane->id))
+	if (!icl_is_hdr_plane(dev_priv, plane->id) &&
+	    drm_format_info_is_yuv_semiplanar(fb->format))
 		return PS_SCALER_MODE_PLANAR |
 			(linked ? PS_PLANE_Y_SEL(linked->id) : 0);
 	else
