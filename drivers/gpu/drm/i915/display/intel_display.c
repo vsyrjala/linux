@@ -6553,20 +6553,18 @@ static void intel_encoders_update_prepare(struct intel_atomic_state *state)
 
 	for_each_new_connector_in_state(&state->base, connector, new_conn_state,
 					i) {
-		struct intel_connector *intel_connector;
-		struct intel_encoder *encoder;
-		struct intel_crtc *crtc;
+		struct intel_connector *intel_connector =
+			to_intel_connector(connector);
+		struct intel_encoder *encoder =
+			intel_connector_primary_encoder(intel_connector);
+		struct intel_crtc *crtc = to_intel_crtc(new_conn_state->crtc);
 
 		if (!intel_connector_needs_modeset(state, connector))
 			continue;
 
-		intel_connector = to_intel_connector(connector);
-		encoder = intel_connector_primary_encoder(intel_connector);
 		if (!encoder->update_prepare)
 			continue;
 
-		crtc = new_conn_state->crtc ?
-			to_intel_crtc(new_conn_state->crtc) : NULL;
 		encoder->update_prepare(state, encoder, crtc);
 	}
 }
@@ -6579,20 +6577,18 @@ static void intel_encoders_update_complete(struct intel_atomic_state *state)
 
 	for_each_new_connector_in_state(&state->base, connector, new_conn_state,
 					i) {
-		struct intel_connector *intel_connector;
-		struct intel_encoder *encoder;
-		struct intel_crtc *crtc;
+		struct intel_connector *intel_connector =
+			to_intel_connector(connector);
+		struct intel_encoder *encoder =
+			intel_connector_primary_encoder(intel_connector);
+		struct intel_crtc *crtc = to_intel_crtc(new_conn_state->crtc);
 
 		if (!intel_connector_needs_modeset(state, connector))
 			continue;
 
-		intel_connector = to_intel_connector(connector);
-		encoder = intel_connector_primary_encoder(intel_connector);
 		if (!encoder->update_complete)
 			continue;
 
-		crtc = new_conn_state->crtc ?
-			to_intel_crtc(new_conn_state->crtc) : NULL;
 		encoder->update_complete(state, encoder, crtc);
 	}
 }
