@@ -129,8 +129,10 @@ static int icl_get_qgv_points(struct drm_i915_private *dev_priv,
 		struct intel_qgv_point *sp = &qi->points[i];
 
 		ret = icl_pcode_read_qgv_point_info(dev_priv, sp, i);
-		if (ret)
+		if (ret) {
+			qi->num_points = 0;
 			return ret;
+		}
 
 		DRM_DEBUG_KMS("QGV %d: DCLK=%d tRP=%d tRDPRE=%d tRAS=%d tRCD=%d tRC=%d\n",
 			      i, sp->dclk, sp->t_rp, sp->t_rdpre, sp->t_ras,
