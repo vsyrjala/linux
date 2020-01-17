@@ -1,0 +1,32 @@
+drm drm-fixes 023b3b0e139f54a680202790ba801f61aa43a5c8
+	Merge tag 'drm-intel-fixes-2020-01-09-1' of git://anongit.freedesktop.org/drm/drm-intel into drm-fixes
+drm-misc drm-misc-fixes 5a64967a2f3bbc01cc708ee43c7b0893089c61c4
+	drm/dp_mst: Have DP_Tx send one msg at a time
+drm-intel drm-intel-fixes 88550e1c345c6d3f70292fa60d481eb320e11953
+	drm/i915/pmu: Do not use colons or dashes in PMU names
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm drm-next 71e7274066c646bb3d9da39d2f4db0a6404c0a2d
+	Merge tag 'drm-intel-next-2020-01-14' of git://anongit.freedesktop.org/drm/drm-intel into drm-next
+drm-misc drm-misc-next-fixes 0a5239985a3bc084738851afdf3fceb7d5651b0c
+	drm/panfrost: Open/close the perfcnt BO
+drm-intel drm-intel-next-fixes 01bb630319337be15fc50c211126180198d4e157
+	drm/i915/ehl: Make icp_digital_port_connected() use phy instead of port
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next 5e791166d377c539db0f889e7793204912c374da
+	drm/ttm: nuke invalidate_caches callback
+drm-intel drm-intel-next-queued 9ac7d53d70a2b4f43360e3aa0f14a2514339328f
+	drm/i915: Auto detect DPCD backlight support by default
+drm-intel drm-intel-next f2221a50494037af98206713155c8d4f2e7bccaa
+	drm/i915: Update DRIVER_DATE to 20200114
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus e5dbdcb31285a975d623d2bf2c9e7b2940489008
+	Merge tag 'asoc-fix-v5.5-rc6' of https://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound into for-linus
+sound-upstream for-next 5af29028fd6db9438b5584ab7179710a0a22569d
+	ALSA: hda/realtek - Add Headset Mic supported for HP cPC
+drm-intel topic/core-for-CI 78c1332d19c217f195c5cf2e3e735f18ac9e8936
+	sched/vtime: Prevent unstable evaluation of WARN(vtime->state)
+drm drm-vmwgfx-coherent 0a6cad5df541108cfd3fbd79eef48eb824c89bdc
+	Merge branch 'vmwgfx-coherent' of git://people.freedesktop.org/~thomash/linux into drm-next
