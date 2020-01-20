@@ -414,12 +414,10 @@ static void intel_sdvo_debug_write(struct intel_sdvo *intel_sdvo, u8 cmd,
 {
 	const char *cmd_name;
 	int i, pos = 0;
-#define BUF_LEN 256
-	char buffer[BUF_LEN];
+	char buffer[64];
 
 #define BUF_PRINT(args...) \
-	pos += snprintf(buffer + pos, max_t(int, BUF_LEN - pos, 0), args)
-
+	pos += snprintf(buffer + pos, max_t(int, sizeof(buffer) - pos, 0), args)
 
 	for (i = 0; i < args_len; i++) {
 		BUF_PRINT("%02X ", ((u8 *)args)[i]);
@@ -433,9 +431,9 @@ static void intel_sdvo_debug_write(struct intel_sdvo *intel_sdvo, u8 cmd,
 		BUF_PRINT("(%s)", cmd_name);
 	else
 		BUF_PRINT("(%02X)", cmd);
-	BUG_ON(pos >= BUF_LEN - 1);
+
+	WARN_ON(pos >= sizeof(buffer) - 1);
 #undef BUF_PRINT
-#undef BUF_LEN
 
 	DRM_DEBUG_KMS("%s: W: %02X %s\n", SDVO_NAME(intel_sdvo), cmd, buffer);
 }
@@ -540,8 +538,7 @@ static bool intel_sdvo_read_response(struct intel_sdvo *intel_sdvo,
 	u8 retry = 15; /* 5 quick checks, followed by 10 long checks */
 	u8 status;
 	int i, pos = 0;
-#define BUF_LEN 256
-	char buffer[BUF_LEN];
+	char buffer[64];
 
 	buffer[0] = '\0';
 
@@ -581,7 +578,7 @@ static bool intel_sdvo_read_response(struct intel_sdvo *intel_sdvo,
 	}
 
 #define BUF_PRINT(args...) \
-	pos += snprintf(buffer + pos, max_t(int, BUF_LEN - pos, 0), args)
+	pos += snprintf(buffer + pos, max_t(int, sizeof(buffer) - pos, 0), args)
 
 	cmd_status = sdvo_cmd_status(status);
 	if (cmd_status)
@@ -600,9 +597,9 @@ static bool intel_sdvo_read_response(struct intel_sdvo *intel_sdvo,
 			goto log_fail;
 		BUF_PRINT(" %02X", ((u8 *)response)[i]);
 	}
-	BUG_ON(pos >= BUF_LEN - 1);
+
+	WARN_ON(pos >= sizeof(buffer) - 1);
 #undef BUF_PRINT
-#undef BUF_LEN
 
 	DRM_DEBUG_KMS("%s: R: %s\n", SDVO_NAME(intel_sdvo), buffer);
 	return true;
@@ -1267,6 +1264,13 @@ static void i9xx_adjust_sdvo_tv_clock(struct intel_crtc_state *pipe_config)
 	pipe_config->clock_set = true;
 }
 
+static bool intel_has_hdmi_sink(struct intel_sdvo *sdvo,
+				const struct drm_connector_state *conn_state)
+{
+	return sdvo->has_hdmi_monitor &&
+		READ_ONCE(to_intel_digital_connector_state(conn_state)->force_audio) != HDMI_AUDIO_OFF_DVI;
+}
+
 static int intel_sdvo_compute_config(struct intel_encoder *encoder,
 				     struct intel_crtc_state *pipe_config,
 				     struct drm_connector_state *conn_state)
@@ -1322,12 +1326,15 @@ static int intel_sdvo_compute_config(struct intel_encoder *encoder,
 	pipe_config->pixel_multiplier =
 		intel_sdvo_get_pixel_multiplier(adjusted_mode);
 
-	if (intel_sdvo_state->base.force_audio != HDMI_AUDIO_OFF_DVI)
-		pipe_config->has_hdmi_sink = intel_sdvo->has_hdmi_monitor;
+	pipe_config->has_hdmi_sink = intel_has_hdmi_sink(intel_sdvo, conn_state);
 
-	if (intel_sdvo_state->base.force_audio == HDMI_AUDIO_ON ||
-	    (intel_sdvo_state->base.force_audio == HDMI_AUDIO_AUTO && intel_sdvo->has_hdmi_audio))
-		pipe_config->has_audio = true;
+	if (pipe_config->has_hdmi_sink) {
+		if (intel_sdvo_state->base.force_audio == HDMI_AUDIO_AUTO)
+			pipe_config->has_audio = intel_sdvo->has_hdmi_audio;
+		else
+			pipe_config->has_audio =
+				intel_sdvo_state->base.force_audio == HDMI_AUDIO_ON;
+	}
 
 	if (intel_sdvo_state->base.broadcast_rgb == INTEL_BROADCAST_RGB_AUTO) {
 		/*
