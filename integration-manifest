@@ -1,0 +1,32 @@
+drm drm-fixes def9d2780727cec3313ed3522d0123158d87224d
+	Linux 5.5-rc7
+drm-misc drm-misc-fixes db1a079569687eeb7f617a50bbb0474e9e11b64a
+	drm/dp_mst: Handle SST-only branch device case
+drm-intel drm-intel-fixes d8fcca47e1950b1bccd2846cafb0f4e941b5ac2c
+	drm/i915/userptr: fix size calculation
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm drm-next d7ca2d19c751b6715e9cb899a6b94f47b3499d02
+	Merge tag 'drm-msm-next-2020-01-14' of https://gitlab.freedesktop.org/drm/msm into drm-next
+drm-misc drm-misc-next-fixes 0a5239985a3bc084738851afdf3fceb7d5651b0c
+	drm/panfrost: Open/close the perfcnt BO
+drm-intel drm-intel-next-fixes 01bb630319337be15fc50c211126180198d4e157
+	drm/i915/ehl: Make icp_digital_port_connected() use phy instead of port
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next 77d1a6dbe8a4b878765816b82f3f2e7fff767c3f
+	drm/syncobj: Add documentation for timeline syncobj
+drm-intel drm-intel-next-queued 7865559872074a9ab169c87915504661d630addf
+	drm/i915/gem: Store mmap_offsets in an rbtree rather than a plain list
+drm-intel drm-intel-next f2221a50494037af98206713155c8d4f2e7bccaa
+	drm/i915: Update DRIVER_DATE to 20200114
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus 4d024fe8f806e20e577cc934204c5784c7063293
+	ALSA: hda: Apply aligned MMIO access only conditionally
+sound-upstream for-next 9d0af44c2ed036c663832f3b764ffd1109c8b79e
+	Merge branch 'for-linus' into for-next
+drm-intel topic/core-for-CI 78c1332d19c217f195c5cf2e3e735f18ac9e8936
+	sched/vtime: Prevent unstable evaluation of WARN(vtime->state)
+drm drm-vmwgfx-coherent 0a6cad5df541108cfd3fbd79eef48eb824c89bdc
+	Merge branch 'vmwgfx-coherent' of git://people.freedesktop.org/~thomash/linux into drm-next
