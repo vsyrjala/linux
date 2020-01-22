@@ -2421,6 +2421,15 @@ static bool intel_hdmi_has_hdmi_sink(struct intel_encoder *encoder,
 				     const struct drm_connector_state *conn_state)
 {
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
+	const struct drm_display_mode *adjusted_mode =
+		&crtc_state->hw.adjusted_mode;
+
+	if (adjusted_mode->crtc_hdisplay < 256)
+		return false;
+
+	if (adjusted_mode->crtc_hsync_start -
+	    adjusted_mode->crtc_hdisplay < 16)
+		return false;
 
 	return intel_has_hdmi_sink(intel_hdmi, conn_state);
 }
@@ -2432,8 +2441,14 @@ static bool intel_hdmi_has_audio(struct intel_encoder *encoder,
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(encoder);
 	const struct intel_digital_connector_state *intel_conn_state =
 		to_intel_digital_connector_state(conn_state);
+	const struct drm_display_mode *adjusted_mode =
+		&crtc_state->hw.adjusted_mode;
 
 	if (!crtc_state->has_hdmi_sink)
+		return false;
+
+	if (adjusted_mode->crtc_htotal -
+	    adjusted_mode->crtc_hdisplay < 138)
 		return false;
 
 	if (intel_conn_state->force_audio == HDMI_AUDIO_AUTO)
