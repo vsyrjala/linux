@@ -2063,7 +2063,8 @@ bool drm_mode_is_420_only(const struct drm_display_info *display,
 {
 	u8 vic = drm_match_cea_mode(mode);
 
-	return test_bit(vic, display->hdmi.y420_vdb_modes);
+	return test_bit(vic, display->hdmi.y420_vdb_modes) ||
+		drm_mode_is_420_also(display, mode);
 }
 EXPORT_SYMBOL(drm_mode_is_420_only);
 
