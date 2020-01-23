@@ -5250,9 +5250,7 @@ static bool
 intel_dp_needs_link_retrain(struct intel_dp *intel_dp)
 {
 	u8 link_status[DP_LINK_STATUS_SIZE];
-
-	if (!intel_dp->link_trained)
-		return false;
+	return false;
 
 	/*
 	 * While PSR source HW is enabled, it will control main-link sending
