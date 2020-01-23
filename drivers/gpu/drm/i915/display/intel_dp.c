@@ -1948,6 +1948,10 @@ static bool intel_dp_hdmi_tmds_clock_valid(struct intel_dp *intel_dp,
 {
 	int tmds_clock = intel_dp_hdmi_tmds_clock(intel_dp, crtc_state, bpc);
 
+	DRM_DEBUG_KMS("tmds clock  %d (%d-%d)\n",
+		      tmds_clock, intel_dp->dfp.min_tmds_clock,
+		      intel_dp->dfp.max_tmds_clock);
+
 	if (intel_dp->dfp.min_tmds_clock &&
 	    tmds_clock < intel_dp->dfp.min_tmds_clock)
 		return false;
@@ -1967,6 +1971,9 @@ static bool intel_dp_hdmi_deep_color_possible(struct intel_dp *intel_dp,
 					      const struct intel_crtc_state *crtc_state,
 					      int bpc)
 {
+	DRM_DEBUG_KMS("hdmi %d ycbcr420_output %d\n",
+		      intel_dp->has_hdmi_sink,
+		      intel_dp_hdmi_ycbcr420(intel_dp, crtc_state));
 
 	return intel_hdmi_deep_color_possible(crtc_state, bpc,
 					      intel_dp->has_hdmi_sink,
@@ -1982,9 +1989,11 @@ static int intel_dp_max_bpp(struct intel_dp *intel_dp,
 	int bpp, bpc;
 
 	bpc = crtc_state->pipe_bpp / 3;
+	DRM_DEBUG_KMS("bpc 1  %d\n", bpc);
 
 	if (intel_dp->dfp.max_bpc)
 		bpc = min_t(int, bpc, intel_dp->dfp.max_bpc);
+	DRM_DEBUG_KMS("bpc 2  %d\n", bpc);
 
 	if (intel_dp->dfp.min_tmds_clock) {
 		for (; bpc >= 10; bpc -= 2) {
@@ -1992,6 +2001,7 @@ static int intel_dp_max_bpp(struct intel_dp *intel_dp,
 				break;
 		}
 	}
+	DRM_DEBUG_KMS("bpc 3  %d\n", bpc);
 
 	bpp = bpc * 3;
 	if (intel_dp_is_edp(intel_dp)) {
@@ -2004,6 +2014,8 @@ static int intel_dp_max_bpp(struct intel_dp *intel_dp,
 			bpp = dev_priv->vbt.edp.bpp;
 		}
 	}
+
+	DRM_DEBUG_KMS("bpp 3  %d\n", bpp);
 
 	return bpp;
 }
