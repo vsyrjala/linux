@@ -66,7 +66,10 @@ i915-y += \
 	i915_user_extensions.o
 
 i915-$(CONFIG_COMPAT)   += i915_ioc32.o
-i915-$(CONFIG_DEBUG_FS) += i915_debugfs.o display/intel_pipe_crc.o
+i915-$(CONFIG_DEBUG_FS) += \
+	i915_debugfs.o \
+	i915_debugfs_params.o \
+	display/intel_pipe_crc.o
 i915-$(CONFIG_PERF_EVENTS) += i915_pmu.o
 
 # "Graphics Technology" (aka we talk to the gpu)
@@ -187,6 +190,7 @@ i915-y += \
 	display/intel_fbc.o \
 	display/intel_fifo_underrun.o \
 	display/intel_frontbuffer.o \
+	display/intel_global_state.o \
 	display/intel_hdcp.o \
 	display/intel_hotplug.o \
 	display/intel_lpe_audio.o \

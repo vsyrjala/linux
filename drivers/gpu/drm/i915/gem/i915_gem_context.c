@@ -565,6 +565,22 @@ static int __context_set_persistence(struct i915_gem_context *ctx, bool state)
 		if (!(ctx->i915->caps.scheduler & I915_SCHEDULER_CAP_PREEMPTION))
 			return -ENODEV;
 
+		/*
+		 * If the cancel fails, we then need to reset, cleanly!
+		 *
+		 * If the per-engine reset fails, all hope is lost! We resort
+		 * to a full GPU reset in that unlikely case, but realistically
+		 * if the engine could not reset, the full reset does not fare
+		 * much better. The damage has been done.
+		 *
+		 * However, if we cannot reset an engine by itself, we cannot
+		 * cleanup a hanging persistent context without causing
+		 * colateral damage, and we should not pretend we can by
+		 * exposing the interface.
+		 */
+		if (!intel_has_reset_engine(&ctx->i915->gt))
+			return -ENODEV;
+
 		i915_gem_context_clear_persistence(ctx);
 	}
 
@@ -708,8 +724,8 @@ i915_gem_create_context(struct drm_i915_private *i915, unsigned int flags)
 
 		ppgtt = i915_ppgtt_create(&i915->gt);
 		if (IS_ERR(ppgtt)) {
-			DRM_DEBUG_DRIVER("PPGTT setup failed (%ld)\n",
-					 PTR_ERR(ppgtt));
+			drm_dbg(&i915->drm, "PPGTT setup failed (%ld)\n",
+				PTR_ERR(ppgtt));
 			context_close(ctx);
 			return ERR_CAST(ppgtt);
 		}
@@ -751,20 +767,14 @@ static void init_contexts(struct i915_gem_contexts *gc)
 void i915_gem_init__contexts(struct drm_i915_private *i915)
 {
 	init_contexts(&i915->gem.contexts);
-	DRM_DEBUG_DRIVER("%s context support initialized\n",
-			 DRIVER_CAPS(i915)->has_logical_contexts ?
-			 "logical" : "fake");
+	drm_dbg(&i915->drm, "%s context support initialized\n",
+		DRIVER_CAPS(i915)->has_logical_contexts ?
+		"logical" : "fake");
 }
 
 void i915_gem_driver_release__contexts(struct drm_i915_private *i915)
 {
 	flush_work(&i915->gem.contexts.free_work);
-}
-
-static int vm_idr_cleanup(int id, void *p, void *data)
-{
-	i915_vm_put(p);
-	return 0;
 }
 
 static int gem_context_register(struct i915_gem_context *ctx,
@@ -804,8 +814,8 @@ int i915_gem_context_open(struct drm_i915_private *i915,
 
 	xa_init_flags(&file_priv->context_xa, XA_FLAGS_ALLOC);
 
-	mutex_init(&file_priv->vm_idr_lock);
-	idr_init_base(&file_priv->vm_idr, 1);
+	/* 0 reserved for invalid/unassigned ppgtt */
+	xa_init_flags(&file_priv->vm_xa, XA_FLAGS_ALLOC1);
 
 	ctx = i915_gem_create_context(i915, 0);
 	if (IS_ERR(ctx)) {
@@ -823,9 +833,8 @@ int i915_gem_context_open(struct drm_i915_private *i915,
 err_ctx:
 	context_close(ctx);
 err:
-	idr_destroy(&file_priv->vm_idr);
+	xa_destroy(&file_priv->vm_xa);
 	xa_destroy(&file_priv->context_xa);
-	mutex_destroy(&file_priv->vm_idr_lock);
 	return err;
 }
 
@@ -833,6 +842,7 @@ void i915_gem_context_close(struct drm_file *file)
 {
 	struct drm_i915_file_private *file_priv = file->driver_priv;
 	struct drm_i915_private *i915 = file_priv->dev_priv;
+	struct i915_address_space *vm;
 	struct i915_gem_context *ctx;
 	unsigned long idx;
 
@@ -840,9 +850,9 @@ void i915_gem_context_close(struct drm_file *file)
 		context_close(ctx);
 	xa_destroy(&file_priv->context_xa);
 
-	idr_for_each(&file_priv->vm_idr, vm_idr_cleanup, NULL);
-	idr_destroy(&file_priv->vm_idr);
-	mutex_destroy(&file_priv->vm_idr_lock);
+	xa_for_each(&file_priv->vm_xa, idx, vm)
+		i915_vm_put(vm);
+	xa_destroy(&file_priv->vm_xa);
 
 	contexts_flush_free(&i915->gem.contexts);
 }
@@ -854,6 +864,7 @@ int i915_gem_vm_create_ioctl(struct drm_device *dev, void *data,
 	struct drm_i915_gem_vm_control *args = data;
 	struct drm_i915_file_private *file_priv = file->driver_priv;
 	struct i915_ppgtt *ppgtt;
+	u32 id;
 	int err;
 
 	if (!HAS_FULL_PPGTT(i915))
@@ -876,23 +887,15 @@ int i915_gem_vm_create_ioctl(struct drm_device *dev, void *data,
 			goto err_put;
 	}
 
-	err = mutex_lock_interruptible(&file_priv->vm_idr_lock);
+	err = xa_alloc(&file_priv->vm_xa, &id, &ppgtt->vm,
+		       xa_limit_32b, GFP_KERNEL);
 	if (err)
 		goto err_put;
 
-	err = idr_alloc(&file_priv->vm_idr, &ppgtt->vm, 0, 0, GFP_KERNEL);
-	if (err < 0)
-		goto err_unlock;
-
-	GEM_BUG_ON(err == 0); /* reserved for invalid/unassigned ppgtt */
-
-	mutex_unlock(&file_priv->vm_idr_lock);
-
-	args->vm_id = err;
+	GEM_BUG_ON(id == 0); /* reserved for invalid/unassigned ppgtt */
+	args->vm_id = id;
 	return 0;
 
-err_unlock:
-	mutex_unlock(&file_priv->vm_idr_lock);
 err_put:
 	i915_vm_put(&ppgtt->vm);
 	return err;
@@ -904,8 +907,6 @@ int i915_gem_vm_destroy_ioctl(struct drm_device *dev, void *data,
 	struct drm_i915_file_private *file_priv = file->driver_priv;
 	struct drm_i915_gem_vm_control *args = data;
 	struct i915_address_space *vm;
-	int err;
-	u32 id;
 
 	if (args->flags)
 		return -EINVAL;
@@ -913,17 +914,7 @@ int i915_gem_vm_destroy_ioctl(struct drm_device *dev, void *data,
 	if (args->extensions)
 		return -EINVAL;
 
-	id = args->vm_id;
-	if (!id)
-		return -ENOENT;
-
-	err = mutex_lock_interruptible(&file_priv->vm_idr_lock);
-	if (err)
-		return err;
-
-	vm = idr_remove(&file_priv->vm_idr, id);
-
-	mutex_unlock(&file_priv->vm_idr_lock);
+	vm = xa_erase(&file_priv->vm_xa, args->vm_id);
 	if (!vm)
 		return -ENOENT;
 
@@ -1021,7 +1012,8 @@ static int get_ppgtt(struct drm_i915_file_private *file_priv,
 		     struct drm_i915_gem_context_param *args)
 {
 	struct i915_address_space *vm;
-	int ret;
+	int err;
+	u32 id;
 
 	if (!rcu_access_pointer(ctx->vm))
 		return -ENODEV;
@@ -1029,27 +1021,22 @@ static int get_ppgtt(struct drm_i915_file_private *file_priv,
 	rcu_read_lock();
 	vm = context_get_vm_rcu(ctx);
 	rcu_read_unlock();
+	if (!vm)
+		return -ENODEV;
 
-	ret = mutex_lock_interruptible(&file_priv->vm_idr_lock);
-	if (ret)
+	err = xa_alloc(&file_priv->vm_xa, &id, vm, xa_limit_32b, GFP_KERNEL);
+	if (err)
 		goto err_put;
-
-	ret = idr_alloc(&file_priv->vm_idr, vm, 0, 0, GFP_KERNEL);
-	GEM_BUG_ON(!ret);
-	if (ret < 0)
-		goto err_unlock;
 
 	i915_vm_open(vm);
 
+	GEM_BUG_ON(id == 0); /* reserved for invalid/unassigned ppgtt */
+	args->value = id;
 	args->size = 0;
-	args->value = ret;
 
-	ret = 0;
-err_unlock:
-	mutex_unlock(&file_priv->vm_idr_lock);
 err_put:
 	i915_vm_put(vm);
-	return ret;
+	return err;
 }
 
 static void set_ppgtt_barrier(void *data)
@@ -1151,7 +1138,7 @@ static int set_ppgtt(struct drm_i915_file_private *file_priv,
 		return -ENOENT;
 
 	rcu_read_lock();
-	vm = idr_find(&file_priv->vm_idr, args->value);
+	vm = xa_load(&file_priv->vm_xa, args->value);
 	if (vm && !kref_get_unless_zero(&vm->ref))
 		vm = NULL;
 	rcu_read_unlock();
@@ -1444,6 +1431,7 @@ set_engines__load_balance(struct i915_user_extension __user *base, void *data)
 	struct i915_context_engines_load_balance __user *ext =
 		container_of_user(base, typeof(*ext), base);
 	const struct set_engines *set = data;
+	struct drm_i915_private *i915 = set->ctx->i915;
 	struct intel_engine_cs *stack[16];
 	struct intel_engine_cs **siblings;
 	struct intel_context *ce;
@@ -1451,24 +1439,25 @@ set_engines__load_balance(struct i915_user_extension __user *base, void *data)
 	unsigned int n;
 	int err;
 
-	if (!HAS_EXECLISTS(set->ctx->i915))
+	if (!HAS_EXECLISTS(i915))
 		return -ENODEV;
 
-	if (USES_GUC_SUBMISSION(set->ctx->i915))
+	if (USES_GUC_SUBMISSION(i915))
 		return -ENODEV; /* not implement yet */
 
 	if (get_user(idx, &ext->engine_index))
 		return -EFAULT;
 
 	if (idx >= set->engines->num_engines) {
-		DRM_DEBUG("Invalid placement value, %d >= %d\n",
-			  idx, set->engines->num_engines);
+		drm_dbg(&i915->drm, "Invalid placement value, %d >= %d\n",
+			idx, set->engines->num_engines);
 		return -EINVAL;
 	}
 
 	idx = array_index_nospec(idx, set->engines->num_engines);
 	if (set->engines->engines[idx]) {
-		DRM_DEBUG("Invalid placement[%d], already occupied\n", idx);
+		drm_dbg(&i915->drm,
+			"Invalid placement[%d], already occupied\n", idx);
 		return -EEXIST;
 	}
 
@@ -1500,12 +1489,13 @@ set_engines__load_balance(struct i915_user_extension __user *base, void *data)
 			goto out_siblings;
 		}
 
-		siblings[n] = intel_engine_lookup_user(set->ctx->i915,
+		siblings[n] = intel_engine_lookup_user(i915,
 						       ci.engine_class,
 						       ci.engine_instance);
 		if (!siblings[n]) {
-			DRM_DEBUG("Invalid sibling[%d]: { class:%d, inst:%d }\n",
-				  n, ci.engine_class, ci.engine_instance);
+			drm_dbg(&i915->drm,
+				"Invalid sibling[%d]: { class:%d, inst:%d }\n",
+				n, ci.engine_class, ci.engine_instance);
 			err = -EINVAL;
 			goto out_siblings;
 		}
@@ -1538,6 +1528,7 @@ set_engines__bond(struct i915_user_extension __user *base, void *data)
 	struct i915_context_engines_bond __user *ext =
 		container_of_user(base, typeof(*ext), base);
 	const struct set_engines *set = data;
+	struct drm_i915_private *i915 = set->ctx->i915;
 	struct i915_engine_class_instance ci;
 	struct intel_engine_cs *virtual;
 	struct intel_engine_cs *master;
@@ -1548,14 +1539,15 @@ set_engines__bond(struct i915_user_extension __user *base, void *data)
 		return -EFAULT;
 
 	if (idx >= set->engines->num_engines) {
-		DRM_DEBUG("Invalid index for virtual engine: %d >= %d\n",
-			  idx, set->engines->num_engines);
+		drm_dbg(&i915->drm,
+			"Invalid index for virtual engine: %d >= %d\n",
+			idx, set->engines->num_engines);
 		return -EINVAL;
 	}
 
 	idx = array_index_nospec(idx, set->engines->num_engines);
 	if (!set->engines->engines[idx]) {
-		DRM_DEBUG("Invalid engine at %d\n", idx);
+		drm_dbg(&i915->drm, "Invalid engine at %d\n", idx);
 		return -EINVAL;
 	}
 	virtual = set->engines->engines[idx]->engine;
@@ -1573,11 +1565,12 @@ set_engines__bond(struct i915_user_extension __user *base, void *data)
 	if (copy_from_user(&ci, &ext->master, sizeof(ci)))
 		return -EFAULT;
 
-	master = intel_engine_lookup_user(set->ctx->i915,
+	master = intel_engine_lookup_user(i915,
 					  ci.engine_class, ci.engine_instance);
 	if (!master) {
-		DRM_DEBUG("Unrecognised master engine: { class:%u, instance:%u }\n",
-			  ci.engine_class, ci.engine_instance);
+		drm_dbg(&i915->drm,
+			"Unrecognised master engine: { class:%u, instance:%u }\n",
+			ci.engine_class, ci.engine_instance);
 		return -EINVAL;
 	}
 
@@ -1590,12 +1583,13 @@ set_engines__bond(struct i915_user_extension __user *base, void *data)
 		if (copy_from_user(&ci, &ext->engines[n], sizeof(ci)))
 			return -EFAULT;
 
-		bond = intel_engine_lookup_user(set->ctx->i915,
+		bond = intel_engine_lookup_user(i915,
 						ci.engine_class,
 						ci.engine_instance);
 		if (!bond) {
-			DRM_DEBUG("Unrecognised engine[%d] for bonding: { class:%d, instance: %d }\n",
-				  n, ci.engine_class, ci.engine_instance);
+			drm_dbg(&i915->drm,
+				"Unrecognised engine[%d] for bonding: { class:%d, instance: %d }\n",
+				n, ci.engine_class, ci.engine_instance);
 			return -EINVAL;
 		}
 
@@ -1624,6 +1618,7 @@ static int
 set_engines(struct i915_gem_context *ctx,
 	    const struct drm_i915_gem_context_param *args)
 {
+	struct drm_i915_private *i915 = ctx->i915;
 	struct i915_context_param_engines __user *user =
 		u64_to_user_ptr(args->value);
 	struct set_engines set = { .ctx = ctx };
@@ -1645,8 +1640,8 @@ set_engines(struct i915_gem_context *ctx,
 	BUILD_BUG_ON(!IS_ALIGNED(sizeof(*user), sizeof(*user->engines)));
 	if (args->size < sizeof(*user) ||
 	    !IS_ALIGNED(args->size, sizeof(*user->engines))) {
-		DRM_DEBUG("Invalid size for engine array: %d\n",
-			  args->size);
+		drm_dbg(&i915->drm, "Invalid size for engine array: %d\n",
+			args->size);
 		return -EINVAL;
 	}
 
@@ -1682,8 +1677,9 @@ set_engines(struct i915_gem_context *ctx,
 						  ci.engine_class,
 						  ci.engine_instance);
 		if (!engine) {
-			DRM_DEBUG("Invalid engine[%d]: { class:%d, instance:%d }\n",
-				  n, ci.engine_class, ci.engine_instance);
+			drm_dbg(&i915->drm,
+				"Invalid engine[%d]: { class:%d, instance:%d }\n",
+				n, ci.engine_class, ci.engine_instance);
 			__free_engines(set.engines, n);
 			return -ENOENT;
 		}
@@ -2197,8 +2193,9 @@ int i915_gem_context_create_ioctl(struct drm_device *dev, void *data,
 
 	ext_data.fpriv = file->driver_priv;
 	if (client_is_banned(ext_data.fpriv)) {
-		DRM_DEBUG("client %s[%d] banned from creating ctx\n",
-			  current->comm, task_pid_nr(current));
+		drm_dbg(&i915->drm,
+			"client %s[%d] banned from creating ctx\n",
+			current->comm, task_pid_nr(current));
 		return -EIO;
 	}
 
@@ -2220,7 +2217,7 @@ int i915_gem_context_create_ioctl(struct drm_device *dev, void *data,
 		goto err_ctx;
 
 	args->ctx_id = id;
-	DRM_DEBUG("HW context %d created\n", args->ctx_id);
+	drm_dbg(&i915->drm, "HW context %d created\n", args->ctx_id);
 
 	return 0;
 

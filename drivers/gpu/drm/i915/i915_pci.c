@@ -823,7 +823,6 @@ static const struct intel_device_info tgl_info = {
 	.display.has_modular_fia = 1,
 	.engine_mask =
 		BIT(RCS0) | BIT(BCS0) | BIT(VECS0) | BIT(VCS0) | BIT(VCS2),
-	.has_rps = false, /* XXX disabled for debugging */
 };
 
 #define GEN12_DGFX_FEATURES \
@@ -927,13 +926,6 @@ static bool force_probe(u16 device_id, const char *devices)
 {
 	char *s, *p, *tok;
 	bool ret;
-
-	/* FIXME: transitional */
-	if (i915_modparams.alpha_support) {
-		DRM_INFO("i915.alpha_support is deprecated, use i915.force_probe=%04x instead\n",
-			 device_id);
-		return true;
-	}
 
 	if (!devices || !*devices)
 		return false;

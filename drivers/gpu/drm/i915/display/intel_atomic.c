@@ -35,7 +35,9 @@
 #include <drm/drm_plane_helper.h>
 
 #include "intel_atomic.h"
+#include "intel_cdclk.h"
 #include "intel_display_types.h"
+#include "intel_global_state.h"
 #include "intel_hdcp.h"
 #include "intel_psr.h"
 #include "intel_sprite.h"
@@ -178,6 +180,8 @@ intel_digital_connector_duplicate_state(struct drm_connector *connector)
 
 /**
  * intel_connector_needs_modeset - check if connector needs a modeset
+ * @state: the atomic state corresponding to this modeset
+ * @connector: the connector
  */
 bool
 intel_connector_needs_modeset(struct intel_atomic_state *state,
@@ -494,18 +498,28 @@ intel_atomic_state_alloc(struct drm_device *dev)
 	return &state->base;
 }
 
+void intel_atomic_state_free(struct drm_atomic_state *_state)
+{
+	struct intel_atomic_state *state = to_intel_atomic_state(_state);
+
+	drm_atomic_state_default_release(&state->base);
+	kfree(state->global_objs);
+
+	i915_sw_fence_fini(&state->commit_ready);
+
+	kfree(state);
+}
+
 void intel_atomic_state_clear(struct drm_atomic_state *s)
 {
 	struct intel_atomic_state *state = to_intel_atomic_state(s);
+
 	drm_atomic_state_default_clear(&state->base);
+	intel_atomic_clear_global_state(state);
+
 	state->dpll_set = state->modeset = false;
 	state->global_state_changed = false;
 	state->active_pipes = 0;
-	memset(&state->min_cdclk, 0, sizeof(state->min_cdclk));
-	memset(&state->min_voltage_level, 0, sizeof(state->min_voltage_level));
-	memset(&state->cdclk.logical, 0, sizeof(state->cdclk.logical));
-	memset(&state->cdclk.actual, 0, sizeof(state->cdclk.actual));
-	state->cdclk.pipe = INVALID_PIPE;
 }
 
 struct intel_crtc_state *
@@ -520,7 +534,7 @@ intel_atomic_get_crtc_state(struct drm_atomic_state *state,
 	return to_intel_crtc_state(crtc_state);
 }
 
-int intel_atomic_lock_global_state(struct intel_atomic_state *state)
+int _intel_atomic_lock_global_state(struct intel_atomic_state *state)
 {
 	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
 	struct intel_crtc *crtc;
@@ -539,7 +553,7 @@ int intel_atomic_lock_global_state(struct intel_atomic_state *state)
 	return 0;
 }
 
-int intel_atomic_serialize_global_state(struct intel_atomic_state *state)
+int _intel_atomic_serialize_global_state(struct intel_atomic_state *state)
 {
 	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
 	struct intel_crtc *crtc;
