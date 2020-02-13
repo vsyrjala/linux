@@ -15463,9 +15463,9 @@ static void icl_dbuf_slice_pre_update(struct intel_atomic_state *state)
 
 	WARN_ON(!new_dbuf_state->base.changed);
 
-	icl_dbuf_slices_update(dev_priv,
-			       old_dbuf_state->enabled_slices |
-			       new_dbuf_state->enabled_slices);
+	gen9_dbuf_slices_update(dev_priv,
+				old_dbuf_state->enabled_slices |
+				new_dbuf_state->enabled_slices);
 }
 
 static void icl_dbuf_slice_post_update(struct intel_atomic_state *state)
@@ -15482,8 +15482,8 @@ static void icl_dbuf_slice_post_update(struct intel_atomic_state *state)
 
 	WARN_ON(!new_dbuf_state->base.changed);
 
-	icl_dbuf_slices_update(dev_priv,
-			       new_dbuf_state->enabled_slices);
+	gen9_dbuf_slices_update(dev_priv,
+				new_dbuf_state->enabled_slices);
 }
 
 static void skl_commit_modeset_enables(struct intel_atomic_state *state)
