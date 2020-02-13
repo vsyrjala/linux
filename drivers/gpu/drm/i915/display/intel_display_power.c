@@ -1043,7 +1043,7 @@ static bool gen9_dc_off_power_well_enabled(struct drm_i915_private *dev_priv,
 static void gen9_assert_dbuf_enabled(struct drm_i915_private *dev_priv)
 {
 	u8 hw_enabled_dbuf_slices = intel_enabled_dbuf_slices_mask(dev_priv);
-	u8 enabled_dbuf_slices = dev_priv->enabled_dbuf_slices_mask;
+	u8 enabled_dbuf_slices = dev_priv->dbuf.enabled_slices;
 
 	WARN(hw_enabled_dbuf_slices != enabled_dbuf_slices,
 	     "Unexpected DBuf power power state (0x%08x, expected 0x%08x)\n",
@@ -4463,7 +4463,7 @@ void icl_dbuf_slices_update(struct drm_i915_private *dev_priv,
 				     (req_slices & BIT(i)) != 0);
 	}
 
-	dev_priv->enabled_dbuf_slices_mask = req_slices;
+	dev_priv->dbuf.enabled_slices = req_slices;
 
 	mutex_unlock(&power_domains->lock);
 }
