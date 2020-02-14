@@ -3862,7 +3862,7 @@ static unsigned int intel_crtc_ddb_weight(const struct intel_crtc_state *crtc_st
 }
 
 static u8 skl_compute_dbuf_slices(const struct intel_crtc_state *crtc_state,
-				  u32 active_pipes);
+				  u8 active_pipes);
 
 static int
 skl_ddb_get_pipe_allocation_limits(struct drm_i915_private *dev_priv,
@@ -4237,6 +4237,7 @@ static struct dbuf_slice_conf_entry icl_allowed_dbufs[] =
 			[PIPE_C] = BIT(DBUF_S2),
 		},
 	},
+	{}
 };
 
 /*
@@ -4359,16 +4360,15 @@ static struct dbuf_slice_conf_entry tgl_allowed_dbufs[] =
 			[PIPE_D] = BIT(DBUF_S2),
 		},
 	},
+	{}
 };
 
-static u8 compute_dbuf_slices(enum pipe pipe,
-			      u32 active_pipes,
-			      const struct dbuf_slice_conf_entry *dbuf_slices,
-			      int size)
+static u8 compute_dbuf_slices(enum pipe pipe, u8 active_pipes,
+			      const struct dbuf_slice_conf_entry *dbuf_slices)
 {
 	int i;
 
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < dbuf_slices[i].active_pipes; i++) {
 		if (dbuf_slices[i].active_pipes == active_pipes)
 			return dbuf_slices[i].dbuf_mask[pipe];
 	}
@@ -4380,8 +4380,7 @@ static u8 compute_dbuf_slices(enum pipe pipe,
  * returns correspondent DBuf slice mask as stated in BSpec for particular
  * platform.
  */
-static u32 icl_compute_dbuf_slices(enum pipe pipe,
-				   u32 active_pipes)
+static u8 icl_compute_dbuf_slices(enum pipe pipe, u8 active_pipes)
 {
 	/*
 	 * FIXME: For ICL this is still a bit unclear as prev BSpec revision
@@ -4395,32 +4394,25 @@ static u32 icl_compute_dbuf_slices(enum pipe pipe,
 	 * still here - we will need it once those additional constraints
 	 * pop up.
 	 */
-	return compute_dbuf_slices(pipe, active_pipes,
-				   icl_allowed_dbufs,
-				   ARRAY_SIZE(icl_allowed_dbufs));
+	return compute_dbuf_slices(pipe, active_pipes, icl_allowed_dbufs);
 }
 
-static u32 tgl_compute_dbuf_slices(enum pipe pipe,
-				   u32 active_pipes)
+static u8 tgl_compute_dbuf_slices(enum pipe pipe, u8 active_pipes)
 {
-	return compute_dbuf_slices(pipe, active_pipes,
-				   tgl_allowed_dbufs,
-				   ARRAY_SIZE(tgl_allowed_dbufs));
+	return compute_dbuf_slices(pipe, active_pipes, tgl_allowed_dbufs);
 }
 
 static u8 skl_compute_dbuf_slices(const struct intel_crtc_state *crtc_state,
-				  u32 active_pipes)
+				  u8 active_pipes)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum pipe pipe = crtc->pipe;
 
 	if (IS_GEN(dev_priv, 12))
-		return tgl_compute_dbuf_slices(pipe,
-					       active_pipes);
+		return tgl_compute_dbuf_slices(pipe, active_pipes);
 	else if (IS_GEN(dev_priv, 11))
-		return icl_compute_dbuf_slices(pipe,
-					       active_pipes);
+		return icl_compute_dbuf_slices(pipe, active_pipes);
 	/*
 	 * For anything else just return one slice yet.
 	 * Should be extended for other platforms.
