@@ -4146,16 +4146,8 @@ skl_ddb_get_pipe_allocation_limits(struct drm_i915_private *dev_priv,
 	 * grab _all_ crtc locks, including the one we currently hold.
 	 */
 	if (old_dbuf_state->active_pipes == new_dbuf_state->active_pipes &&
-	    !dev_priv->wm.distrust_bios_wm) {
-		/*
-		 * alloc may be cleared by clear_intel_crtc_state,
-		 * copy from old state to be sure
-		 *
-		 * FIXME get rid of this mess
-		 */
-		*alloc = to_intel_crtc_state(for_crtc->base.state)->wm.skl.ddb;
+	    !dev_priv->wm.distrust_bios_wm)
 		return 0;
-	}
 
 	/*
 	 * Get allowed DBuf slices for correspondent pipe and platform.
@@ -4798,7 +4790,9 @@ skl_allocate_pipe_ddb(struct intel_atomic_state *state,
 	struct intel_crtc_state *crtc_state =
 		intel_atomic_get_new_crtc_state(state, crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	struct skl_ddb_entry *alloc = &crtc_state->wm.skl.ddb;
+	struct intel_dbuf_state *dbuf_state =
+		intel_atomic_get_new_dbuf_state(state);
+	struct skl_ddb_entry *alloc = &dbuf_state->ddb[crtc->pipe];
 	u16 alloc_size, start = 0;
 	u16 total[I915_MAX_PLANES] = {};
 	u16 uv_total[I915_MAX_PLANES] = {};
