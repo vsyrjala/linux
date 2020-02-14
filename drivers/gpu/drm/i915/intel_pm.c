@@ -4415,7 +4415,7 @@ static u8 skl_compute_dbuf_slices(struct intel_crtc *crtc, u8 active_pipes)
 	 * For anything else just return one slice yet.
 	 * Should be extended for other platforms.
 	 */
-	return BIT(DBUF_S1);
+	return active_pipes & BIT(pipe) ? BIT(DBUF_S1) : 0;
 }
 
 static u64
