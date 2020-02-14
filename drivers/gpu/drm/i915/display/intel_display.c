@@ -15452,6 +15452,10 @@ static void intel_update_trans_port_sync_crtcs(struct intel_crtc *crtc,
 static void skl_commit_modeset_enables(struct intel_atomic_state *state)
 {
 	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
+	const struct intel_dbuf_state *old_dbuf_state =
+		intel_atomic_get_old_dbuf_state(state);
+	const struct intel_dbuf_state *new_dbuf_state =
+		intel_atomic_get_new_dbuf_state(state);
 	struct intel_crtc *crtc;
 	struct intel_crtc_state *old_crtc_state, *new_crtc_state;
 	struct skl_ddb_entry entries[I915_MAX_PIPES] = {};
@@ -15467,7 +15471,7 @@ static void skl_commit_modeset_enables(struct intel_atomic_state *state)
 
 		/* ignore allocations for crtc's that have been turned off. */
 		if (!needs_modeset(new_crtc_state)) {
-			entries[pipe] = old_crtc_state->wm.skl.ddb;
+			entries[pipe] = old_dbuf_state->ddb[pipe];
 			update_pipes |= BIT(pipe);
 		} else {
 			modeset_pipes |= BIT(pipe);
@@ -15491,11 +15495,11 @@ static void skl_commit_modeset_enables(struct intel_atomic_state *state)
 			if ((update_pipes & BIT(pipe)) == 0)
 				continue;
 
-			if (skl_ddb_allocation_overlaps(&new_crtc_state->wm.skl.ddb,
+			if (skl_ddb_allocation_overlaps(&new_dbuf_state->ddb[pipe],
 							entries, num_pipes, pipe))
 				continue;
 
-			entries[pipe] = new_crtc_state->wm.skl.ddb;
+			entries[pipe] = new_dbuf_state->ddb[pipe];
 			update_pipes &= ~BIT(pipe);
 
 			intel_update_crtc(crtc, state, old_crtc_state,
@@ -15507,8 +15511,8 @@ static void skl_commit_modeset_enables(struct intel_atomic_state *state)
 			 * then we need to wait for a vblank to pass for the
 			 * new ddb allocation to take effect.
 			 */
-			if (!skl_ddb_entry_equal(&new_crtc_state->wm.skl.ddb,
-						 &old_crtc_state->wm.skl.ddb) &&
+			if (!skl_ddb_entry_equal(&new_dbuf_state->ddb[pipe],
+						 &old_dbuf_state->ddb[pipe]) &&
 			    (update_pipes | modeset_pipes))
 				intel_wait_for_vblank(dev_priv, pipe);
 		}
@@ -15529,10 +15533,10 @@ static void skl_commit_modeset_enables(struct intel_atomic_state *state)
 		    is_trans_port_sync_slave(new_crtc_state))
 			continue;
 
-		WARN_ON(skl_ddb_allocation_overlaps(&new_crtc_state->wm.skl.ddb,
+		WARN_ON(skl_ddb_allocation_overlaps(&new_dbuf_state->ddb[pipe],
 						    entries, num_pipes, pipe));
 
-		entries[pipe] = new_crtc_state->wm.skl.ddb;
+		entries[pipe] = new_dbuf_state->ddb[pipe];
 		modeset_pipes &= ~BIT(pipe);
 
 		if (is_trans_port_sync_mode(new_crtc_state)) {
@@ -15564,10 +15568,10 @@ static void skl_commit_modeset_enables(struct intel_atomic_state *state)
 		if ((modeset_pipes & BIT(pipe)) == 0)
 			continue;
 
-		WARN_ON(skl_ddb_allocation_overlaps(&new_crtc_state->wm.skl.ddb,
+		WARN_ON(skl_ddb_allocation_overlaps(&new_dbuf_state->ddb[pipe],
 						    entries, num_pipes, pipe));
 
-		entries[pipe] = new_crtc_state->wm.skl.ddb;
+		entries[pipe] = new_dbuf_state->ddb[pipe];
 		modeset_pipes &= ~BIT(pipe);
 
 		intel_update_crtc(crtc, state, old_crtc_state, new_crtc_state);
