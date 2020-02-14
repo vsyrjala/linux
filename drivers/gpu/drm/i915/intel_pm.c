@@ -3809,6 +3809,24 @@ bool intel_can_enable_sagv(struct intel_atomic_state *state)
 	return true;
 }
 
+static int intel_dbuf_size(struct drm_i915_private *dev_priv)
+{
+	int ddb_size = INTEL_INFO(dev_priv)->ddb_size;
+
+	drm_WARN_ON(&dev_priv->drm, ddb_size == 0);
+
+	if (INTEL_GEN(dev_priv) < 11)
+		return ddb_size - 4; /* 4 blocks for bypass path allocation */
+
+	return ddb_size;
+}
+
+static int intel_dbuf_slice_size(struct drm_i915_private *dev_priv)
+{
+	return intel_dbuf_size(dev_priv) /
+		INTEL_INFO(dev_priv)->num_supported_dbuf_slices;
+}
+
 /*
  * Calculate initial DBuf slice offset, based on slice size
  * and mask(i.e if slice size is 1024 and second slice is enabled
@@ -3830,17 +3848,6 @@ icl_get_first_dbuf_slice_offset(u32 dbuf_slice_mask,
 	return offset;
 }
 
-static u16 intel_get_ddb_size(struct drm_i915_private *dev_priv)
-{
-	u16 ddb_size = INTEL_INFO(dev_priv)->ddb_size;
-
-	drm_WARN_ON(&dev_priv->drm, ddb_size == 0);
-
-	if (INTEL_GEN(dev_priv) < 11)
-		return ddb_size - 4; /* 4 blocks for bypass path allocation */
-
-	return ddb_size;
-}
 
 static unsigned int intel_crtc_ddb_weight(const struct intel_crtc_state *crtc_state)
 {
@@ -3900,9 +3907,8 @@ skl_ddb_get_pipe_allocation_limits(struct drm_i915_private *dev_priv,
 		return 0;
 	}
 
-	ddb_size = intel_get_ddb_size(dev_priv);
-
-	slice_size = ddb_size / INTEL_INFO(dev_priv)->num_supported_dbuf_slices;
+	ddb_size = intel_dbuf_size(dev_priv);
+	slice_size = intel_dbuf_slice_size(dev_priv);
 
 	/*
 	 * If the state doesn't change the active CRTC's or there is no
