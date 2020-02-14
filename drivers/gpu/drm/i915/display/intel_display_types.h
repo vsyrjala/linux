@@ -704,7 +704,6 @@ struct intel_crtc_wm_state {
 		struct {
 			/* gen9+ only needs 1-step wm programming */
 			struct skl_pipe_wm optimal;
-			struct skl_ddb_entry ddb;
 			struct skl_ddb_entry plane_ddb_y[I915_MAX_PLANES];
 			struct skl_ddb_entry plane_ddb_uv[I915_MAX_PLANES];
 		} skl;
