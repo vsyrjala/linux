@@ -4193,49 +4193,49 @@ static struct dbuf_slice_conf_entry icl_allowed_dbufs[] =
 	{
 		.active_pipes = BIT(PIPE_A),
 		.dbuf_mask = {
-			[PIPE_A] = BIT(DBUF_S1)
-		}
+			[PIPE_A] = BIT(DBUF_S1),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_B),
 		.dbuf_mask = {
-			[PIPE_B] = BIT(DBUF_S1)
-		}
+			[PIPE_B] = BIT(DBUF_S1),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_A) | BIT(PIPE_B),
 		.dbuf_mask = {
 			[PIPE_A] = BIT(DBUF_S1),
-			[PIPE_B] = BIT(DBUF_S2)
-		}
+			[PIPE_B] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_C),
 		.dbuf_mask = {
-			[PIPE_C] = BIT(DBUF_S2)
-		}
+			[PIPE_C] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_A) | BIT(PIPE_C),
 		.dbuf_mask = {
 			[PIPE_A] = BIT(DBUF_S1),
-			[PIPE_C] = BIT(DBUF_S2)
-		}
+			[PIPE_C] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_B) | BIT(PIPE_C),
 		.dbuf_mask = {
 			[PIPE_B] = BIT(DBUF_S1),
-			[PIPE_C] = BIT(DBUF_S2)
-		}
+			[PIPE_C] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_A) | BIT(PIPE_B) | BIT(PIPE_C),
 		.dbuf_mask = {
 			[PIPE_A] = BIT(DBUF_S1),
 			[PIPE_B] = BIT(DBUF_S1),
-			[PIPE_C] = BIT(DBUF_S2)
-		}
+			[PIPE_C] = BIT(DBUF_S2),
+		},
 	},
 };
 
@@ -4255,100 +4255,100 @@ static struct dbuf_slice_conf_entry tgl_allowed_dbufs[] =
 	{
 		.active_pipes = BIT(PIPE_A),
 		.dbuf_mask = {
-			[PIPE_A] = BIT(DBUF_S1) | BIT(DBUF_S2)
-		}
+			[PIPE_A] = BIT(DBUF_S1) | BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_B),
 		.dbuf_mask = {
-			[PIPE_B] = BIT(DBUF_S1) | BIT(DBUF_S2)
-		}
+			[PIPE_B] = BIT(DBUF_S1) | BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_A) | BIT(PIPE_B),
 		.dbuf_mask = {
 			[PIPE_A] = BIT(DBUF_S2),
-			[PIPE_B] = BIT(DBUF_S1)
-		}
+			[PIPE_B] = BIT(DBUF_S1),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_C),
 		.dbuf_mask = {
-			[PIPE_C] = BIT(DBUF_S2) | BIT(DBUF_S1)
-		}
+			[PIPE_C] = BIT(DBUF_S2) | BIT(DBUF_S1),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_A) | BIT(PIPE_C),
 		.dbuf_mask = {
 			[PIPE_A] = BIT(DBUF_S1),
-			[PIPE_C] = BIT(DBUF_S2)
-		}
+			[PIPE_C] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_B) | BIT(PIPE_C),
 		.dbuf_mask = {
 			[PIPE_B] = BIT(DBUF_S1),
-			[PIPE_C] = BIT(DBUF_S2)
-		}
+			[PIPE_C] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_A) | BIT(PIPE_B) | BIT(PIPE_C),
 		.dbuf_mask = {
 			[PIPE_A] = BIT(DBUF_S1),
 			[PIPE_B] = BIT(DBUF_S1),
-			[PIPE_C] = BIT(DBUF_S2)
-		}
+			[PIPE_C] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_D),
 		.dbuf_mask = {
-			[PIPE_D] = BIT(DBUF_S2) | BIT(DBUF_S1)
-		}
+			[PIPE_D] = BIT(DBUF_S2) | BIT(DBUF_S1),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_A) | BIT(PIPE_D),
 		.dbuf_mask = {
 			[PIPE_A] = BIT(DBUF_S1),
-			[PIPE_D] = BIT(DBUF_S2)
-		}
+			[PIPE_D] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_B) | BIT(PIPE_D),
 		.dbuf_mask = {
 			[PIPE_B] = BIT(DBUF_S1),
-			[PIPE_D] = BIT(DBUF_S2)
-		}
+			[PIPE_D] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_A) | BIT(PIPE_B) | BIT(PIPE_D),
 		.dbuf_mask = {
 			[PIPE_A] = BIT(DBUF_S1),
 			[PIPE_B] = BIT(DBUF_S1),
-			[PIPE_D] = BIT(DBUF_S2)
-		}
+			[PIPE_D] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_C) | BIT(PIPE_D),
 		.dbuf_mask = {
 			[PIPE_C] = BIT(DBUF_S1),
-			[PIPE_D] = BIT(DBUF_S2)
-		}
+			[PIPE_D] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_A) | BIT(PIPE_C) | BIT(PIPE_D),
 		.dbuf_mask = {
 			[PIPE_A] = BIT(DBUF_S1),
 			[PIPE_C] = BIT(DBUF_S2),
-			[PIPE_D] = BIT(DBUF_S2)
-		}
+			[PIPE_D] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_B) | BIT(PIPE_C) | BIT(PIPE_D),
 		.dbuf_mask = {
 			[PIPE_B] = BIT(DBUF_S1),
 			[PIPE_C] = BIT(DBUF_S2),
-			[PIPE_D] = BIT(DBUF_S2)
-		}
+			[PIPE_D] = BIT(DBUF_S2),
+		},
 	},
 	{
 		.active_pipes = BIT(PIPE_A) | BIT(PIPE_B) | BIT(PIPE_C) | BIT(PIPE_D),
@@ -4356,8 +4356,8 @@ static struct dbuf_slice_conf_entry tgl_allowed_dbufs[] =
 			[PIPE_A] = BIT(DBUF_S1),
 			[PIPE_B] = BIT(DBUF_S1),
 			[PIPE_C] = BIT(DBUF_S2),
-			[PIPE_D] = BIT(DBUF_S2)
-		}
+			[PIPE_D] = BIT(DBUF_S2),
+		},
 	},
 };
 
