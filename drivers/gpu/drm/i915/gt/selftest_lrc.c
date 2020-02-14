@@ -68,6 +68,24 @@ static void engine_heartbeat_enable(struct intel_engine_cs *engine,
 	engine->props.heartbeat_interval_ms = saved;
 }
 
+static int wait_for_submit(struct intel_engine_cs *engine,
+			   struct i915_request *rq,
+			   unsigned long timeout)
+{
+	timeout += jiffies;
+	do {
+		cond_resched();
+		intel_engine_flush_submission(engine);
+		if (i915_request_is_active(rq) &&
+		    !READ_ONCE(engine->execlists.pending[0])) {
+			tasklet_unlock_wait(&engine->execlists.tasklet);
+			return 0;
+		}
+	} while (time_before(jiffies, timeout));
+
+	return -ETIME;
+}
+
 static int live_sanitycheck(void *arg)
 {
 	struct intel_gt *gt = arg;
@@ -186,7 +204,7 @@ static int live_unlite_restore(struct intel_gt *gt, int prio)
 		}
 		GEM_BUG_ON(!ce[1]->ring->size);
 		intel_ring_reset(ce[1]->ring, ce[1]->ring->size / 2);
-		__execlists_update_reg_state(ce[1], engine);
+		__execlists_update_reg_state(ce[1], engine, ce[1]->ring->head);
 
 		rq[0] = igt_spinner_create_request(&spin, ce[0], MI_ARB_CHECK);
 		if (IS_ERR(rq[0])) {
@@ -283,6 +301,84 @@ static int live_unlite_switch(void *arg)
 static int live_unlite_preempt(void *arg)
 {
 	return live_unlite_restore(arg, I915_USER_PRIORITY(I915_PRIORITY_MAX));
+}
+
+static int live_pin_rewind(void *arg)
+{
+	struct intel_gt *gt = arg;
+	struct intel_engine_cs *engine;
+	enum intel_engine_id id;
+	int err = 0;
+
+	/*
+	 * We have to be careful not to trust intel_ring too much, for example
+	 * ring->head is updated upon retire which is out of sync with pinning
+	 * the context. Thus we cannot use ring->head to set CTX_RING_HEAD,
+	 * or else we risk writing an older, stale value.
+	 *
+	 * To simulate this, let's apply a bit of deliberate sabotague.
+	 */
+
+	for_each_engine(engine, gt, id) {
+		struct intel_context *ce;
+		struct i915_request *rq;
+		struct intel_ring *ring;
+		struct igt_live_test t;
+
+		if (igt_live_test_begin(&t, gt->i915, __func__, engine->name)) {
+			err = -EIO;
+			break;
+		}
+
+		ce = intel_context_create(engine);
+		if (IS_ERR(ce)) {
+			err = PTR_ERR(ce);
+			break;
+		}
+
+		err = intel_context_pin(ce);
+		if (err) {
+			intel_context_put(ce);
+			break;
+		}
+
+		/* Keep the context awake while we play games */
+		err = i915_active_acquire(&ce->active);
+		if (err) {
+			intel_context_unpin(ce);
+			intel_context_put(ce);
+			break;
+		}
+		ring = ce->ring;
+
+		/* Poison the ring, and offset the next request from HEAD */
+		memset32(ring->vaddr, STACK_MAGIC, ring->size / sizeof(u32));
+		ring->emit = ring->size / 2;
+		ring->tail = ring->emit;
+		GEM_BUG_ON(ring->head);
+
+		intel_context_unpin(ce);
+
+		/* Submit a simple nop request */
+		GEM_BUG_ON(intel_context_is_pinned(ce));
+		rq = intel_context_create_request(ce);
+		i915_active_release(&ce->active); /* e.g. async retire */
+		intel_context_put(ce);
+		if (IS_ERR(rq)) {
+			err = PTR_ERR(rq);
+			break;
+		}
+		GEM_BUG_ON(!rq->head);
+		i915_request_add(rq);
+
+		/* Expect not to hang! */
+		if (igt_live_test_end(&t)) {
+			err = -EIO;
+			break;
+		}
+	}
+
+	return err;
 }
 
 static int live_hold_reset(void *arg)
@@ -384,6 +480,152 @@ out:
 
 	igt_spinner_fini(&spin);
 	return err;
+}
+
+static const char *error_repr(int err)
+{
+	return err ? "bad" : "good";
+}
+
+static int live_error_interrupt(void *arg)
+{
+	static const struct error_phase {
+		enum { GOOD = 0, BAD = -EIO } error[2];
+	} phases[] = {
+		{ { BAD,  GOOD } },
+		{ { BAD,  BAD  } },
+		{ { BAD,  GOOD } },
+		{ { GOOD, GOOD } }, /* sentinel */
+	};
+	struct intel_gt *gt = arg;
+	struct intel_engine_cs *engine;
+	enum intel_engine_id id;
+
+	/*
+	 * We hook up the CS_MASTER_ERROR_INTERRUPT to have forewarning
+	 * of invalid commands in user batches that will cause a GPU hang.
+	 * This is a faster mechanism than using hangcheck/heartbeats, but
+	 * only detects problems the HW knows about -- it will not warn when
+	 * we kill the HW!
+	 *
+	 * To verify our detection and reset, we throw some invalid commands
+	 * at the HW and wait for the interrupt.
+	 */
+
+	if (!intel_has_reset_engine(gt))
+		return 0;
+
+	for_each_engine(engine, gt, id) {
+		const struct error_phase *p;
+		unsigned long heartbeat;
+		int err = 0;
+
+		engine_heartbeat_disable(engine, &heartbeat);
+
+		for (p = phases; p->error[0] != GOOD; p++) {
+			struct i915_request *client[ARRAY_SIZE(phases->error)];
+			u32 *cs;
+			int i;
+
+			memset(client, 0, sizeof(*client));
+			for (i = 0; i < ARRAY_SIZE(client); i++) {
+				struct intel_context *ce;
+				struct i915_request *rq;
+
+				ce = intel_context_create(engine);
+				if (IS_ERR(ce)) {
+					err = PTR_ERR(ce);
+					goto out;
+				}
+
+				rq = intel_context_create_request(ce);
+				intel_context_put(ce);
+				if (IS_ERR(rq)) {
+					err = PTR_ERR(rq);
+					goto out;
+				}
+
+				if (rq->engine->emit_init_breadcrumb) {
+					err = rq->engine->emit_init_breadcrumb(rq);
+					if (err) {
+						i915_request_add(rq);
+						goto out;
+					}
+				}
+
+				cs = intel_ring_begin(rq, 2);
+				if (IS_ERR(cs)) {
+					i915_request_add(rq);
+					err = PTR_ERR(cs);
+					goto out;
+				}
+
+				if (p->error[i]) {
+					*cs++ = 0xdeadbeef;
+					*cs++ = 0xdeadbeef;
+				} else {
+					*cs++ = MI_NOOP;
+					*cs++ = MI_NOOP;
+				}
+
+				client[i] = i915_request_get(rq);
+				i915_request_add(rq);
+			}
+
+			err = wait_for_submit(engine, client[0], HZ / 2);
+			if (err) {
+				pr_err("%s: first request did not start within time!\n",
+				       engine->name);
+				err = -ETIME;
+				goto out;
+			}
+
+			for (i = 0; i < ARRAY_SIZE(client); i++) {
+				if (i915_request_wait(client[i], 0, HZ / 5) < 0)
+					pr_debug("%s: %s request incomplete!\n",
+						 engine->name,
+						 error_repr(p->error[i]));
+
+				if (!i915_request_started(client[i])) {
+					pr_debug("%s: %s request not stated!\n",
+						 engine->name,
+						 error_repr(p->error[i]));
+					err = -ETIME;
+					goto out;
+				}
+
+				/* Kick the tasklet to process the error */
+				intel_engine_flush_submission(engine);
+				if (client[i]->fence.error != p->error[i]) {
+					pr_err("%s: %s request completed with wrong error code: %d\n",
+					       engine->name,
+					       error_repr(p->error[i]),
+					       client[i]->fence.error);
+					err = -EINVAL;
+					goto out;
+				}
+			}
+
+out:
+			for (i = 0; i < ARRAY_SIZE(client); i++)
+				if (client[i])
+					i915_request_put(client[i]);
+			if (err) {
+				pr_err("%s: failed at phase[%zd] { %d, %d }\n",
+				       engine->name, p - phases,
+				       p->error[0], p->error[1]);
+				break;
+			}
+		}
+
+		engine_heartbeat_enable(engine, heartbeat);
+		if (err) {
+			intel_gt_set_wedged(gt);
+			return err;
+		}
+	}
+
+	return 0;
 }
 
 static int
@@ -580,6 +822,10 @@ static int live_timeslice_preempt(void *arg)
 	if (err)
 		goto err_map;
 
+	err = i915_vma_sync(vma);
+	if (err)
+		goto err_pin;
+
 	for_each_prime_number_from(count, 1, 16) {
 		struct intel_engine_cs *engine;
 		enum intel_engine_id id;
@@ -614,6 +860,215 @@ err_obj:
 	return err;
 }
 
+static struct i915_request *
+create_rewinder(struct intel_context *ce,
+		struct i915_request *wait,
+		void *slot, int idx)
+{
+	const u32 offset =
+		i915_ggtt_offset(ce->engine->status_page.vma) +
+		offset_in_page(slot);
+	struct i915_request *rq;
+	u32 *cs;
+	int err;
+
+	rq = intel_context_create_request(ce);
+	if (IS_ERR(rq))
+		return rq;
+
+	if (wait) {
+		err = i915_request_await_dma_fence(rq, &wait->fence);
+		if (err)
+			goto err;
+	}
+
+	cs = intel_ring_begin(rq, 10);
+	if (IS_ERR(cs)) {
+		err = PTR_ERR(cs);
+		goto err;
+	}
+
+	*cs++ = MI_ARB_ON_OFF | MI_ARB_ENABLE;
+	*cs++ = MI_NOOP;
+
+	*cs++ = MI_SEMAPHORE_WAIT |
+		MI_SEMAPHORE_GLOBAL_GTT |
+		MI_SEMAPHORE_POLL |
+		MI_SEMAPHORE_SAD_NEQ_SDD;
+	*cs++ = 0;
+	*cs++ = offset;
+	*cs++ = 0;
+
+	*cs++ = MI_STORE_REGISTER_MEM_GEN8 | MI_USE_GGTT;
+	*cs++ = i915_mmio_reg_offset(RING_TIMESTAMP(rq->engine->mmio_base));
+	*cs++ = offset + idx * sizeof(u32);
+	*cs++ = 0;
+
+	intel_ring_advance(rq, cs);
+
+	rq->sched.attr.priority = I915_PRIORITY_MASK;
+	err = 0;
+err:
+	i915_request_get(rq);
+	i915_request_add(rq);
+	if (err) {
+		i915_request_put(rq);
+		return ERR_PTR(err);
+	}
+
+	return rq;
+}
+
+static int live_timeslice_rewind(void *arg)
+{
+	struct intel_gt *gt = arg;
+	struct intel_engine_cs *engine;
+	enum intel_engine_id id;
+
+	/*
+	 * The usual presumption on timeslice expiration is that we replace
+	 * the active context with another. However, given a chain of
+	 * dependencies we may end up with replacing the context with itself,
+	 * but only a few of those requests, forcing us to rewind the
+	 * RING_TAIL of the original request.
+	 */
+	if (!IS_ACTIVE(CONFIG_DRM_I915_TIMESLICE_DURATION))
+		return 0;
+
+	for_each_engine(engine, gt, id) {
+		enum { A1, A2, B1 };
+		enum { X = 1, Y, Z };
+		struct i915_request *rq[3] = {};
+		struct intel_context *ce;
+		unsigned long heartbeat;
+		unsigned long timeslice;
+		int i, err = 0;
+		u32 *slot;
+
+		if (!intel_engine_has_timeslices(engine))
+			continue;
+
+		/*
+		 * A:rq1 -- semaphore wait, timestamp X
+		 * A:rq2 -- write timestamp Y
+		 *
+		 * B:rq1 [await A:rq1] -- write timestamp Z
+		 *
+		 * Force timeslice, release semaphore.
+		 *
+		 * Expect execution/evaluation order XZY
+		 */
+
+		engine_heartbeat_disable(engine, &heartbeat);
+		timeslice = xchg(&engine->props.timeslice_duration_ms, 1);
+
+		slot = memset32(engine->status_page.addr + 1000, 0, 4);
+
+		ce = intel_context_create(engine);
+		if (IS_ERR(ce)) {
+			err = PTR_ERR(ce);
+			goto err;
+		}
+
+		rq[0] = create_rewinder(ce, NULL, slot, 1);
+		if (IS_ERR(rq[0])) {
+			intel_context_put(ce);
+			goto err;
+		}
+
+		rq[1] = create_rewinder(ce, NULL, slot, 2);
+		intel_context_put(ce);
+		if (IS_ERR(rq[1]))
+			goto err;
+
+		err = wait_for_submit(engine, rq[1], HZ / 2);
+		if (err) {
+			pr_err("%s: failed to submit first context\n",
+			       engine->name);
+			goto err;
+		}
+
+		ce = intel_context_create(engine);
+		if (IS_ERR(ce)) {
+			err = PTR_ERR(ce);
+			goto err;
+		}
+
+		rq[2] = create_rewinder(ce, rq[0], slot, 3);
+		intel_context_put(ce);
+		if (IS_ERR(rq[2]))
+			goto err;
+
+		err = wait_for_submit(engine, rq[2], HZ / 2);
+		if (err) {
+			pr_err("%s: failed to submit second context\n",
+			       engine->name);
+			goto err;
+		}
+		GEM_BUG_ON(!timer_pending(&engine->execlists.timer));
+
+		/* ELSP[] = { { A:rq1, A:rq2 }, { B:rq1 } } */
+		GEM_BUG_ON(!i915_request_is_active(rq[A1]));
+		GEM_BUG_ON(!i915_request_is_active(rq[A2]));
+		GEM_BUG_ON(!i915_request_is_active(rq[B1]));
+
+		/* Wait for the timeslice to kick in */
+		del_timer(&engine->execlists.timer);
+		tasklet_hi_schedule(&engine->execlists.tasklet);
+		intel_engine_flush_submission(engine);
+
+		/* -> ELSP[] = { { A:rq1 }, { B:rq1 } } */
+		GEM_BUG_ON(!i915_request_is_active(rq[A1]));
+		GEM_BUG_ON(!i915_request_is_active(rq[B1]));
+		GEM_BUG_ON(i915_request_is_active(rq[A2]));
+
+		/* Release the hounds! */
+		slot[0] = 1;
+		wmb(); /* "pairs" with GPU; paranoid kick of internal CPU$ */
+
+		for (i = 1; i <= 3; i++) {
+			unsigned long timeout = jiffies + HZ / 2;
+
+			while (!READ_ONCE(slot[i]) &&
+			       time_before(jiffies, timeout))
+				;
+
+			if (!time_before(jiffies, timeout)) {
+				pr_err("%s: rq[%d] timed out\n",
+				       engine->name, i - 1);
+				err = -ETIME;
+				goto err;
+			}
+
+			pr_debug("%s: slot[%d]:%x\n", engine->name, i, slot[i]);
+		}
+
+		/* XZY: XZ < XY */
+		if (slot[Z] - slot[X] >= slot[Y] - slot[X]) {
+			pr_err("%s: timeslicing did not run context B [%u] before A [%u]!\n",
+			       engine->name,
+			       slot[Z] - slot[X],
+			       slot[Y] - slot[X]);
+			err = -EINVAL;
+		}
+
+err:
+		memset32(&slot[0], -1, 4);
+		wmb();
+
+		engine->props.timeslice_duration_ms = timeslice;
+		engine_heartbeat_enable(engine, heartbeat);
+		for (i = 0; i < 3; i++)
+			i915_request_put(rq[i]);
+		if (igt_flush_test(gt->i915))
+			err = -EIO;
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
 static struct i915_request *nop_request(struct intel_engine_cs *engine)
 {
 	struct i915_request *rq;
@@ -626,21 +1081,6 @@ static struct i915_request *nop_request(struct intel_engine_cs *engine)
 	i915_request_add(rq);
 
 	return rq;
-}
-
-static int wait_for_submit(struct intel_engine_cs *engine,
-			   struct i915_request *rq,
-			   unsigned long timeout)
-{
-	timeout += jiffies;
-	do {
-		cond_resched();
-		intel_engine_flush_submission(engine);
-		if (i915_request_is_active(rq))
-			return 0;
-	} while (time_before(jiffies, timeout));
-
-	return -ETIME;
 }
 
 static long timeslice_threshold(const struct intel_engine_cs *engine)
@@ -687,6 +1127,10 @@ static int live_timeslice_queue(void *arg)
 	err = i915_vma_pin(vma, 0, 0, PIN_GLOBAL);
 	if (err)
 		goto err_map;
+
+	err = i915_vma_sync(vma);
+	if (err)
+		goto err_pin;
 
 	for_each_engine(engine, gt, id) {
 		struct i915_sched_attr attr = {
@@ -774,6 +1218,7 @@ err_heartbeat:
 			break;
 	}
 
+err_pin:
 	i915_vma_unpin(vma);
 err_map:
 	i915_gem_object_unpin_map(obj);
@@ -831,6 +1276,10 @@ static int live_busywait_preempt(void *arg)
 	err = i915_vma_pin(vma, 0, 0, PIN_GLOBAL);
 	if (err)
 		goto err_map;
+
+	err = i915_vma_sync(vma);
+	if (err)
+		goto err_vma;
 
 	for_each_engine(engine, gt, id) {
 		struct i915_request *lo, *hi;
@@ -2279,117 +2728,6 @@ static int live_preempt_gang(void *arg)
 	return 0;
 }
 
-static int live_preempt_hang(void *arg)
-{
-	struct intel_gt *gt = arg;
-	struct i915_gem_context *ctx_hi, *ctx_lo;
-	struct igt_spinner spin_hi, spin_lo;
-	struct intel_engine_cs *engine;
-	enum intel_engine_id id;
-	int err = -ENOMEM;
-
-	if (!HAS_LOGICAL_RING_PREEMPTION(gt->i915))
-		return 0;
-
-	if (!intel_has_reset_engine(gt))
-		return 0;
-
-	if (igt_spinner_init(&spin_hi, gt))
-		return -ENOMEM;
-
-	if (igt_spinner_init(&spin_lo, gt))
-		goto err_spin_hi;
-
-	ctx_hi = kernel_context(gt->i915);
-	if (!ctx_hi)
-		goto err_spin_lo;
-	ctx_hi->sched.priority =
-		I915_USER_PRIORITY(I915_CONTEXT_MAX_USER_PRIORITY);
-
-	ctx_lo = kernel_context(gt->i915);
-	if (!ctx_lo)
-		goto err_ctx_hi;
-	ctx_lo->sched.priority =
-		I915_USER_PRIORITY(I915_CONTEXT_MIN_USER_PRIORITY);
-
-	for_each_engine(engine, gt, id) {
-		struct i915_request *rq;
-
-		if (!intel_engine_has_preemption(engine))
-			continue;
-
-		rq = spinner_create_request(&spin_lo, ctx_lo, engine,
-					    MI_ARB_CHECK);
-		if (IS_ERR(rq)) {
-			err = PTR_ERR(rq);
-			goto err_ctx_lo;
-		}
-
-		i915_request_add(rq);
-		if (!igt_wait_for_spinner(&spin_lo, rq)) {
-			GEM_TRACE("lo spinner failed to start\n");
-			GEM_TRACE_DUMP();
-			intel_gt_set_wedged(gt);
-			err = -EIO;
-			goto err_ctx_lo;
-		}
-
-		rq = spinner_create_request(&spin_hi, ctx_hi, engine,
-					    MI_ARB_CHECK);
-		if (IS_ERR(rq)) {
-			igt_spinner_end(&spin_lo);
-			err = PTR_ERR(rq);
-			goto err_ctx_lo;
-		}
-
-		init_completion(&engine->execlists.preempt_hang.completion);
-		engine->execlists.preempt_hang.inject_hang = true;
-
-		i915_request_add(rq);
-
-		if (!wait_for_completion_timeout(&engine->execlists.preempt_hang.completion,
-						 HZ / 10)) {
-			pr_err("Preemption did not occur within timeout!");
-			GEM_TRACE_DUMP();
-			intel_gt_set_wedged(gt);
-			err = -EIO;
-			goto err_ctx_lo;
-		}
-
-		set_bit(I915_RESET_ENGINE + id, &gt->reset.flags);
-		intel_engine_reset(engine, NULL);
-		clear_bit(I915_RESET_ENGINE + id, &gt->reset.flags);
-
-		engine->execlists.preempt_hang.inject_hang = false;
-
-		if (!igt_wait_for_spinner(&spin_hi, rq)) {
-			GEM_TRACE("hi spinner failed to start\n");
-			GEM_TRACE_DUMP();
-			intel_gt_set_wedged(gt);
-			err = -EIO;
-			goto err_ctx_lo;
-		}
-
-		igt_spinner_end(&spin_hi);
-		igt_spinner_end(&spin_lo);
-		if (igt_flush_test(gt->i915)) {
-			err = -EIO;
-			goto err_ctx_lo;
-		}
-	}
-
-	err = 0;
-err_ctx_lo:
-	kernel_context_close(ctx_lo);
-err_ctx_hi:
-	kernel_context_close(ctx_hi);
-err_spin_lo:
-	igt_spinner_fini(&spin_lo);
-err_spin_hi:
-	igt_spinner_fini(&spin_hi);
-	return err;
-}
-
 static int live_preempt_timeout(void *arg)
 {
 	struct intel_gt *gt = arg;
@@ -3055,6 +3393,10 @@ static int preserved_virtual_engine(struct intel_gt *gt,
 	if (IS_ERR(scratch))
 		return PTR_ERR(scratch);
 
+	err = i915_vma_sync(scratch);
+	if (err)
+		goto out_scratch;
+
 	ve = intel_execlists_create_virtual(siblings, nsibling);
 	if (IS_ERR(ve)) {
 		err = PTR_ERR(ve);
@@ -3243,15 +3585,21 @@ static int bond_virtual_engine(struct intel_gt *gt,
 	rq[0] = ERR_PTR(-ENOMEM);
 	for_each_engine(master, gt, id) {
 		struct i915_sw_fence fence = {};
+		struct intel_context *ce;
 
 		if (master->class == class)
 			continue;
 
+		ce = intel_context_create(master);
+		if (IS_ERR(ce)) {
+			err = PTR_ERR(ce);
+			goto out;
+		}
+
 		memset_p((void *)rq, ERR_PTR(-EINVAL), ARRAY_SIZE(rq));
 
-		rq[0] = igt_spinner_create_request(&spin,
-						   master->kernel_context,
-						   MI_NOOP);
+		rq[0] = igt_spinner_create_request(&spin, ce, MI_NOOP);
+		intel_context_put(ce);
 		if (IS_ERR(rq[0])) {
 			err = PTR_ERR(rq[0]);
 			goto out;
@@ -3571,8 +3919,11 @@ int intel_execlists_live_selftests(struct drm_i915_private *i915)
 		SUBTEST(live_sanitycheck),
 		SUBTEST(live_unlite_switch),
 		SUBTEST(live_unlite_preempt),
+		SUBTEST(live_pin_rewind),
 		SUBTEST(live_hold_reset),
+		SUBTEST(live_error_interrupt),
 		SUBTEST(live_timeslice_preempt),
+		SUBTEST(live_timeslice_rewind),
 		SUBTEST(live_timeslice_queue),
 		SUBTEST(live_busywait_preempt),
 		SUBTEST(live_preempt),
@@ -3583,7 +3934,6 @@ int intel_execlists_live_selftests(struct drm_i915_private *i915)
 		SUBTEST(live_suppress_wait_preempt),
 		SUBTEST(live_chain_preempt),
 		SUBTEST(live_preempt_gang),
-		SUBTEST(live_preempt_hang),
 		SUBTEST(live_preempt_timeout),
 		SUBTEST(live_preempt_smoke),
 		SUBTEST(live_virtual_engine),
@@ -3880,8 +4230,16 @@ static int __live_lrc_state(struct intel_engine_cs *engine,
 	*cs++ = i915_ggtt_offset(scratch) + RING_TAIL_IDX * sizeof(u32);
 	*cs++ = 0;
 
+	i915_vma_lock(scratch);
+	err = i915_request_await_object(rq, scratch->obj, true);
+	if (!err)
+		err = i915_vma_move_to_active(scratch, rq, EXEC_OBJECT_WRITE);
+	i915_vma_unlock(scratch);
+
 	i915_request_get(rq);
 	i915_request_add(rq);
+	if (err)
+		goto err_rq;
 
 	intel_engine_flush_submission(engine);
 	expected[RING_TAIL_IDX] = ce->ring->tail;
@@ -4016,8 +4374,16 @@ static int __live_gpr_clear(struct intel_engine_cs *engine,
 		*cs++ = 0;
 	}
 
+	i915_vma_lock(scratch);
+	err = i915_request_await_object(rq, scratch->obj, true);
+	if (!err)
+		err = i915_vma_move_to_active(scratch, rq, EXEC_OBJECT_WRITE);
+	i915_vma_unlock(scratch);
+
 	i915_request_get(rq);
 	i915_request_add(rq);
+	if (err)
+		goto err_rq;
 
 	if (i915_request_wait(rq, 0, HZ / 5) < 0) {
 		err = -ETIME;
