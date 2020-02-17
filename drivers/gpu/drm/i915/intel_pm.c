@@ -3827,6 +3827,14 @@ static int intel_dbuf_slice_size(struct drm_i915_private *dev_priv)
 		INTEL_INFO(dev_priv)->num_supported_dbuf_slices;
 }
 
+static bool bitmask_is_contiguous(unsigned int bitmask)
+{
+	if (bitmask)
+		bitmask >>= ffs(bitmask) - 1;
+
+	return is_power_of_2(bitmask + 1);
+}
+
 static void
 skl_ddb_entry_for_slices(struct drm_i915_private *dev_priv, u8 slice_mask,
 			 struct skl_ddb_entry *ddb)
@@ -3844,6 +3852,7 @@ skl_ddb_entry_for_slices(struct drm_i915_private *dev_priv, u8 slice_mask,
 
 	WARN_ON(ddb->start >= ddb->end);
 	WARN_ON(ddb->end > intel_dbuf_size(dev_priv));
+	WARN_ON(!bitmask_is_contiguous(slice_mask));
 }
 
 static unsigned int intel_crtc_ddb_weight(const struct intel_crtc_state *crtc_state)
