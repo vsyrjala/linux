@@ -327,7 +327,6 @@ static const struct nt39016_panel_info kd035g6_info = {
 		.vsync_start = 240 + 5,
 		.vsync_end = 240 + 5 + 1,
 		.vtotal = 240 + 5 + 1 + 4,
-		.vrefresh = 60,
 		.flags = DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC,
 	},
 	.width_mm = 71,
