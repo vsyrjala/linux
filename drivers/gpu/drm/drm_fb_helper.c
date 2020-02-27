@@ -888,21 +888,24 @@ static int setcmap_legacy(struct fb_cmap *cmap, struct fb_info *info)
 {
 	struct drm_fb_helper *fb_helper = info->par;
 	struct drm_mode_set *modeset;
-	struct drm_crtc *crtc;
-	u16 *r, *g, *b;
 	int ret = 0;
 
 	if (info->fix.visual == FB_VISUAL_TRUECOLOR)
 		return 0;
 
+	mutex_lock(&fb_helper->client.modeset_mutex);
 	drm_modeset_lock_all(fb_helper->dev);
 	drm_client_for_each_modeset(modeset, &fb_helper->client) {
-		crtc = modeset->crtc;
-		if (!crtc->funcs->gamma_set || !crtc->gamma_size)
-			return -EINVAL;
+		struct drm_crtc *crtc = modeset->crtc;
+		u16 *r, *g, *b;
 
-		if (cmap->start + cmap->len > crtc->gamma_size)
-			return -EINVAL;
+		if (!crtc->gamma_size)
+			continue;
+
+		if (cmap->start + cmap->len > crtc->gamma_size) {
+			ret = -EINVAL;
+			break;
+		}
 
 		r = crtc->gamma_store;
 		g = r + crtc->gamma_size;
@@ -915,82 +918,29 @@ static int setcmap_legacy(struct fb_cmap *cmap, struct fb_info *info)
 		ret = crtc->funcs->gamma_set(crtc, r, g, b,
 					     crtc->gamma_size, NULL);
 		if (ret)
-			return ret;
+			break;
 	}
 	drm_modeset_unlock_all(fb_helper->dev);
+	mutex_unlock(&fb_helper->client.modeset_mutex);
 
 	return ret;
-}
-
-static struct drm_property_blob *setcmap_new_gamma_lut(struct drm_crtc *crtc,
-						       struct fb_cmap *cmap)
-{
-	struct drm_device *dev = crtc->dev;
-	struct drm_property_blob *gamma_lut;
-	struct drm_color_lut *lut;
-	int size = crtc->gamma_size;
-	int i;
-
-	if (!size || cmap->start + cmap->len > size)
-		return ERR_PTR(-EINVAL);
-
-	gamma_lut = drm_property_create_blob(dev, sizeof(*lut) * size, NULL);
-	if (IS_ERR(gamma_lut))
-		return gamma_lut;
-
-	lut = gamma_lut->data;
-	if (cmap->start || cmap->len != size) {
-		u16 *r = crtc->gamma_store;
-		u16 *g = r + crtc->gamma_size;
-		u16 *b = g + crtc->gamma_size;
-
-		for (i = 0; i < cmap->start; i++) {
-			lut[i].red = r[i];
-			lut[i].green = g[i];
-			lut[i].blue = b[i];
-		}
-		for (i = cmap->start + cmap->len; i < size; i++) {
-			lut[i].red = r[i];
-			lut[i].green = g[i];
-			lut[i].blue = b[i];
-		}
-	}
-
-	for (i = 0; i < cmap->len; i++) {
-		lut[cmap->start + i].red = cmap->red[i];
-		lut[cmap->start + i].green = cmap->green[i];
-		lut[cmap->start + i].blue = cmap->blue[i];
-	}
-
-	return gamma_lut;
 }
 
 static int setcmap_atomic(struct fb_cmap *cmap, struct fb_info *info)
 {
 	struct drm_fb_helper *fb_helper = info->par;
-	struct drm_device *dev = fb_helper->dev;
-	struct drm_property_blob *gamma_lut = NULL;
-	struct drm_modeset_acquire_ctx ctx;
-	struct drm_crtc_state *crtc_state;
-	struct drm_atomic_state *state;
 	struct drm_mode_set *modeset;
-	struct drm_crtc *crtc;
-	u16 *r, *g, *b;
-	bool replaced;
 	int ret = 0;
 
-	drm_modeset_acquire_init(&ctx, 0);
-
-	state = drm_atomic_state_alloc(dev);
-	if (!state) {
-		ret = -ENOMEM;
-		goto out_ctx;
-	}
-
-	state->acquire_ctx = &ctx;
-retry:
+	mutex_lock(&fb_helper->client.modeset_mutex);
 	drm_client_for_each_modeset(modeset, &fb_helper->client) {
-		crtc = modeset->crtc;
+		struct drm_crtc *crtc = modeset->crtc;
+		struct drm_property_blob *gamma_lut;
+		struct drm_color_lut *lut;
+		int i;
+
+		if (!crtc->gamma_size)
+			continue;
 
 		/*
 		 * some atomic drivers still use .gamma_set()
@@ -998,63 +948,42 @@ retry:
 		 */
 		if (crtc->funcs->gamma_set) {
 			ret = -ENOSYS;
-			goto out_state;
+			break;
 		}
 
-		if (!gamma_lut && info->fix.visual != FB_VISUAL_TRUECOLOR)
-			gamma_lut = setcmap_new_gamma_lut(crtc, cmap);
+		if (info->fix.visual == FB_VISUAL_TRUECOLOR) {
+			drm_property_replace_blob(&modeset->gamma_lut, NULL);
+			continue;
+		}
+
+		if (cmap->start + cmap->len > crtc->gamma_size) {
+			ret = -EINVAL;
+			break;
+		}
+
+		gamma_lut = drm_property_create_blob(crtc->dev,
+						     crtc->gamma_size * sizeof(lut[0]),
+						     modeset->gamma_lut);
 		if (IS_ERR(gamma_lut)) {
 			ret = PTR_ERR(gamma_lut);
-			gamma_lut = NULL;
-			goto out_state;
+			break;
 		}
 
-		crtc_state = drm_atomic_get_crtc_state(state, crtc);
-		if (IS_ERR(crtc_state)) {
-			ret = PTR_ERR(crtc_state);
-			goto out_state;
+		lut = gamma_lut->data;
+
+		for (i = 0; i < cmap->len; i++) {
+			lut[cmap->start + i].red = cmap->red[i];
+			lut[cmap->start + i].green = cmap->green[i];
+			lut[cmap->start + i].blue = cmap->blue[i];
 		}
 
-		replaced  = drm_property_replace_blob(&crtc_state->degamma_lut,
-						      NULL);
-		replaced |= drm_property_replace_blob(&crtc_state->ctm, NULL);
-		replaced |= drm_property_replace_blob(&crtc_state->gamma_lut,
-						      gamma_lut);
-		crtc_state->color_mgmt_changed |= replaced;
+		drm_property_replace_blob(&modeset->gamma_lut, gamma_lut);
 	}
-
-	ret = drm_atomic_commit(state);
+	mutex_unlock(&fb_helper->client.modeset_mutex);
 	if (ret)
-		goto out_state;
+		return ret;
 
-	drm_client_for_each_modeset(modeset, &fb_helper->client) {
-		crtc = modeset->crtc;
-
-		r = crtc->gamma_store;
-		g = r + crtc->gamma_size;
-		b = g + crtc->gamma_size;
-
-		memcpy(r + cmap->start, cmap->red, cmap->len * sizeof(*r));
-		memcpy(g + cmap->start, cmap->green, cmap->len * sizeof(*g));
-		memcpy(b + cmap->start, cmap->blue, cmap->len * sizeof(*b));
-	}
-
-out_state:
-	if (ret == -EDEADLK)
-		goto backoff;
-
-	drm_property_blob_put(gamma_lut);
-	drm_atomic_state_put(state);
-out_ctx:
-	drm_modeset_drop_locks(&ctx);
-	drm_modeset_acquire_fini(&ctx);
-
-	return ret;
-
-backoff:
-	drm_atomic_state_clear(state);
-	drm_modeset_backoff(&ctx);
-	goto retry;
+	return drm_client_modeset_commit_locked(&fb_helper->client);
 }
 
 /**
@@ -1084,15 +1013,12 @@ int drm_fb_helper_setcmap(struct fb_cmap *cmap, struct fb_info *info)
 			goto release;
 	}
 
-	mutex_lock(&fb_helper->client.modeset_mutex);
-
 	ret = -ENOSYS;
-	if (drm_drv_uses_atomic_modeset(fb_helper->dev))
+	if (drm_drv_uses_atomic_modeset(dev))
 		ret = setcmap_atomic(cmap, info);
 	if (ret == -ENOSYS)
 		ret = setcmap_legacy(cmap, info);
-
-	mutex_unlock(&fb_helper->client.modeset_mutex);
+	WARN_ON(ret);
 
 release:
 	drm_master_internal_release(dev);
