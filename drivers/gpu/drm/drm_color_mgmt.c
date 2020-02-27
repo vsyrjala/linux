@@ -273,19 +273,19 @@ int drm_mode_gamma_set_ioctl(struct drm_device *dev,
 
 	size = crtc_lut->gamma_size * (sizeof(uint16_t));
 	r_base = crtc->gamma_store;
-	if (copy_from_user(r_base, (void __user *)(unsigned long)crtc_lut->red, size)) {
+	if (copy_from_user(r_base, u64_to_user_ptr(crtc_lut->red), size)) {
 		ret = -EFAULT;
 		goto out;
 	}
 
 	g_base = r_base + size;
-	if (copy_from_user(g_base, (void __user *)(unsigned long)crtc_lut->green, size)) {
+	if (copy_from_user(g_base, u64_to_user_ptr(crtc_lut->green), size)) {
 		ret = -EFAULT;
 		goto out;
 	}
 
 	b_base = g_base + size;
-	if (copy_from_user(b_base, (void __user *)(unsigned long)crtc_lut->blue, size)) {
+	if (copy_from_user(b_base, u64_to_user_ptr(crtc_lut->blue), size)) {
 		ret = -EFAULT;
 		goto out;
 	}
@@ -337,19 +337,19 @@ int drm_mode_gamma_get_ioctl(struct drm_device *dev,
 	drm_modeset_lock(&crtc->mutex, NULL);
 	size = crtc_lut->gamma_size * (sizeof(uint16_t));
 	r_base = crtc->gamma_store;
-	if (copy_to_user((void __user *)(unsigned long)crtc_lut->red, r_base, size)) {
+	if (copy_to_user(u64_to_user_ptr(crtc_lut->red), r_base, size)) {
 		ret = -EFAULT;
 		goto out;
 	}
 
 	g_base = r_base + size;
-	if (copy_to_user((void __user *)(unsigned long)crtc_lut->green, g_base, size)) {
+	if (copy_to_user(u64_to_user_ptr(crtc_lut->green), g_base, size)) {
 		ret = -EFAULT;
 		goto out;
 	}
 
 	b_base = g_base + size;
-	if (copy_to_user((void __user *)(unsigned long)crtc_lut->blue, b_base, size)) {
+	if (copy_to_user(u64_to_user_ptr(crtc_lut->blue), b_base, size)) {
 		ret = -EFAULT;
 		goto out;
 	}
