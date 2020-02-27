@@ -989,6 +989,15 @@ retry:
 	drm_client_for_each_modeset(modeset, &fb_helper->client) {
 		crtc = modeset->crtc;
 
+		/*
+		 * some atomic drivers still use .gamma_set()
+		 * -> fall back to the legacy path
+		 */
+		if (crtc->funcs->gamma_set) {
+			ret = -ENOSYS;
+			goto out_state;
+		}
+
 		if (!gamma_lut)
 			gamma_lut = setcmap_new_gamma_lut(crtc, cmap);
 		if (IS_ERR(gamma_lut)) {
@@ -1067,12 +1076,15 @@ int drm_fb_helper_setcmap(struct fb_cmap *cmap, struct fb_info *info)
 	}
 
 	mutex_lock(&fb_helper->client.modeset_mutex);
-	if (info->fix.visual == FB_VISUAL_TRUECOLOR)
+	if (info->fix.visual == FB_VISUAL_TRUECOLOR) {
 		ret = setcmap_pseudo_palette(cmap, info);
-	else if (drm_drv_uses_atomic_modeset(fb_helper->dev))
-		ret = setcmap_atomic(cmap, info);
-	else
-		ret = setcmap_legacy(cmap, info);
+	} else {
+		ret = -ENOSYS;
+		if (drm_drv_uses_atomic_modeset(fb_helper->dev))
+			ret = setcmap_atomic(cmap, info);
+		if (ret == -ENOSYS)
+			ret = setcmap_legacy(cmap, info);
+	}
 	mutex_unlock(&fb_helper->client.modeset_mutex);
 
 	drm_master_internal_release(dev);
