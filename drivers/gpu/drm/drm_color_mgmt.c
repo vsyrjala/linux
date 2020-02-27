@@ -90,9 +90,7 @@
  *	modes) appropriately.
  *
  * There is also support for a legacy gamma table, which is set up by calling
- * drm_mode_crtc_set_gamma_size(). Drivers which support both should use
- * drm_atomic_helper_legacy_gamma_set() to alias the legacy gamma ramp with the
- * "GAMMA_LUT" property above.
+ * drm_mode_crtc_set_gamma_size().
  *
  * Support for different non RGB color encodings is controlled through
  * &drm_plane specific COLOR_ENCODING and COLOR_RANGE properties. They
@@ -157,9 +155,6 @@ EXPORT_SYMBOL(drm_color_ctm_s31_32_to_qm_n);
  * optional. The gamma and degamma properties are only attached if
  * their size is not 0 and ctm_property is only attached if has_ctm is
  * true.
- *
- * Drivers should use drm_atomic_helper_legacy_gamma_set() to implement the
- * legacy &drm_crtc_funcs.gamma_set callback.
  */
 void drm_crtc_enable_color_mgmt(struct drm_crtc *crtc,
 				uint degamma_lut_size,
