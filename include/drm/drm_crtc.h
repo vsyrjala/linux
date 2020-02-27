@@ -1183,6 +1183,7 @@ struct drm_crtc {
  * @y: position of this CRTC relative to @fb
  * @connectors: array of connectors to drive with this CRTC if possible
  * @num_connectors: size of @connectors array
+ * @gamma_lut: gamma LUT (not used for SETCRTC)
  *
  * This represents a modeset configuration for the legacy SETCRTC ioctl and is
  * also used internally. Atomic drivers instead use &drm_atomic_state.
@@ -1191,6 +1192,7 @@ struct drm_mode_set {
 	struct drm_framebuffer *fb;
 	struct drm_crtc *crtc;
 	struct drm_display_mode *mode;
+	struct drm_property_blob *gamma_lut;
 
 	uint32_t x;
 	uint32_t y;

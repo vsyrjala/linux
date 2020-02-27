@@ -77,6 +77,8 @@ static void drm_client_modeset_release(struct drm_client_dev *client)
 		modeset->mode = NULL;
 		modeset->fb = NULL;
 
+		drm_property_replace_blob(&modeset->gamma_lut, NULL);
+
 		for (i = 0; i < modeset->num_connectors; i++) {
 			drm_connector_put(modeset->connectors[i]);
 			modeset->connectors[i] = NULL;
@@ -1006,8 +1008,11 @@ retry:
 	}
 
 	drm_client_for_each_modeset(mode_set, client) {
-		struct drm_plane *primary = mode_set->crtc->primary;
+		struct drm_crtc *crtc = mode_set->crtc;
+		struct drm_plane *primary = crtc->primary;
+		struct drm_crtc_state *crtc_state;
 		unsigned int rotation;
+		bool replaced;
 
 		if (drm_client_rotation(mode_set, &rotation)) {
 			struct drm_plane_state *plane_state;
@@ -1021,16 +1026,21 @@ retry:
 		if (ret != 0)
 			goto out_state;
 
+		crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+
 		/*
 		 * __drm_atomic_helper_set_config() sets active when a
 		 * mode is set, unconditionally clear it if we force DPMS off
 		 */
-		if (!active) {
-			struct drm_crtc *crtc = mode_set->crtc;
-			struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
-
+		if (!active)
 			crtc_state->active = false;
-		}
+
+		replaced  = drm_property_replace_blob(&crtc_state->degamma_lut,
+						      NULL);
+		replaced |= drm_property_replace_blob(&crtc_state->ctm, NULL);
+		replaced |= drm_property_replace_blob(&crtc_state->gamma_lut,
+						      mode_set->gamma_lut);
+		crtc_state->color_mgmt_changed |= replaced;
 	}
 
 	ret = drm_atomic_commit(state);
