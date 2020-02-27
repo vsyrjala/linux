@@ -892,6 +892,9 @@ static int setcmap_legacy(struct fb_cmap *cmap, struct fb_info *info)
 	u16 *r, *g, *b;
 	int ret = 0;
 
+	if (info->fix.visual == FB_VISUAL_TRUECOLOR)
+		return 0;
+
 	drm_modeset_lock_all(fb_helper->dev);
 	drm_client_for_each_modeset(modeset, &fb_helper->client) {
 		crtc = modeset->crtc;
@@ -998,7 +1001,7 @@ retry:
 			goto out_state;
 		}
 
-		if (!gamma_lut)
+		if (!gamma_lut && info->fix.visual != FB_VISUAL_TRUECOLOR)
 			gamma_lut = setcmap_new_gamma_lut(crtc, cmap);
 		if (IS_ERR(gamma_lut)) {
 			ret = PTR_ERR(gamma_lut);
@@ -1075,18 +1078,23 @@ int drm_fb_helper_setcmap(struct fb_cmap *cmap, struct fb_info *info)
 		goto unlock;
 	}
 
-	mutex_lock(&fb_helper->client.modeset_mutex);
 	if (info->fix.visual == FB_VISUAL_TRUECOLOR) {
 		ret = setcmap_pseudo_palette(cmap, info);
-	} else {
-		ret = -ENOSYS;
-		if (drm_drv_uses_atomic_modeset(fb_helper->dev))
-			ret = setcmap_atomic(cmap, info);
-		if (ret == -ENOSYS)
-			ret = setcmap_legacy(cmap, info);
+		if (ret)
+			goto release;
 	}
+
+	mutex_lock(&fb_helper->client.modeset_mutex);
+
+	ret = -ENOSYS;
+	if (drm_drv_uses_atomic_modeset(fb_helper->dev))
+		ret = setcmap_atomic(cmap, info);
+	if (ret == -ENOSYS)
+		ret = setcmap_legacy(cmap, info);
+
 	mutex_unlock(&fb_helper->client.modeset_mutex);
 
+release:
 	drm_master_internal_release(dev);
 unlock:
 	mutex_unlock(&fb_helper->lock);
