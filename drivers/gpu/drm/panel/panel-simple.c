@@ -3368,7 +3368,7 @@ static const struct panel_desc urt_umsh_8596md_parallel = {
 };
 
 static const struct drm_display_mode vl050_8048nt_c01_mode = {
-	.clock = 33333,
+	.clock = 34540,
 	.hdisplay = 800,
 	.hsync_start = 800 + 210,
 	.hsync_end = 800 + 210 + 20,
