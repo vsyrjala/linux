@@ -2721,7 +2721,7 @@ static const struct panel_desc pda_91_00156_a0  = {
 
 
 static const struct drm_display_mode qd43003c0_40_mode = {
-	.clock = 9000,
+	.clock = 9176,
 	.hdisplay = 480,
 	.hsync_start = 480 + 8,
 	.hsync_end = 480 + 8 + 4,
