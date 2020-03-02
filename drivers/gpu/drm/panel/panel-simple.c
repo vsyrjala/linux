@@ -1136,7 +1136,7 @@ static const struct panel_desc boe_nv140fhmn49 = {
 };
 
 static const struct drm_display_mode cdtech_s043wq26h_ct7_mode = {
-	.clock = 9000,
+	.clock = 9413,
 	.hdisplay = 480,
 	.hsync_start = 480 + 5,
 	.hsync_end = 480 + 5 + 5,
