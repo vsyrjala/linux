@@ -1368,7 +1368,7 @@ static const struct panel_desc edt_et035012dm6 = {
 };
 
 static const struct drm_display_mode edt_etm043080dh6gp_mode = {
-	.clock = 10870,
+	.clock = 9722,
 	.hdisplay = 480,
 	.hsync_start = 480 + 8,
 	.hsync_end = 480 + 8 + 4,
