@@ -3309,7 +3309,7 @@ static const struct panel_desc tpk_f07a_0102 = {
 };
 
 static const struct drm_display_mode tpk_f10a_0102_mode = {
-	.clock = 45000,
+	.clock = 50427,
 	.hdisplay = 1024,
 	.hsync_start = 1024 + 176,
 	.hsync_end = 1024 + 176 + 5,
