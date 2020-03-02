@@ -2065,7 +2065,7 @@ static const struct panel_desc kyo_tcg121xglp = {
 };
 
 static const struct drm_display_mode lemaker_bl035_rgb_002_mode = {
-	.clock = 7000,
+	.clock = 6414,
 	.hdisplay = 320,
 	.hsync_start = 320 + 20,
 	.hsync_end = 320 + 20 + 30,
