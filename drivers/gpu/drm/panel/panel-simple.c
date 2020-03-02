@@ -3996,7 +3996,7 @@ static const struct panel_desc_dsi panasonic_vvx10f004b00 = {
 };
 
 static const struct drm_display_mode lg_acx467akm_7_mode = {
-	.clock = 150000,
+	.clock = 125498,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 2,
 	.hsync_end = 1080 + 2 + 2,
