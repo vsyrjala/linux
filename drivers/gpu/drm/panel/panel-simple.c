@@ -1588,7 +1588,7 @@ static const struct panel_desc friendlyarm_hd702e = {
 };
 
 static const struct drm_display_mode giantplus_gpg482739qs5_mode = {
-	.clock = 9000,
+	.clock = 9121,
 	.hdisplay = 480,
 	.hsync_start = 480 + 5,
 	.hsync_end = 480 + 5 + 1,
