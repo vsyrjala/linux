@@ -2384,7 +2384,7 @@ static const struct panel_desc nec_nl4827hc19_05b = {
 };
 
 static const struct drm_display_mode netron_dy_e231732_mode = {
-	.clock = 66000,
+	.clock = 60480,
 	.hdisplay = 1024,
 	.hsync_start = 1024 + 160,
 	.hsync_end = 1024 + 160 + 70,
