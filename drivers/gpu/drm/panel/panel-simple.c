@@ -1161,7 +1161,7 @@ static const struct panel_desc cdtech_s043wq26h_ct7 = {
 };
 
 static const struct drm_display_mode cdtech_s070wv95_ct16_mode = {
-	.clock = 35000,
+	.clock = 29232,
 	.hdisplay = 800,
 	.hsync_start = 800 + 40,
 	.hsync_end = 800 + 40 + 40,
