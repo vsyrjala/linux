@@ -2697,7 +2697,7 @@ static const struct panel_desc osddisplays_osd070t1718_19ts = {
 };
 
 static const struct drm_display_mode pda_91_00156_a0_mode = {
-	.clock = 33300,
+	.clock = 29319,
 	.hdisplay = 800,
 	.hsync_start = 800 + 1,
 	.hsync_end = 800 + 1 + 64,
