@@ -3077,7 +3077,7 @@ static const struct panel_desc sharp_ls020b1dd01d = {
 };
 
 static const struct drm_display_mode shelly_sca07010_bfn_lnn_mode = {
-	.clock = 33300,
+	.clock = 29319,
 	.hdisplay = 800,
 	.hsync_start = 800 + 1,
 	.hsync_end = 800 + 1 + 64,
