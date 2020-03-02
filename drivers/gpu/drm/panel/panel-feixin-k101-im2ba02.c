@@ -391,7 +391,7 @@ static int k101_im2ba02_unprepare(struct drm_panel *panel)
 }
 
 static const struct drm_display_mode k101_im2ba02_default_mode = {
-	.clock = 70000,
+	.clock = 67286,
 	.vrefresh = 60,
 
 	.hdisplay = 800,
