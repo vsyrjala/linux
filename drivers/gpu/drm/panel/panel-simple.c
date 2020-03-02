@@ -1232,7 +1232,7 @@ static const struct panel_desc chunghwa_claa101wa01a = {
 };
 
 static const struct drm_display_mode chunghwa_claa101wb01_mode = {
-	.clock = 69300,
+	.clock = 71072,
 	.hdisplay = 1366,
 	.hsync_start = 1366 + 48,
 	.hsync_end = 1366 + 48 + 32,
