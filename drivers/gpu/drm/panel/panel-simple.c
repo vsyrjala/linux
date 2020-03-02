@@ -1514,7 +1514,7 @@ static const struct panel_desc evervision_vgg804821 = {
 };
 
 static const struct drm_display_mode foxlink_fl500wvr00_a0t_mode = {
-	.clock = 32260,
+	.clock = 35414,
 	.hdisplay = 800,
 	.hsync_start = 800 + 168,
 	.hsync_end = 800 + 168 + 64,
