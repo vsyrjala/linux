@@ -1185,7 +1185,7 @@ static const struct panel_desc cdtech_s070wv95_ct16 = {
 };
 
 static const struct drm_display_mode chunghwa_claa070wp03xg_mode = {
-	.clock = 66770,
+	.clock = 70284,
 	.hdisplay = 800,
 	.hsync_start = 800 + 49,
 	.hsync_end = 800 + 49 + 33,
