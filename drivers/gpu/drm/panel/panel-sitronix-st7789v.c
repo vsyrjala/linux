@@ -156,7 +156,7 @@ static int st7789v_write_data(struct st7789v *ctx, u8 cmd)
 }
 
 static const struct drm_display_mode default_mode = {
-	.clock = 7000,
+	.clock = 6008,
 	.hdisplay = 240,
 	.hsync_start = 240 + 38,
 	.hsync_end = 240 + 38 + 10,
