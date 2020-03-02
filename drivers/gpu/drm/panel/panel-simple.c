@@ -2617,7 +2617,7 @@ static const struct panel_desc ontat_yx700wv03 = {
 };
 
 static const struct drm_display_mode ortustech_com37h3m_mode  = {
-	.clock = 22153,
+	.clock = 19842,
 	.hdisplay = 480,
 	.hsync_start = 480 + 8,
 	.hsync_end = 480 + 8 + 10,
