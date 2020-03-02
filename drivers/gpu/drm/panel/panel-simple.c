@@ -2588,7 +2588,7 @@ static const struct panel_desc olimex_lcd_olinuxino_43ts = {
  * installation instructions.
  */
 static const struct drm_display_mode ontat_yx700wv03_mode = {
-	.clock = 29500,
+	.clock = 29760,
 	.hdisplay = 800,
 	.hsync_start = 824,
 	.hsync_end = 896,
