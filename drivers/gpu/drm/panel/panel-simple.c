@@ -3026,7 +3026,7 @@ static const struct panel_desc sharp_lq123p1jx31 = {
 };
 
 static const struct drm_display_mode sharp_lq150x1lg11_mode = {
-	.clock = 71100,
+	.clock = 65722,
 	.hdisplay = 1024,
 	.hsync_start = 1024 + 168,
 	.hsync_end = 1024 + 168 + 64,
