@@ -3939,7 +3939,7 @@ static const struct panel_desc_dsi lg_ld070wx3_sl01 = {
 };
 
 static const struct drm_display_mode lg_lh500wx1_sd03_mode = {
-	.clock = 67000,
+	.clock = 66348,
 	.hdisplay = 720,
 	.hsync_start = 720 + 12,
 	.hsync_end = 720 + 12 + 4,
