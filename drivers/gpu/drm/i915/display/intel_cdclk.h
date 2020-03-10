@@ -49,7 +49,7 @@ struct intel_cdclk_state {
 
 	/* forced minimum cdclk for glk+ audio w/a */
 	int force_min_cdclk;
-	bool force_min_cdclk_changed;
+	bool reset_force_min_cdclk;
 
 	/* bitmask of active pipes */
 	u8 active_pipes;

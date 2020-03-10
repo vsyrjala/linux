@@ -14736,6 +14736,7 @@ static int intel_atomic_check(struct drm_device *dev,
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_atomic_state *state = to_intel_atomic_state(_state);
 	struct intel_crtc_state *old_crtc_state, *new_crtc_state;
+	const struct intel_cdclk_state *old_cdclk_state;
 	const struct intel_cdclk_state *new_cdclk_state;
 	struct intel_crtc *crtc;
 	bool need_cdclk_calc = false;
@@ -14855,8 +14856,11 @@ static int intel_atomic_check(struct drm_device *dev,
 	if (any_ms)
 		need_cdclk_calc = true;
 
+	old_cdclk_state = intel_atomic_get_old_cdclk_state(state);
 	new_cdclk_state = intel_atomic_get_new_cdclk_state(state);
-	if (new_cdclk_state && new_cdclk_state->force_min_cdclk_changed)
+	if (new_cdclk_state &&
+	    (new_cdclk_state->force_min_cdclk != old_cdclk_state->force_min_cdclk ||
+	     new_cdclk_state->reset_force_min_cdclk))
 		need_cdclk_calc = true;
 
 	if (need_cdclk_calc) {
