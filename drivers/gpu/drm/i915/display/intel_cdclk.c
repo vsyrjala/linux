@@ -1923,11 +1923,14 @@ intel_set_cdclk_pre_plane_update(struct intel_atomic_state *state)
 		intel_atomic_get_old_cdclk_state(state);
 	const struct intel_cdclk_state *new_cdclk_state =
 		intel_atomic_get_new_cdclk_state(state);
-	enum pipe pipe = new_cdclk_state->pipe;
+	enum pipe pipe;
 
-	if (!intel_cdclk_changed(&old_cdclk_state->actual,
+	if (!new_cdclk_state ||
+	    !intel_cdclk_changed(&old_cdclk_state->actual,
 				 &new_cdclk_state->actual))
 		return;
+
+	pipe = new_cdclk_state->pipe;
 
 	if (pipe == INVALID_PIPE ||
 	    old_cdclk_state->actual.cdclk <= new_cdclk_state->actual.cdclk) {
@@ -1954,9 +1957,12 @@ intel_set_cdclk_post_plane_update(struct intel_atomic_state *state)
 		intel_atomic_get_new_cdclk_state(state);
 	enum pipe pipe = new_cdclk_state->pipe;
 
-	if (!intel_cdclk_changed(&old_cdclk_state->actual,
+	if (!new_cdclk_state ||
+	    !intel_cdclk_changed(&old_cdclk_state->actual,
 				 &new_cdclk_state->actual))
 		return;
+
+	pipe = new_cdclk_state->pipe;
 
 	if (pipe != INVALID_PIPE &&
 	    old_cdclk_state->actual.cdclk > new_cdclk_state->actual.cdclk) {

@@ -14542,10 +14542,6 @@ static int intel_modeset_checks(struct intel_atomic_state *state)
 			return ret;
 	}
 
-	ret = intel_modeset_calc_cdclk(state);
-	if (ret)
-		return ret;
-
 	intel_modeset_clear_plls(state);
 
 	if (IS_HASWELL(dev_priv))
@@ -14740,10 +14736,11 @@ static int intel_atomic_check(struct drm_device *dev,
 	struct drm_i915_private *dev_priv = to_i915(dev);
 	struct intel_atomic_state *state = to_intel_atomic_state(_state);
 	struct intel_crtc_state *old_crtc_state, *new_crtc_state;
-	struct intel_cdclk_state *new_cdclk_state;
+	const struct intel_cdclk_state *new_cdclk_state;
 	struct intel_crtc *crtc;
-	int ret, i;
+	bool need_cdclk_calc = false;
 	bool any_ms = false;
+	int ret, i;
 
 	/* Catch I915_MODE_FLAG_INHERITED */
 	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state,
@@ -14851,13 +14848,22 @@ static int intel_atomic_check(struct drm_device *dev,
 	if (ret)
 		goto fail;
 
-	ret = intel_atomic_check_planes(state, &any_ms);
+	ret = intel_atomic_check_planes(state, &need_cdclk_calc);
 	if (ret)
 		goto fail;
 
+	if (any_ms)
+		need_cdclk_calc = true;
+
 	new_cdclk_state = intel_atomic_get_new_cdclk_state(state);
 	if (new_cdclk_state && new_cdclk_state->force_min_cdclk_changed)
-		any_ms = true;
+		need_cdclk_calc = true;
+
+	if (need_cdclk_calc) {
+		ret = intel_modeset_calc_cdclk(state);
+		if (ret)
+			return ret;
+	}
 
 	/*
 	 * distrust_bios_wm will force a full dbuf recomputation
@@ -15535,10 +15541,10 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 	for_each_new_intel_crtc_in_state(state, crtc, new_crtc_state, i)
 		crtc->config = new_crtc_state;
 
+	intel_set_cdclk_pre_plane_update(state);
+
 	if (state->modeset) {
 		drm_atomic_helper_update_legacy_modeset_state(dev, &state->base);
-
-		intel_set_cdclk_pre_plane_update(state);
 
 		/*
 		 * SKL workaround: bspec recommends we disable the SAGV when we
@@ -15575,11 +15581,10 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 	/* Now enable the clocks, plane, pipe, and connectors that we set up. */
 	dev_priv->display.commit_modeset_enables(state);
 
-	if (state->modeset) {
+	if (state->modeset)
 		intel_encoders_update_complete(state);
 
-		intel_set_cdclk_post_plane_update(state);
-	}
+	intel_set_cdclk_post_plane_update(state);
 
 	/* FIXME: We should call drm_atomic_helper_commit_hw_done() here
 	 * already, but still need the state for the delayed optimization. To
