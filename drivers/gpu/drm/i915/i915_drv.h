@@ -143,7 +143,8 @@ enum hpd_pin {
 struct i915_hotplug {
 	struct delayed_work hotplug_work;
 
-	const u32 *hpd, *pch_hpd;
+	const u32 *hpd, *hpd_long_detect;
+	const u32 *pch_hpd, *pch_hpd_long_detect;
 
 	struct {
 		unsigned long last_jiffies;

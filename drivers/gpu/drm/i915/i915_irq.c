@@ -60,8 +60,6 @@
  * and related files, but that will be described in separate chapters.
  */
 
-typedef bool (*long_pulse_detect_func)(enum hpd_pin pin, u32 val);
-
 static const u32 hpd_ilk[HPD_NUM_PINS] = {
 	[HPD_PORT_A] = DE_DP_A_HOTPLUG,
 };
@@ -152,6 +150,57 @@ static const u32 hpd_icp[HPD_NUM_PINS] = {
 	[HPD_PORT_TC6] = SDE_TC_HOTPLUG_ICP(PORT_TC6),
 };
 
+static const u32 hpd_long_detect_gen11[HPD_NUM_PINS] = {
+	[HPD_PORT_TC1] = GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC1),
+	[HPD_PORT_TC2] = GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC2),
+	[HPD_PORT_TC3] = GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC3),
+	[HPD_PORT_TC4] = GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC4),
+	[HPD_PORT_TC5] = GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC5),
+	[HPD_PORT_TC6] = GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC6),
+};
+
+static const u32 hpd_long_detect_bxt[HPD_NUM_PINS] = {
+	[HPD_PORT_A] = PORTA_HOTPLUG_LONG_DETECT,
+	[HPD_PORT_B] = PORTB_HOTPLUG_LONG_DETECT,
+	[HPD_PORT_C] = PORTC_HOTPLUG_LONG_DETECT,
+};
+
+static const u32 hpd_long_detect_icp[HPD_NUM_PINS] = {
+	[HPD_PORT_A] = SHOTPLUG_CTL_DDI_HPD_LONG_DETECT(PORT_A),
+	[HPD_PORT_B] = SHOTPLUG_CTL_DDI_HPD_LONG_DETECT(PORT_B),
+	[HPD_PORT_C] = SHOTPLUG_CTL_DDI_HPD_LONG_DETECT(PORT_C),
+	[HPD_PORT_TC1] = ICP_TC_HPD_LONG_DETECT(PORT_TC1),
+	[HPD_PORT_TC2] = ICP_TC_HPD_LONG_DETECT(PORT_TC2),
+	[HPD_PORT_TC3] = ICP_TC_HPD_LONG_DETECT(PORT_TC3),
+	[HPD_PORT_TC4] = ICP_TC_HPD_LONG_DETECT(PORT_TC4),
+	[HPD_PORT_TC5] = ICP_TC_HPD_LONG_DETECT(PORT_TC5),
+	[HPD_PORT_TC6] = ICP_TC_HPD_LONG_DETECT(PORT_TC6),
+};
+
+static const u32 hpd_long_detect_spt[HPD_NUM_PINS] = {
+	[HPD_PORT_A] = PORTA_HOTPLUG_LONG_DETECT, /* PCH_PORT_HOTPLUG */
+	[HPD_PORT_B] = PORTB_HOTPLUG_LONG_DETECT, /* PCH_PORT_HOTPLUG */
+	[HPD_PORT_C] = PORTC_HOTPLUG_LONG_DETECT, /* PCH_PORT_HOTPLUG */
+	[HPD_PORT_D] = PORTD_HOTPLUG_LONG_DETECT, /* PCH_PORT_HOTPLUG */
+	[HPD_PORT_E] = PORTE_HOTPLUG_LONG_DETECT, /* PCH_PORT_HOTPLUG2 */
+};
+
+static const u32 hpd_long_detect_ilk[HPD_NUM_PINS] = {
+	[HPD_PORT_A] = DIGITAL_PORTA_HOTPLUG_LONG_DETECT,
+};
+
+static const u32 hpd_long_detect_ibx[HPD_NUM_PINS] = {
+	[HPD_PORT_B] = PORTB_HOTPLUG_LONG_DETECT,
+	[HPD_PORT_C] = PORTC_HOTPLUG_LONG_DETECT,
+	[HPD_PORT_D] = PORTD_HOTPLUG_LONG_DETECT,
+};
+
+static const u32 hpd_long_detect_i915[HPD_NUM_PINS] = {
+	[HPD_PORT_B] = PORTB_HOTPLUG_INT_LONG_PULSE,
+	[HPD_PORT_C] = PORTC_HOTPLUG_INT_LONG_PULSE,
+	[HPD_PORT_D] = PORTD_HOTPLUG_INT_LONG_PULSE,
+};
+
 static void intel_hpd_init_pins(struct drm_i915_private *dev_priv)
 {
 	struct i915_hotplug *hpd = &dev_priv->hotplug;
@@ -162,34 +211,46 @@ static void intel_hpd_init_pins(struct drm_i915_private *dev_priv)
 			hpd->hpd = hpd_status_g4x;
 		else
 			hpd->hpd = hpd_status_i915;
+		hpd->hpd_long_detect = hpd_long_detect_i915;
 		return;
 	}
 
-	if (INTEL_GEN(dev_priv) >= 11)
+	if (INTEL_GEN(dev_priv) >= 11) {
 		hpd->hpd = hpd_gen11;
-	else if (IS_GEN9_LP(dev_priv))
+		hpd->hpd_long_detect = hpd_long_detect_gen11;
+	} else if (IS_GEN9_LP(dev_priv)) {
 		hpd->hpd = hpd_bxt;
-	else if (INTEL_GEN(dev_priv) >= 8)
+		hpd->hpd_long_detect = hpd_long_detect_bxt;
+	} else if (INTEL_GEN(dev_priv) >= 8) {
 		hpd->hpd = hpd_bdw;
-	else if (INTEL_GEN(dev_priv) >= 7)
+		hpd->hpd_long_detect = hpd_long_detect_ilk;
+	} else if (INTEL_GEN(dev_priv) >= 7) {
 		hpd->hpd = hpd_ivb;
-	else
+		hpd->hpd_long_detect = hpd_long_detect_ilk;
+	} else {
 		hpd->hpd = hpd_ilk;
+		hpd->hpd_long_detect = hpd_long_detect_ilk;
+	}
 
 	if (!HAS_PCH_SPLIT(dev_priv) || HAS_PCH_NOP(dev_priv))
 		return;
 
 	if (HAS_PCH_TGP(dev_priv) || HAS_PCH_JSP(dev_priv) ||
-	    HAS_PCH_ICP(dev_priv) || HAS_PCH_MCC(dev_priv))
+	    HAS_PCH_ICP(dev_priv) || HAS_PCH_MCC(dev_priv)) {
 		hpd->pch_hpd = hpd_icp;
-	else if (HAS_PCH_CNP(dev_priv) || HAS_PCH_SPT(dev_priv))
+		hpd->pch_hpd_long_detect = hpd_long_detect_icp;
+	} else if (HAS_PCH_CNP(dev_priv) || HAS_PCH_SPT(dev_priv)) {
 		hpd->pch_hpd = hpd_spt;
-	else if (HAS_PCH_LPT(dev_priv) || HAS_PCH_CPT(dev_priv))
+		hpd->pch_hpd_long_detect = hpd_long_detect_spt;
+	} else if (HAS_PCH_LPT(dev_priv) || HAS_PCH_CPT(dev_priv)) {
 		hpd->pch_hpd = hpd_cpt;
-	else if (HAS_PCH_IBX(dev_priv))
+		hpd->pch_hpd_long_detect = hpd_long_detect_ibx;
+	} else if (HAS_PCH_IBX(dev_priv)) {
 		hpd->pch_hpd = hpd_ibx;
-	else
+		hpd->pch_hpd_long_detect = hpd_long_detect_ibx;
+	} else {
 		MISSING_CASE(INTEL_PCH_TYPE(dev_priv));
+	}
 }
 
 static void
@@ -1031,138 +1092,6 @@ out:
 	mutex_unlock(&dev_priv->drm.struct_mutex);
 }
 
-static bool gen11_port_hotplug_long_detect(enum hpd_pin pin, u32 val)
-{
-	switch (pin) {
-	case HPD_PORT_TC1:
-		return val & GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC1);
-	case HPD_PORT_TC2:
-		return val & GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC2);
-	case HPD_PORT_TC3:
-		return val & GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC3);
-	case HPD_PORT_TC4:
-		return val & GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC4);
-	case HPD_PORT_TC5:
-		return val & GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC5);
-	case HPD_PORT_TC6:
-		return val & GEN11_HOTPLUG_CTL_LONG_DETECT(PORT_TC6);
-	default:
-		return false;
-	}
-}
-
-static bool bxt_port_hotplug_long_detect(enum hpd_pin pin, u32 val)
-{
-	switch (pin) {
-	case HPD_PORT_A:
-		return val & PORTA_HOTPLUG_LONG_DETECT;
-	case HPD_PORT_B:
-		return val & PORTB_HOTPLUG_LONG_DETECT;
-	case HPD_PORT_C:
-		return val & PORTC_HOTPLUG_LONG_DETECT;
-	default:
-		return false;
-	}
-}
-
-static bool icp_ddi_port_hotplug_long_detect(enum hpd_pin pin, u32 val)
-{
-	switch (pin) {
-	case HPD_PORT_A:
-		return val & SHOTPLUG_CTL_DDI_HPD_LONG_DETECT(PORT_A);
-	case HPD_PORT_B:
-		return val & SHOTPLUG_CTL_DDI_HPD_LONG_DETECT(PORT_B);
-	case HPD_PORT_C:
-		return val & SHOTPLUG_CTL_DDI_HPD_LONG_DETECT(PORT_C);
-	default:
-		return false;
-	}
-}
-
-static bool icp_tc_port_hotplug_long_detect(enum hpd_pin pin, u32 val)
-{
-	switch (pin) {
-	case HPD_PORT_TC1:
-		return val & ICP_TC_HPD_LONG_DETECT(PORT_TC1);
-	case HPD_PORT_TC2:
-		return val & ICP_TC_HPD_LONG_DETECT(PORT_TC2);
-	case HPD_PORT_TC3:
-		return val & ICP_TC_HPD_LONG_DETECT(PORT_TC3);
-	case HPD_PORT_TC4:
-		return val & ICP_TC_HPD_LONG_DETECT(PORT_TC4);
-	case HPD_PORT_TC5:
-		return val & ICP_TC_HPD_LONG_DETECT(PORT_TC5);
-	case HPD_PORT_TC6:
-		return val & ICP_TC_HPD_LONG_DETECT(PORT_TC6);
-	default:
-		return false;
-	}
-}
-
-static bool spt_port_hotplug2_long_detect(enum hpd_pin pin, u32 val)
-{
-	switch (pin) {
-	case HPD_PORT_E:
-		return val & PORTE_HOTPLUG_LONG_DETECT;
-	default:
-		return false;
-	}
-}
-
-static bool spt_port_hotplug_long_detect(enum hpd_pin pin, u32 val)
-{
-	switch (pin) {
-	case HPD_PORT_A:
-		return val & PORTA_HOTPLUG_LONG_DETECT;
-	case HPD_PORT_B:
-		return val & PORTB_HOTPLUG_LONG_DETECT;
-	case HPD_PORT_C:
-		return val & PORTC_HOTPLUG_LONG_DETECT;
-	case HPD_PORT_D:
-		return val & PORTD_HOTPLUG_LONG_DETECT;
-	default:
-		return false;
-	}
-}
-
-static bool ilk_port_hotplug_long_detect(enum hpd_pin pin, u32 val)
-{
-	switch (pin) {
-	case HPD_PORT_A:
-		return val & DIGITAL_PORTA_HOTPLUG_LONG_DETECT;
-	default:
-		return false;
-	}
-}
-
-static bool pch_port_hotplug_long_detect(enum hpd_pin pin, u32 val)
-{
-	switch (pin) {
-	case HPD_PORT_B:
-		return val & PORTB_HOTPLUG_LONG_DETECT;
-	case HPD_PORT_C:
-		return val & PORTC_HOTPLUG_LONG_DETECT;
-	case HPD_PORT_D:
-		return val & PORTD_HOTPLUG_LONG_DETECT;
-	default:
-		return false;
-	}
-}
-
-static bool i9xx_port_hotplug_long_detect(enum hpd_pin pin, u32 val)
-{
-	switch (pin) {
-	case HPD_PORT_B:
-		return val & PORTB_HOTPLUG_INT_LONG_PULSE;
-	case HPD_PORT_C:
-		return val & PORTC_HOTPLUG_INT_LONG_PULSE;
-	case HPD_PORT_D:
-		return val & PORTD_HOTPLUG_INT_LONG_PULSE;
-	default:
-		return false;
-	}
-}
-
 /*
  * Get a bit mask of pins that have triggered, and which ones may be long.
  * This can be called multiple times with the same masks to accumulate
@@ -1174,7 +1103,7 @@ static void intel_get_hpd_pins(struct drm_i915_private *dev_priv,
 			       u32 *pin_mask, u32 *long_mask,
 			       u32 hotplug_trigger, u32 dig_hotplug_reg,
 			       const u32 hpd[HPD_NUM_PINS],
-			       bool long_pulse_detect(enum hpd_pin pin, u32 val))
+			       const u32 hpd_long_detect[HPD_NUM_PINS])
 {
 	enum hpd_pin pin;
 
@@ -1186,7 +1115,7 @@ static void intel_get_hpd_pins(struct drm_i915_private *dev_priv,
 
 		*pin_mask |= BIT(pin);
 
-		if (long_pulse_detect(pin, dig_hotplug_reg))
+		if (hpd_long_detect[pin] & dig_hotplug_reg)
 			*long_mask |= BIT(pin);
 	}
 
@@ -1529,7 +1458,7 @@ static void i9xx_hpd_irq_handler(struct drm_i915_private *dev_priv,
 		intel_get_hpd_pins(dev_priv, &pin_mask, &long_mask,
 				   hotplug_trigger, hotplug_trigger,
 				   dev_priv->hotplug.hpd,
-				   i9xx_port_hotplug_long_detect);
+				   dev_priv->hotplug.hpd_long_detect);
 
 		intel_hpd_irq_handler(dev_priv, pin_mask, long_mask);
 	}
@@ -1729,7 +1658,7 @@ static void ibx_hpd_irq_handler(struct drm_i915_private *dev_priv,
 	intel_get_hpd_pins(dev_priv, &pin_mask, &long_mask,
 			   hotplug_trigger, dig_hotplug_reg,
 			   dev_priv->hotplug.pch_hpd,
-			   pch_port_hotplug_long_detect);
+			   dev_priv->hotplug.pch_hpd_long_detect);
 
 	intel_hpd_irq_handler(dev_priv, pin_mask, long_mask);
 }
@@ -1891,7 +1820,7 @@ static void icp_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 		intel_get_hpd_pins(dev_priv, &pin_mask, &long_mask,
 				   ddi_hotplug_trigger, dig_hotplug_reg,
 				   dev_priv->hotplug.pch_hpd,
-				   icp_ddi_port_hotplug_long_detect);
+				   dev_priv->hotplug.pch_hpd_long_detect);
 	}
 
 	if (tc_hotplug_trigger) {
@@ -1903,7 +1832,7 @@ static void icp_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 		intel_get_hpd_pins(dev_priv, &pin_mask, &long_mask,
 				   tc_hotplug_trigger, dig_hotplug_reg,
 				   dev_priv->hotplug.pch_hpd,
-				   icp_tc_port_hotplug_long_detect);
+				   dev_priv->hotplug.pch_hpd_long_detect);
 	}
 
 	if (pin_mask)
@@ -1929,7 +1858,7 @@ static void spt_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 		intel_get_hpd_pins(dev_priv, &pin_mask, &long_mask,
 				   hotplug_trigger, dig_hotplug_reg,
 				   dev_priv->hotplug.pch_hpd,
-				   spt_port_hotplug_long_detect);
+				   dev_priv->hotplug.pch_hpd_long_detect);
 	}
 
 	if (hotplug2_trigger) {
@@ -1941,7 +1870,7 @@ static void spt_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 		intel_get_hpd_pins(dev_priv, &pin_mask, &long_mask,
 				   hotplug2_trigger, dig_hotplug_reg,
 				   dev_priv->hotplug.pch_hpd,
-				   spt_port_hotplug2_long_detect);
+				   dev_priv->hotplug.pch_hpd_long_detect);
 	}
 
 	if (pin_mask)
@@ -1962,7 +1891,7 @@ static void ilk_hpd_irq_handler(struct drm_i915_private *dev_priv,
 	intel_get_hpd_pins(dev_priv, &pin_mask, &long_mask,
 			   hotplug_trigger, dig_hotplug_reg,
 			   dev_priv->hotplug.hpd,
-			   ilk_port_hotplug_long_detect);
+			   dev_priv->hotplug.hpd_long_detect);
 
 	intel_hpd_irq_handler(dev_priv, pin_mask, long_mask);
 }
@@ -2141,7 +2070,7 @@ static void bxt_hpd_irq_handler(struct drm_i915_private *dev_priv,
 	intel_get_hpd_pins(dev_priv, &pin_mask, &long_mask,
 			   hotplug_trigger, dig_hotplug_reg,
 			   dev_priv->hotplug.hpd,
-			   bxt_port_hotplug_long_detect);
+			   dev_priv->hotplug.hpd_long_detect);
 
 	intel_hpd_irq_handler(dev_priv, pin_mask, long_mask);
 }
@@ -2161,7 +2090,7 @@ static void gen11_hpd_irq_handler(struct drm_i915_private *dev_priv, u32 iir)
 		intel_get_hpd_pins(dev_priv, &pin_mask, &long_mask,
 				   trigger_tc, dig_hotplug_reg,
 				   dev_priv->hotplug.hpd,
-				   gen11_port_hotplug_long_detect);
+				   dev_priv->hotplug.hpd_long_detect);
 	}
 
 	if (trigger_tbt) {
@@ -2173,7 +2102,7 @@ static void gen11_hpd_irq_handler(struct drm_i915_private *dev_priv, u32 iir)
 		intel_get_hpd_pins(dev_priv, &pin_mask, &long_mask,
 				   trigger_tbt, dig_hotplug_reg,
 				   dev_priv->hotplug.hpd,
-				   gen11_port_hotplug_long_detect);
+				   dev_priv->hotplug.hpd_long_detect);
 	}
 
 	if (pin_mask)
