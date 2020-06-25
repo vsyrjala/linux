@@ -7683,6 +7683,7 @@ enum {
 	 GEN11_PIPE_PLANE5_FAULT)
 
 #define _HPD_PIN_DDI(hpd_pin)	((hpd_pin) - HPD_PORT_A)
+#define _HPD_PIN_TC(hpd_pin)	((hpd_pin) - HPD_PORT_TC1)
 
 #define GEN8_DE_PORT_ISR _MMIO(0x44440)
 #define GEN8_DE_PORT_IMR _MMIO(0x44444)
@@ -7760,27 +7761,27 @@ enum {
 #define GEN11_DE_HPD_IMR		_MMIO(0x44474)
 #define GEN11_DE_HPD_IIR		_MMIO(0x44478)
 #define GEN11_DE_HPD_IER		_MMIO(0x4447c)
-#define  GEN11_TC_HOTPLUG(tc_port)		(1 << ((tc_port) + 16))
-#define  GEN11_DE_TC_HOTPLUG_MASK		(GEN11_TC_HOTPLUG(TC_PORT_TC6) | \
-						 GEN11_TC_HOTPLUG(TC_PORT_TC5) | \
-						 GEN11_TC_HOTPLUG(TC_PORT_TC4) | \
-						 GEN11_TC_HOTPLUG(TC_PORT_TC3) | \
-						 GEN11_TC_HOTPLUG(TC_PORT_TC2) | \
-						 GEN11_TC_HOTPLUG(TC_PORT_TC1))
-#define  GEN11_TBT_HOTPLUG(tc_port)		(1 << (tc_port))
-#define  GEN11_DE_TBT_HOTPLUG_MASK		(GEN11_TBT_HOTPLUG(TC_PORT_TC6) | \
-						 GEN11_TBT_HOTPLUG(TC_PORT_TC5) | \
-						 GEN11_TBT_HOTPLUG(TC_PORT_TC4) | \
-						 GEN11_TBT_HOTPLUG(TC_PORT_TC3) | \
-						 GEN11_TBT_HOTPLUG(TC_PORT_TC2) | \
-						 GEN11_TBT_HOTPLUG(TC_PORT_TC1))
+#define  GEN11_TC_HOTPLUG(hpd_pin)		REG_BIT(16 + _HPD_PIN_TC(hpd_pin))
+#define  GEN11_DE_TC_HOTPLUG_MASK		(GEN11_TC_HOTPLUG(HPD_PORT_TC6) | \
+						 GEN11_TC_HOTPLUG(HPD_PORT_TC5) | \
+						 GEN11_TC_HOTPLUG(HPD_PORT_TC4) | \
+						 GEN11_TC_HOTPLUG(HPD_PORT_TC3) | \
+						 GEN11_TC_HOTPLUG(HPD_PORT_TC2) | \
+						 GEN11_TC_HOTPLUG(HPD_PORT_TC1))
+#define  GEN11_TBT_HOTPLUG(hpd_pin)		REG_BIT(_HPD_PIN_TC(hpd_pin))
+#define  GEN11_DE_TBT_HOTPLUG_MASK		(GEN11_TBT_HOTPLUG(HPD_PORT_TC6) | \
+						 GEN11_TBT_HOTPLUG(HPD_PORT_TC5) | \
+						 GEN11_TBT_HOTPLUG(HPD_PORT_TC4) | \
+						 GEN11_TBT_HOTPLUG(HPD_PORT_TC3) | \
+						 GEN11_TBT_HOTPLUG(HPD_PORT_TC2) | \
+						 GEN11_TBT_HOTPLUG(HPD_PORT_TC1))
 
 #define GEN11_TBT_HOTPLUG_CTL				_MMIO(0x44030)
 #define GEN11_TC_HOTPLUG_CTL				_MMIO(0x44038)
-#define  GEN11_HOTPLUG_CTL_ENABLE(tc_port)		(8 << (tc_port) * 4)
-#define  GEN11_HOTPLUG_CTL_LONG_DETECT(tc_port)		(2 << (tc_port) * 4)
-#define  GEN11_HOTPLUG_CTL_SHORT_DETECT(tc_port)	(1 << (tc_port) * 4)
-#define  GEN11_HOTPLUG_CTL_NO_DETECT(tc_port)		(0 << (tc_port) * 4)
+#define  GEN11_HOTPLUG_CTL_ENABLE(hpd_pin)		(8 << (_HPD_PIN_TC(hpd_pin) * 4))
+#define  GEN11_HOTPLUG_CTL_LONG_DETECT(hpd_pin)		(2 << (_HPD_PIN_TC(hpd_pin) * 4))
+#define  GEN11_HOTPLUG_CTL_SHORT_DETECT(hpd_pin)	(1 << (_HPD_PIN_TC(hpd_pin) * 4))
+#define  GEN11_HOTPLUG_CTL_NO_DETECT(hpd_pin)		(0 << (_HPD_PIN_TC(hpd_pin) * 4))
 
 #define GEN11_GT_INTR_DW0		_MMIO(0x190018)
 #define  GEN11_CSME			(31)
@@ -8212,23 +8213,23 @@ enum {
 
 /* south display engine interrupt: ICP/TGP */
 #define SDE_GMBUS_ICP			(1 << 23)
-#define SDE_TC_HOTPLUG_ICP(tc_port)	(1 << ((tc_port) + 24))
+#define SDE_TC_HOTPLUG_ICP(hpd_pin)	REG_BIT(24 + _HPD_PIN_TC(hpd_pin))
 #define SDE_DDI_HOTPLUG_ICP(hpd_pin)	REG_BIT(16 + _HPD_PIN_DDI(hpd_pin))
 #define SDE_DDI_MASK_ICP		(SDE_DDI_HOTPLUG_ICP(HPD_PORT_B) | \
 					 SDE_DDI_HOTPLUG_ICP(HPD_PORT_A))
-#define SDE_TC_MASK_ICP			(SDE_TC_HOTPLUG_ICP(TC_PORT_TC4) | \
-					 SDE_TC_HOTPLUG_ICP(TC_PORT_TC3) | \
-					 SDE_TC_HOTPLUG_ICP(TC_PORT_TC2) | \
-					 SDE_TC_HOTPLUG_ICP(TC_PORT_TC1))
+#define SDE_TC_MASK_ICP			(SDE_TC_HOTPLUG_ICP(HPD_PORT_TC4) | \
+					 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC3) | \
+					 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC2) | \
+					 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC1))
 #define SDE_DDI_MASK_TGP		(SDE_DDI_HOTPLUG_ICP(HPD_PORT_C) | \
 					 SDE_DDI_HOTPLUG_ICP(HPD_PORT_B) | \
 					 SDE_DDI_HOTPLUG_ICP(HPD_PORT_A))
-#define SDE_TC_MASK_TGP			(SDE_TC_HOTPLUG_ICP(TC_PORT_TC6) | \
-					 SDE_TC_HOTPLUG_ICP(TC_PORT_TC5) | \
-					 SDE_TC_HOTPLUG_ICP(TC_PORT_TC4) | \
-					 SDE_TC_HOTPLUG_ICP(TC_PORT_TC3) | \
-					 SDE_TC_HOTPLUG_ICP(TC_PORT_TC2) | \
-					 SDE_TC_HOTPLUG_ICP(TC_PORT_TC1))
+#define SDE_TC_MASK_TGP			(SDE_TC_HOTPLUG_ICP(HPD_PORT_TC6) | \
+					 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC5) | \
+					 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC4) | \
+					 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC3) | \
+					 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC2) | \
+					 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC1))
 
 #define SDEISR  _MMIO(0xc4000)
 #define SDEIMR  _MMIO(0xc4004)
@@ -8296,15 +8297,15 @@ enum {
  */
 
 #define SHOTPLUG_CTL_DDI				_MMIO(0xc4030)
-#define   SHOTPLUG_CTL_DDI_HPD_ENABLE(port)		(0x8 << (4 * (port)))
-#define   SHOTPLUG_CTL_DDI_HPD_STATUS_MASK(port)	(0x3 << (4 * (port)))
-#define   SHOTPLUG_CTL_DDI_HPD_NO_DETECT(port)		(0x0 << (4 * (port)))
-#define   SHOTPLUG_CTL_DDI_HPD_SHORT_DETECT(port)	(0x1 << (4 * (port)))
-#define   SHOTPLUG_CTL_DDI_HPD_LONG_DETECT(port)	(0x2 << (4 * (port)))
-#define   SHOTPLUG_CTL_DDI_HPD_SHORT_LONG_DETECT(port)	(0x3 << (4 * (port)))
+#define   SHOTPLUG_CTL_DDI_HPD_ENABLE(hpd_pin)			(0x8 << (_HPD_PIN_DDI(hpd_pin) * 4))
+#define   SHOTPLUG_CTL_DDI_HPD_STATUS_MASK(hpd_pin)		(0x3 << (_HPD_PIN_DDI(hpd_pin) * 4))
+#define   SHOTPLUG_CTL_DDI_HPD_NO_DETECT(hpd_pin)		(0x0 << (_HPD_PIN_DDI(hpd_pin) * 4))
+#define   SHOTPLUG_CTL_DDI_HPD_SHORT_DETECT(hpd_pin)		(0x1 << (_HPD_PIN_DDI(hpd_pin) * 4))
+#define   SHOTPLUG_CTL_DDI_HPD_LONG_DETECT(hpd_pin)		(0x2 << (_HPD_PIN_DDI(hpd_pin) * 4))
+#define   SHOTPLUG_CTL_DDI_HPD_SHORT_LONG_DETECT(hpd_pin)	(0x3 << (_HPD_PIN_DDI(hpd_pin) * 4))
 
 #define SHOTPLUG_CTL_TC				_MMIO(0xc4034)
-#define   ICP_TC_HPD_ENABLE(tc_port)		(8 << (tc_port) * 4)
+#define   ICP_TC_HPD_ENABLE(hpd_pin)		(8 << (_HPD_PIN_TC(hpd_pin) * 4))
 
 #define SHPD_FILTER_CNT				_MMIO(0xc4038)
 #define   SHPD_FILTER_CNT_500_ADJ		0x001D9
@@ -8413,20 +8414,20 @@ enum {
 							_ICL_DSC1_RC_RANGE_PARAMETERS_3_UDW_PB, \
 							_ICL_DSC1_RC_RANGE_PARAMETERS_3_UDW_PC)
 
-#define   ICP_TC_HPD_LONG_DETECT(tc_port)	(2 << (tc_port) * 4)
-#define   ICP_TC_HPD_SHORT_DETECT(tc_port)	(1 << (tc_port) * 4)
+#define   ICP_TC_HPD_LONG_DETECT(hpd_pin)	(2 << (_HPD_PIN_TC(hpd_pin) * 4))
+#define   ICP_TC_HPD_SHORT_DETECT(hpd_pin)	(1 << (_HPD_PIN_TC(hpd_pin) * 4))
 
-#define ICP_DDI_HPD_ENABLE_MASK		(SHOTPLUG_CTL_DDI_HPD_ENABLE(PORT_B) | \
-					 SHOTPLUG_CTL_DDI_HPD_ENABLE(PORT_A))
-#define ICP_TC_HPD_ENABLE_MASK		(ICP_TC_HPD_ENABLE(TC_PORT_TC4) | \
-					 ICP_TC_HPD_ENABLE(TC_PORT_TC3) | \
-					 ICP_TC_HPD_ENABLE(TC_PORT_TC2) | \
-					 ICP_TC_HPD_ENABLE(TC_PORT_TC1))
-#define TGP_DDI_HPD_ENABLE_MASK		(SHOTPLUG_CTL_DDI_HPD_ENABLE(PORT_C) | \
-					 SHOTPLUG_CTL_DDI_HPD_ENABLE(PORT_B) | \
-					 SHOTPLUG_CTL_DDI_HPD_ENABLE(PORT_A))
-#define TGP_TC_HPD_ENABLE_MASK		(ICP_TC_HPD_ENABLE(TC_PORT_TC6) | \
-					 ICP_TC_HPD_ENABLE(TC_PORT_TC5) | \
+#define ICP_DDI_HPD_ENABLE_MASK		(SHOTPLUG_CTL_DDI_HPD_ENABLE(HPD_PORT_B) | \
+					 SHOTPLUG_CTL_DDI_HPD_ENABLE(HPD_PORT_A))
+#define ICP_TC_HPD_ENABLE_MASK		(ICP_TC_HPD_ENABLE(HPD_PORT_TC4) | \
+					 ICP_TC_HPD_ENABLE(HPD_PORT_TC3) | \
+					 ICP_TC_HPD_ENABLE(HPD_PORT_TC2) | \
+					 ICP_TC_HPD_ENABLE(HPD_PORT_TC1))
+#define TGP_DDI_HPD_ENABLE_MASK		(SHOTPLUG_CTL_DDI_HPD_ENABLE(HPD_PORT_C) | \
+					 SHOTPLUG_CTL_DDI_HPD_ENABLE(HPD_PORT_B) | \
+					 SHOTPLUG_CTL_DDI_HPD_ENABLE(HPD_PORT_A))
+#define TGP_TC_HPD_ENABLE_MASK		(ICP_TC_HPD_ENABLE(HPD_PORT_TC6) | \
+					 ICP_TC_HPD_ENABLE(HPD_PORT_TC5) | \
 					 ICP_TC_HPD_ENABLE_MASK)
 
 #define _PCH_DPLL_A              0xc6014
