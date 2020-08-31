@@ -2575,6 +2575,34 @@ intel_dp_compute_hdr_metadata_infoframe_sdp(struct intel_dp *intel_dp,
 		intel_hdmi_infoframe_enable(HDMI_PACKET_TYPE_GAMUT_METADATA);
 }
 
+static void
+intel_dp_drrs_compute_config(struct intel_dp *intel_dp,
+			     struct intel_crtc_state *pipe_config,
+			     int output_bpp, bool constant_n)
+{
+	struct intel_connector *intel_connector = intel_dp->attached_connector;
+	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+
+	/*
+	 * DRRS and PSR can't be enable together, so giving preference to PSR
+	 * as it allows more power-savings by complete shutting down display,
+	 * so to guarantee this, intel_dp_drrs_compute_config() must be called
+	 * after intel_psr_compute_config().
+	 */
+	if (pipe_config->has_psr)
+		return;
+
+	if (!intel_connector->panel.downclock_mode ||
+	    dev_priv->drrs.type != SEAMLESS_DRRS_SUPPORT)
+		return;
+
+	pipe_config->has_drrs = true;
+	intel_link_compute_m_n(output_bpp, pipe_config->lane_count,
+			       intel_connector->panel.downclock_mode->clock,
+			       pipe_config->port_clock, &pipe_config->dp_m2_n2,
+			       constant_n, pipe_config->fec_enable);
+}
+
 int
 intel_dp_compute_config(struct intel_encoder *encoder,
 			struct intel_crtc_state *pipe_config,
@@ -2605,7 +2633,6 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	if (ret)
 		return ret;
 
-	pipe_config->has_drrs = false;
 	if (!intel_dp_port_has_audio(dev_priv, port))
 		pipe_config->has_audio = false;
 	else if (intel_conn_state->force_audio == HDMI_AUDIO_AUTO)
@@ -2657,21 +2684,12 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 			       &pipe_config->dp_m_n,
 			       constant_n, pipe_config->fec_enable);
 
-	if (intel_connector->panel.downclock_mode != NULL &&
-		dev_priv->drrs.type == SEAMLESS_DRRS_SUPPORT) {
-			pipe_config->has_drrs = true;
-			intel_link_compute_m_n(output_bpp,
-					       pipe_config->lane_count,
-					       intel_connector->panel.downclock_mode->clock,
-					       pipe_config->port_clock,
-					       &pipe_config->dp_m2_n2,
-					       constant_n, pipe_config->fec_enable);
-	}
-
 	if (!HAS_DDI(dev_priv))
 		intel_dp_set_clock(encoder, pipe_config);
 
 	intel_psr_compute_config(intel_dp, pipe_config);
+	intel_dp_drrs_compute_config(intel_dp, pipe_config, output_bpp,
+				     constant_n);
 	intel_dp_compute_vsc_sdp(intel_dp, pipe_config, conn_state);
 	intel_dp_compute_hdr_metadata_infoframe_sdp(intel_dp, pipe_config, conn_state);
 
@@ -7718,6 +7736,15 @@ static void intel_dp_set_drrs_state(struct drm_i915_private *dev_priv,
 		    refresh_rate);
 }
 
+static void
+intel_edp_drrs_enable_locked(struct intel_dp *intel_dp)
+{
+	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+
+	dev_priv->drrs.busy_frontbuffer_bits = 0;
+	dev_priv->drrs.dp = intel_dp;
+}
+
 /**
  * intel_edp_drrs_enable - init drrs struct if supported
  * @intel_dp: DP struct
@@ -7730,29 +7757,38 @@ void intel_edp_drrs_enable(struct intel_dp *intel_dp,
 {
 	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
 
-	if (!crtc_state->has_drrs) {
-		drm_dbg_kms(&dev_priv->drm, "Panel doesn't support DRRS\n");
+	if (!crtc_state->has_drrs)
 		return;
-	}
 
-	if (dev_priv->psr.enabled) {
-		drm_dbg_kms(&dev_priv->drm,
-			    "PSR enabled. Not enabling DRRS.\n");
-		return;
-	}
+	drm_dbg_kms(&dev_priv->drm, "Enabling DRRS\n");
 
 	mutex_lock(&dev_priv->drrs.mutex);
+
 	if (dev_priv->drrs.dp) {
-		drm_dbg_kms(&dev_priv->drm, "DRRS already enabled\n");
+		drm_warn(&dev_priv->drm, "DRRS already enabled\n");
 		goto unlock;
 	}
 
-	dev_priv->drrs.busy_frontbuffer_bits = 0;
-
-	dev_priv->drrs.dp = intel_dp;
+	intel_edp_drrs_enable_locked(intel_dp);
 
 unlock:
 	mutex_unlock(&dev_priv->drrs.mutex);
+}
+
+static void
+intel_edp_drrs_disable_locked(struct intel_dp *intel_dp,
+			      const struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+
+	if (dev_priv->drrs.refresh_rate_type == DRRS_LOW_RR) {
+		int refresh;
+
+		refresh = drm_mode_vrefresh(intel_dp->attached_connector->panel.fixed_mode);
+		intel_dp_set_drrs_state(dev_priv, crtc_state, refresh);
+	}
+
+	dev_priv->drrs.dp = NULL;
 }
 
 /**
@@ -7775,14 +7811,43 @@ void intel_edp_drrs_disable(struct intel_dp *intel_dp,
 		return;
 	}
 
-	if (dev_priv->drrs.refresh_rate_type == DRRS_LOW_RR)
-		intel_dp_set_drrs_state(dev_priv, old_crtc_state,
-			drm_mode_vrefresh(intel_dp->attached_connector->panel.fixed_mode));
-
-	dev_priv->drrs.dp = NULL;
+	intel_edp_drrs_disable_locked(intel_dp, old_crtc_state);
 	mutex_unlock(&dev_priv->drrs.mutex);
 
 	cancel_delayed_work_sync(&dev_priv->drrs.work);
+}
+
+/**
+ * intel_edp_drrs_update - Update DRRS state
+ * @intel_dp: Intel DP
+ * @crtc_state: new CRTC state
+ *
+ * This function will update DRRS states, disabling or enabling DRRS when
+ * executing fastsets. For full modeset, intel_edp_drrs_disable() and
+ * intel_edp_drrs_enable() should be called instead.
+ */
+void
+intel_edp_drrs_update(struct intel_dp *intel_dp,
+		      const struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = dp_to_i915(intel_dp);
+
+	if (dev_priv->drrs.type != SEAMLESS_DRRS_SUPPORT)
+		return;
+
+	mutex_lock(&dev_priv->drrs.mutex);
+
+	/* New state matches current one? */
+	if (crtc_state->has_drrs == !!dev_priv->drrs.dp)
+		goto unlock;
+
+	if (crtc_state->has_drrs)
+		intel_edp_drrs_enable_locked(intel_dp);
+	else
+		intel_edp_drrs_disable_locked(intel_dp, crtc_state);
+
+unlock:
+	mutex_unlock(&dev_priv->drrs.mutex);
 }
 
 static void intel_edp_drrs_downclock_work(struct work_struct *work)
