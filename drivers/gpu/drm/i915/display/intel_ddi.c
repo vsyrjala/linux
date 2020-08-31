@@ -2273,11 +2273,8 @@ static void _skl_ddi_set_iboost(struct drm_i915_private *dev_priv,
 	u32 tmp;
 
 	tmp = intel_de_read(dev_priv, DISPIO_CR_TX_BMU_CR0);
-	tmp &= ~(BALANCE_LEG_MASK(port) | BALANCE_LEG_DISABLE(port));
-	if (iboost)
-		tmp |= iboost << BALANCE_LEG_SHIFT(port);
-	else
-		tmp |= BALANCE_LEG_DISABLE(port);
+	tmp &= ~(BALANCE_LEG_MASK(port) | BALANCE_LEG_DISABLE_MASK);
+	tmp |= iboost << BALANCE_LEG_SHIFT(port);
 	intel_de_write(dev_priv, DISPIO_CR_TX_BMU_CR0, tmp);
 }
 

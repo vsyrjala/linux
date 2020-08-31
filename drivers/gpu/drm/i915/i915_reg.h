@@ -2433,6 +2433,7 @@ static inline bool i915_mmio_reg_valid(i915_reg_t reg)
 /* Balance leg disable bits */
 #define BALANCE_LEG_DISABLE_SHIFT	23
 #define BALANCE_LEG_DISABLE(port)	(1 << (23 + (port)))
+#define BALANCE_LEG_DISABLE_MASK	(0x1f << 23)
 
 /*
  * Fence registers
