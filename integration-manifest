@@ -1,0 +1,34 @@
+drm drm-fixes 2a3f9da32de4616f0104209194e9bd3dfae092c9
+	Merge tag 'drm-intel-fixes-2020-08-27' of git://anongit.freedesktop.org/drm/drm-intel into drm-fixes
+drm-misc drm-misc-fixes fd90e3808fd2c207560270c39b86b71af2231aa1
+	drm/sun4i: Fix dsi dcs long write function
+drm-intel drm-intel-fixes e5f10d6385cda083037915c12b130887c8831d2b
+	drm/i915: Fix cmd parser desc matching with masks
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm drm-next 3393649977f9a8847c659e282ea290d4b703295c
+	Merge tag 'drm-intel-next-2020-08-24-1' of git://anongit.freedesktop.org/drm/drm-intel into drm-next
+drm-misc drm-misc-next-fixes 62975d27d647a40c58d3b96c29b911fc4f33c310
+	drm/ttm: revert "drm/ttm: make TT creation purely optional v3"
+drm-intel drm-intel-next-fixes 9123e3a74ec7b934a4a099e98af6a61c2f80bbf5
+	Linux 5.9-rc1
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next bfacb84993eb173c0ab53ca4dd6180f76f4dc176
+	drm: virtio: fix kconfig dependency warning
+drm-intel drm-intel-next-queued d452bd091e168f75ec2807c30eec1f7be918c737
+	drm/i915: break TGL pci-ids in GT 1 & 2
+drm-intel drm-intel-next ced026e959bec5046afa310d6474e147b6294da2
+	drm/i915: Update DRIVER_DATE to 20200824
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus 858e0ad9301d1270c02b5aca97537d2d6ee9dd68
+	ALSA: hda/hdmi: always check pin power status in i915 pin fixup
+sound-upstream for-next 685a04a53747d07d22f5139c04ae35745200a91d
+	ALSA: hda/ca0132 - Add AE-7 exit commands.
+drm-intel topic/core-for-CI 5a88ca3607993082ad90cac768d50c3b1e2b458e
+	HAX sched/core: Paper over the ttwu() race
+drm-misc topic/phy-compliance 8cdf727119289db3a98835662eb28e1c5ad835f1
+	drm/i915/dp: Program vswing, pre-emphasis, test-pattern
+drm-intel topic/drm-intel-gem-next 19029a5b66d0e1f01dcfa5b70a3ab57e7bf538f5
+	drm/i915: Do not share hwsp across contexts any more
