@@ -347,6 +347,10 @@ static void gen7_fbc_activate(struct drm_i915_private *dev_priv)
 	if (dev_priv->fbc.false_color)
 		dpfc_ctl |= FBC_CTL_FALSE_COLOR;
 
+	dpfc_ctl |= 1 << 15; // disable slb init flush
+	dpfc_ctl |= 3 << 8; // refill watermark max
+	dpfc_ctl |= 3 << 4; // write back watermark max
+
 	intel_de_write(dev_priv, ILK_DPFC_CONTROL, dpfc_ctl | DPFC_CTL_EN);
 
 	intel_fbc_recompress(dev_priv);
