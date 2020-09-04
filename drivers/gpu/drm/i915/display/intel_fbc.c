@@ -742,6 +742,7 @@ static void intel_fbc_update_state_cache(struct intel_crtc *crtc,
 		cache->fence_id = plane_state->vma->fence->id;
 	else
 		cache->fence_id = -1;
+	cache->fence_id = -1; // hack: disable hw gtt tracking always
 }
 
 static bool intel_fbc_cfb_size_changed(struct drm_i915_private *dev_priv)
