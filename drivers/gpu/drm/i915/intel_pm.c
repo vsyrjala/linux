@@ -7143,6 +7143,24 @@ static void tgl_init_clock_gating(struct drm_i915_private *dev_priv)
 	/* Wa_14011059788:tgl */
 	intel_uncore_rmw(&dev_priv->uncore, GEN10_DFR_RATIO_EN_AND_CHICKEN,
 			 0, DFR_DISABLE);
+
+	I915_WRITE(DISP_ARB_CTL, I915_READ(DISP_ARB_CTL) |
+		   DISP_FBC_MEMORY_WAKE |
+		   DISP_FBC_WM_DIS);
+	I915_WRITE(DISP_ARB_CTL_ABOX1, I915_READ(DISP_ARB_CTL_ABOX1) |
+		   DISP_FBC_MEMORY_WAKE |
+		   DISP_FBC_WM_DIS);
+	I915_WRITE(DISP_ARB_CTL_ABOX2, I915_READ(DISP_ARB_CTL_ABOX2) |
+		   DISP_FBC_MEMORY_WAKE |
+		   DISP_FBC_WM_DIS);
+
+	// fbc request limit max
+	I915_WRITE(DISP_ARB_CTL2, I915_READ(DISP_ARB_CTL2) |
+		   3 << 16);
+	I915_WRITE(DISP_ARB_CTL2_ABOX1, I915_READ(DISP_ARB_CTL2_ABOX1) |
+		   3 << 16);
+	I915_WRITE(DISP_ARB_CTL2_ABOX2, I915_READ(DISP_ARB_CTL2_ABOX2) |
+		   3 << 16);
 }
 
 static void cnp_init_clock_gating(struct drm_i915_private *dev_priv)
