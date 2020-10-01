@@ -12852,7 +12852,7 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
 
 	if (mode_changed && crtc_state->hw.enable &&
 	    dev_priv->display.crtc_get_shared_dpll &&
-	    !drm_WARN_ON(&dev_priv->drm, crtc_state->shared_dpll)) {
+	    !crtc_state->shared_dpll) {
 		ret = dev_priv->display.crtc_get_shared_dpll(state, crtc);
 		if (ret)
 			return ret;
@@ -15236,6 +15236,9 @@ static int intel_atomic_check(struct drm_device *dev,
 		goto fail;
 	}
 
+	if (any_ms)
+		intel_modeset_clear_plls(state);
+
 	ret = drm_dp_mst_atomic_check(&state->base);
 	if (ret)
 		goto fail;
@@ -15279,8 +15282,6 @@ static int intel_atomic_check(struct drm_device *dev,
 		ret = intel_modeset_calc_cdclk(state);
 		if (ret)
 			return ret;
-
-		intel_modeset_clear_plls(state);
 	}
 
 	ret = intel_atomic_check_crtcs(state);
