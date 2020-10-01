@@ -10469,7 +10469,7 @@ static int ilk_crtc_compute_clock(struct intel_atomic_state *state,
 
 	ilk_compute_dpll(crtc, crtc_state, NULL);
 
-	return 0;
+	return intel_compute_shared_dplls(state, crtc, NULL);
 }
 
 
@@ -10896,7 +10896,18 @@ out:
 static int hsw_crtc_compute_clock(struct intel_atomic_state *state,
 				  struct intel_crtc *crtc)
 {
-	return 0;
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+	struct intel_encoder *encoder;
+
+	if (INTEL_GEN(dev_priv) < 11 &&
+	    intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DSI))
+		return 0;
+
+	encoder = intel_get_crtc_new_encoder(state, crtc_state);
+
+	return intel_compute_shared_dplls(state, crtc, encoder);
 }
 
 static int hsw_crtc_get_shared_dpll(struct intel_atomic_state *state,
