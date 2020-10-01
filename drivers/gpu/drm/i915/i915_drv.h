@@ -286,6 +286,8 @@ struct drm_i915_display_funcs {
 					 struct intel_initial_plane_config *);
 	int (*crtc_compute_clock)(struct intel_atomic_state *state,
 				  struct intel_crtc *crtc);
+	int (*crtc_get_shared_dpll)(struct intel_atomic_state *state,
+				    struct intel_crtc *crtc);
 	void (*crtc_enable)(struct intel_atomic_state *state,
 			    struct intel_crtc *crtc);
 	void (*crtc_disable)(struct intel_atomic_state *state,

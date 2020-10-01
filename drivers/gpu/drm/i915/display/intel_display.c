@@ -10469,6 +10469,21 @@ static int ilk_crtc_compute_clock(struct intel_atomic_state *state,
 
 	ilk_compute_dpll(crtc, crtc_state, NULL);
 
+	return 0;
+}
+
+
+static int ilk_crtc_get_shared_dpll(struct intel_atomic_state *state,
+				    struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+
+	/* CPU eDP is the only output that doesn't need a PCH PLL of its own. */
+	if (!crtc_state->has_pch_encoder)
+		return 0;
+
 	if (!intel_reserve_shared_dplls(state, crtc, NULL)) {
 		drm_dbg_kms(&dev_priv->drm,
 			    "failed to find PLL for pipe %c\n",
@@ -10881,21 +10896,28 @@ out:
 static int hsw_crtc_compute_clock(struct intel_atomic_state *state,
 				  struct intel_crtc *crtc)
 {
+	return 0;
+}
+
+static int hsw_crtc_get_shared_dpll(struct intel_atomic_state *state,
+				    struct intel_crtc *crtc)
+{
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	struct intel_crtc_state *crtc_state =
 		intel_atomic_get_new_crtc_state(state, crtc);
+	struct intel_encoder *encoder;
 
-	if (!intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DSI) ||
-	    INTEL_GEN(dev_priv) >= 11) {
-		struct intel_encoder *encoder =
-			intel_get_crtc_new_encoder(state, crtc_state);
+	if (INTEL_GEN(dev_priv) < 11 &&
+	    intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DSI))
+		return 0;
 
-		if (!intel_reserve_shared_dplls(state, crtc, encoder)) {
-			drm_dbg_kms(&dev_priv->drm,
-				    "failed to find PLL for pipe %c\n",
-				    pipe_name(crtc->pipe));
-			return -EINVAL;
-		}
+	encoder = intel_get_crtc_new_encoder(state, crtc_state);
+
+	if (!intel_reserve_shared_dplls(state, crtc, encoder)) {
+		drm_dbg_kms(&dev_priv->drm,
+			    "failed to find PLL for pipe %c\n",
+			    pipe_name(crtc->pipe));
+		return -EINVAL;
 	}
 
 	return 0;
@@ -12822,6 +12844,12 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
 		ret = dev_priv->display.crtc_compute_clock(state, crtc);
 		if (ret)
 			return ret;
+
+		if (dev_priv->display.crtc_get_shared_dpll) {
+			ret = dev_priv->display.crtc_get_shared_dpll(state, crtc);
+			if (ret)
+				return ret;
+		}
 	}
 
 	/*
@@ -17703,6 +17731,7 @@ void intel_init_display_hooks(struct drm_i915_private *dev_priv)
 		dev_priv->display.get_initial_plane_config =
 			skl_get_initial_plane_config;
 		dev_priv->display.crtc_compute_clock = hsw_crtc_compute_clock;
+		dev_priv->display.crtc_get_shared_dpll = hsw_crtc_get_shared_dpll;
 		dev_priv->display.crtc_enable = hsw_crtc_enable;
 		dev_priv->display.crtc_disable = hsw_crtc_disable;
 	} else if (HAS_DDI(dev_priv)) {
@@ -17711,6 +17740,7 @@ void intel_init_display_hooks(struct drm_i915_private *dev_priv)
 			i9xx_get_initial_plane_config;
 		dev_priv->display.crtc_compute_clock =
 			hsw_crtc_compute_clock;
+		dev_priv->display.crtc_get_shared_dpll = hsw_crtc_get_shared_dpll;
 		dev_priv->display.crtc_enable = hsw_crtc_enable;
 		dev_priv->display.crtc_disable = hsw_crtc_disable;
 	} else if (HAS_PCH_SPLIT(dev_priv)) {
@@ -17719,6 +17749,7 @@ void intel_init_display_hooks(struct drm_i915_private *dev_priv)
 			i9xx_get_initial_plane_config;
 		dev_priv->display.crtc_compute_clock =
 			ilk_crtc_compute_clock;
+		dev_priv->display.crtc_get_shared_dpll = ilk_crtc_get_shared_dpll;
 		dev_priv->display.crtc_enable = ilk_crtc_enable;
 		dev_priv->display.crtc_disable = ilk_crtc_disable;
 	} else if (IS_CHERRYVIEW(dev_priv)) {
