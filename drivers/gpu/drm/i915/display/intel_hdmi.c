@@ -2775,8 +2775,9 @@ static void vlv_hdmi_pre_enable(struct intel_atomic_state *state,
 	vlv_phy_pre_encoder_enable(encoder, pipe_config);
 
 	/* HDMI 1.0V-2dB */
-	vlv_set_phy_signal_level(encoder, 0x2b245f5f, 0x00002000, 0x5578b83a,
-				 0x2b247878);
+	vlv_set_phy_signal_level(encoder, pipe_config,
+				 0x2b245f5f, 0x00002000,
+				 0x5578b83a, 0x2b247878);
 
 	dig_port->set_infoframes(encoder,
 			      pipe_config->has_infoframe,
@@ -2853,7 +2854,7 @@ static void chv_hdmi_pre_enable(struct intel_atomic_state *state,
 
 	/* FIXME: Program the support xxx V-dB */
 	/* Use 800mV-0dB */
-	chv_set_phy_signal_level(encoder, 128, 102, false);
+	chv_set_phy_signal_level(encoder, pipe_config, 128, 102, false);
 
 	dig_port->set_infoframes(encoder,
 			      pipe_config->has_infoframe,
@@ -3214,7 +3215,7 @@ void intel_infoframe_init(struct intel_digital_port *dig_port)
 		dig_port->set_infoframes = g4x_set_infoframes;
 		dig_port->infoframes_enabled = g4x_infoframes_enabled;
 	} else if (HAS_DDI(dev_priv)) {
-		if (dig_port->lspcon.active) {
+		if (intel_bios_is_lspcon_present(dev_priv, dig_port->base.port)) {
 			dig_port->write_infoframe = lspcon_write_infoframe;
 			dig_port->read_infoframe = lspcon_read_infoframe;
 			dig_port->set_infoframes = lspcon_set_infoframes;
