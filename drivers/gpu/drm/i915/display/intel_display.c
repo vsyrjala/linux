@@ -12851,16 +12851,11 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
 		crtc_state->update_wm_post = true;
 
 	if (mode_changed && crtc_state->hw.enable &&
+	    dev_priv->display.crtc_get_shared_dpll &&
 	    !drm_WARN_ON(&dev_priv->drm, crtc_state->shared_dpll)) {
-		ret = dev_priv->display.crtc_compute_clock(state, crtc);
+		ret = dev_priv->display.crtc_get_shared_dpll(state, crtc);
 		if (ret)
 			return ret;
-
-		if (dev_priv->display.crtc_get_shared_dpll) {
-			ret = dev_priv->display.crtc_get_shared_dpll(state, crtc);
-			if (ret)
-				return ret;
-		}
 	}
 
 	/*
@@ -15218,15 +15213,20 @@ static int intel_atomic_check(struct drm_device *dev,
 
 	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state,
 					    new_crtc_state, i) {
-		if (needs_modeset(new_crtc_state)) {
-			any_ms = true;
+		if (!needs_modeset(new_crtc_state)) {
+			if (new_crtc_state->update_pipe)
+				intel_crtc_copy_fastset(old_crtc_state, new_crtc_state);
 			continue;
 		}
 
-		if (!new_crtc_state->update_pipe)
+		any_ms = true;
+
+		if (!new_crtc_state->hw.enable)
 			continue;
 
-		intel_crtc_copy_fastset(old_crtc_state, new_crtc_state);
+		ret = dev_priv->display.crtc_compute_clock(state, crtc);
+		if (ret)
+			return ret;
 	}
 
 	if (any_ms && !check_digital_port_conflicts(state)) {
