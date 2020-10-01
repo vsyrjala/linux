@@ -9093,11 +9093,12 @@ static void i9xx_set_pipeconf(const struct intel_crtc_state *crtc_state)
 	intel_de_posting_read(dev_priv, PIPECONF(crtc->pipe));
 }
 
-static int i8xx_crtc_compute_clock(struct intel_crtc *crtc,
-				   struct intel_crtc_state *crtc_state)
+static int i8xx_crtc_compute_clock(struct intel_atomic_state *state,
+				   struct intel_crtc *crtc)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
 	const struct intel_limit *limit;
 	int refclk = 48000;
 
@@ -9132,10 +9133,12 @@ static int i8xx_crtc_compute_clock(struct intel_crtc *crtc,
 	return 0;
 }
 
-static int g4x_crtc_compute_clock(struct intel_crtc *crtc,
-				  struct intel_crtc_state *crtc_state)
+static int g4x_crtc_compute_clock(struct intel_atomic_state *state,
+				  struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
 	const struct intel_limit *limit;
 	int refclk = 96000;
 
@@ -9177,11 +9180,12 @@ static int g4x_crtc_compute_clock(struct intel_crtc *crtc,
 	return 0;
 }
 
-static int pnv_crtc_compute_clock(struct intel_crtc *crtc,
-				  struct intel_crtc_state *crtc_state)
+static int pnv_crtc_compute_clock(struct intel_atomic_state *state,
+				  struct intel_crtc *crtc)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
 	const struct intel_limit *limit;
 	int refclk = 96000;
 
@@ -9214,11 +9218,12 @@ static int pnv_crtc_compute_clock(struct intel_crtc *crtc,
 	return 0;
 }
 
-static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
-				   struct intel_crtc_state *crtc_state)
+static int i9xx_crtc_compute_clock(struct intel_atomic_state *state,
+				   struct intel_crtc *crtc)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
 	const struct intel_limit *limit;
 	int refclk = 96000;
 
@@ -9251,12 +9256,14 @@ static int i9xx_crtc_compute_clock(struct intel_crtc *crtc,
 	return 0;
 }
 
-static int chv_crtc_compute_clock(struct intel_crtc *crtc,
-				  struct intel_crtc_state *crtc_state)
+static int chv_crtc_compute_clock(struct intel_atomic_state *state,
+				  struct intel_crtc *crtc)
 {
-	int refclk = 100000;
+	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
 	const struct intel_limit *limit = &intel_limits_chv;
-	struct drm_i915_private *i915 = to_i915(crtc_state->uapi.crtc->dev);
+	int refclk = 100000;
 
 	memset(&crtc_state->dpll_hw_state, 0,
 	       sizeof(crtc_state->dpll_hw_state));
@@ -9273,12 +9280,14 @@ static int chv_crtc_compute_clock(struct intel_crtc *crtc,
 	return 0;
 }
 
-static int vlv_crtc_compute_clock(struct intel_crtc *crtc,
-				  struct intel_crtc_state *crtc_state)
+static int vlv_crtc_compute_clock(struct intel_atomic_state *state,
+				  struct intel_crtc *crtc)
 {
-	int refclk = 100000;
+	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
 	const struct intel_limit *limit = &intel_limits_vlv;
-	struct drm_i915_private *i915 = to_i915(crtc_state->uapi.crtc->dev);
+	int refclk = 100000;
 
 	memset(&crtc_state->dpll_hw_state, 0,
 	       sizeof(crtc_state->dpll_hw_state));
@@ -10411,12 +10420,12 @@ static void ilk_compute_dpll(struct intel_crtc *crtc,
 	crtc_state->dpll_hw_state.fp1 = fp2;
 }
 
-static int ilk_crtc_compute_clock(struct intel_crtc *crtc,
-				  struct intel_crtc_state *crtc_state)
+static int ilk_crtc_compute_clock(struct intel_atomic_state *state,
+				  struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	struct intel_atomic_state *state =
-		to_intel_atomic_state(crtc_state->uapi.state);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
 	const struct intel_limit *limit;
 	int refclk = 120000;
 
@@ -10869,12 +10878,12 @@ out:
 	return ret;
 }
 
-static int hsw_crtc_compute_clock(struct intel_crtc *crtc,
-				  struct intel_crtc_state *crtc_state)
+static int hsw_crtc_compute_clock(struct intel_atomic_state *state,
+				  struct intel_crtc *crtc)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	struct intel_atomic_state *state =
-		to_intel_atomic_state(crtc_state->uapi.state);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
 
 	if (!intel_crtc_has_type(crtc_state, INTEL_OUTPUT_DSI) ||
 	    INTEL_GEN(dev_priv) >= 11) {
@@ -12811,7 +12820,7 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
 	if (mode_changed && crtc_state->hw.enable &&
 	    dev_priv->display.crtc_compute_clock &&
 	    !drm_WARN_ON(&dev_priv->drm, crtc_state->shared_dpll)) {
-		ret = dev_priv->display.crtc_compute_clock(crtc, crtc_state);
+		ret = dev_priv->display.crtc_compute_clock(state, crtc);
 		if (ret)
 			return ret;
 	}
