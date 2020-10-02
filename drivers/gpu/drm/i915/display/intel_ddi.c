@@ -4002,6 +4002,7 @@ static void intel_enable_ddi_hdmi(struct intel_atomic_state *state,
 		 * a specific transcoder.
 		 */
 		i915_reg_t reg = gen9_chicken_trans_reg_by_port(dev_priv, port);
+		int level = intel_ddi_hdmi_level(encoder, crtc_state);
 		u32 val;
 
 		val = intel_de_read(dev_priv, reg);
@@ -4015,6 +4016,9 @@ static void intel_enable_ddi_hdmi(struct intel_atomic_state *state,
 
 		intel_de_write(dev_priv, reg, val);
 		intel_de_posting_read(dev_priv, reg);
+
+		intel_prepare_hdmi_ddi_buffers(encoder, level);
+		skl_ddi_set_iboost(encoder, crtc_state, level);
 
 		udelay(100);
 
