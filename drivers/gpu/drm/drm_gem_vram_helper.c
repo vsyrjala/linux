@@ -140,7 +140,7 @@ static void drm_gem_vram_placement(struct drm_gem_vram_object *gbo,
 	unsigned int c = 0;
 
 	if (pl_flag & DRM_GEM_VRAM_PL_FLAG_TOPDOWN)
-		pl_flag = TTM_PL_FLAG_TOPDOWN;
+		invariant_flags = TTM_PL_FLAG_TOPDOWN;
 
 	gbo->placement.placement = gbo->placements;
 	gbo->placement.busy_placement = gbo->placements;
@@ -167,57 +167,17 @@ static void drm_gem_vram_placement(struct drm_gem_vram_object *gbo,
 	}
 }
 
-/*
- * Note that on error, drm_gem_vram_init will free the buffer object.
- */
-
-static int drm_gem_vram_init(struct drm_device *dev,
-			     struct drm_gem_vram_object *gbo,
-			     size_t size, unsigned long pg_align)
-{
-	struct drm_vram_mm *vmm = dev->vram_mm;
-	struct ttm_bo_device *bdev;
-	int ret;
-	size_t acc_size;
-
-	if (WARN_ONCE(!vmm, "VRAM MM not initialized")) {
-		kfree(gbo);
-		return -EINVAL;
-	}
-	bdev = &vmm->bdev;
-
-	gbo->bo.base.funcs = &drm_gem_vram_object_funcs;
-
-	ret = drm_gem_object_init(dev, &gbo->bo.base, size);
-	if (ret) {
-		kfree(gbo);
-		return ret;
-	}
-
-	acc_size = ttm_bo_dma_acc_size(bdev, size, sizeof(*gbo));
-
-	gbo->bo.bdev = bdev;
-	drm_gem_vram_placement(gbo, DRM_GEM_VRAM_PL_FLAG_VRAM |
-			       DRM_GEM_VRAM_PL_FLAG_SYSTEM);
-
-	ret = ttm_bo_init(bdev, &gbo->bo, size, ttm_bo_type_device,
-			  &gbo->placement, pg_align, false, acc_size,
-			  NULL, NULL, ttm_buffer_object_destroy);
-	if (ret)
-		/*
-		 * A failing ttm_bo_init will call ttm_buffer_object_destroy
-		 * to release gbo->bo.base and kfree gbo.
-		 */
-		return ret;
-
-	return 0;
-}
-
 /**
  * drm_gem_vram_create() - Creates a VRAM-backed GEM object
  * @dev:		the DRM device
  * @size:		the buffer size in bytes
  * @pg_align:		the buffer's alignment in multiples of the page size
+ *
+ * GEM objects are allocated by calling struct drm_driver.gem_create_object,
+ * if set. Otherwise kzalloc() will be used. Drivers can set their own GEM
+ * object functions in struct drm_driver.gem_create_object. If no functions
+ * are set, the new GEM object will use the default functions from GEM VRAM
+ * helpers.
  *
  * Returns:
  * A new instance of &struct drm_gem_vram_object on success, or
@@ -228,11 +188,17 @@ struct drm_gem_vram_object *drm_gem_vram_create(struct drm_device *dev,
 						unsigned long pg_align)
 {
 	struct drm_gem_vram_object *gbo;
+	struct drm_gem_object *gem;
+	struct drm_vram_mm *vmm = dev->vram_mm;
+	struct ttm_bo_device *bdev;
 	int ret;
+	size_t acc_size;
+
+	if (WARN_ONCE(!vmm, "VRAM MM not initialized"))
+		return ERR_PTR(-EINVAL);
 
 	if (dev->driver->gem_create_object) {
-		struct drm_gem_object *gem =
-			dev->driver->gem_create_object(dev, size);
+		gem = dev->driver->gem_create_object(dev, size);
 		if (!gem)
 			return ERR_PTR(-ENOMEM);
 		gbo = drm_gem_vram_of_gem(gem);
@@ -240,10 +206,32 @@ struct drm_gem_vram_object *drm_gem_vram_create(struct drm_device *dev,
 		gbo = kzalloc(sizeof(*gbo), GFP_KERNEL);
 		if (!gbo)
 			return ERR_PTR(-ENOMEM);
+		gem = &gbo->bo.base;
 	}
 
-	ret = drm_gem_vram_init(dev, gbo, size, pg_align);
-	if (ret < 0)
+	if (!gem->funcs)
+		gem->funcs = &drm_gem_vram_object_funcs;
+
+	ret = drm_gem_object_init(dev, gem, size);
+	if (ret) {
+		kfree(gbo);
+		return ERR_PTR(ret);
+	}
+
+	bdev = &vmm->bdev;
+	acc_size = ttm_bo_dma_acc_size(bdev, size, sizeof(*gbo));
+
+	gbo->bo.bdev = bdev;
+	drm_gem_vram_placement(gbo, DRM_GEM_VRAM_PL_FLAG_SYSTEM);
+
+	/*
+	 * A failing ttm_bo_init will call ttm_buffer_object_destroy
+	 * to release gbo->bo.base and kfree gbo.
+	 */
+	ret = ttm_bo_init(bdev, &gbo->bo, size, ttm_bo_type_device,
+			  &gbo->placement, pg_align, false, acc_size,
+			  NULL, NULL, ttm_buffer_object_destroy);
+	if (ret)
 		return ERR_PTR(ret);
 
 	return gbo;
@@ -301,7 +289,7 @@ static u64 drm_gem_vram_pg_offset(struct drm_gem_vram_object *gbo)
  */
 s64 drm_gem_vram_offset(struct drm_gem_vram_object *gbo)
 {
-	if (WARN_ON_ONCE(!gbo->pin_count))
+	if (WARN_ON_ONCE(!gbo->bo.pin_count))
 		return (s64)-ENODEV;
 	return drm_gem_vram_pg_offset(gbo) << PAGE_SHIFT;
 }
@@ -310,24 +298,21 @@ EXPORT_SYMBOL(drm_gem_vram_offset);
 static int drm_gem_vram_pin_locked(struct drm_gem_vram_object *gbo,
 				   unsigned long pl_flag)
 {
-	int i, ret;
 	struct ttm_operation_ctx ctx = { false, false };
+	int ret;
 
-	if (gbo->pin_count)
+	if (gbo->bo.pin_count)
 		goto out;
 
 	if (pl_flag)
 		drm_gem_vram_placement(gbo, pl_flag);
-
-	for (i = 0; i < gbo->placement.num_placement; ++i)
-		gbo->placements[i].flags |= TTM_PL_FLAG_NO_EVICT;
 
 	ret = ttm_bo_validate(&gbo->bo, &gbo->placement, &ctx);
 	if (ret < 0)
 		return ret;
 
 out:
-	++gbo->pin_count;
+	ttm_bo_pin(&gbo->bo);
 
 	return 0;
 }
@@ -369,26 +354,9 @@ int drm_gem_vram_pin(struct drm_gem_vram_object *gbo, unsigned long pl_flag)
 }
 EXPORT_SYMBOL(drm_gem_vram_pin);
 
-static int drm_gem_vram_unpin_locked(struct drm_gem_vram_object *gbo)
+static void drm_gem_vram_unpin_locked(struct drm_gem_vram_object *gbo)
 {
-	int i, ret;
-	struct ttm_operation_ctx ctx = { false, false };
-
-	if (WARN_ON_ONCE(!gbo->pin_count))
-		return 0;
-
-	--gbo->pin_count;
-	if (gbo->pin_count)
-		return 0;
-
-	for (i = 0; i < gbo->placement.num_placement ; ++i)
-		gbo->placements[i].flags &= ~TTM_PL_FLAG_NO_EVICT;
-
-	ret = ttm_bo_validate(&gbo->bo, &gbo->placement, &ctx);
-	if (ret < 0)
-		return ret;
-
-	return 0;
+	ttm_bo_unpin(&gbo->bo);
 }
 
 /**
@@ -406,10 +374,11 @@ int drm_gem_vram_unpin(struct drm_gem_vram_object *gbo)
 	ret = ttm_bo_reserve(&gbo->bo, true, false, NULL);
 	if (ret)
 		return ret;
-	ret = drm_gem_vram_unpin_locked(gbo);
+
+	drm_gem_vram_unpin_locked(gbo);
 	ttm_bo_unreserve(&gbo->bo);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(drm_gem_vram_unpin);
 
