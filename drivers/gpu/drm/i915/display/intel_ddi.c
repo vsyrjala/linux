@@ -4019,6 +4019,7 @@ static void intel_enable_ddi_hdmi(struct intel_atomic_state *state,
 
 		intel_prepare_hdmi_ddi_buffers(encoder, level);
 		skl_ddi_set_iboost(encoder, crtc_state, level);
+		intel_de_write(dev_priv, DDI_BUF_CTL(port), dig_port->saved_port_bits);
 
 		udelay(100);
 
