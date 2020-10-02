@@ -4016,7 +4016,7 @@ static void intel_enable_ddi_hdmi(struct intel_atomic_state *state,
 		intel_de_write(dev_priv, reg, val);
 		intel_de_posting_read(dev_priv, reg);
 
-		udelay(1);
+		udelay(100);
 
 		if (port == PORT_E)
 			val &= ~(DDIE_TRAINING_OVERRIDE_ENABLE |
