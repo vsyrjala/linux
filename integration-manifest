@@ -1,0 +1,32 @@
+drm drm-fixes 132d7c8abeaa6b10ed5f47330b0f06c6dd220a43
+	Merge tag 'amd-drm-fixes-5.9-2020-09-30' of git://people.freedesktop.org/~agd5f/linux into drm-fixes
+drm-misc drm-misc-fixes 27204b99b08289d0993cb77c22470034b5eb974d
+	drm: drm_dsc.h: fix a kernel-doc markup
+drm-intel drm-intel-fixes a1b8638ba1320e6684aa98233c15255eb803fac7
+	Linux 5.9-rc7
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm drm-next edb899841c4e4c52cd78257029929bd9c6ab011d
+	drm/vmwgfx: fix regression in thp code due to ttm init refactor.
+drm-misc drm-misc-next-fixes 8ba0b6d196315f68c271f549e8585129caefce97
+	drm/vc4: crtc: Keep the previously assigned HVS FIFO
+drm-intel drm-intel-next-fixes c60b93cd4862d108214a14e655358ea714d7a12a
+	drm/i915: Avoid mixing integer types during batch copies
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next dac4ec775aa1cae4ac6d37ae135c862636541e78
+	drm/bridge: tc358764: restore connector support
+drm-intel drm-intel-next-queued c7da2782abca7fc1a143a8246ddf3d3175d7fbf6
+	drm/i915: Make lspcon_init() static
+drm-intel drm-intel-next 8fea92536e3efff14fa4cde7ed37c595b40a52b5
+	drm/i915: Update DRIVER_DATE to 20200917
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus 08befca40026136c14c3cd84f9e36c4cd20a358e
+	ALSA: hda/realtek - Add mute Led support for HP Elitebook 845 G7
+sound-upstream for-next 716a0c2881938d222bde67d7edf630ea0648b8f7
+	ALSA: usb-audio: fix spelling mistake "Frequence" -> "Frequency"
+drm-intel topic/core-for-CI c082b170b61f96f6148481ae69b69f66664839eb
+	mm: do not rely on mm == current->mm in __get_user_pages_locked
+drm-intel drm-intel-gt-next b05734720de982a40676a14ddfdca5f87b4aab5e
+	drm/i915/gt: Retire cancelled requests on unload
