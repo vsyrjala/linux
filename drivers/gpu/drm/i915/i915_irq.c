@@ -1688,10 +1688,16 @@ static void ibx_hpd_irq_handler(struct drm_i915_private *dev_priv,
 	intel_hpd_irq_handler(dev_priv, pin_mask, long_mask);
 }
 
+static u32 ibx_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.pch_hpd) &
+		SDE_HOTPLUG_MASK;
+}
+
 static void ibx_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 {
+	u32 hotplug_trigger = pch_iir & ibx_hotplug_irqs(dev_priv);
 	enum pipe pipe;
-	u32 hotplug_trigger = pch_iir & SDE_HOTPLUG_MASK;
 
 	ibx_hpd_irq_handler(dev_priv, hotplug_trigger);
 
@@ -1776,10 +1782,16 @@ static void cpt_serr_int_handler(struct drm_i915_private *dev_priv)
 	I915_WRITE(SERR_INT, serr_int);
 }
 
+static u32 cpt_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.pch_hpd) &
+		SDE_HOTPLUG_MASK_CPT;
+}
+
 static void cpt_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 {
+	u32 hotplug_trigger = pch_iir & cpt_hotplug_irqs(dev_priv);
 	enum pipe pipe;
-	u32 hotplug_trigger = pch_iir & SDE_HOTPLUG_MASK_CPT;
 
 	ibx_hpd_irq_handler(dev_priv, hotplug_trigger);
 
@@ -1813,10 +1825,29 @@ static void cpt_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 		cpt_serr_int_handler(dev_priv);
 }
 
+static u32 icp_ddi_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.pch_hpd) &
+		(SDE_DDI_HOTPLUG_ICP(HPD_PORT_A) |
+		 SDE_DDI_HOTPLUG_ICP(HPD_PORT_B) |
+		 SDE_DDI_HOTPLUG_ICP(HPD_PORT_C));
+}
+
+static u32 icp_tc_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.pch_hpd) &
+		(SDE_TC_HOTPLUG_ICP(HPD_PORT_TC1) |
+		 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC2) |
+		 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC3) |
+		 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC4) |
+		 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC5) |
+		 SDE_TC_HOTPLUG_ICP(HPD_PORT_TC6));
+}
+
 static void icp_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 {
-	u32 ddi_hotplug_trigger = pch_iir & SDE_DDI_MASK_ICP;
-	u32 tc_hotplug_trigger = pch_iir & SDE_TC_MASK_ICP;
+	u32 ddi_hotplug_trigger = pch_iir & icp_ddi_hotplug_irqs(dev_priv);
+	u32 tc_hotplug_trigger = pch_iir & icp_tc_hotplug_irqs(dev_priv);
 	u32 pin_mask = 0, long_mask = 0;
 
 	if (ddi_hotplug_trigger) {
@@ -1850,11 +1881,22 @@ static void icp_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 		gmbus_irq_handler(dev_priv);
 }
 
+static u32 spt_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.pch_hpd) &
+		SDE_HOTPLUG_MASK_SPT & ~SDE_PORTE_HOTPLUG_SPT;
+}
+
+static u32 spt_hotplug2_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.pch_hpd) &
+		SDE_PORTE_HOTPLUG_SPT;
+}
+
 static void spt_irq_handler(struct drm_i915_private *dev_priv, u32 pch_iir)
 {
-	u32 hotplug_trigger = pch_iir & SDE_HOTPLUG_MASK_SPT &
-		~SDE_PORTE_HOTPLUG_SPT;
-	u32 hotplug2_trigger = pch_iir & SDE_PORTE_HOTPLUG_SPT;
+	u32 hotplug_trigger = pch_iir & spt_hotplug_irqs(dev_priv);
+	u32 hotplug2_trigger = pch_iir & spt_hotplug2_irqs(dev_priv);
 	u32 pin_mask = 0, long_mask = 0;
 
 	if (hotplug_trigger) {
@@ -1904,11 +1946,17 @@ static void ilk_hpd_irq_handler(struct drm_i915_private *dev_priv,
 	intel_hpd_irq_handler(dev_priv, pin_mask, long_mask);
 }
 
+static u32 ilk_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.pch_hpd) &
+		DE_DP_A_HOTPLUG;
+}
+
 static void ilk_display_irq_handler(struct drm_i915_private *dev_priv,
 				    u32 de_iir)
 {
+	u32 hotplug_trigger = de_iir & ilk_hotplug_irqs(dev_priv);
 	enum pipe pipe;
-	u32 hotplug_trigger = de_iir & DE_DP_A_HOTPLUG;
 
 	if (hotplug_trigger)
 		ilk_hpd_irq_handler(dev_priv, hotplug_trigger);
@@ -1950,11 +1998,17 @@ static void ilk_display_irq_handler(struct drm_i915_private *dev_priv,
 		gen5_rps_irq_handler(&dev_priv->gt.rps);
 }
 
+static u32 ivb_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.pch_hpd) &
+		DE_DP_A_HOTPLUG_IVB;
+}
+
 static void ivb_display_irq_handler(struct drm_i915_private *dev_priv,
 				    u32 de_iir)
 {
+	u32 hotplug_trigger = de_iir & ivb_hotplug_irqs(dev_priv);
 	enum pipe pipe;
-	u32 hotplug_trigger = de_iir & DE_DP_A_HOTPLUG_IVB;
 
 	if (hotplug_trigger)
 		ilk_hpd_irq_handler(dev_priv, hotplug_trigger);
@@ -2083,11 +2137,33 @@ static void bxt_hpd_irq_handler(struct drm_i915_private *dev_priv,
 	intel_hpd_irq_handler(dev_priv, pin_mask, long_mask);
 }
 
+static u32 gen11_tc_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.hpd) &
+		(GEN11_TC_HOTPLUG(HPD_PORT_TC1) |
+		 GEN11_TC_HOTPLUG(HPD_PORT_TC2) |
+		 GEN11_TC_HOTPLUG(HPD_PORT_TC3) |
+		 GEN11_TC_HOTPLUG(HPD_PORT_TC4) |
+		 GEN11_TC_HOTPLUG(HPD_PORT_TC5) |
+		 GEN11_TC_HOTPLUG(HPD_PORT_TC6));
+}
+
+static u32 gen11_tbt_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.hpd) &
+		(GEN11_TBT_HOTPLUG(HPD_PORT_TC1) |
+		 GEN11_TBT_HOTPLUG(HPD_PORT_TC2) |
+		 GEN11_TBT_HOTPLUG(HPD_PORT_TC3) |
+		 GEN11_TBT_HOTPLUG(HPD_PORT_TC4) |
+		 GEN11_TBT_HOTPLUG(HPD_PORT_TC5) |
+		 GEN11_TBT_HOTPLUG(HPD_PORT_TC6));
+}
+
 static void gen11_hpd_irq_handler(struct drm_i915_private *dev_priv, u32 iir)
 {
+	u32 trigger_tc = iir & gen11_tc_hotplug_irqs(dev_priv);
+	u32 trigger_tbt = iir & gen11_tbt_hotplug_irqs(dev_priv);
 	u32 pin_mask = 0, long_mask = 0;
-	u32 trigger_tc = iir & GEN11_DE_TC_HOTPLUG_MASK;
-	u32 trigger_tbt = iir & GEN11_DE_TBT_HOTPLUG_MASK;
 
 	if (trigger_tc) {
 		u32 dig_hotplug_reg;
@@ -2252,6 +2328,18 @@ static void gen11_dsi_te_interrupt_handler(struct drm_i915_private *dev_priv,
 	I915_WRITE(DSI_INTR_IDENT_REG(port), tmp);
 }
 
+static u32 bdw_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.hpd) &
+		BDW_DE_PORT_HOTPLUG_MASK;
+}
+
+static u32 bxt_hotplug_irqs(struct drm_i915_private *dev_priv)
+{
+	return intel_hpd_hotplug_irqs(dev_priv, dev_priv->hotplug.hpd) &
+		BXT_DE_PORT_HOTPLUG_MASK;
+}
+
 static irqreturn_t
 gen8_de_irq_handler(struct drm_i915_private *dev_priv, u32 master_ctl)
 {
@@ -2297,14 +2385,14 @@ gen8_de_irq_handler(struct drm_i915_private *dev_priv, u32 master_ctl)
 			}
 
 			if (IS_GEN9_LP(dev_priv)) {
-				u32 hotplug_trigger = iir & BXT_DE_PORT_HOTPLUG_MASK;
+				u32 hotplug_trigger = iir & bxt_hotplug_irqs(dev_priv);
 
 				if (hotplug_trigger) {
 					bxt_hpd_irq_handler(dev_priv, hotplug_trigger);
 					found = true;
 				}
 			} else if (IS_BROADWELL(dev_priv)) {
-				u32 hotplug_trigger = iir & BDW_DE_PORT_HOTPLUG_MASK;
+				u32 hotplug_trigger = iir & bdw_hotplug_irqs(dev_priv);
 
 				if (hotplug_trigger) {
 					ilk_hpd_irq_handler(dev_priv, hotplug_trigger);
