@@ -124,6 +124,8 @@
 #define JZ_LCD_CTRL_BPP_8			0x3
 #define JZ_LCD_CTRL_BPP_15_16			0x4
 #define JZ_LCD_CTRL_BPP_18_24			0x5
+#define JZ_LCD_CTRL_BPP_24_COMP			0x6
+#define JZ_LCD_CTRL_BPP_30			0x7
 #define JZ_LCD_CTRL_BPP_MASK			(JZ_LCD_CTRL_RGB555 | 0x7)
 
 #define JZ_LCD_CMD_SOF_IRQ			BIT(31)
@@ -145,6 +147,7 @@
 #define JZ_LCD_OSDCTRL_CHANGE			BIT(3)
 #define JZ_LCD_OSDCTRL_BPP_15_16		0x4
 #define JZ_LCD_OSDCTRL_BPP_18_24		0x5
+#define JZ_LCD_OSDCTRL_BPP_24_COMP		0x6
 #define JZ_LCD_OSDCTRL_BPP_30			0x7
 #define JZ_LCD_OSDCTRL_BPP_MASK			(JZ_LCD_OSDCTRL_RGB555 | 0x7)
 
@@ -167,10 +170,6 @@ struct platform_driver;
 void ingenic_drm_plane_config(struct device *dev,
 			      struct drm_plane *plane, u32 fourcc);
 void ingenic_drm_plane_disable(struct device *dev, struct drm_plane *plane);
-
-void ingenic_drm_sync_data(struct device *dev,
-			   struct drm_plane_state *old_state,
-			   struct drm_plane_state *state);
 
 extern struct platform_driver *ingenic_ipu_driver_ptr;
 
