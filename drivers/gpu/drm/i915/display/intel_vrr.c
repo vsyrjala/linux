@@ -81,3 +81,36 @@ intel_vrr_compute_config(struct intel_dp *intel_dp,
 		    crtc_state->vrr.vtotalmax);
 }
 
+void intel_vrr_enable(struct intel_encoder *encoder,
+		      const struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	enum pipe pipe = crtc->pipe;
+	const struct drm_display_mode *adjusted_mode =
+		&crtc_state->hw.adjusted_mode;
+	u32 trans_vrr_ctl;
+	u16 framestart_to_pipelinefull_linecnt;
+
+	if (!crtc_state->vrr.enable)
+		return;
+
+	framestart_to_pipelinefull_linecnt =
+		min_t(u16, 255, (crtc_state->vrr.vtotalmin - adjusted_mode->crtc_vdisplay - 4));
+
+	trans_vrr_ctl = VRR_CTL_VRR_ENABLE |  VRR_CTL_IGN_MAX_SHIFT |
+		VRR_CTL_FLIP_LINE_EN | VRR_CTL_LINE_COUNT(framestart_to_pipelinefull_linecnt) |
+		VRR_CTL_SW_FULLLINE_COUNT;
+
+	intel_de_write(dev_priv, TRANS_VRR_VMIN(pipe), crtc_state->vrr.vtotalmin - 2);
+	intel_de_write(dev_priv, TRANS_VRR_VMAX(pipe), crtc_state->vrr.vtotalmax - 1);
+	intel_de_write(dev_priv, TRANS_VRR_CTL(pipe), trans_vrr_ctl);
+	intel_de_write(dev_priv, TRANS_VRR_FLIPLINE(pipe), crtc_state->vrr.vtotalmin - 1);
+	intel_de_write(dev_priv, TRANS_PUSH(pipe), TRANS_PUSH_EN);
+
+	drm_dbg_kms(&dev_priv->drm, "Enabling VRR on pipe %c\n", pipe_name(pipe));
+	drm_dbg_kms(&dev_priv->drm, "VRR Parameters: Vtotal Min = %d, Max = %d Flipline Count = %d, CTL Reg = 0x%08x, TRANS PUSH reg = 0x%08x",
+		    crtc_state->vrr.vtotalmin - 1, crtc_state->vrr.vtotalmax,
+		    crtc_state->vrr.vtotalmin, trans_vrr_ctl,
+		    TRANS_PUSH_EN);
+}
