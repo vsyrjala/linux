@@ -62,6 +62,7 @@
 #include "intel_sideband.h"
 #include "intel_tc.h"
 #include "intel_vdsc.h"
+#include "intel_vrr.h"
 
 #define DP_DPRX_ESI_LEN 14
 
@@ -6740,6 +6741,10 @@ static int intel_dp_get_modes(struct drm_connector *connector)
 	edid = intel_connector->detect_edid;
 	if (edid) {
 		int ret = intel_connector_update_modes(connector, edid);
+
+		if (intel_vrr_is_capable(connector))
+			drm_connector_set_vrr_capable_property(connector,
+							       true);
 		if (ret)
 			return ret;
 	}
@@ -7224,6 +7229,9 @@ intel_dp_add_properties(struct intel_dp *intel_dp, struct drm_connector *connect
 		connector->state->scaling_mode = DRM_MODE_SCALE_ASPECT;
 
 	}
+
+	if (HAS_VRR(dev_priv))
+		drm_connector_attach_vrr_capable_property(connector);
 }
 
 static void intel_dp_init_panel_power_timestamps(struct intel_dp *intel_dp)
