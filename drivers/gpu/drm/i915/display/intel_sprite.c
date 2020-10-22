@@ -49,6 +49,7 @@
 #include "intel_psr.h"
 #include "intel_dsi.h"
 #include "intel_sprite.h"
+#include "intel_vrr.h"
 
 int intel_usecs_to_scanlines(const struct drm_display_mode *adjusted_mode,
 			     int usecs)
@@ -97,6 +98,13 @@ void intel_pipe_update_start(const struct intel_crtc_state *new_crtc_state)
 	min = vblank_start - intel_usecs_to_scanlines(adjusted_mode,
 						      VBLANK_EVASION_TIME_US);
 	max = vblank_start - 1;
+
+	/* In case of VRR, we stall the Push and updates if too close to Vmax */
+	if (new_crtc_state->vrr.enable) {
+		min = new_crtc_state->vrr.vtotalmax - intel_usecs_to_scanlines(adjusted_mode,
+									       VBLANK_EVASION_TIME_US);
+		max = new_crtc_state->vrr.vtotalmax - 1;
+	}
 
 	if (min <= 0 || max <= 0)
 		goto irq_disable;
@@ -256,6 +264,9 @@ void intel_pipe_update_end(struct intel_crtc_state *new_crtc_state)
 	}
 
 	local_irq_enable();
+
+	/* Send VRR Push to terminate Vblank */
+	intel_vrr_send_push(new_crtc_state);
 
 	if (intel_vgpu_active(dev_priv))
 		return;

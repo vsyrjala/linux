@@ -114,3 +114,22 @@ void intel_vrr_enable(struct intel_encoder *encoder,
 		    crtc_state->vrr.vtotalmin, trans_vrr_ctl,
 		    TRANS_PUSH_EN);
 }
+
+void intel_vrr_send_push(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+	u32 trans_push;
+
+	if (!crtc_state->vrr.enable)
+		return;
+
+	trans_push = intel_de_read(dev_priv, TRANS_PUSH(pipe));
+	trans_push |= TRANS_PUSH_SEND;
+	intel_de_write(dev_priv, TRANS_PUSH(pipe), trans_push);
+	drm_WARN_ON(&dev_priv->drm, !(trans_push & TRANS_PUSH_EN));
+
+	drm_dbg_kms(&dev_priv->drm, "Sending VRR Push on pipe %c\n",
+		    pipe_name(pipe));
+}
