@@ -133,3 +133,19 @@ void intel_vrr_send_push(const struct intel_crtc_state *crtc_state)
 	drm_dbg_kms(&dev_priv->drm, "Sending VRR Push on pipe %c\n",
 		    pipe_name(pipe));
 }
+
+void intel_vrr_disable(const struct intel_crtc_state *old_crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(old_crtc_state->uapi.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+
+	if (!old_crtc_state->vrr.enable)
+		return;
+
+	intel_de_rmw(dev_priv, TRANS_VRR_CTL(pipe), VRR_CTL_FLIP_LINE_EN | VRR_CTL_VRR_ENABLE, 0);
+	intel_de_rmw(dev_priv, TRANS_PUSH(pipe), TRANS_PUSH_EN, 0);
+
+	drm_dbg_kms(&dev_priv->drm, "Disabling VRR on pipe %c\n",
+		    pipe_name(pipe));
+}
