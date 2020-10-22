@@ -9,7 +9,14 @@
 #include <linux/types.h>
 
 struct drm_connector;
+struct intel_atomic_state;
+struct intel_crtc;
+struct intel_crtc_state;
+struct intel_dp;
 
 bool intel_vrr_is_capable(struct drm_connector *connector);
+void intel_vrr_check_modeset(struct intel_atomic_state *state);
+void intel_vrr_compute_config(struct intel_dp *intel_dp,
+			      struct intel_crtc_state *crtc_state);
 
 #endif /* __INTEL_VRR_H__ */

@@ -1124,6 +1124,13 @@ struct intel_crtc_state {
 	struct intel_dsb *dsb;
 
 	u32 psr2_man_track_ctl;
+
+	/* Variable Refresh Rate state */
+	struct {
+		bool enable;
+		u16 vtotalmin;
+		u16 vtotalmax;
+	} vrr;
 };
 
 enum intel_pipe_crc_source {
