@@ -149,3 +149,20 @@ void intel_vrr_disable(const struct intel_crtc_state *old_crtc_state)
 	drm_dbg_kms(&dev_priv->drm, "Disabling VRR on pipe %c\n",
 		    pipe_name(pipe));
 }
+
+void intel_vrr_get_config(struct intel_crtc *crtc,
+			  struct intel_crtc_state *pipe_config)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = to_i915(dev);
+	enum pipe pipe = crtc->pipe;
+	u32 trans_vrr_ctl;
+
+	trans_vrr_ctl = intel_de_read(dev_priv, TRANS_VRR_CTL(pipe));
+	pipe_config->vrr.enable = trans_vrr_ctl & VRR_CTL_VRR_ENABLE;
+	if (!pipe_config->vrr.enable)
+		return;
+
+	pipe_config->vrr.vtotalmax = intel_de_read(dev_priv, TRANS_VRR_VMAX(pipe)) + 1;
+	pipe_config->vrr.vtotalmin = intel_de_read(dev_priv, TRANS_VRR_VMIN(pipe)) + 1;
+}
