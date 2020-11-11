@@ -3718,7 +3718,8 @@ valid_fb:
 	drm_framebuffer_get(fb);
 
 	plane_state->crtc = &intel_crtc->base;
-	intel_plane_copy_uapi_to_hw_state(intel_state, intel_state);
+	intel_plane_copy_uapi_to_hw_state(intel_state, intel_state,
+					  intel_crtc);
 
 	intel_frontbuffer_flush(to_intel_frontbuffer(fb), ORIGIN_DIRTYFB);
 
@@ -12770,6 +12771,7 @@ static int icl_add_linked_planes(struct intel_atomic_state *state)
 		if (!linked)
 			continue;
 
+
 		linked_plane_state = intel_atomic_get_plane_state(state, linked);
 		if (IS_ERR(linked_plane_state))
 			return PTR_ERR(linked_plane_state);
@@ -16911,7 +16913,7 @@ intel_legacy_cursor_update(struct drm_plane *_plane,
 	new_plane_state->uapi.crtc_w = crtc_w;
 	new_plane_state->uapi.crtc_h = crtc_h;
 
-	intel_plane_copy_uapi_to_hw_state(new_plane_state, new_plane_state);
+	intel_plane_copy_uapi_to_hw_state(new_plane_state, new_plane_state, crtc);
 
 	ret = intel_plane_atomic_check_with_state(crtc_state, new_crtc_state,
 						  old_plane_state, new_plane_state);
