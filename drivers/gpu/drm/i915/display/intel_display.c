@@ -13558,12 +13558,14 @@ intel_crtc_copy_uapi_to_hw_state(struct intel_atomic_state *state,
 static void intel_crtc_copy_hw_to_uapi_state(struct intel_crtc_state *crtc_state,
 					     struct drm_display_mode *user_mode)
 {
-	if (!crtc_state->bigjoiner_slave) {
-		crtc_state->uapi.enable = crtc_state->hw.enable;
-		crtc_state->uapi.active = crtc_state->hw.active;
-		drm_WARN_ON(crtc_state->uapi.crtc->dev,
-			    drm_atomic_set_mode_for_crtc(&crtc_state->uapi, user_mode) < 0);
-	}
+	if (crtc_state->bigjoiner_slave)
+		return;
+
+	crtc_state->uapi.enable = crtc_state->hw.enable;
+	crtc_state->uapi.active = crtc_state->hw.active;
+	drm_WARN_ON(crtc_state->uapi.crtc->dev,
+		    drm_atomic_set_mode_for_crtc(&crtc_state->uapi, user_mode) < 0);
+
 	crtc_state->uapi.adjusted_mode = crtc_state->hw.adjusted_mode;
 	crtc_state->uapi.scaling_filter = crtc_state->hw.scaling_filter;
 
