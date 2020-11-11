@@ -8278,7 +8278,6 @@ static int intel_crtc_compute_config(struct intel_crtc *crtc,
 		pipe_mode->crtc_hsync_start /= 2;
 		pipe_mode->crtc_hsync_end /= 2;
 		pipe_mode->crtc_htotal /= 2;
-		pipe_mode->crtc_hskew /= 2;
 		pipe_config->pipe_src_w /= 2;
 	}
 
