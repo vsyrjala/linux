@@ -19193,7 +19193,7 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 
 			intel_crtc_update_active_timings(crtc_state);
 
-			intel_crtc_copy_hw_to_uapi_state(crtc_state, &mode);
+			intel_crtc_copy_hw_to_uapi_state(crtc_state, &crtc_state->hw.mode);
 		}
 
 		for_each_intel_plane_on_crtc(&dev_priv->drm, crtc, plane) {
