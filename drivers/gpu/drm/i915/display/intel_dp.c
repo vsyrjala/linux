@@ -947,6 +947,10 @@ intel_dp_mode_valid(struct drm_connector *connector,
 		bigjoiner = true;
 		max_dotclk *= 2;
 	}
+	else if (!intel_dp_is_edp(intel_dp) && intel_dp_can_bigjoiner(intel_dp)) {
+		bigjoiner = true;
+		max_dotclk *= 2;
+	}
 	if (target_clock > max_dotclk)
 		return MODE_CLOCK_HIGH;
 
@@ -1538,6 +1542,8 @@ intel_dp_compute_link_config(struct intel_encoder *encoder,
 
 	if (intel_dp_need_bigjoiner(intel_dp, adjusted_mode->crtc_hdisplay,
 				    adjusted_mode->crtc_clock))
+		pipe_config->bigjoiner_pipes = GENMASK(crtc->pipe + 1, crtc->pipe);
+	else if (!intel_dp_is_edp(intel_dp) && intel_dp_can_bigjoiner(intel_dp))
 		pipe_config->bigjoiner_pipes = GENMASK(crtc->pipe + 1, crtc->pipe);
 
 	/*
