@@ -2566,6 +2566,27 @@ static void intel_dp_get_dsc_sink_cap(struct intel_dp *intel_dp)
 		drm_dbg_kms(&i915->drm, "FEC CAPABILITY: %x\n",
 			    intel_dp->fec_capable);
 	}
+
+	//hax
+	if (intel_dp_is_edp(intel_dp))
+		return;
+
+	intel_dp->fec_capable = 0x1;
+	intel_dp->dsc_dpcd[0x0] = 0x1;
+	intel_dp->dsc_dpcd[0x1] = 0x21;
+	intel_dp->dsc_dpcd[0x2] = 0x3;
+	intel_dp->dsc_dpcd[0x3] = 128;
+	intel_dp->dsc_dpcd[0x4] = 0xb;
+	intel_dp->dsc_dpcd[0x5] = 0x1;
+	intel_dp->dsc_dpcd[0x6] = 0;
+	intel_dp->dsc_dpcd[0x7] = (24<<4) & 0xff;
+	intel_dp->dsc_dpcd[0x8] = (24<<4) >> 8;
+	intel_dp->dsc_dpcd[0x9] = 0x1;
+	intel_dp->dsc_dpcd[0xa] = 0x2;
+	intel_dp->dsc_dpcd[0xb] = 14 << 4 | 14;
+	intel_dp->dsc_dpcd[0xc] = 8;
+	intel_dp->dsc_dpcd[0xd] = 0;
+	intel_dp->dsc_dpcd[0xe] = 0;
 }
 
 static void intel_edp_mso_mode_fixup(struct intel_connector *connector,
