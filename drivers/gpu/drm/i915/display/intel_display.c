@@ -7246,6 +7246,7 @@ static void hsw_crtc_enable(struct intel_atomic_state *state,
 	 * clocks enabled
 	 */
 	intel_color_load_luts(new_crtc_state);
+	intel_color_preload_lut_3d(new_crtc_state);
 	intel_color_commit(new_crtc_state);
 	/* update DSPCNTR to configure gamma/csc for pipe bottom color */
 	if (INTEL_GEN(dev_priv) < 9)
@@ -13481,11 +13482,13 @@ static void intel_dump_pipe_config(const struct intel_crtc_state *pipe_config,
 			    pipe_config->csc_mode, pipe_config->gamma_mode,
 			    pipe_config->gamma_enable, pipe_config->csc_enable);
 
-	drm_dbg_kms(&dev_priv->drm, "degamma lut: %d entries, gamma lut: %d entries\n",
+	drm_dbg_kms(&dev_priv->drm, "degamma lut: %d entries, gamma lut: %d entries, 3d lut: %d entries\n",
 		    pipe_config->hw.degamma_lut ?
 		    drm_color_lut_size(pipe_config->hw.degamma_lut) : 0,
 		    pipe_config->hw.gamma_lut ?
-		    drm_color_lut_size(pipe_config->hw.gamma_lut) : 0);
+		    drm_color_lut_size(pipe_config->hw.gamma_lut) : 0,
+		    pipe_config->hw.gamma_lut_3d ?
+		    drm_color_lut_size(pipe_config->hw.gamma_lut_3d) : 0);
 
 dump_planes:
 	if (!state)
@@ -13617,6 +13620,8 @@ static void intel_crtc_copy_hw_to_uapi_state(struct intel_crtc_state *crtc_state
 				  crtc_state->hw.gamma_lut);
 	drm_property_replace_blob(&crtc_state->uapi.ctm,
 				  crtc_state->hw.ctm);
+	drm_property_replace_blob(&crtc_state->uapi.gamma_lut_3d,
+				  crtc_state->hw.gamma_lut_3d);
 }
 
 static int
@@ -14348,6 +14353,8 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 		bp_gamma = intel_color_get_gamma_bit_precision(pipe_config);
 		if (bp_gamma)
 			PIPE_CONF_CHECK_COLOR_LUT(gamma_mode, hw.gamma_lut, bp_gamma);
+
+		PIPE_CONF_CHECK_COLOR_LUT(gamma_mode, hw.gamma_lut_3d, 10);
 	}
 
 	PIPE_CONF_CHECK_BOOL(double_wide);
@@ -15912,6 +15919,10 @@ static void intel_update_crtc(struct intel_atomic_state *state,
 		    (new_crtc_state->uapi.color_mgmt_changed ||
 		     new_crtc_state->update_pipe))
 			intel_color_load_luts(new_crtc_state);
+
+		if ((new_crtc_state->uapi.color_mgmt_changed ||
+		     new_crtc_state->update_pipe))
+			intel_color_preload_lut_3d(new_crtc_state);
 
 		intel_pre_plane_update(state, crtc);
 

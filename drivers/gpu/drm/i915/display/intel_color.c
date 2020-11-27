@@ -120,6 +120,7 @@ static bool crtc_state_is_legacy_gamma(const struct intel_crtc_state *crtc_state
 	return !crtc_state->hw.degamma_lut &&
 		!crtc_state->hw.ctm &&
 		crtc_state->hw.gamma_lut &&
+		!crtc_state->hw.gamma_lut_3d &&
 		lut_is_legacy(crtc_state->hw.gamma_lut);
 }
 
@@ -470,6 +471,61 @@ static void icl_lut_multi_seg_pack(struct drm_color_lut *entry, u32 ldw, u32 udw
 				    REG_FIELD_GET(PAL_PREC_MULTI_SEG_BLUE_LDW_MASK, ldw);
 }
 
+#define GLK_LUT_3D_SIZE 17
+
+static int lut_3d_size(int lut_3d_size)
+{
+	return lut_3d_size * lut_3d_size * lut_3d_size;
+}
+
+static void glk_lut_3d_commit(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+	u32 val;
+
+	WARN_ON(intel_de_read(dev_priv, LUT_3D_CTL(pipe)) & LUT_3D_READY);
+
+	if (crtc_state->hw.gamma_lut_3d)
+		val = LUT_3D_ENABLE | LUT_3D_READY;
+	else
+		val = 0;
+
+	intel_de_write(dev_priv, LUT_3D_CTL(pipe), val);
+}
+
+static void glk_load_lut_3d(struct intel_crtc *crtc,
+			    const struct drm_property_blob *blob)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	const struct drm_color_lut *lut = blob->data;
+	int i, lut_size = drm_color_lut_size(blob);
+	enum pipe pipe = crtc->pipe;
+
+	WARN_ON(intel_de_read(dev_priv, LUT_3D_CTL(pipe)) & LUT_3D_READY);
+
+	intel_de_write(dev_priv, LUT_3D_INDEX(pipe), LUT_3D_AUTO_INCREMENT);
+
+	for (i = 0; i < lut_size; i++)
+		intel_de_write(dev_priv, LUT_3D_DATA(pipe), ilk_lut_10(&lut[i]));
+
+	intel_de_write(dev_priv, LUT_3D_INDEX(pipe), 0);
+}
+
+static bool intel_crtc_has_lut_3d(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+
+	if (INTEL_GEN(i915) >= 12)
+		return pipe == PIPE_A || pipe == PIPE_B;
+	else if (INTEL_GEN(i915) >= 10 || IS_GEMINILAKE(i915))
+		return pipe == PIPE_A;
+	else
+		return false;
+}
+
 static void i9xx_color_commit(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -534,6 +590,9 @@ static void skl_color_commit(const struct intel_crtc_state *crtc_state)
 		icl_load_csc_matrix(crtc_state);
 	else
 		ilk_load_csc_matrix(crtc_state);
+
+	if (intel_crtc_has_lut_3d(crtc))
+		glk_lut_3d_commit(crtc_state);
 }
 
 static void i9xx_load_lut_8(struct intel_crtc *crtc,
@@ -1140,6 +1199,14 @@ void intel_color_load_luts(const struct intel_crtc_state *crtc_state)
 	dev_priv->display.load_luts(crtc_state);
 }
 
+void intel_color_preload_lut_3d(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+
+	if (crtc_state->hw.gamma_lut_3d)
+		glk_load_lut_3d(crtc, crtc_state->hw.gamma_lut_3d);
+}
+
 void intel_color_commit(const struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(crtc_state->uapi.crtc->dev);
@@ -1280,10 +1347,12 @@ static int check_lut_size(const struct drm_property_blob *lut, int expected)
 
 static int check_luts(const struct intel_crtc_state *crtc_state)
 {
-	struct drm_i915_private *dev_priv = to_i915(crtc_state->uapi.crtc->dev);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	const struct drm_property_blob *gamma_lut = crtc_state->hw.gamma_lut;
 	const struct drm_property_blob *degamma_lut = crtc_state->hw.degamma_lut;
-	int gamma_length, degamma_length;
+	const struct drm_property_blob *lut_3d = crtc_state->hw.gamma_lut_3d;
+	int gamma_length, degamma_length, lut_3d_length;
 	u32 gamma_tests, degamma_tests;
 
 	/* Always allow legacy gamma LUT with no further checking. */
@@ -1308,6 +1377,10 @@ static int check_luts(const struct intel_crtc_state *crtc_state)
 
 	if (drm_color_lut_check(degamma_lut, degamma_tests) ||
 	    drm_color_lut_check(gamma_lut, gamma_tests))
+		return -EINVAL;
+
+	lut_3d_length = intel_crtc_has_lut_3d(crtc) ? GLK_LUT_3D_SIZE : 0;
+	if (check_lut_size(lut_3d, lut_3d_size(lut_3d_length)))
 		return -EINVAL;
 
 	return 0;
@@ -1995,9 +2068,45 @@ static struct drm_property_blob *bdw_read_lut_10(struct intel_crtc *crtc,
 	return blob;
 }
 
+static struct drm_property_blob *glk_read_lut_3d(struct intel_crtc *crtc)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
+	enum pipe pipe = crtc->pipe;
+	struct drm_property_blob *blob;
+	struct drm_color_lut *lut;
+	int lut_size = lut_3d_size(GLK_LUT_3D_SIZE);
+	int i;
+
+	if ((intel_de_read(dev_priv, LUT_3D_CTL(crtc->pipe)) & LUT_3D_ENABLE) == 0)
+		return NULL;
+
+	blob = drm_property_create_blob(&dev_priv->drm,
+					sizeof(struct drm_color_lut) * lut_size,
+					NULL);
+	if (IS_ERR(blob))
+		return NULL;
+
+	lut = blob->data;
+
+	intel_de_write(dev_priv, LUT_3D_INDEX(pipe), LUT_3D_AUTO_INCREMENT);
+
+	for (i = 0; i < lut_size; i++) {
+		u32 val = intel_de_read(dev_priv, LUT_3D_DATA(pipe));
+
+		ilk_lut_10_pack(&lut[i], val);
+	}
+
+	intel_de_write(dev_priv, LUT_3D_INDEX(pipe), 0);
+
+	return blob;
+}
+
 static void glk_read_luts(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+
+	if (intel_crtc_has_lut_3d(crtc))
+		crtc_state->hw.gamma_lut_3d = glk_read_lut_3d(crtc);
 
 	if (!crtc_state->gamma_enable)
 		return;
@@ -2056,6 +2165,9 @@ icl_read_lut_multi_segment(struct intel_crtc *crtc)
 static void icl_read_luts(struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+
+	if (intel_crtc_has_lut_3d(crtc))
+		crtc_state->hw.gamma_lut_3d = glk_read_lut_3d(crtc);
 
 	if ((crtc_state->gamma_mode & POST_CSC_GAMMA_ENABLE) == 0)
 		return;
@@ -2137,4 +2249,7 @@ void intel_color_init(struct intel_crtc *crtc)
 				   INTEL_INFO(dev_priv)->color.degamma_lut_size,
 				   has_ctm,
 				   INTEL_INFO(dev_priv)->color.gamma_lut_size);
+
+	if (intel_crtc_has_lut_3d(crtc))
+		drm_crtc_enable_gamma_lut_3d(&crtc->base, GLK_LUT_3D_SIZE);
 }

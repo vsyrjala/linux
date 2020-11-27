@@ -836,7 +836,7 @@ struct intel_crtc_state {
 	 */
 	struct {
 		bool active, enable;
-		struct drm_property_blob *degamma_lut, *gamma_lut, *ctm;
+		struct drm_property_blob *degamma_lut, *gamma_lut, *ctm, *gamma_lut_3d;
 		struct drm_display_mode mode, pipe_mode, adjusted_mode;
 		enum drm_scaling_filter scaling_filter;
 	} hw;

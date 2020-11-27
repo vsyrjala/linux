@@ -240,6 +240,8 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 		drm_property_blob_get(crtc_state->hw.ctm);
 	if (crtc_state->hw.gamma_lut)
 		drm_property_blob_get(crtc_state->hw.gamma_lut);
+	if (crtc_state->hw.gamma_lut_3d)
+		drm_property_blob_get(crtc_state->hw.gamma_lut_3d);
 
 	crtc_state->update_pipe = false;
 	crtc_state->disable_lp_wm = false;
@@ -262,6 +264,7 @@ static void intel_crtc_put_color_blobs(struct intel_crtc_state *crtc_state)
 	drm_property_blob_put(crtc_state->hw.degamma_lut);
 	drm_property_blob_put(crtc_state->hw.gamma_lut);
 	drm_property_blob_put(crtc_state->hw.ctm);
+	drm_property_blob_put(crtc_state->hw.gamma_lut_3d);
 }
 
 void intel_crtc_free_hw_state(struct intel_crtc_state *crtc_state)
@@ -278,6 +281,8 @@ void intel_crtc_copy_color_blobs(struct intel_crtc_state *crtc_state,
 				  from_crtc_state->uapi.gamma_lut);
 	drm_property_replace_blob(&crtc_state->hw.ctm,
 				  from_crtc_state->uapi.ctm);
+	drm_property_replace_blob(&crtc_state->hw.gamma_lut_3d,
+				  from_crtc_state->uapi.gamma_lut_3d);
 }
 
 /**
