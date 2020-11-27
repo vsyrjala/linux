@@ -799,6 +799,16 @@ struct drm_mode_config {
 	 * gamma LUT as supported by the driver (read-only).
 	 */
 	struct drm_property *gamma_lut_size_property;
+	/**
+	 * @gamma_lut_3d_property: Optional CRTC property to set the 3D LUT
+	 * used to convert the colors, after the gamma LUT.
+	 */
+	struct drm_property *gamma_lut_3d_property;
+	/**
+	 * @gamma_lut_3d_size_property: Optional CRTC property for the size
+	 * of the 3D LUT as supported by the driver (read-only).
+	 */
+	struct drm_property *gamma_lut_3d_size_property;
 
 	/**
 	 * @suggested_x_property: Optional connector property with a hint for

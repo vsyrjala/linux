@@ -165,8 +165,8 @@ struct drm_crtc_state {
 	bool zpos_changed : 1;
 	/**
 	 * @color_mgmt_changed: Color management properties have changed
-	 * (@gamma_lut, @degamma_lut or @ctm). Used by the atomic helpers and
-	 * drivers to steer the atomic commit control flow.
+	 * (@gamma_lut, @degamma_lut, @ctm, @gamma_lut_3d). Used by the atomic
+	 * helpers and drivers to steer the atomic commit control flow.
 	 */
 	bool color_mgmt_changed : 1;
 
@@ -287,6 +287,15 @@ struct drm_crtc_state {
 	 * NULL) is an array of &struct drm_color_lut.
 	 */
 	struct drm_property_blob *gamma_lut;
+
+	/**
+	 * @gamma_lut_3d:
+	 *
+	 * 3D LUT for converting pixel data adter @gamma_lut.
+	 * See drm_crtc_enable_color_mgmt(). The blob (if not NULL)
+	 * is a &struct drm_color_lut.
+	 */
+	struct drm_property_blob *gamma_lut_3d;
 
 	/**
 	 * @target_vblank:

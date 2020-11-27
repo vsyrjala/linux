@@ -1059,6 +1059,8 @@ retry:
 		replaced |= drm_property_replace_blob(&crtc_state->ctm, NULL);
 		replaced |= drm_property_replace_blob(&crtc_state->gamma_lut,
 						      gamma_lut);
+		replaced |= drm_property_replace_blob(&crtc_state->gamma_lut_3d,
+						      NULL);
 		crtc_state->color_mgmt_changed |= replaced;
 	}
 

@@ -88,6 +88,29 @@
  *	largest size, and sub-sample smaller sized LUTs (e.g. for split-gamma
  *	modes) appropriately.
  *
+ * “GAMMA_LUT_3D”:
+ *	Blob property to set the current 3D LUT apply to pixel data after
+ *      the lookup through the gamma LUT. The data is interpreted as a struct
+ *	&drm_color_lut.
+ *
+ *      The 3D LUT is stored in the following order:
+ *      output=lut[red*sz*sz+green*sz+blue],
+ *      where sz=GAMMA_LUT_3D_SIZE, and red,green,blue are
+ *      the input values in the range [0,sz-1].
+ *
+ *	Setting this to NULL (blob property value set to 0) means a
+ *	unit/pass-thru matrix should be used. This is generally the driver
+ *	boot-up state too. Drivers can access the blob for the color conversion
+ *	matrix through &drm_crtc_state.lut_3d.
+ *
+ * “GAMMA_LUT_3D_SIZE”:
+ *	Unsigned range property to give the size of the lookup table to be set
+ *	on the GAMMA_LUT_3D property (the size depends on the underlying hardware).
+ *      This is the size of a single dimension of the LUT, so the LUT will have
+ *      GAMMA_LUT_3D_SIZE^3 total entries.
+ *	If drivers support multiple LUT sizes then they should publish the
+ *	largest size, and sub-sample smaller sized LUTs appropriately.
+ *
  * There is also support for a legacy gamma table, which is set up by calling
  * drm_mode_crtc_set_gamma_size(). Drivers which support both should use
  * drm_atomic_helper_legacy_gamma_set() to alias the legacy gamma ramp with the
@@ -189,6 +212,22 @@ void drm_crtc_enable_color_mgmt(struct drm_crtc *crtc,
 	}
 }
 EXPORT_SYMBOL(drm_crtc_enable_color_mgmt);
+
+void drm_crtc_enable_gamma_lut_3d(struct drm_crtc *crtc,
+				  unsigned int gamma_lut_3d_size)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_mode_config *config = &dev->mode_config;
+
+	if (gamma_lut_3d_size) {
+		drm_object_attach_property(&crtc->base,
+					   config->gamma_lut_3d_property, 0);
+		drm_object_attach_property(&crtc->base,
+					   config->gamma_lut_3d_size_property,
+					   gamma_lut_3d_size);
+	}
+}
+EXPORT_SYMBOL(drm_crtc_enable_gamma_lut_3d);
 
 /**
  * drm_mode_crtc_set_gamma_size - set the gamma table size

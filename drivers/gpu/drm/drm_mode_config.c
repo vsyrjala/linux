@@ -365,6 +365,20 @@ static int drm_mode_create_standard_properties(struct drm_device *dev)
 	dev->mode_config.gamma_lut_size_property = prop;
 
 	prop = drm_property_create(dev,
+			DRM_MODE_PROP_BLOB,
+			"GAMMA_LUT_3D", 0);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.gamma_lut_3d_property = prop;
+
+	prop = drm_property_create_range(dev,
+			DRM_MODE_PROP_IMMUTABLE,
+			"GAMMA_LUT_3D_SIZE", 0, UINT_MAX);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.gamma_lut_3d_size_property = prop;
+
+	prop = drm_property_create(dev,
 				   DRM_MODE_PROP_IMMUTABLE | DRM_MODE_PROP_BLOB,
 				   "IN_FORMATS", 0);
 	if (!prop)
