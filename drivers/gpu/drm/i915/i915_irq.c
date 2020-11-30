@@ -3058,8 +3058,10 @@ static void gen11_display_irq_reset(struct drm_i915_private *dev_priv)
 	if (INTEL_PCH_TYPE(dev_priv) >= PCH_ICP)
 		GEN3_IRQ_RESET(uncore, SDE);
 
-	/* Wa_14010685332:icl,jsl,ehl,tgl,rkl */
-	if (INTEL_PCH_TYPE(dev_priv) >= PCH_ICP) {
+	/* Wa_14010685332:cnp/cmp,tgp,adp */
+	if (INTEL_PCH_TYPE(dev_priv) == PCH_CNP ||
+	    (INTEL_PCH_TYPE(dev_priv) >= PCH_TGP &&
+	     INTEL_PCH_TYPE(dev_priv) < PCH_DG1)) {
 		intel_uncore_rmw(uncore, SOUTH_CHICKEN1,
 				 SBCLK_RUN_REFCLK_DIS, SBCLK_RUN_REFCLK_DIS);
 		intel_uncore_rmw(uncore, SOUTH_CHICKEN1,
@@ -4204,10 +4206,6 @@ void intel_irq_init(struct drm_i915_private *dev_priv)
 	struct drm_device *dev = &dev_priv->drm;
 	int i;
 
-	intel_hpd_init_pins(dev_priv);
-
-	intel_hpd_init_work(dev_priv);
-
 	INIT_WORK(&dev_priv->l3_parity.error_work, ivb_parity_work);
 	for (i = 0; i < MAX_L3_SLICES; ++i)
 		dev_priv->l3_parity.remap_info[i] = NULL;
@@ -4215,6 +4213,13 @@ void intel_irq_init(struct drm_i915_private *dev_priv)
 	/* pre-gen11 the guc irqs bits are in the upper 16 bits of the pm reg */
 	if (HAS_GT_UC(dev_priv) && INTEL_GEN(dev_priv) < 11)
 		dev_priv->gt.pm_guc_events = GUC_INTR_GUC2HOST << 16;
+
+	if (!HAS_DISPLAY(dev_priv))
+		return;
+
+	intel_hpd_init_pins(dev_priv);
+
+	intel_hpd_init_work(dev_priv);
 
 	dev->vblank_disable_immediate = true;
 
