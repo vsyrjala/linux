@@ -43,6 +43,7 @@
 
 struct drm_file;
 struct drm_i915_gem_object;
+struct drm_printer;
 struct i915_request;
 
 struct i915_capture_list {
@@ -177,10 +178,8 @@ struct i915_request {
 	struct intel_ring *ring;
 	struct intel_timeline __rcu *timeline;
 
-	union {
-		struct list_head signal_link;
-		struct llist_node signal_node;
-	};
+	struct list_head signal_link;
+	struct llist_node signal_node;
 
 	/*
 	 * The rcu epoch of when this request was allocated. Used to judiciously
@@ -372,6 +371,11 @@ long i915_request_wait(struct i915_request *rq,
 #define I915_WAIT_INTERRUPTIBLE	BIT(0)
 #define I915_WAIT_PRIORITY	BIT(1) /* small priority bump for the request */
 #define I915_WAIT_ALL		BIT(2) /* used by i915_gem_object_wait() */
+
+void i915_request_show(struct drm_printer *m,
+		       const struct i915_request *rq,
+		       const char *prefix,
+		       int indent);
 
 static inline bool i915_request_signaled(const struct i915_request *rq)
 {
