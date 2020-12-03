@@ -1770,6 +1770,19 @@ rcs_engine_wa_init(struct intel_engine_cs *engine, struct i915_wa_list *wal)
 		 */
 		wa_write_or(wal, GEN7_FF_THREAD_MODE,
 			    GEN12_FF_TESSELATION_DOP_GATE_DISABLE);
+
+		/*
+		 * Wa_1606700617:tgl,dg1
+		 * Wa_22010271021:tgl,rkl,dg1
+		 */
+		wa_masked_en(wal,
+			     GEN9_CS_DEBUG_MODE1,
+			     FF_DOP_CLOCK_GATE_DISABLE);
+
+		/* Wa_1406941453:tgl,rkl,dg1 */
+		wa_masked_en(wal,
+			     GEN10_SAMPLER_MODE,
+			     ENABLE_SMALLPL);
 	}
 
 	if (IS_DG1_REVID(i915, DG1_REVID_A0, DG1_REVID_A0) ||
@@ -1798,21 +1811,6 @@ rcs_engine_wa_init(struct intel_engine_cs *engine, struct i915_wa_list *wal)
 			     GEN6_RC_SLEEP_PSMI_CONTROL,
 			     GEN12_WAIT_FOR_EVENT_POWER_DOWN_DISABLE |
 			     GEN8_RC_SEMA_IDLE_MSG_DISABLE);
-
-		/*
-		 * Wa_1606700617:tgl
-		 * Wa_22010271021:tgl,rkl
-		 */
-		wa_masked_en(wal,
-			     GEN9_CS_DEBUG_MODE1,
-			     FF_DOP_CLOCK_GATE_DISABLE);
-	}
-
-	if (IS_GEN(i915, 12)) {
-		/* Wa_1406941453:gen12 */
-		wa_masked_en(wal,
-			     GEN10_SAMPLER_MODE,
-			     ENABLE_SMALLPL);
 	}
 
 	if (IS_GEN(i915, 11)) {
