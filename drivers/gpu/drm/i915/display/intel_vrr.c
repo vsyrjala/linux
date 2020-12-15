@@ -57,10 +57,11 @@ intel_vrr_compute_config(struct intel_dp *intel_dp,
 	if (!intel_vrr_is_capable(connector))
 		return;
 
-	if (!crtc_state->uapi.vrr_enabled) {
-		crtc_state->vrr.enable = false;
+	if (adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE)
 		return;
-	}
+
+	if (!crtc_state->uapi.vrr_enabled)
+		return;
 
 	crtc_state->vrr.enable = true;
 	crtc_state->vrr.vmin =
