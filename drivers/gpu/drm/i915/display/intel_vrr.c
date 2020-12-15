@@ -85,8 +85,7 @@ void intel_vrr_enable(struct intel_encoder *encoder,
 		      const struct intel_crtc_state *crtc_state)
 {
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
-	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
-	enum pipe pipe = crtc->pipe;
+	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
 	const struct drm_display_mode *adjusted_mode =
 		&crtc_state->hw.adjusted_mode;
 	u32 trans_vrr_ctl;
@@ -102,13 +101,13 @@ void intel_vrr_enable(struct intel_encoder *encoder,
 		VRR_CTL_FLIP_LINE_EN | VRR_CTL_LINE_COUNT(framestart_to_pipelinefull_linecnt) |
 		VRR_CTL_SW_FULLLINE_COUNT;
 
-	intel_de_write(dev_priv, TRANS_VRR_VMIN(pipe), crtc_state->vrr.vtotalmin - 2);
-	intel_de_write(dev_priv, TRANS_VRR_VMAX(pipe), crtc_state->vrr.vtotalmax - 1);
-	intel_de_write(dev_priv, TRANS_VRR_CTL(pipe), trans_vrr_ctl);
-	intel_de_write(dev_priv, TRANS_VRR_FLIPLINE(pipe), crtc_state->vrr.vtotalmin - 1);
-	intel_de_write(dev_priv, TRANS_PUSH(pipe), TRANS_PUSH_EN);
+	intel_de_write(dev_priv, TRANS_VRR_VMIN(cpu_transcoder), crtc_state->vrr.vtotalmin - 2);
+	intel_de_write(dev_priv, TRANS_VRR_VMAX(cpu_transcoder), crtc_state->vrr.vtotalmax - 1);
+	intel_de_write(dev_priv, TRANS_VRR_CTL(cpu_transcoder), trans_vrr_ctl);
+	intel_de_write(dev_priv, TRANS_VRR_FLIPLINE(cpu_transcoder), crtc_state->vrr.vtotalmin - 1);
+	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder), TRANS_PUSH_EN);
 
-	drm_dbg_kms(&dev_priv->drm, "Enabling VRR on pipe %c\n", pipe_name(pipe));
+	drm_dbg_kms(&dev_priv->drm, "Enabling VRR on transcoder %s\n", transcoder_name(cpu_transcoder));
 	drm_dbg_kms(&dev_priv->drm, "VRR Parameters: Vtotal Min = %d, Max = %d Flipline Count = %d, CTL Reg = 0x%08x, TRANS PUSH reg = 0x%08x",
 		    crtc_state->vrr.vtotalmin - 1, crtc_state->vrr.vtotalmax,
 		    crtc_state->vrr.vtotalmin, trans_vrr_ctl,
@@ -119,35 +118,35 @@ void intel_vrr_send_push(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	enum pipe pipe = crtc->pipe;
+	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
 	u32 trans_push;
 
 	if (!crtc_state->vrr.enable)
 		return;
 
-	trans_push = intel_de_read(dev_priv, TRANS_PUSH(pipe));
+	trans_push = intel_de_read(dev_priv, TRANS_PUSH(cpu_transcoder));
 	trans_push |= TRANS_PUSH_SEND;
-	intel_de_write(dev_priv, TRANS_PUSH(pipe), trans_push);
+	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder), trans_push);
 	drm_WARN_ON(&dev_priv->drm, !(trans_push & TRANS_PUSH_EN));
 
-	drm_dbg_kms(&dev_priv->drm, "Sending VRR Push on pipe %c\n",
-		    pipe_name(pipe));
+	drm_dbg_kms(&dev_priv->drm, "Sending VRR Push on transcoder %s\n",
+		    transcoder_name(cpu_transcoder));
 }
 
 void intel_vrr_disable(const struct intel_crtc_state *old_crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(old_crtc_state->uapi.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	enum pipe pipe = crtc->pipe;
+	enum transcoder cpu_transcoder = old_crtc_state->cpu_transcoder;
 
 	if (!old_crtc_state->vrr.enable)
 		return;
 
-	intel_de_rmw(dev_priv, TRANS_VRR_CTL(pipe), VRR_CTL_FLIP_LINE_EN | VRR_CTL_VRR_ENABLE, 0);
-	intel_de_rmw(dev_priv, TRANS_PUSH(pipe), TRANS_PUSH_EN, 0);
+	intel_de_rmw(dev_priv, TRANS_VRR_CTL(cpu_transcoder), VRR_CTL_FLIP_LINE_EN | VRR_CTL_VRR_ENABLE, 0);
+	intel_de_rmw(dev_priv, TRANS_PUSH(cpu_transcoder), TRANS_PUSH_EN, 0);
 
-	drm_dbg_kms(&dev_priv->drm, "Disabling VRR on pipe %c\n",
-		    pipe_name(pipe));
+	drm_dbg_kms(&dev_priv->drm, "Disabling VRR on transcoder %s\n",
+		    transcoder_name(cpu_transcoder));
 }
 
 void intel_vrr_get_config(struct intel_crtc *crtc,
@@ -155,14 +154,14 @@ void intel_vrr_get_config(struct intel_crtc *crtc,
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	enum pipe pipe = crtc->pipe;
+	enum transcoder cpu_transcoder = pipe_config->cpu_transcoder;
 	u32 trans_vrr_ctl;
 
-	trans_vrr_ctl = intel_de_read(dev_priv, TRANS_VRR_CTL(pipe));
+	trans_vrr_ctl = intel_de_read(dev_priv, TRANS_VRR_CTL(cpu_transcoder));
 	pipe_config->vrr.enable = trans_vrr_ctl & VRR_CTL_VRR_ENABLE;
 	if (!pipe_config->vrr.enable)
 		return;
 
-	pipe_config->vrr.vtotalmax = intel_de_read(dev_priv, TRANS_VRR_VMAX(pipe)) + 1;
-	pipe_config->vrr.vtotalmin = intel_de_read(dev_priv, TRANS_VRR_VMIN(pipe)) + 1;
+	pipe_config->vrr.vtotalmax = intel_de_read(dev_priv, TRANS_VRR_VMAX(cpu_transcoder)) + 1;
+	pipe_config->vrr.vtotalmin = intel_de_read(dev_priv, TRANS_VRR_VMIN(cpu_transcoder)) + 1;
 }
