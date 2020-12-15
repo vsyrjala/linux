@@ -46,16 +46,16 @@ intel_vrr_check_modeset(struct intel_atomic_state *state)
 }
 
 void
-intel_vrr_compute_config(struct intel_dp *intel_dp,
-			 struct intel_crtc_state *crtc_state)
+intel_vrr_compute_config(struct intel_crtc_state *crtc_state,
+			 struct drm_connector_state *conn_state)
 {
-	struct intel_connector *intel_connector = intel_dp->attached_connector;
-	struct drm_connector *connector = &intel_connector->base;
-	struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
-	const struct drm_display_info *info = &connector->display_info;
+	struct intel_connector *connector =
+		to_intel_connector(conn_state->connector);
+	const struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
+	const struct drm_display_info *info = &connector->base.display_info;
 	int vmin, vmax;
 
-	if (!intel_vrr_is_capable(connector))
+	if (!intel_vrr_is_capable(&connector->base))
 		return;
 
 	if (adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE)
