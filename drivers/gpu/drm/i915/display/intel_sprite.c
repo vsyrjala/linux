@@ -109,9 +109,9 @@ void intel_pipe_update_start(const struct intel_crtc_state *new_crtc_state)
 
 	/* In case of VRR, we stall the Push and updates if too close to Vmax */
 	if (new_crtc_state->vrr.enable) {
-		min = new_crtc_state->vrr.vtotalmax - intel_usecs_to_scanlines(adjusted_mode,
-									       VBLANK_EVASION_TIME_US);
-		max = new_crtc_state->vrr.vtotalmax - 1;
+		min = new_crtc_state->vrr.vmax - intel_usecs_to_scanlines(adjusted_mode,
+									  VBLANK_EVASION_TIME_US);
+		max = new_crtc_state->vrr.vmax - 1;
 	}
 
 	if (min <= 0 || max <= 0)

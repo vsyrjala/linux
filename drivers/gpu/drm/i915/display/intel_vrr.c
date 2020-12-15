@@ -63,12 +63,12 @@ intel_vrr_compute_config(struct intel_dp *intel_dp,
 	}
 
 	crtc_state->vrr.enable = true;
-	crtc_state->vrr.vtotalmin =
+	crtc_state->vrr.vmin =
 		max_t(u16, adjusted_mode->crtc_vtotal,
 		      DIV_ROUND_CLOSEST(adjusted_mode->crtc_clock * 1000,
 					adjusted_mode->crtc_htotal *
 					info->monitor_range.max_vfreq));
-	crtc_state->vrr.vtotalmax =
+	crtc_state->vrr.vmax =
 		max_t(u16, adjusted_mode->crtc_vtotal,
 		      DIV_ROUND_UP(adjusted_mode->crtc_clock * 1000,
 				   adjusted_mode->crtc_htotal *
@@ -89,16 +89,16 @@ void intel_vrr_enable(struct intel_encoder *encoder,
 		return;
 
 	framestart_to_pipelinefull_linecnt =
-		min_t(u16, 255, (crtc_state->vrr.vtotalmin - adjusted_mode->crtc_vdisplay - 4));
+		min_t(u16, 255, (crtc_state->vrr.vmin - adjusted_mode->crtc_vdisplay - 4));
 
 	trans_vrr_ctl = VRR_CTL_VRR_ENABLE |  VRR_CTL_IGN_MAX_SHIFT |
 		VRR_CTL_FLIP_LINE_EN | VRR_CTL_LINE_COUNT(framestart_to_pipelinefull_linecnt) |
 		VRR_CTL_SW_FULLLINE_COUNT;
 
-	intel_de_write(dev_priv, TRANS_VRR_VMIN(cpu_transcoder), crtc_state->vrr.vtotalmin - 2);
-	intel_de_write(dev_priv, TRANS_VRR_VMAX(cpu_transcoder), crtc_state->vrr.vtotalmax - 1);
+	intel_de_write(dev_priv, TRANS_VRR_VMIN(cpu_transcoder), crtc_state->vrr.vmin - 2);
+	intel_de_write(dev_priv, TRANS_VRR_VMAX(cpu_transcoder), crtc_state->vrr.vmax - 1);
 	intel_de_write(dev_priv, TRANS_VRR_CTL(cpu_transcoder), trans_vrr_ctl);
-	intel_de_write(dev_priv, TRANS_VRR_FLIPLINE(cpu_transcoder), crtc_state->vrr.vtotalmin - 1);
+	intel_de_write(dev_priv, TRANS_VRR_FLIPLINE(cpu_transcoder), crtc_state->vrr.vmin - 1);
 	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder), TRANS_PUSH_EN);
 }
 
@@ -141,6 +141,6 @@ void intel_vrr_get_config(struct intel_crtc *crtc,
 	if (!crtc_state->vrr.enable)
 		return;
 
-	crtc_state->vrr.vtotalmax = intel_de_read(dev_priv, TRANS_VRR_VMAX(cpu_transcoder)) + 1;
-	crtc_state->vrr.vtotalmin = intel_de_read(dev_priv, TRANS_VRR_VMIN(cpu_transcoder)) + 1;
+	crtc_state->vrr.vmax = intel_de_read(dev_priv, TRANS_VRR_VMAX(cpu_transcoder)) + 1;
+	crtc_state->vrr.vmin = intel_de_read(dev_priv, TRANS_VRR_VMIN(cpu_transcoder)) + 1;
 }

@@ -14388,8 +14388,8 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 	PIPE_CONF_CHECK_I(mst_master_transcoder);
 
 	PIPE_CONF_CHECK_BOOL(vrr.enable);
-	PIPE_CONF_CHECK_I(vrr.vtotalmin);
-	PIPE_CONF_CHECK_I(vrr.vtotalmax);
+	PIPE_CONF_CHECK_I(vrr.vmin);
+	PIPE_CONF_CHECK_I(vrr.vmax);
 
 #undef PIPE_CONF_CHECK_X
 #undef PIPE_CONF_CHECK_I

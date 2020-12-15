@@ -1128,8 +1128,7 @@ struct intel_crtc_state {
 	/* Variable Refresh Rate state */
 	struct {
 		bool enable;
-		u16 vtotalmin;
-		u16 vtotalmax;
+		u16 vmin, vmax;
 	} vrr;
 };
 
