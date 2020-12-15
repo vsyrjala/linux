@@ -91,9 +91,10 @@ void intel_vrr_enable(struct intel_encoder *encoder,
 	if (!crtc_state->vrr.enable)
 		return;
 
-	trans_vrr_ctl = VRR_CTL_VRR_ENABLE |  VRR_CTL_IGN_MAX_SHIFT |
-		VRR_CTL_FLIP_LINE_EN | VRR_CTL_LINE_COUNT(crtc_state->vrr.pipeline_full) |
-		VRR_CTL_SW_FULLLINE_COUNT;
+	trans_vrr_ctl = VRR_CTL_VRR_ENABLE |
+		VRR_CTL_IGN_MAX_SHIFT | VRR_CTL_FLIP_LINE_EN |
+		VRR_CTL_PIPELINE_FULL(crtc_state->vrr.pipeline_full) |
+		VRR_CTL_PIPELINE_FULL_OVERRIDE;
 
 	intel_de_write(dev_priv, TRANS_VRR_VMIN(cpu_transcoder), crtc_state->vrr.vmin - 2);
 	intel_de_write(dev_priv, TRANS_VRR_VMAX(cpu_transcoder), crtc_state->vrr.vmax - 1);
@@ -141,8 +142,8 @@ void intel_vrr_get_config(struct intel_crtc *crtc,
 	if (!crtc_state->vrr.enable)
 		return;
 
-	if (trans_vrr_ctl & VRR_CTL_SW_FULLLINE_COUNT)
-		crtc_state->vrr.pipeline_full = REG_FIELD_GET(VRR_CTL_LINE_COUNT_MASK, trans_vrr_ctl);
+	if (trans_vrr_ctl & VRR_CTL_PIPELINE_FULL_OVERRIDE)
+		crtc_state->vrr.pipeline_full = REG_FIELD_GET(VRR_CTL_PIPELINE_FULL_MASK, trans_vrr_ctl);
 	if (trans_vrr_ctl & VRR_CTL_FLIP_LINE_EN)
 		crtc_state->vrr.flipline = intel_de_read(dev_priv, TRANS_VRR_FLIPLINE(cpu_transcoder)) + 1;
 	crtc_state->vrr.vmax = intel_de_read(dev_priv, TRANS_VRR_VMAX(cpu_transcoder)) + 1;
