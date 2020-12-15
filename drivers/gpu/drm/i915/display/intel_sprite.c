@@ -100,19 +100,15 @@ void intel_pipe_update_start(const struct intel_crtc_state *new_crtc_state)
 	if (new_crtc_state->uapi.async_flip)
 		return;
 
-	vblank_start = intel_mode_vblank_start(adjusted_mode);
+	if (new_crtc_state->vrr.enable)
+		vblank_start = intel_vrr_vmax_vblank_start(new_crtc_state);
+	else
+		vblank_start = intel_mode_vblank_start(adjusted_mode);
 
 	/* FIXME needs to be calibrated sensibly */
 	min = vblank_start - intel_usecs_to_scanlines(adjusted_mode,
 						      VBLANK_EVASION_TIME_US);
 	max = vblank_start - 1;
-
-	/* In case of VRR, we stall the Push and updates if too close to Vmax */
-	if (new_crtc_state->vrr.enable) {
-		min = new_crtc_state->vrr.vmax - intel_usecs_to_scanlines(adjusted_mode,
-									  VBLANK_EVASION_TIME_US);
-		max = new_crtc_state->vrr.vmax - 1;
-	}
 
 	if (min <= 0 || max <= 0)
 		goto irq_disable;
