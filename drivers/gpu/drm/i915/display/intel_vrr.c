@@ -137,8 +137,7 @@ void intel_vrr_disable(const struct intel_crtc_state *old_crtc_state)
 void intel_vrr_get_config(struct intel_crtc *crtc,
 			  struct intel_crtc_state *crtc_state)
 {
-	struct drm_device *dev = crtc->base.dev;
-	struct drm_i915_private *dev_priv = to_i915(dev);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
 	u32 trans_vrr_ctl;
 
