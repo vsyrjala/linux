@@ -150,18 +150,18 @@ void intel_vrr_disable(const struct intel_crtc_state *old_crtc_state)
 }
 
 void intel_vrr_get_config(struct intel_crtc *crtc,
-			  struct intel_crtc_state *pipe_config)
+			  struct intel_crtc_state *crtc_state)
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = to_i915(dev);
-	enum transcoder cpu_transcoder = pipe_config->cpu_transcoder;
+	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
 	u32 trans_vrr_ctl;
 
 	trans_vrr_ctl = intel_de_read(dev_priv, TRANS_VRR_CTL(cpu_transcoder));
-	pipe_config->vrr.enable = trans_vrr_ctl & VRR_CTL_VRR_ENABLE;
-	if (!pipe_config->vrr.enable)
+	crtc_state->vrr.enable = trans_vrr_ctl & VRR_CTL_VRR_ENABLE;
+	if (!crtc_state->vrr.enable)
 		return;
 
-	pipe_config->vrr.vtotalmax = intel_de_read(dev_priv, TRANS_VRR_VMAX(cpu_transcoder)) + 1;
-	pipe_config->vrr.vtotalmin = intel_de_read(dev_priv, TRANS_VRR_VMIN(cpu_transcoder)) + 1;
+	crtc_state->vrr.vtotalmax = intel_de_read(dev_priv, TRANS_VRR_VMAX(cpu_transcoder)) + 1;
+	crtc_state->vrr.vtotalmin = intel_de_read(dev_priv, TRANS_VRR_VMIN(cpu_transcoder)) + 1;
 }
