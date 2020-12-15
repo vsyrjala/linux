@@ -107,15 +107,12 @@ void intel_vrr_send_push(const struct intel_crtc_state *crtc_state)
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
-	u32 trans_push;
 
 	if (!crtc_state->vrr.enable)
 		return;
 
-	trans_push = intel_de_read(dev_priv, TRANS_PUSH(cpu_transcoder));
-	trans_push |= TRANS_PUSH_SEND;
-	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder), trans_push);
-	drm_WARN_ON(&dev_priv->drm, !(trans_push & TRANS_PUSH_EN));
+	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder),
+		       TRANS_PUSH_EN | TRANS_PUSH_SEND);
 }
 
 void intel_vrr_disable(const struct intel_crtc_state *old_crtc_state)
@@ -127,8 +124,8 @@ void intel_vrr_disable(const struct intel_crtc_state *old_crtc_state)
 	if (!old_crtc_state->vrr.enable)
 		return;
 
-	intel_de_rmw(dev_priv, TRANS_VRR_CTL(cpu_transcoder), VRR_CTL_FLIP_LINE_EN | VRR_CTL_VRR_ENABLE, 0);
-	intel_de_rmw(dev_priv, TRANS_PUSH(cpu_transcoder), TRANS_PUSH_EN, 0);
+	intel_de_write(dev_priv, TRANS_VRR_CTL(cpu_transcoder), 0);
+	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder), 0);
 }
 
 void intel_vrr_get_config(struct intel_crtc *crtc,
