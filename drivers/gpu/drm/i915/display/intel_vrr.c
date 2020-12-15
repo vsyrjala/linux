@@ -45,6 +45,43 @@ intel_vrr_check_modeset(struct intel_atomic_state *state)
 	}
 }
 
+/*
+ * Without VRR registers get latched at:
+ *  vblank_start
+ *
+ * With VRR the earliest registers can get latched is:
+ *  intel_vrr_vmin_vblank_start(), which if we want to maintain
+ *  the correct min vtotal is >=vblank_start+1
+ *
+ * The latest point registers can get latched is the vmax decision boundary:
+ *  intel_vrr_vmax_vblank_start()
+ *
+ * Between those two points the vblank exit starts (and hence registers get
+ * latched) ASAP after a push is sent.
+ *
+ * framestart_delay is programmable 0-3.
+ */
+static int intel_vrr_vblank_exit_length(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
+
+	/* TODO: This stuff was found empirically on icl. Confirm on tgl+ */
+	/* TODO: Not sure why the hw imposes the extra scanline? */
+	return crtc_state->vrr.pipeline_full + i915->framestart_delay + 2;
+}
+
+int intel_vrr_vmin_vblank_start(const struct intel_crtc_state *crtc_state)
+{
+	/* Min vblank actually determined by flipline that is always >=vmin+1 */
+	return crtc_state->vrr.vmin + 1 - intel_vrr_vblank_exit_length(crtc_state);
+}
+
+int intel_vrr_vmax_vblank_start(const struct intel_crtc_state *crtc_state)
+{
+	return crtc_state->vrr.vmax - intel_vrr_vblank_exit_length(crtc_state);
+}
+
 void
 intel_vrr_compute_config(struct intel_crtc_state *crtc_state,
 			 struct drm_connector_state *conn_state)
@@ -76,14 +113,33 @@ intel_vrr_compute_config(struct intel_crtc_state *crtc_state,
 	if (vmin >= vmax)
 		return;
 
-	crtc_state->vrr.vmin = vmin;
+	/*
+	 * flipline determines the min vblank length the hardware will
+	 * generate, and flipline>=vmin+1, hence we reduce vmin by one
+	 * to get make sure we can get the actual min vblank length.
+	 */
+	crtc_state->vrr.vmin = vmin - 1;
 	crtc_state->vrr.vmax = vmax;
 	crtc_state->vrr.enable = true;
 
 	crtc_state->vrr.flipline = crtc_state->vrr.vmin + 1;
 
+	/*
+	 * FIXME: s/4/framestart_delay+1/ to get consistent
+	 * earliest/latest points for register latching regardless
+	 * of the framestart_delay used?
+	 *
+	 * FIXME: should we actually increase framestart_delay from 0?
+	 *
+	 * FIXME: rather than clamp to 255 we should probably fail here?
+	 *
+	 * FIXME: this really needs the extra scanline to provide consistent
+	 * behaviour for all framestart_delay values. Otherwise with
+	 * framestart_delay==3 we will end up extending the min vblank by
+	 * one extra line. Find out why.
+	 */
 	crtc_state->vrr.pipeline_full =
-		min_t(u16, 255, (crtc_state->vrr.vmin - adjusted_mode->crtc_vdisplay - 4));
+		min(255, crtc_state->vrr.vmin - adjusted_mode->crtc_vdisplay - 4 - 1);
 }
 
 void intel_vrr_enable(struct intel_encoder *encoder,
