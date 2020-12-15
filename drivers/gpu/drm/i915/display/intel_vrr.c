@@ -49,7 +49,6 @@ void
 intel_vrr_compute_config(struct intel_dp *intel_dp,
 			 struct intel_crtc_state *crtc_state)
 {
-	struct drm_i915_private *i915 = dp_to_i915(intel_dp);
 	struct intel_connector *intel_connector = intel_dp->attached_connector;
 	struct drm_connector *connector = &intel_connector->base;
 	struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
@@ -74,11 +73,6 @@ intel_vrr_compute_config(struct intel_dp *intel_dp,
 		      DIV_ROUND_UP(adjusted_mode->crtc_clock * 1000,
 				   adjusted_mode->crtc_htotal *
 				   info->monitor_range.min_vfreq));
-
-	drm_dbg_kms(&i915->drm,
-		    "VRR Config: Enable = %s Vtotal Min = %d Vtotal Max = %d\n",
-		    yesno(crtc_state->vrr.enable), crtc_state->vrr.vtotalmin,
-		    crtc_state->vrr.vtotalmax);
 }
 
 void intel_vrr_enable(struct intel_encoder *encoder,
@@ -106,12 +100,6 @@ void intel_vrr_enable(struct intel_encoder *encoder,
 	intel_de_write(dev_priv, TRANS_VRR_CTL(cpu_transcoder), trans_vrr_ctl);
 	intel_de_write(dev_priv, TRANS_VRR_FLIPLINE(cpu_transcoder), crtc_state->vrr.vtotalmin - 1);
 	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder), TRANS_PUSH_EN);
-
-	drm_dbg_kms(&dev_priv->drm, "Enabling VRR on transcoder %s\n", transcoder_name(cpu_transcoder));
-	drm_dbg_kms(&dev_priv->drm, "VRR Parameters: Vtotal Min = %d, Max = %d Flipline Count = %d, CTL Reg = 0x%08x, TRANS PUSH reg = 0x%08x",
-		    crtc_state->vrr.vtotalmin - 1, crtc_state->vrr.vtotalmax,
-		    crtc_state->vrr.vtotalmin, trans_vrr_ctl,
-		    TRANS_PUSH_EN);
 }
 
 void intel_vrr_send_push(const struct intel_crtc_state *crtc_state)
@@ -128,9 +116,6 @@ void intel_vrr_send_push(const struct intel_crtc_state *crtc_state)
 	trans_push |= TRANS_PUSH_SEND;
 	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder), trans_push);
 	drm_WARN_ON(&dev_priv->drm, !(trans_push & TRANS_PUSH_EN));
-
-	drm_dbg_kms(&dev_priv->drm, "Sending VRR Push on transcoder %s\n",
-		    transcoder_name(cpu_transcoder));
 }
 
 void intel_vrr_disable(const struct intel_crtc_state *old_crtc_state)
@@ -144,9 +129,6 @@ void intel_vrr_disable(const struct intel_crtc_state *old_crtc_state)
 
 	intel_de_rmw(dev_priv, TRANS_VRR_CTL(cpu_transcoder), VRR_CTL_FLIP_LINE_EN | VRR_CTL_VRR_ENABLE, 0);
 	intel_de_rmw(dev_priv, TRANS_PUSH(cpu_transcoder), TRANS_PUSH_EN, 0);
-
-	drm_dbg_kms(&dev_priv->drm, "Disabling VRR on transcoder %s\n",
-		    transcoder_name(cpu_transcoder));
 }
 
 void intel_vrr_get_config(struct intel_crtc *crtc,
