@@ -53,6 +53,7 @@ intel_vrr_compute_config(struct intel_dp *intel_dp,
 	struct drm_connector *connector = &intel_connector->base;
 	struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
 	const struct drm_display_info *info = &connector->display_info;
+	int vmin, vmax;
 
 	if (!intel_vrr_is_capable(connector))
 		return;
@@ -63,17 +64,21 @@ intel_vrr_compute_config(struct intel_dp *intel_dp,
 	if (!crtc_state->uapi.vrr_enabled)
 		return;
 
+	vmin = DIV_ROUND_UP(adjusted_mode->crtc_clock * 1000,
+			    adjusted_mode->crtc_htotal * info->monitor_range.max_vfreq);
+	vmax = adjusted_mode->crtc_clock * 1000 /
+		(adjusted_mode->crtc_htotal * info->monitor_range.min_vfreq);
+
+	vmin = max_t(int, vmin, adjusted_mode->crtc_vtotal);
+	vmax = max_t(int, vmax, adjusted_mode->crtc_vtotal);
+
+	/* FIXME: is it OK if vmax decision boundary < vmin? */
+	if (vmin >= vmax)
+		return;
+
+	crtc_state->vrr.vmin = vmin;
+	crtc_state->vrr.vmax = vmax;
 	crtc_state->vrr.enable = true;
-	crtc_state->vrr.vmin =
-		max_t(u16, adjusted_mode->crtc_vtotal,
-		      DIV_ROUND_CLOSEST(adjusted_mode->crtc_clock * 1000,
-					adjusted_mode->crtc_htotal *
-					info->monitor_range.max_vfreq));
-	crtc_state->vrr.vmax =
-		max_t(u16, adjusted_mode->crtc_vtotal,
-		      DIV_ROUND_UP(adjusted_mode->crtc_clock * 1000,
-				   adjusted_mode->crtc_htotal *
-				   info->monitor_range.min_vfreq));
 
 	crtc_state->vrr.flipline = crtc_state->vrr.vmin + 1;
 
