@@ -73,6 +73,8 @@ intel_vrr_compute_config(struct intel_dp *intel_dp,
 		      DIV_ROUND_UP(adjusted_mode->crtc_clock * 1000,
 				   adjusted_mode->crtc_htotal *
 				   info->monitor_range.min_vfreq));
+
+	crtc_state->vrr.flipline = crtc_state->vrr.vmin + 1;
 }
 
 void intel_vrr_enable(struct intel_encoder *encoder,
@@ -98,7 +100,7 @@ void intel_vrr_enable(struct intel_encoder *encoder,
 	intel_de_write(dev_priv, TRANS_VRR_VMIN(cpu_transcoder), crtc_state->vrr.vmin - 2);
 	intel_de_write(dev_priv, TRANS_VRR_VMAX(cpu_transcoder), crtc_state->vrr.vmax - 1);
 	intel_de_write(dev_priv, TRANS_VRR_CTL(cpu_transcoder), trans_vrr_ctl);
-	intel_de_write(dev_priv, TRANS_VRR_FLIPLINE(cpu_transcoder), crtc_state->vrr.vmin - 1);
+	intel_de_write(dev_priv, TRANS_VRR_FLIPLINE(cpu_transcoder), crtc_state->vrr.flipline - 1);
 	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder), TRANS_PUSH_EN);
 }
 
@@ -141,6 +143,8 @@ void intel_vrr_get_config(struct intel_crtc *crtc,
 	if (!crtc_state->vrr.enable)
 		return;
 
+	if (trans_vrr_ctl & VRR_CTL_FLIP_LINE_EN)
+		crtc_state->vrr.flipline = intel_de_read(dev_priv, TRANS_VRR_FLIPLINE(cpu_transcoder)) + 1;
 	crtc_state->vrr.vmax = intel_de_read(dev_priv, TRANS_VRR_VMAX(cpu_transcoder)) + 1;
 	crtc_state->vrr.vmin = intel_de_read(dev_priv, TRANS_VRR_VMIN(cpu_transcoder)) + 1;
 }
