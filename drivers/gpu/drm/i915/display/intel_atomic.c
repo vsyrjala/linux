@@ -224,6 +224,7 @@ intel_atomic_get_digital_connector_state(struct intel_atomic_state *state,
 struct drm_crtc_state *
 intel_crtc_duplicate_state(struct drm_crtc *crtc)
 {
+	struct drm_i915_private *i915 = to_i915(crtc->dev);
 	const struct intel_crtc_state *old_crtc_state = to_intel_crtc_state(crtc->state);
 	struct intel_crtc_state *crtc_state;
 
@@ -253,6 +254,9 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 	crtc_state->fb_bits = 0;
 	crtc_state->update_planes = 0;
 	crtc_state->dsb = NULL;
+
+	//hax
+	crtc_state->uapi.vrr_enabled = i915->params.force_vrr;
 
 	return &crtc_state->uapi;
 }

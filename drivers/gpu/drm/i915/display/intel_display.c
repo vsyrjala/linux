@@ -15527,6 +15527,8 @@ static int intel_atomic_check(struct drm_device *dev,
 	int ret, i;
 	bool any_ms = false;
 
+	dev_priv->framestart_delay = dev_priv->params.framestart_delay; /* 0-3 */
+
 	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state,
 					    new_crtc_state, i) {
 		if (new_crtc_state->inherited != old_crtc_state->inherited)
@@ -18602,7 +18604,7 @@ int intel_modeset_init_noirq(struct drm_i915_private *i915)
 	i915->flip_wq = alloc_workqueue("i915_flip", WQ_HIGHPRI |
 					WQ_UNBOUND, WQ_UNBOUND_MAX_ACTIVE);
 
-	i915->framestart_delay = 0; /* 0-3 */
+	i915->framestart_delay = i915->params.framestart_delay; /* 0-3 */
 
 	intel_mode_config_init(i915);
 

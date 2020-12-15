@@ -69,6 +69,8 @@ struct drm_printer;
 	param(unsigned int, inject_probe_failure, 0, 0) \
 	param(int, fastboot, -1, 0600) \
 	param(int, enable_dpcd_backlight, -1, 0600) \
+	param(int, framestart_delay, 0, 0600) \
+	param(int, pipeline_extra, 0, 0600) \
 	param(char *, force_probe, CONFIG_DRM_I915_FORCE_PROBE, 0400) \
 	param(unsigned long, fake_lmem_start, 0, 0400) \
 	/* leave bools at the end to not create holes */ \
@@ -80,6 +82,7 @@ struct drm_printer;
 	param(bool, verbose_state_checks, true, 0) \
 	param(bool, nuclear_pageflip, false, 0400) \
 	param(bool, enable_dp_mst, true, 0600) \
+	param(bool, force_vrr, false, 0600) \
 	param(bool, enable_gvt, false, 0400)
 
 #define MEMBER(T, member, ...) T member;

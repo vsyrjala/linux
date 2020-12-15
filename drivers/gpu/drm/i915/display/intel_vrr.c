@@ -88,6 +88,7 @@ intel_vrr_compute_config(struct intel_crtc_state *crtc_state,
 {
 	struct intel_connector *connector =
 		to_intel_connector(conn_state->connector);
+	struct drm_i915_private *i915 = to_i915(connector->base.dev);
 	const struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
 	const struct drm_display_info *info = &connector->base.display_info;
 	int vmin, vmax;
@@ -139,7 +140,8 @@ intel_vrr_compute_config(struct intel_crtc_state *crtc_state,
 	 * one extra line. Find out why.
 	 */
 	crtc_state->vrr.pipeline_full =
-		min(255, crtc_state->vrr.vmin - adjusted_mode->crtc_vdisplay - 4 - 1);
+		min(255, crtc_state->vrr.vmin - adjusted_mode->crtc_vdisplay - 4 - 1 +
+		    i915->params.pipeline_extra);
 
 	crtc_state->mode_flags |= I915_MODE_FLAG_VRR;
 }
