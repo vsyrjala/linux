@@ -3672,12 +3672,6 @@ static void tgl_ddi_pre_enable_dp(struct intel_atomic_state *state,
 	intel_dp_sink_set_fec_ready(intel_dp, crtc_state);
 
 	/*
-	 * Sink device should ignore MSA parameters and regenerate
-	 * incoming video stream in case of VRR/Adaptive Sync
-	 */
-	intel_dp_sink_set_msa_timing_par_ignore_state(intel_dp, crtc_state, true);
-
-	/*
 	 * 7.i Follow DisplayPort specification training sequence (see notes for
 	 *     failure handling)
 	 * 7.j If DisplayPort multi-stream - Set DP_TP_CTL link training to Idle
