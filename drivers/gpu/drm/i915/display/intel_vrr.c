@@ -75,6 +75,9 @@ intel_vrr_compute_config(struct intel_dp *intel_dp,
 				   info->monitor_range.min_vfreq));
 
 	crtc_state->vrr.flipline = crtc_state->vrr.vmin + 1;
+
+	crtc_state->vrr.pipeline_full =
+		min_t(u16, 255, (crtc_state->vrr.vmin - adjusted_mode->crtc_vdisplay - 4));
 }
 
 void intel_vrr_enable(struct intel_encoder *encoder,
@@ -82,19 +85,13 @@ void intel_vrr_enable(struct intel_encoder *encoder,
 {
 	struct drm_i915_private *dev_priv = to_i915(encoder->base.dev);
 	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
-	const struct drm_display_mode *adjusted_mode =
-		&crtc_state->hw.adjusted_mode;
 	u32 trans_vrr_ctl;
-	u16 framestart_to_pipelinefull_linecnt;
 
 	if (!crtc_state->vrr.enable)
 		return;
 
-	framestart_to_pipelinefull_linecnt =
-		min_t(u16, 255, (crtc_state->vrr.vmin - adjusted_mode->crtc_vdisplay - 4));
-
 	trans_vrr_ctl = VRR_CTL_VRR_ENABLE |  VRR_CTL_IGN_MAX_SHIFT |
-		VRR_CTL_FLIP_LINE_EN | VRR_CTL_LINE_COUNT(framestart_to_pipelinefull_linecnt) |
+		VRR_CTL_FLIP_LINE_EN | VRR_CTL_LINE_COUNT(crtc_state->vrr.pipeline_full) |
 		VRR_CTL_SW_FULLLINE_COUNT;
 
 	intel_de_write(dev_priv, TRANS_VRR_VMIN(cpu_transcoder), crtc_state->vrr.vmin - 2);
@@ -143,6 +140,8 @@ void intel_vrr_get_config(struct intel_crtc *crtc,
 	if (!crtc_state->vrr.enable)
 		return;
 
+	if (trans_vrr_ctl & VRR_CTL_SW_FULLLINE_COUNT)
+		crtc_state->vrr.pipeline_full = REG_FIELD_GET(VRR_CTL_LINE_COUNT_MASK, trans_vrr_ctl);
 	if (trans_vrr_ctl & VRR_CTL_FLIP_LINE_EN)
 		crtc_state->vrr.flipline = intel_de_read(dev_priv, TRANS_VRR_FLIPLINE(cpu_transcoder)) + 1;
 	crtc_state->vrr.vmax = intel_de_read(dev_priv, TRANS_VRR_VMAX(cpu_transcoder)) + 1;
