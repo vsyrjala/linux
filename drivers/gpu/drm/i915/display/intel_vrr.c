@@ -190,9 +190,17 @@ void intel_vrr_disable(const struct intel_crtc_state *old_crtc_state)
 	if (!old_crtc_state->vrr.enable)
 		return;
 
-	intel_de_write(dev_priv, TRANS_VRR_CTL(cpu_transcoder), 0);
+	intel_de_wait_for_clear(dev_priv, TRANS_PUSH(cpu_transcoder),
+				TRANS_PUSH_SEND, 1000);
+
+	intel_de_write(dev_priv, TRANS_VRR_CTL(cpu_transcoder),
+		       VRR_CTL_IGN_MAX_SHIFT | VRR_CTL_FLIP_LINE_EN |
+		       VRR_CTL_PIPELINE_FULL(old_crtc_state->vrr.pipeline_full) |
+		       VRR_CTL_PIPELINE_FULL_OVERRIDE);
+
 	intel_de_wait_for_clear(dev_priv, TRANS_VRR_STATUS(cpu_transcoder),
 				VRR_STATUS_VRR_EN_LIVE, 1000);
+	intel_de_write(dev_priv, TRANS_VRR_CTL(cpu_transcoder), 0);
 	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder), 0);
 }
 
