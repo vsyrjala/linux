@@ -4005,9 +4005,9 @@ static void intel_ddi_post_disable(struct intel_atomic_state *state,
 	if (!intel_crtc_has_type(old_crtc_state, INTEL_OUTPUT_DP_MST)) {
 		intel_crtc_vblank_off(old_crtc_state);
 
-		intel_disable_pipe(old_crtc_state);
-
 		intel_vrr_disable(old_crtc_state);
+
+		intel_disable_pipe(old_crtc_state);
 
 		intel_ddi_disable_transcoder_func(old_crtc_state);
 
