@@ -3921,6 +3921,8 @@ static void intel_ddi_post_disable_dp(struct intel_atomic_state *state,
 		intel_dp_set_infoframes(encoder, false,
 					old_crtc_state, old_conn_state);
 
+	intel_dp_sink_set_msa_timing_par_ignore_state(intel_dp, old_crtc_state, false);
+
 	/*
 	 * Power down sink before disabling the port, otherwise we end
 	 * up getting interrupts from the sink on detecting link loss.
@@ -4298,9 +4300,6 @@ static void intel_disable_ddi_dp(struct intel_atomic_state *state,
 	/* Disable the decompression in DP Sink */
 	intel_dp_sink_set_decompression_state(intel_dp, old_crtc_state,
 					      false);
-	/* Disable Ignore_MSA bit in DP Sink */
-	intel_dp_sink_set_msa_timing_par_ignore_state(intel_dp, old_crtc_state,
-						      false);
 }
 
 static void intel_disable_ddi_hdmi(struct intel_atomic_state *state,
