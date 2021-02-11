@@ -165,36 +165,12 @@ fill_detail_timing_data(struct drm_display_mode *panel_fixed_mode,
 	drm_mode_set_name(panel_fixed_mode);
 }
 
-static const struct lvds_dvo_timing *
-get_lvds_dvo_timing(const struct bdb_lvds_lfp_data *lvds_lfp_data,
-		    const struct bdb_lvds_lfp_data_ptrs *lvds_lfp_data_ptrs,
-		    int index)
-{
-	/*
-	 * the size of fp_timing varies on the different platform.
-	 * So calculate the DVO timing relative offset in LVDS data
-	 * entry to get the DVO timing entry
-	 */
-
-	int lfp_data_size =
-		lvds_lfp_data_ptrs->ptr[1].dvo_timing.offset -
-		lvds_lfp_data_ptrs->ptr[0].dvo_timing.offset;
-	int dvo_timing_offset =
-		lvds_lfp_data_ptrs->ptr[0].dvo_timing.offset -
-		lvds_lfp_data_ptrs->ptr[0].fp_timing.offset;
-	char *entry = (char *)lvds_lfp_data->data + lfp_data_size * index;
-
-	return (struct lvds_dvo_timing *)(entry + dvo_timing_offset);
-}
-
-/* get lvds_fp_timing entry
- * this function may return NULL if the corresponding entry is invalid
- */
-static const struct lvds_fp_timing *
-get_lvds_fp_timing(const struct bdb_header *bdb,
-		   const struct bdb_lvds_lfp_data *data,
-		   const struct bdb_lvds_lfp_data_ptrs *ptrs,
-		   int index)
+static const void *
+get_lvds_data(const struct bdb_header *bdb,
+	      const struct bdb_lvds_lfp_data *data,
+	      const struct bdb_lvds_lfp_data_ptrs *ptrs,
+	      const struct lvds_lfp_data_ptr_entry *entry,
+	      size_t size, int index)
 {
 	size_t data_ofs = (const u8 *)data - (const u8 *)bdb;
 	u16 data_size = ((const u16 *)data)[-1]; /* stored in header */
@@ -202,11 +178,48 @@ get_lvds_fp_timing(const struct bdb_header *bdb,
 
 	if (index >= ARRAY_SIZE(ptrs->ptr))
 		return NULL;
-	ofs = ptrs->ptr[index].fp_timing.offset;
-	if (ofs < data_ofs ||
-	    ofs + sizeof(struct lvds_fp_timing) > data_ofs + data_size)
+
+	ofs = entry->offset;
+	if (ofs < data_ofs || ofs + size > data_ofs + data_size)
 		return NULL;
-	return (const struct lvds_fp_timing *)((const u8 *)bdb + ofs);
+
+	return (const void *)(const u8 *)bdb + ofs;
+}
+
+static const struct lvds_dvo_timing *
+get_lvds_dvo_timing(const struct bdb_header *bdb, int index)
+{
+	const struct bdb_lvds_lfp_data *data;
+	const struct bdb_lvds_lfp_data_ptrs *ptrs;
+
+	data = find_section(bdb, BDB_LVDS_LFP_DATA);
+	if (!data)
+		return NULL;
+
+	ptrs = find_section(bdb, BDB_LVDS_LFP_DATA_PTRS);
+	if (!ptrs)
+		return NULL;
+
+	return get_lvds_data(bdb, data, ptrs, &ptrs->ptr[index].dvo_timing,
+			     sizeof(struct lvds_dvo_timing), index);
+}
+
+static const struct lvds_fp_timing *
+get_lvds_fp_timing(const struct bdb_header *bdb, int index)
+{
+	const struct bdb_lvds_lfp_data *data;
+	const struct bdb_lvds_lfp_data_ptrs *ptrs;
+
+	data = find_section(bdb, BDB_LVDS_LFP_DATA);
+	if (!data)
+		return NULL;
+
+	ptrs = find_section(bdb, BDB_LVDS_LFP_DATA_PTRS);
+	if (!ptrs)
+		return NULL;
+
+	return get_lvds_data(bdb, data, ptrs, &ptrs->ptr[index].fp_timing,
+			     sizeof(struct lvds_fp_timing), index);
 }
 
 /* Parse general panel options */
@@ -275,24 +288,14 @@ static void
 parse_lfp_panel_dtd(struct drm_i915_private *dev_priv,
 		    const struct bdb_header *bdb)
 {
-	const struct bdb_lvds_lfp_data *lvds_lfp_data;
-	const struct bdb_lvds_lfp_data_ptrs *lvds_lfp_data_ptrs;
 	const struct lvds_dvo_timing *panel_dvo_timing;
 	const struct lvds_fp_timing *fp_timing;
 	struct drm_display_mode *panel_fixed_mode;
 	int panel_type = dev_priv->vbt.panel_type;
 
-	lvds_lfp_data = find_section(bdb, BDB_LVDS_LFP_DATA);
-	if (!lvds_lfp_data)
+	panel_dvo_timing = get_lvds_dvo_timing(bdb, panel_type);
+	if (!panel_dvo_timing)
 		return;
-
-	lvds_lfp_data_ptrs = find_section(bdb, BDB_LVDS_LFP_DATA_PTRS);
-	if (!lvds_lfp_data_ptrs)
-		return;
-
-	panel_dvo_timing = get_lvds_dvo_timing(lvds_lfp_data,
-					       lvds_lfp_data_ptrs,
-					       panel_type);
 
 	panel_fixed_mode = kzalloc(sizeof(*panel_fixed_mode), GFP_KERNEL);
 	if (!panel_fixed_mode)
@@ -306,9 +309,7 @@ parse_lfp_panel_dtd(struct drm_i915_private *dev_priv,
 		    "Found panel mode in BIOS VBT legacy lfp table:\n");
 	drm_mode_debug_printmodeline(panel_fixed_mode);
 
-	fp_timing = get_lvds_fp_timing(bdb, lvds_lfp_data,
-				       lvds_lfp_data_ptrs,
-				       panel_type);
+	fp_timing = get_lvds_fp_timing(bdb, panel_type);
 	if (fp_timing) {
 		/* check the resolution, just to be sure */
 		if (fp_timing->x_res == panel_fixed_mode->hdisplay &&
