@@ -241,27 +241,47 @@ static int vbt_panel_type(struct drm_i915_private *i915,
 	return lvds_options->panel_type;
 }
 
+enum panel_type {
+	PANEL_TYPE_OPREGION,
+	PANEL_TYPE_VBT,
+	PANEL_TYPE_FALLBACK,
+};
+
 static int get_panel_type(struct drm_i915_private *i915,
 			  const struct bdb_header *bdb)
 {
-	int ret;
+	struct {
+		const char *name;
+		int panel_type;
+	} panel_types[] = {
+		[PANEL_TYPE_OPREGION] = { .name = "OpRegion", .panel_type = -1, },
+		[PANEL_TYPE_VBT] = { .name = "VBT", .panel_type = -1, },
+		[PANEL_TYPE_FALLBACK] = { .name = "fallback", .panel_type = 0, },
+	};
+	int i;
 
-	ret = intel_opregion_get_panel_type(i915);
-	if (ret >= 0) {
-		drm_WARN_ON(&i915->drm, ret > 0xf);
-		drm_dbg_kms(&i915->drm, "Panel type: %d (OpRegion)\n", ret);
-		return ret;
+	panel_types[PANEL_TYPE_OPREGION].panel_type = intel_opregion_get_panel_type(i915);
+	panel_types[PANEL_TYPE_VBT].panel_type = vbt_panel_type(i915, bdb);
+
+	for (i = 0; i < ARRAY_SIZE(panel_types); i++) {
+		drm_WARN_ON(&i915->drm, panel_types[i].panel_type > 0xf);
+
+		if (panel_types[i].panel_type >= 0)
+			drm_dbg_kms(&i915->drm, "Panel type (%s): %d\n",
+				    panel_types[i].name, panel_types[i].panel_type);
 	}
 
-	ret = vbt_panel_type(i915, bdb);
-	if (ret >= 0) {
-		drm_WARN_ON(&i915->drm, ret > 0xf);
-		drm_dbg_kms(&i915->drm, "Panel type: %d (VBT)\n", ret);
-		return ret;
-	}
+	if (panel_types[PANEL_TYPE_OPREGION].panel_type >= 0)
+		i = PANEL_TYPE_OPREGION;
+	else if (panel_types[PANEL_TYPE_VBT].panel_type >= 0)
+		i = PANEL_TYPE_VBT;
+	else
+		i = PANEL_TYPE_FALLBACK;
 
-	/* fallback */
-	return 0;
+	drm_dbg_kms(&i915->drm, "Selected panel type (%s): %d\n",
+		    panel_types[i].name, panel_types[i].panel_type);
+
+	return panel_types[i].panel_type;
 }
 
 /* Parse general panel options */
