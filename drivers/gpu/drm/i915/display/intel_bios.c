@@ -223,6 +223,46 @@ get_lvds_fp_timing(const struct bdb_header *bdb, int index)
 			     12, index);
 }
 
+static int vbt_panel_type(struct drm_i915_private *i915,
+			  const struct bdb_header *bdb)
+{
+	const struct bdb_lvds_options *lvds_options;
+
+	lvds_options = find_section(bdb, BDB_LVDS_OPTIONS);
+	if (!lvds_options)
+		return -1;
+
+	if (lvds_options->panel_type > 0xf) {
+		drm_dbg_kms(&i915->drm, "Invalid VBT panel type 0x%x\n",
+			    lvds_options->panel_type);
+		return -1;
+	}
+
+	return lvds_options->panel_type;
+}
+
+static int get_panel_type(struct drm_i915_private *i915,
+			  const struct bdb_header *bdb)
+{
+	int ret;
+
+	ret = intel_opregion_get_panel_type(i915);
+	if (ret >= 0) {
+		drm_WARN_ON(&i915->drm, ret > 0xf);
+		drm_dbg_kms(&i915->drm, "Panel type: %d (OpRegion)\n", ret);
+		return ret;
+	}
+
+	ret = vbt_panel_type(i915, bdb);
+	if (ret >= 0) {
+		drm_WARN_ON(&i915->drm, ret > 0xf);
+		drm_dbg_kms(&i915->drm, "Panel type: %d (VBT)\n", ret);
+		return ret;
+	}
+
+	return -1;
+}
+
 /* Parse general panel options */
 static void
 parse_panel_options(struct drm_i915_private *dev_priv,
@@ -231,7 +271,6 @@ parse_panel_options(struct drm_i915_private *dev_priv,
 	const struct bdb_lvds_options *lvds_options;
 	int panel_type;
 	int drrs_mode;
-	int ret;
 
 	lvds_options = find_section(bdb, BDB_LVDS_OPTIONS);
 	if (!lvds_options)
@@ -239,23 +278,9 @@ parse_panel_options(struct drm_i915_private *dev_priv,
 
 	dev_priv->vbt.lvds_dither = lvds_options->pixel_dither;
 
-	ret = intel_opregion_get_panel_type(dev_priv);
-	if (ret >= 0) {
-		drm_WARN_ON(&dev_priv->drm, ret > 0xf);
-		panel_type = ret;
-		drm_dbg_kms(&dev_priv->drm, "Panel type: %d (OpRegion)\n",
-			    panel_type);
-	} else {
-		if (lvds_options->panel_type > 0xf) {
-			drm_dbg_kms(&dev_priv->drm,
-				    "Invalid VBT panel type 0x%x\n",
-				    lvds_options->panel_type);
-			return;
-		}
-		panel_type = lvds_options->panel_type;
-		drm_dbg_kms(&dev_priv->drm, "Panel type: %d (VBT)\n",
-			    panel_type);
-	}
+	panel_type = get_panel_type(dev_priv, bdb);
+	if (panel_type < 0)
+		return;
 
 	dev_priv->vbt.panel_type = panel_type;
 
