@@ -260,7 +260,8 @@ static int get_panel_type(struct drm_i915_private *i915,
 		return ret;
 	}
 
-	return -1;
+	/* fallback */
+	return 0;
 }
 
 /* Parse general panel options */
