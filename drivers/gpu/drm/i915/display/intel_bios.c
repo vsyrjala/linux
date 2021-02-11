@@ -223,6 +223,56 @@ get_lvds_fp_timing(const struct bdb_header *bdb, int index)
 			     12, index);
 }
 
+static const struct lvds_pnp_id *
+get_lvds_pnp_id(const struct bdb_header *bdb, int index)
+{
+	const struct bdb_lvds_lfp_data *data;
+	const struct bdb_lvds_lfp_data_ptrs *ptrs;
+
+	data = find_section(bdb, BDB_LVDS_LFP_DATA);
+	if (!data)
+		return NULL;
+
+	ptrs = find_section(bdb, BDB_LVDS_LFP_DATA_PTRS);
+	if (!ptrs)
+		return NULL;
+
+	return get_lvds_data(bdb, data, ptrs, &ptrs->ptr[index].panel_pnp_id,
+			     sizeof(struct lvds_pnp_id), index);
+}
+
+static int pnp_id_panel_type(struct drm_i915_private *i915,
+			     const struct bdb_header *bdb,
+			     const struct lvds_pnp_id *id)
+{
+	const struct lvds_pnp_id id_nodate = {
+		.mfg_name = id->mfg_name,
+		.product_code = id->product_code,
+		.serial = id->serial,
+	};
+	int i, best = -1;
+
+	for (i = 0; i < 16; i++) {
+		const struct lvds_pnp_id *panel_id = get_lvds_pnp_id(bdb, i);
+
+		if (!panel_id)
+			break;
+
+		/* full match? */
+		if (!memcmp(panel_id, id, sizeof(*panel_id)))
+			return i;
+
+		/*
+		 * Accept a match w/o date if no full match is found,
+		 * and the VBT entry does not specify a date.
+		 */
+		if (!memcmp(panel_id, &id_nodate, sizeof(*panel_id)))
+			best = i;
+	}
+
+	return best;
+}
+
 static int vbt_panel_type(struct drm_i915_private *i915,
 			  const struct bdb_header *bdb)
 {
@@ -232,7 +282,8 @@ static int vbt_panel_type(struct drm_i915_private *i915,
 	if (!lvds_options)
 		return -1;
 
-	if (lvds_options->panel_type > 0xf) {
+	if (lvds_options->panel_type > 0xf &&
+	    lvds_options->panel_type != 0xff) {
 		drm_dbg_kms(&i915->drm, "Invalid VBT panel type 0x%x\n",
 			    lvds_options->panel_type);
 		return -1;
@@ -244,6 +295,7 @@ static int vbt_panel_type(struct drm_i915_private *i915,
 enum panel_type {
 	PANEL_TYPE_OPREGION,
 	PANEL_TYPE_VBT,
+	PANEL_TYPE_PNP_ID,
 	PANEL_TYPE_FALLBACK,
 };
 
@@ -256,15 +308,19 @@ static int get_panel_type(struct drm_i915_private *i915,
 	} panel_types[] = {
 		[PANEL_TYPE_OPREGION] = { .name = "OpRegion", .panel_type = -1, },
 		[PANEL_TYPE_VBT] = { .name = "VBT", .panel_type = -1, },
+		[PANEL_TYPE_PNP_ID] = { .name = "PnP ID", .panel_type = -1, },
 		[PANEL_TYPE_FALLBACK] = { .name = "fallback", .panel_type = 0, },
 	};
+	struct lvds_pnp_id pnp_id = {}; /* FIXME need to get this from the EDID */
 	int i;
 
 	panel_types[PANEL_TYPE_OPREGION].panel_type = intel_opregion_get_panel_type(i915);
 	panel_types[PANEL_TYPE_VBT].panel_type = vbt_panel_type(i915, bdb);
+	panel_types[PANEL_TYPE_PNP_ID].panel_type = pnp_id_panel_type(i915, bdb, &pnp_id);
 
 	for (i = 0; i < ARRAY_SIZE(panel_types); i++) {
-		drm_WARN_ON(&i915->drm, panel_types[i].panel_type > 0xf);
+		drm_WARN_ON(&i915->drm, panel_types[i].panel_type > 0xf &&
+			    panel_types[i].panel_type != 0xff);
 
 		if (panel_types[i].panel_type >= 0)
 			drm_dbg_kms(&i915->drm, "Panel type (%s): %d\n",
@@ -273,6 +329,9 @@ static int get_panel_type(struct drm_i915_private *i915,
 
 	if (panel_types[PANEL_TYPE_OPREGION].panel_type >= 0)
 		i = PANEL_TYPE_OPREGION;
+	else if (panel_types[PANEL_TYPE_VBT].panel_type == 0xff &&
+		 panel_types[PANEL_TYPE_PNP_ID].panel_type >= 0)
+		i = PANEL_TYPE_PNP_ID;
 	else if (panel_types[PANEL_TYPE_VBT].panel_type >= 0)
 		i = PANEL_TYPE_VBT;
 	else
