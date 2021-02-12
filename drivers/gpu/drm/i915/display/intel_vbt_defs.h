@@ -735,7 +735,16 @@ struct lvds_lfp_data_ptr {
 } __packed;
 
 struct bdb_lvds_lfp_data_ptrs {
-	u8 lvds_entries; /* followed by one or more lvds_data_ptr structs */
+	/*
+	 * "This field specifies the number of entries for each
+	 *  LFP data table pointer entry. Each entry includes
+	 *  the table offset and size field."
+	 *
+	 * Ie. number of lvds_lfp_data_ptr_entry in each lvds_lfp_data_ptr?
+	 * No other value than 3 has ever been observed which corresponds
+	 * to having all three fp_timing+dvo_timing+panel_pnp_id.
+	 */
+	u8 lvds_entries;
 	struct lvds_lfp_data_ptr ptr[16];
 } __packed;
 
