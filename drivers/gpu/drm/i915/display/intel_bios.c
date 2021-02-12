@@ -241,6 +241,26 @@ get_lvds_pnp_id(const struct bdb_header *bdb, int index)
 			     sizeof(struct lvds_pnp_id), index);
 }
 
+static const struct lvds_lfp_data_tail *
+get_lvds_data_tail(const struct bdb_header *bdb)
+{
+	const struct bdb_lvds_lfp_data *data;
+	const struct bdb_lvds_lfp_data_ptrs *ptrs;
+	const struct lvds_lfp_data_tail *tail;
+
+	data = find_section(bdb, BDB_LVDS_LFP_DATA);
+	if (!data)
+		return NULL;
+
+	ptrs = find_section(bdb, BDB_LVDS_LFP_DATA_PTRS);
+	if (!ptrs)
+		return NULL;
+
+	/* we expect at least the panel_name array to be present */
+	return get_lvds_data(bdb, data, ptrs, &ptrs->panel_name,
+			     sizeof(tail->panel_name), 0);
+}
+
 static int pnp_id_panel_type(struct drm_i915_private *i915,
 			     const struct bdb_header *bdb,
 			     const struct lvds_pnp_id *id)

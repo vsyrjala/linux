@@ -746,6 +746,7 @@ struct bdb_lvds_lfp_data_ptrs {
 	 */
 	u8 lvds_entries;
 	struct lvds_lfp_data_ptr ptr[16];
+	struct lvds_lfp_data_ptr_entry panel_name; /* (155,163] ? */
 } __packed;
 
 /*
@@ -783,8 +784,20 @@ struct lvds_lfp_data_entry {
 	struct lvds_pnp_id pnp_id;
 } __packed;
 
+struct lvds_lfp_panel_name {
+	char name[13];
+} __packed;
+
+struct lvds_lfp_data_tail {
+	struct lvds_lfp_panel_name panel_name[16]; /* (155,163] ? */
+	u16 scaling_enable; /* 187 */
+	u8 seamless_drrs_min_vrefresh[16]; /* 188 */
+} __packed;
+
+/* size of fp_timing may vary -> can't access members directly */
 struct bdb_lvds_lfp_data {
 	struct lvds_lfp_data_entry data[16];
+	struct lvds_lfp_data_tail tail;
 } __packed;
 
 /*
