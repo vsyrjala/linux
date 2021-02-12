@@ -218,8 +218,9 @@ get_lvds_fp_timing(const struct bdb_header *bdb, int index)
 	if (!ptrs)
 		return NULL;
 
+	/* we want at least x_res+y_res+lvds_reg+lvds_reg_val to be present */
 	return get_lvds_data(bdb, data, ptrs, &ptrs->ptr[index].fp_timing,
-			     sizeof(struct lvds_fp_timing), index);
+			     12, index);
 }
 
 /* Parse general panel options */
