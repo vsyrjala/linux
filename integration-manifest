@@ -1,0 +1,36 @@
+drm drm-fixes f40ddce88593482919761f74910f42f4b84c004b
+	Linux 5.11
+drm-misc drm-misc-fixes 811ee9dff58072742644da2c07641728f5e078e4
+	drm/ttm: make sure pool pages are cleared
+drm-intel drm-intel-fixes f40ddce88593482919761f74910f42f4b84c004b
+	Linux 5.11
+drm-amd drm-amd-fixes 2b702e72e33bbdec0764cfb6e1dd00fe1142ae55
+	Merge tag 'drm-misc-fixes-2017-09-28-1' of git://anongit.freedesktop.org/git/drm-misc into drm-fixes
+drm drm-next ac35d19fe871c81b9d78053d675095b597270304
+	Merge branch '00.00-inst' of git://github.com/skeggsb/linux into drm-next
+drm-misc drm-misc-next-fixes e2183fb135a7f62d317aa1c61eb3d1919080edba
+	Revert "drm/scheduler: Job timeout handler returns status (v3)"
+drm-intel drm-intel-next-fixes 7a6c6243b44a439bda4bf099032be35ebcf53406
+	drm/i915: Reject 446-480MHz HDMI clock on GLK
+drm-amd drm-amd-next-fixes 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e
+	Linux 4.14-rc1
+drm-misc drm-misc-next 99e360442f223dd40fc23ae07c7a263836fd27e6
+	drm/stm: Fix bus_flags handling
+drm-intel drm-intel-next 97a24a701c13f608a57a0969fb99b029c24151b4
+	drm/i915: s/dev_priv/i915/ for the remainder of DDI clock routing
+drm-intel drm-intel-gt-next 1914911f4aa08ddc05bae71d3516419463e0c567
+	drm/i915/gt: Correct surface base address for renderclear
+drm-amd drm-amd-next 754270c7c56292e97d0eff924a5d5d83f92add07
+	Merge branch 'drm-next-4.15' of git://people.freedesktop.org/~agd5f/linux into drm-next
+sound-upstream for-linus c3bb2b521944ffbbc8c24b849f81977a9915fb5e
+	ALSA: hda/realtek: Quirk for HP Spectre x360 14 amp setup
+sound-upstream for-next c3bb2b521944ffbbc8c24b849f81977a9915fb5e
+	ALSA: hda/realtek: Quirk for HP Spectre x360 14 amp setup
+drm-intel topic/core-for-CI be9bde5a8b7b5cff58bd01c8ca094d571295c40b
+	Revert "rtc: mc146818: Detect and handle broken RTCs"
+drm topic/iomem-mmap-vs-gup 636b21b50152d4e203223ee337aca1cb3c1bfe53
+	PCI: Revoke mappings like devmem
+drm topic/nouveau-ampere-modeset 584265dfec70e78ce2085b82ed389f27e06fbca0
+	Merge branch '04.01-ampere-lite' of git://github.com/skeggsb/linux into topic/nouveau-ampere-modeset
+drm topic/kcmp-kconfig bfe3911a91047557eb0e620f95a370aee6a248c7
+	kcmp: Support selection of SYS_kcmp without CHECKPOINT_RESTORE
