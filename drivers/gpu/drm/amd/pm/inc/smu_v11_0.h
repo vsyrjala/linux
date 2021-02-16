@@ -31,7 +31,7 @@
 #define SMU11_DRIVER_IF_VERSION_NV12 0x36
 #define SMU11_DRIVER_IF_VERSION_NV14 0x36
 #define SMU11_DRIVER_IF_VERSION_Sienna_Cichlid 0x3D
-#define SMU11_DRIVER_IF_VERSION_Navy_Flounder 0xC
+#define SMU11_DRIVER_IF_VERSION_Navy_Flounder 0xE
 #define SMU11_DRIVER_IF_VERSION_VANGOGH 0x02
 #define SMU11_DRIVER_IF_VERSION_Dimgrey_Cavefish 0xF
 
@@ -203,14 +203,8 @@ int
 smu_v11_0_set_fan_control_mode(struct smu_context *smu,
 			       uint32_t mode);
 
-int
-smu_v11_0_set_fan_speed_percent(struct smu_context *smu, uint32_t speed);
-
-int smu_v11_0_set_fan_speed_rpm(struct smu_context *smu,
-				       uint32_t speed);
-
-int smu_v11_0_get_fan_speed_rpm(struct smu_context *smu,
-				uint32_t *speed);
+int smu_v11_0_set_fan_speed_percent(struct smu_context *smu,
+				    uint32_t speed);
 
 int smu_v11_0_set_xgmi_pstate(struct smu_context *smu,
 				     uint32_t pstate);
