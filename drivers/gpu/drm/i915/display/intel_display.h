@@ -422,6 +422,10 @@ enum phy_fia {
 	for_each_intel_encoder(dev, intel_encoder)		\
 		for_each_if(intel_encoder_is_dp(intel_encoder))
 
+#define for_each_intel_dsi(dev, intel_encoder)			\
+	for_each_intel_encoder(dev, intel_encoder)		\
+		for_each_if((intel_encoder)->type == INTEL_OUTPUT_DSI)
+
 #define for_each_intel_encoder_with_psr(dev, intel_encoder) \
 	for_each_intel_encoder((dev), (intel_encoder)) \
 		for_each_if(intel_encoder_can_psr(intel_encoder))

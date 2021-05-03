@@ -789,6 +789,8 @@ static void intel_dsi_pre_enable(struct intel_atomic_state *state,
 
 	drm_dbg_kms(&dev_priv->drm, "\n");
 
+	intel_dsi->active_pipe = intel_crtc->pipe;
+
 	intel_dsi_wait_panel_power_cycle(intel_dsi);
 
 	intel_set_cpu_fifo_underrun_reporting(dev_priv, pipe, true);
@@ -1008,6 +1010,8 @@ static void intel_dsi_post_disable(struct intel_atomic_state *state,
 	intel_dsi_vbt_exec_sequence(intel_dsi, MIPI_SEQ_POWER_OFF);
 
 	intel_dsi->panel_power_off_time = ktime_get_boottime();
+
+	intel_dsi->active_pipe = INVALID_PIPE;
 }
 
 static void intel_dsi_shutdown(struct intel_encoder *encoder)
@@ -1600,6 +1604,17 @@ static void intel_dsi_unprepare(struct intel_encoder *encoder)
 	}
 }
 
+static void intel_dsi_encoder_reset(struct drm_encoder *_encoder)
+{
+	struct intel_encoder *encoder = to_intel_encoder(_encoder);
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(encoder);
+	enum pipe pipe;
+	bool state;
+
+	state = intel_dsi_get_hw_state(encoder, &pipe);
+	intel_dsi->active_pipe = state ? pipe : INVALID_PIPE;
+}
+
 static void intel_dsi_encoder_destroy(struct drm_encoder *encoder)
 {
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(to_intel_encoder(encoder));
@@ -1609,6 +1624,7 @@ static void intel_dsi_encoder_destroy(struct drm_encoder *encoder)
 }
 
 static const struct drm_encoder_funcs intel_dsi_funcs = {
+	.reset = intel_dsi_encoder_reset,
 	.destroy = intel_dsi_encoder_destroy,
 };
 
@@ -1837,6 +1853,7 @@ void vlv_dsi_init(struct drm_i915_private *dev_priv)
 	struct drm_display_mode *current_mode, *fixed_mode;
 	enum port port;
 	enum pipe pipe;
+	bool state;
 
 	drm_dbg_kms(&dev_priv->drm, "\n");
 
@@ -1940,8 +1957,10 @@ void vlv_dsi_init(struct drm_i915_private *dev_priv)
 
 	vlv_dphy_param_init(intel_dsi);
 
-	intel_dsi_vbt_gpio_init(intel_dsi,
-				intel_dsi_get_hw_state(intel_encoder, &pipe));
+	state = intel_dsi_get_hw_state(intel_encoder, &pipe);
+	intel_dsi->active_pipe = state ? pipe : INVALID_PIPE;
+
+	intel_dsi_vbt_gpio_init(intel_dsi, state);
 
 	drm_connector_init(dev, connector, &intel_dsi_connector_funcs,
 			   DRM_MODE_CONNECTOR_DSI);

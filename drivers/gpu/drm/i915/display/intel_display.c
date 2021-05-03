@@ -10879,6 +10879,8 @@ static void intel_setup_outputs(struct drm_i915_private *dev_priv)
 
 		icl_dsi_init(dev_priv);
 	} else if (IS_GEMINILAKE(dev_priv) || IS_BROXTON(dev_priv)) {
+		vlv_dsi_init(dev_priv);
+
 		/*
 		 * FIXME: Broxton doesn't support port detection via the
 		 * DDI_BUF_CTL_A or SFUSE_STRAP registers, find another way to
@@ -10887,8 +10889,6 @@ static void intel_setup_outputs(struct drm_i915_private *dev_priv)
 		intel_ddi_init(dev_priv, PORT_A);
 		intel_ddi_init(dev_priv, PORT_B);
 		intel_ddi_init(dev_priv, PORT_C);
-
-		vlv_dsi_init(dev_priv);
 	} else if (HAS_DDI(dev_priv)) {
 		int found;
 
@@ -10971,6 +10971,8 @@ static void intel_setup_outputs(struct drm_i915_private *dev_priv)
 	} else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv)) {
 		bool has_edp, has_port;
 
+		vlv_dsi_init(dev_priv);
+
 		if (IS_VALLEYVIEW(dev_priv) && dev_priv->vbt.int_crt_support)
 			intel_crt_init(dev_priv);
 
@@ -11014,8 +11016,6 @@ static void intel_setup_outputs(struct drm_i915_private *dev_priv)
 			if (intel_de_read(dev_priv, CHV_HDMID) & SDVO_DETECTED || has_port)
 				g4x_hdmi_init(dev_priv, CHV_HDMID, PORT_D);
 		}
-
-		vlv_dsi_init(dev_priv);
 	} else if (IS_PINEVIEW(dev_priv)) {
 		intel_lvds_init(dev_priv);
 		intel_crt_init(dev_priv);

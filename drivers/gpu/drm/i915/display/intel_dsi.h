@@ -125,6 +125,9 @@ struct intel_dsi {
 	u16 panel_off_delay;
 	u16 panel_pwr_cycle_delay;
 	ktime_t panel_power_off_time;
+
+	/* for VLV/CHV PPS tracking */
+	enum pipe active_pipe;
 };
 
 struct intel_dsi_host {

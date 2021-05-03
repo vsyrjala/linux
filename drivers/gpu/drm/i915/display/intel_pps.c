@@ -8,6 +8,7 @@
 #include "intel_display_types.h"
 #include "intel_dp.h"
 #include "intel_dpll.h"
+#include "intel_dsi.h"
 #include "intel_pps.h"
 
 static void vlv_steal_power_sequencer(struct drm_i915_private *dev_priv,
@@ -151,6 +152,13 @@ static enum pipe vlv_find_free_pps(struct drm_i915_private *dev_priv)
 			if (intel_dp->pps.active_pipe != INVALID_PIPE)
 				pipes &= ~(1 << intel_dp->pps.active_pipe);
 		}
+	}
+
+	for_each_intel_dsi(&dev_priv->drm, encoder) {
+		struct intel_dsi *intel_dsi = enc_to_intel_dsi(encoder);
+
+		if (intel_dsi->active_pipe != INVALID_PIPE)
+			pipes &= ~(1 << intel_dsi->active_pipe);
 	}
 
 	if (pipes == 0)
