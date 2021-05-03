@@ -2563,6 +2563,10 @@ bool intel_bios_is_port_edp(struct drm_i915_private *i915, enum port port)
 		return devdata && intel_bios_encoder_supports_edp(devdata);
 	}
 
+	// hax
+	if (port == PORT_B)
+		return true;
+
 	list_for_each_entry(devdata, &i915->vbt.display_devices, node) {
 		child = &devdata->child;
 
