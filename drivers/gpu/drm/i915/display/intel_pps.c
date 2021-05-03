@@ -77,7 +77,13 @@ vlv_power_sequencer_kick(struct intel_dp *intel_dp)
 	else
 		DP |= DP_PIPE_SEL(pipe);
 
-	pll_enabled = intel_de_read(dev_priv, DPLL(pipe)) & DPLL_VCO_ENABLE;
+	/*
+	 * DSI has its own PLL so the pipe might be enabled but the DPLL
+	 * may be off. Let's presume the DSI PLL also qualifies and just
+	 * presume it will be on if the pipe is on without the DPLL.
+	 */
+	pll_enabled = intel_de_read(dev_priv, DPLL(pipe)) & DPLL_VCO_ENABLE ||
+		intel_de_read(dev_priv, PIPECONF(pipe)) & PIPECONF_ENABLE;
 
 	/*
 	 * The DPLL for the pipe must be enabled for this to work.
