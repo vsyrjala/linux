@@ -115,6 +115,9 @@ i915_gem_dumb_create(struct drm_file *file,
 	u32 format;
 	int ret;
 
+	if (!HAS_DISPLAY(to_i915(dev)))
+		return -EINVAL;
+
 	switch (cpp) {
 	case 1:
 		format = DRM_FORMAT_C8;
