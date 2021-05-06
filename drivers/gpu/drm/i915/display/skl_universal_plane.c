@@ -56,6 +56,26 @@ static const u32 skl_planar_formats[] = {
 	DRM_FORMAT_XYUV8888,
 };
 
+static const u32 glk_plane_formats[] = {
+	DRM_FORMAT_C8,
+	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB8888,
+	DRM_FORMAT_XBGR8888,
+	DRM_FORMAT_ARGB8888,
+	DRM_FORMAT_ABGR8888,
+	DRM_FORMAT_XRGB2101010,
+	DRM_FORMAT_XBGR2101010,
+	DRM_FORMAT_XRGB16161616,
+	DRM_FORMAT_XBGR16161616,
+	DRM_FORMAT_XRGB16161616F,
+	DRM_FORMAT_XBGR16161616F,
+	DRM_FORMAT_YUYV,
+	DRM_FORMAT_YVYU,
+	DRM_FORMAT_UYVY,
+	DRM_FORMAT_VYUY,
+	DRM_FORMAT_XYUV8888,
+};
+
 static const u32 glk_planar_formats[] = {
 	DRM_FORMAT_C8,
 	DRM_FORMAT_RGB565,
@@ -65,6 +85,8 @@ static const u32 glk_planar_formats[] = {
 	DRM_FORMAT_ABGR8888,
 	DRM_FORMAT_XRGB2101010,
 	DRM_FORMAT_XBGR2101010,
+	DRM_FORMAT_XRGB16161616,
+	DRM_FORMAT_XBGR16161616,
 	DRM_FORMAT_XRGB16161616F,
 	DRM_FORMAT_XBGR16161616F,
 	DRM_FORMAT_YUYV,
@@ -141,6 +163,10 @@ static const u32 icl_hdr_plane_formats[] = {
 	DRM_FORMAT_XBGR2101010,
 	DRM_FORMAT_ARGB2101010,
 	DRM_FORMAT_ABGR2101010,
+	DRM_FORMAT_XRGB16161616,
+	DRM_FORMAT_XBGR16161616,
+	DRM_FORMAT_ARGB16161616,
+	DRM_FORMAT_ABGR16161616,
 	DRM_FORMAT_XRGB16161616F,
 	DRM_FORMAT_XBGR16161616F,
 	DRM_FORMAT_ARGB16161616F,
@@ -250,6 +276,18 @@ int skl_format_to_fourcc(int format, bool rgb_order, bool alpha)
 				return DRM_FORMAT_ARGB2101010;
 			else
 				return DRM_FORMAT_XRGB2101010;
+		}
+	case PLANE_CTL_FORMAT_XRGB_16161616:
+		if (rgb_order) {
+			if (alpha)
+				return DRM_FORMAT_ABGR16161616;
+			else
+				return DRM_FORMAT_XBGR16161616;
+		} else {
+			if (alpha)
+				return DRM_FORMAT_ARGB16161616;
+			else
+				return DRM_FORMAT_XRGB16161616;
 		}
 	case PLANE_CTL_FORMAT_XRGB_16161616F:
 		if (rgb_order) {
@@ -444,6 +482,10 @@ static int icl_plane_min_width(const struct drm_framebuffer *fb,
 	case DRM_FORMAT_P012:
 	case DRM_FORMAT_P016:
 		return 12;
+	case DRM_FORMAT_XRGB16161616:
+	case DRM_FORMAT_XBGR16161616:
+	case DRM_FORMAT_ARGB16161616:
+	case DRM_FORMAT_ABGR16161616:
 	case DRM_FORMAT_XRGB16161616F:
 	case DRM_FORMAT_XBGR16161616F:
 	case DRM_FORMAT_ARGB16161616F:
@@ -680,6 +722,12 @@ static u32 skl_plane_ctl_format(u32 pixel_format)
 	case DRM_FORMAT_XRGB2101010:
 	case DRM_FORMAT_ARGB2101010:
 		return PLANE_CTL_FORMAT_XRGB_2101010;
+	case DRM_FORMAT_XBGR16161616:
+	case DRM_FORMAT_ABGR16161616:
+		return PLANE_CTL_FORMAT_XRGB_16161616 | PLANE_CTL_ORDER_RGBX;
+	case DRM_FORMAT_XRGB16161616:
+	case DRM_FORMAT_ARGB16161616:
+		return PLANE_CTL_FORMAT_XRGB_16161616;
 	case DRM_FORMAT_XBGR16161616F:
 	case DRM_FORMAT_ABGR16161616F:
 		return PLANE_CTL_FORMAT_XRGB_16161616F | PLANE_CTL_ORDER_RGBX;
@@ -1145,6 +1193,10 @@ static int skl_plane_check_fb(const struct intel_crtc_state *crtc_state,
 				break;
 			fallthrough;
 		case DRM_FORMAT_C8:
+		case DRM_FORMAT_XRGB16161616:
+		case DRM_FORMAT_XBGR16161616:
+		case DRM_FORMAT_ARGB16161616:
+		case DRM_FORMAT_ABGR16161616:
 		case DRM_FORMAT_XRGB16161616F:
 		case DRM_FORMAT_XBGR16161616F:
 		case DRM_FORMAT_ARGB16161616F:
@@ -1604,6 +1656,10 @@ static bool skl_fb_scalable(const struct drm_framebuffer *fb)
 	switch (fb->format->format) {
 	case DRM_FORMAT_C8:
 		return false;
+	case DRM_FORMAT_XRGB16161616:
+	case DRM_FORMAT_ARGB16161616:
+	case DRM_FORMAT_XBGR16161616:
+	case DRM_FORMAT_ABGR16161616:
 	case DRM_FORMAT_XRGB16161616F:
 	case DRM_FORMAT_ARGB16161616F:
 	case DRM_FORMAT_XBGR16161616F:
@@ -1726,8 +1782,8 @@ static const u32 *glk_get_plane_formats(struct drm_i915_private *dev_priv,
 		*num_formats = ARRAY_SIZE(glk_planar_formats);
 		return glk_planar_formats;
 	} else {
-		*num_formats = ARRAY_SIZE(skl_plane_formats);
-		return skl_plane_formats;
+		*num_formats = ARRAY_SIZE(glk_plane_formats);
+		return glk_plane_formats;
 	}
 }
 
@@ -1811,6 +1867,10 @@ static bool skl_plane_format_mod_supported(struct drm_plane *_plane,
 			return true;
 		fallthrough;
 	case DRM_FORMAT_C8:
+	case DRM_FORMAT_XBGR16161616:
+	case DRM_FORMAT_ABGR16161616:
+	case DRM_FORMAT_XRGB16161616:
+	case DRM_FORMAT_ARGB16161616:
 	case DRM_FORMAT_XBGR16161616F:
 	case DRM_FORMAT_ABGR16161616F:
 	case DRM_FORMAT_XRGB16161616F:
@@ -1889,6 +1949,10 @@ static bool gen12_plane_format_mod_supported(struct drm_plane *_plane,
 	case DRM_FORMAT_ABGR2101010:
 	case DRM_FORMAT_XVYU2101010:
 	case DRM_FORMAT_C8:
+	case DRM_FORMAT_XBGR16161616:
+	case DRM_FORMAT_ABGR16161616:
+	case DRM_FORMAT_XRGB16161616:
+	case DRM_FORMAT_ARGB16161616:
 	case DRM_FORMAT_XBGR16161616F:
 	case DRM_FORMAT_ABGR16161616F:
 	case DRM_FORMAT_XRGB16161616F:
