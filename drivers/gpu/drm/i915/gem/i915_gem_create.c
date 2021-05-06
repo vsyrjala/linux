@@ -128,9 +128,15 @@ i915_gem_dumb_create(struct drm_file *file,
 	case 4:
 		format = DRM_FORMAT_XRGB8888;
 		break;
+	case 8:
+		format = DRM_FORMAT_XRGB16161616;
+		break;
 	default:
 		return -EINVAL;
 	}
+
+	if (!drm_any_plane_has_format(dev, format, DRM_FORMAT_MOD_LINEAR))
+		return -EINVAL;
 
 	/* have to work out size/pitch and return them */
 	args->pitch = ALIGN(args->width * cpp, 64);
