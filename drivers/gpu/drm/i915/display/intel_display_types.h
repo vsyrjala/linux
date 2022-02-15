@@ -1199,9 +1199,6 @@ struct intel_crtc_state {
 	/* enable pipe csc? */
 	bool csc_enable;
 
-	/* enable pipe big joiner? */
-	bool bigjoiner;
-
 	/* big joiner pipe bitmask */
 	u8 bigjoiner_pipes;
 
