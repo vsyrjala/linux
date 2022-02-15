@@ -2727,16 +2727,18 @@ static void intel_crtc_compute_pixel_rate(struct intel_crtc_state *crtc_state)
 static void intel_bigjoiner_adjust_timings(const struct intel_crtc_state *crtc_state,
 					   struct drm_display_mode *mode)
 {
-	if (!crtc_state->bigjoiner_pipes)
+	int num_pipes = hweight8(crtc_state->bigjoiner_pipes);
+
+	if (num_pipes < 2)
 		return;
 
-	mode->crtc_clock /= 2;
-	mode->crtc_hdisplay /= 2;
-	mode->crtc_hblank_start /= 2;
-	mode->crtc_hblank_end /= 2;
-	mode->crtc_hsync_start /= 2;
-	mode->crtc_hsync_end /= 2;
-	mode->crtc_htotal /= 2;
+	mode->crtc_clock /= num_pipes;
+	mode->crtc_hdisplay /= num_pipes;
+	mode->crtc_hblank_start /= num_pipes;
+	mode->crtc_hblank_end /= num_pipes;
+	mode->crtc_hsync_start /= num_pipes;
+	mode->crtc_hsync_end /= num_pipes;
+	mode->crtc_htotal /= num_pipes;
 }
 
 static void intel_splitter_adjust_timings(const struct intel_crtc_state *crtc_state,
@@ -2809,16 +2811,17 @@ static void intel_encoder_get_config(struct intel_encoder *encoder,
 
 static void intel_bigjoiner_compute_pipe_src(struct intel_crtc_state *crtc_state)
 {
+	int num_pipes = hweight8(crtc_state->bigjoiner_pipes);
 	int width, height;
 
-	if (!crtc_state->bigjoiner_pipes)
+	if (num_pipes < 2)
 		return;
 
 	width = drm_rect_width(&crtc_state->pipe_src);
 	height = drm_rect_height(&crtc_state->pipe_src);
 
 	drm_rect_init(&crtc_state->pipe_src, 0, 0,
-		      width / 2, height);
+		      width / num_pipes, height);
 }
 
 static int intel_crtc_compute_pipe_src(struct intel_crtc_state *crtc_state)
