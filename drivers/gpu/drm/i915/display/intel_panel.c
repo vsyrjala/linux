@@ -75,13 +75,17 @@ const struct drm_display_mode *
 intel_panel_downclock_mode(struct intel_connector *connector,
 			   const struct drm_display_mode *adjusted_mode)
 {
+	struct drm_i915_private *i915 = to_i915(connector->base.dev);
 	const struct drm_display_mode *fixed_mode, *best_mode = NULL;
-	int vrefresh = drm_mode_vrefresh(adjusted_mode);
+	int min_vrefresh = i915->vbt.seamless_drrs_min_refresh_rate;
+	int max_vrefresh = drm_mode_vrefresh(adjusted_mode);
 
 	/* pick the fixed_mode with the lowest refresh rate */
 	list_for_each_entry(fixed_mode, &connector->panel.fixed_modes, head) {
-		if (drm_mode_vrefresh(fixed_mode) < vrefresh) {
-			vrefresh = drm_mode_vrefresh(fixed_mode);
+		int vrefesh = drm_mode_vrefresh(fixed_mode);
+
+		if (vrefesh >= min_vrefresh && vrefesh < max_vrefresh) {
+			max_vrefresh = vrefesh;
 			best_mode = fixed_mode;
 		}
 	}
