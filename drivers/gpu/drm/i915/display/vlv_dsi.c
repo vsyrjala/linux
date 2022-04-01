@@ -1944,6 +1944,8 @@ void vlv_dsi_init(struct drm_i915_private *dev_priv)
 		intel_dsi->dsi_hosts[port] = host;
 	}
 
+	intel_bios_init_panel(dev_priv);
+
 	if (!intel_dsi_vbt_init(intel_dsi, MIPI_DSI_GENERIC_PANEL_ID)) {
 		drm_dbg_kms(&dev_priv->drm, "no device found\n");
 		goto err;
