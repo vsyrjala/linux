@@ -1929,7 +1929,7 @@ void vlv_dsi_init(struct drm_i915_private *dev_priv)
 	else
 		intel_dsi->ports = BIT(port);
 
-	intel_bios_init_panel(dev_priv);
+	intel_bios_init_panel(dev_priv, NULL);
 
 	intel_dsi->dcs_backlight_ports = dev_priv->vbt.dsi.bl_ports;
 	intel_dsi->dcs_cabc_ports = dev_priv->vbt.dsi.cabc_ports;
