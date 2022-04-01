@@ -672,6 +672,15 @@ static int pnpid_get_panel_type(struct drm_i915_private *i915,
 	for (i = 0; i < 16; i++) {
 		const struct lvds_pnp_id *vbt_id =
 			get_lvds_pnp_id(data, ptrs, i);
+		char name[16];
+
+		snprintf(name, sizeof(name), "Panel %d", i);
+		dump_pnp_id(i915, vbt_id, name);
+	}
+
+	for (i = 0; i < 16; i++) {
+		const struct lvds_pnp_id *vbt_id =
+			get_lvds_pnp_id(data, ptrs, i);
 
 		/* full match? */
 		if (!memcmp(vbt_id, edid_id, sizeof(*vbt_id)))
