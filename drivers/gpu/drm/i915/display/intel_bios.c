@@ -735,6 +735,9 @@ parse_generic_dtd(struct drm_i915_private *i915)
 	struct drm_display_mode *panel_fixed_mode;
 	int num_dtd;
 
+	if (i915->vbt.lfp_lvds_vbt_mode)
+		return;
+
 	generic_dtd = find_section(i915, BDB_GENERIC_DTD);
 	if (!generic_dtd)
 		return;
@@ -902,6 +905,9 @@ parse_sdvo_panel_data(struct drm_i915_private *i915)
 	const struct bdb_sdvo_panel_dtds *dtds;
 	struct drm_display_mode *panel_fixed_mode;
 	int index;
+
+	if (i915->vbt.sdvo_lvds_vbt_mode)
+		return;
 
 	index = i915->params.vbt_sdvo_panel_type;
 	if (index == -2) {
@@ -1431,6 +1437,9 @@ parse_mipi_config(struct drm_i915_private *i915)
 	int panel_type = i915->vbt.panel_type;
 	enum port port;
 
+	if (i915->vbt.dsi.config)
+		return;
+
 	/* parse MIPI blocks only if LFP type is MIPI */
 	if (!intel_bios_is_dsi_present(i915, &port))
 		return;
@@ -1750,6 +1759,9 @@ parse_mipi_sequence(struct drm_i915_private *i915)
 	u32 seq_size;
 	u8 *data;
 	int index = 0;
+
+	if (i915->vbt.dsi.data)
+		return;
 
 	/* Only our generic panel driver uses the sequence block. */
 	if (i915->vbt.dsi.panel_id != MIPI_DSI_GENERIC_PANEL_ID)
@@ -2890,27 +2902,7 @@ void intel_bios_init(struct drm_i915_private *i915)
 	/* Grab useful general definitions */
 	parse_general_features(i915);
 	parse_general_definitions(i915);
-	parse_panel_options(i915);
-	/*
-	 * Older VBTs provided DTD information for internal displays through
-	 * the "LFP panel tables" block (42).  As of VBT revision 229 the
-	 * DTD information should be provided via a newer "generic DTD"
-	 * block (58).  Just to be safe, we'll try the new generic DTD block
-	 * first on VBT >= 229, but still fall back to trying the old LFP
-	 * block if that fails.
-	 */
-	if (i915->vbt.version >= 229)
-		parse_generic_dtd(i915);
-	parse_lfp_data(i915);
-	parse_lfp_backlight(i915);
-	parse_sdvo_panel_data(i915);
 	parse_driver_features(i915);
-	parse_panel_driver_features(i915);
-	parse_power_conservation_features(i915);
-	parse_edp(i915);
-	parse_psr(i915);
-	parse_mipi_config(i915);
-	parse_mipi_sequence(i915);
 
 	/* Depends on child device list */
 	parse_compression_parameters(i915);
@@ -2927,6 +2919,30 @@ out:
 	parse_ddi_ports(i915);
 
 	kfree(oprom_vbt);
+}
+
+void intel_bios_init_panel(struct drm_i915_private *i915)
+{
+	parse_panel_options(i915);
+	/*
+	 * Older VBTs provided DTD information for internal displays through
+	 * the "LFP panel tables" block (42).  As of VBT revision 229 the
+	 * DTD information should be provided via a newer "generic DTD"
+	 * block (58).  Just to be safe, we'll try the new generic DTD block
+	 * first on VBT >= 229, but still fall back to trying the old LFP
+	 * block if that fails.
+	 */
+	if (i915->vbt.version >= 229)
+		parse_generic_dtd(i915);
+	parse_lfp_data(i915);
+	parse_lfp_backlight(i915);
+	parse_sdvo_panel_data(i915);
+	parse_panel_driver_features(i915);
+	parse_power_conservation_features(i915);
+	parse_edp(i915);
+	parse_psr(i915);
+	parse_mipi_config(i915);
+	parse_mipi_sequence(i915);
 }
 
 /**
