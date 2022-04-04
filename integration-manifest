@@ -1,0 +1,26 @@
+drm drm-fixes f443e374ae131c168a065ea1748feac6b2e76613
+	Linux 5.17
+drm-misc drm-misc-fixes d14eb80e27795b7b20060f7b151cdfe39722a813
+	drm/panel: ili9341: fix optional regulator handling
+drm-intel drm-intel-fixes 3123109284176b1532874591f7c81f3837bbdc17
+	Linux 5.18-rc1
+drm drm-next 3123109284176b1532874591f7c81f3837bbdc17
+	Linux 5.18-rc1
+drm-misc drm-misc-next-fixes 67bae5f28c895f8737a1974c3f31cf12b9170b14
+	drm: of: Properly try all possible cases for bridge/panel detection
+drm-intel drm-intel-next-fixes 00f4150d27d2c01eaeffe1091fc311a7c0872c69
+	drm/i915: Fix renamed struct field
+drm-misc drm-misc-next ae059c0b1cbf13867369deb8d831a11cac3b00a0
+	drm/bridge: nwl-dsi: Drop the drm_of_panel_bridge_remove() function call
+drm-intel drm-intel-next ca2a3c9204ec556f45957c063c36dc6cdeec6402
+	drm/i915/bios: Extract struct lvds_lfp_data_ptr_table
+drm-intel drm-intel-gt-next 3f654e14825effb1d68ea481f96dc027e404365a
+	drm/i915/dg2: Add Wa_22014226127
+sound-upstream for-linus 7cf3dead1ad70c72edb03e2d98e1f3dcd332cdb2
+	Linux 5.13
+sound-upstream for-next 7cf3dead1ad70c72edb03e2d98e1f3dcd332cdb2
+	Linux 5.13
+drm-intel topic/core-for-CI 02e675d694ccc9bc0bf77fe1f9467a86382cb1a7
+	topic/core-for-CI: Add ATS-M PCI IDs
+drm-misc topic/i915-ttm 1e3944578b749449bd7fa6bf0bae4c3d3f5f1733
+	Merge tag 'amd-drm-next-5.16-2021-09-27' of https://gitlab.freedesktop.org/agd5f/linux into drm-next
