@@ -728,6 +728,10 @@ parse_generic_dtd(struct drm_i915_private *i915)
 	struct drm_display_mode *panel_fixed_mode;
 	int num_dtd;
 
+	/* FIXME stop using i915->vbt for panel specific data */
+	if (i915->vbt.lfp_lvds_vbt_mode)
+		return;
+
 	/*
 	 * Older VBTs provided DTD information for internal displays through
 	 * the "LFP panel tables" block (42).  As of VBT revision 229 the
@@ -906,6 +910,10 @@ parse_sdvo_panel_data(struct drm_i915_private *i915)
 	const struct bdb_sdvo_panel_dtds *dtds;
 	struct drm_display_mode *panel_fixed_mode;
 	int index;
+
+	/* FIXME stop using i915->vbt for panel specific data */
+	if (i915->vbt.sdvo_lvds_vbt_mode)
+		return;
 
 	index = i915->params.vbt_sdvo_panel_type;
 	if (index == -2) {
@@ -1435,6 +1443,10 @@ parse_mipi_config(struct drm_i915_private *i915)
 	int panel_type = i915->vbt.panel_type;
 	enum port port;
 
+	/* FIXME stop using i915->vbt for panel specific data */
+	if (i915->vbt.dsi.config)
+		return;
+
 	/* parse MIPI blocks only if LFP type is MIPI */
 	if (!intel_bios_is_dsi_present(i915, &port))
 		return;
@@ -1754,6 +1766,10 @@ parse_mipi_sequence(struct drm_i915_private *i915)
 	u32 seq_size;
 	u8 *data;
 	int index = 0;
+
+	/* FIXME stop using i915->vbt for panel specific data */
+	if (i915->vbt.dsi.data)
+		return;
 
 	/* Only our generic panel driver uses the sequence block. */
 	if (i915->vbt.dsi.panel_id != MIPI_DSI_GENERIC_PANEL_ID)
