@@ -2856,7 +2856,7 @@ static void compute_m_n(u32 *ret_m, u32 *ret_n,
 	else
 		*ret_n = min_t(unsigned int, roundup_pow_of_two(n), DATA_LINK_N_MAX);
 
-	*ret_m = div_u64(mul_u32_u32(m, *ret_n), n);
+	*ret_m = DIV_ROUND_CLOSEST_ULL(mul_u32_u32(m, *ret_n), n);
 	intel_reduce_m_n_ratio(ret_m, ret_n);
 }
 
@@ -4602,7 +4602,8 @@ int intel_dotclock_calculate(int link_freq,
 	if (!m_n->link_n)
 		return 0;
 
-	return div_u64(mul_u32_u32(m_n->link_m, link_freq), m_n->link_n);
+	return DIV_ROUND_CLOSEST_ULL(mul_u32_u32(m_n->link_m, link_freq),
+				     m_n->link_n);
 }
 
 /* Returns the currently programmed mode of the given encoder. */
