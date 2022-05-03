@@ -1,0 +1,26 @@
+drm drm-fixes 9d9f720733b7e8d11e4cc53b53f461b117dab839
+	Merge tag 'amd-drm-fixes-5.18-2022-04-27' of https://gitlab.freedesktop.org/agd5f/linux into drm-fixes
+drm-misc drm-misc-fixes aafa025c76dcc7d1a8c8f0bdefcbe4eb480b2f6a
+	fbdev: Make fb_release() return -ENODEV if fbdev was unregistered
+drm-intel drm-intel-fixes f7e1089f43761ca221914aea9a755b23dc7cbc33
+	drm/i915/fbc: Consult hw.crtc instead of uapi.crtc
+drm drm-next e954d2c94d007afe487044ecfa48f2518643df0e
+	Backmerge tag 'v5.18-rc5' of git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux into drm-next
+drm-misc drm-misc-next-fixes 67bae5f28c895f8737a1974c3f31cf12b9170b14
+	drm: of: Properly try all possible cases for bridge/panel detection
+drm-intel drm-intel-next-fixes 00f4150d27d2c01eaeffe1091fc311a7c0872c69
+	drm/i915: Fix renamed struct field
+drm-misc drm-misc-next d7442505de9259f8b975232470378d399c25b2fa
+	drm/simpledrm: Use fbdev defaults for shadow buffering
+drm-intel drm-intel-next c140915c00c92e3ca2a4f8e5748f0b9ef3e5a418
+	drm/i915: move tons of power well initializers to rodata
+drm-intel drm-intel-gt-next 448a54ace4bb20216f5bfcecf272871d387d03dd
+	drm/i915/pvc: add initial Ponte Vecchio definitions
+sound-upstream for-linus 7cf3dead1ad70c72edb03e2d98e1f3dcd332cdb2
+	Linux 5.13
+sound-upstream for-next 7cf3dead1ad70c72edb03e2d98e1f3dcd332cdb2
+	Linux 5.13
+drm-intel topic/core-for-CI 6c0d9d4135a43b71cd4fea25856ac069b6a75666
+	topic/core-for-CI: Add remaining DG2 and ATS-M device IDs
+drm-misc topic/i915-ttm 1e3944578b749449bd7fa6bf0bae4c3d3f5f1733
+	Merge tag 'amd-drm-next-5.16-2021-09-27' of https://gitlab.freedesktop.org/agd5f/linux into drm-next
