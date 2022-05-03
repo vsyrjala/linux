@@ -445,6 +445,8 @@ static int hsw_crt_compute_config(struct intel_encoder *encoder,
 	/* FDI must always be 2.7 GHz */
 	pipe_config->port_clock = 135000 * 2;
 
+	adjusted_mode->crtc_clock = lpt_iclkip(pipe_config);
+
 	return 0;
 }
 
