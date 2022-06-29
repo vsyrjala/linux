@@ -3572,84 +3572,100 @@ bool intel_bios_get_dsc_params(struct intel_encoder *encoder,
 	return false;
 }
 
+/*
+ * Warning: the aux_ch map arrays must not be populated
+ * sparsely because AUX_CH_A==0. Pad any holes with
+ * AUX_CH_NONE.
+ */
+static const enum aux_ch xelpd_aux_ch_map[] = {
+	[DP_AUX_A >> 4] = AUX_CH_A,
+	[DP_AUX_B >> 4] = AUX_CH_B,
+	[DP_AUX_C >> 4] = AUX_CH_C,
+	[DP_AUX_D >> 4] = AUX_CH_D_XELPD,
+	[DP_AUX_E >> 4] = AUX_CH_E_XELPD,
+	[DP_AUX_F >> 4] = AUX_CH_USBC1,
+	[DP_AUX_G >> 4] = AUX_CH_USBC2,
+	[DP_AUX_H >> 4] = AUX_CH_USBC3,
+	[DP_AUX_I >> 4] = AUX_CH_USBC4,
+};
+
+/*
+ * ADL-S VBT uses PHY based mapping. Combo PHYs A,B,C,D,E
+ * map to DDI A,TC1,TC2,TC3,TC4 respectively.
+ */
+static const enum aux_ch adls_aux_ch_map[] = {
+	[DP_AUX_A >> 4] = AUX_CH_A,
+	[DP_AUX_B >> 4] = AUX_CH_USBC1,
+	[DP_AUX_C >> 4] = AUX_CH_USBC2,
+	[DP_AUX_D >> 4] = AUX_CH_USBC3,
+	[DP_AUX_E >> 4] = AUX_CH_USBC4,
+	[DP_AUX_F >> 4] = AUX_CH_NONE,
+	[DP_AUX_G >> 4] = AUX_CH_NONE,
+	[DP_AUX_H >> 4] = AUX_CH_NONE,
+	[DP_AUX_I >> 4] = AUX_CH_NONE,
+};
+
+/*
+  * RKL/DG1 VBT uses PHY based mapping. Combo PHYs A,B,C,D
+  * map to DDI A,B,TC1,TC2 respectively.
+  */
+static const enum aux_ch rkl_aux_ch_map[] = {
+	[DP_AUX_A >> 4] = AUX_CH_A,
+	[DP_AUX_B >> 4] = AUX_CH_B,
+	[DP_AUX_C >> 4] = AUX_CH_USBC1,
+	[DP_AUX_D >> 4] = AUX_CH_USBC2,
+	[DP_AUX_E >> 4] = AUX_CH_NONE,
+	[DP_AUX_F >> 4] = AUX_CH_NONE,
+	[DP_AUX_G >> 4] = AUX_CH_NONE,
+	[DP_AUX_H >> 4] = AUX_CH_NONE,
+	[DP_AUX_I >> 4] = AUX_CH_NONE,
+};
+
+static const enum aux_ch direct_aux_ch_map[] = {
+	[DP_AUX_A >> 4] = AUX_CH_A,
+	[DP_AUX_B >> 4] = AUX_CH_B,
+	[DP_AUX_C >> 4] = AUX_CH_C,
+	[DP_AUX_D >> 4] = AUX_CH_D, /* aka AUX_CH_USBC1 */
+	[DP_AUX_E >> 4] = AUX_CH_E, /* aka AUX_CH_USBC2 */
+	[DP_AUX_F >> 4] = AUX_CH_F, /* aka AUX_CH_USBC3 */
+	[DP_AUX_G >> 4] = AUX_CH_G, /* aka AUX_CH_USBC4 */
+	[DP_AUX_H >> 4] = AUX_CH_H, /* aka AUX_CH_USBC5 */
+	[DP_AUX_I >> 4] = AUX_CH_I, /* aka AUX_CH_USBC6 */
+};
+
 static enum aux_ch map_aux_ch(struct drm_i915_private *i915, u8 aux_channel)
 {
-	enum aux_ch aux_ch;
+	const enum aux_ch *aux_ch_map;
+	int index, n_entries;
 
 	/*
-	 * RKL/DG1 VBT uses PHY based mapping. Combo PHYs A,B,C,D
-	 * map to DDI A,B,TC1,TC2 respectively.
-	 *
-	 * ADL-S VBT uses PHY based mapping. Combo PHYs A,B,C,D,E
-	 * map to DDI A,TC1,TC2,TC3,TC4 respectively.
+	 * The lower nibble is always 0 and we
+	 * don't include it in the array index.
 	 */
-	switch (aux_channel) {
-	case DP_AUX_A:
-		aux_ch = AUX_CH_A;
-		break;
-	case DP_AUX_B:
-		if (IS_ALDERLAKE_S(i915))
-			aux_ch = AUX_CH_USBC1;
-		else
-			aux_ch = AUX_CH_B;
-		break;
-	case DP_AUX_C:
-		if (IS_ALDERLAKE_S(i915))
-			aux_ch = AUX_CH_USBC2;
-		else if (IS_DG1(i915) || IS_ROCKETLAKE(i915))
-			aux_ch = AUX_CH_USBC1;
-		else
-			aux_ch = AUX_CH_C;
-		break;
-	case DP_AUX_D:
-		if (DISPLAY_VER(i915) >= 13)
-			aux_ch = AUX_CH_D_XELPD;
-		else if (IS_ALDERLAKE_S(i915))
-			aux_ch = AUX_CH_USBC3;
-		else if (IS_DG1(i915) || IS_ROCKETLAKE(i915))
-			aux_ch = AUX_CH_USBC2;
-		else
-			aux_ch = AUX_CH_D;
-		break;
-	case DP_AUX_E:
-		if (DISPLAY_VER(i915) >= 13)
-			aux_ch = AUX_CH_E_XELPD;
-		else if (IS_ALDERLAKE_S(i915))
-			aux_ch = AUX_CH_USBC4;
-		else
-			aux_ch = AUX_CH_E;
-		break;
-	case DP_AUX_F:
-		if (DISPLAY_VER(i915) >= 13)
-			aux_ch = AUX_CH_USBC1;
-		else
-			aux_ch = AUX_CH_F;
-		break;
-	case DP_AUX_G:
-		if (DISPLAY_VER(i915) >= 13)
-			aux_ch = AUX_CH_USBC2;
-		else
-			aux_ch = AUX_CH_G;
-		break;
-	case DP_AUX_H:
-		if (DISPLAY_VER(i915) >= 13)
-			aux_ch = AUX_CH_USBC3;
-		else
-			aux_ch = AUX_CH_H;
-		break;
-	case DP_AUX_I:
-		if (DISPLAY_VER(i915) >= 13)
-			aux_ch = AUX_CH_USBC4;
-		else
-			aux_ch = AUX_CH_I;
-		break;
-	default:
-		MISSING_CASE(aux_channel);
-		aux_ch = AUX_CH_A;
-		break;
+	index = aux_channel >> 4;
+
+	if (DISPLAY_VER(i915) >= 13) {
+		aux_ch_map = xelpd_aux_ch_map;
+		n_entries = ARRAY_SIZE(xelpd_aux_ch_map);
+	} else if (IS_ALDERLAKE_S(i915)) {
+		aux_ch_map = adls_aux_ch_map;
+		n_entries = ARRAY_SIZE(adls_aux_ch_map);
+	} else if (IS_DG1(i915) || IS_ROCKETLAKE(i915)) {
+		aux_ch_map = rkl_aux_ch_map;
+		n_entries = ARRAY_SIZE(rkl_aux_ch_map);
+	} else {
+		aux_ch_map = direct_aux_ch_map;
+		n_entries = ARRAY_SIZE(direct_aux_ch_map);
 	}
 
-	return aux_ch;
+	if (index < n_entries && aux_ch_map[index] != AUX_CH_NONE)
+		return aux_ch_map[index];
+
+	drm_dbg_kms(&i915->drm,
+		    "Ignoring alternate AUX CH: VBT claims AUX 0x%x, which is not valid for this platform\n",
+		    aux_channel);
+
+	return AUX_CH_NONE;
 }
 
 enum aux_ch intel_bios_dp_aux_ch(const struct intel_bios_encoder_data *devdata)
