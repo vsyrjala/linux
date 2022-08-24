@@ -5207,6 +5207,49 @@ intel_edp_add_properties(struct intel_dp *intel_dp)
 						       fixed_mode->vdisplay);
 }
 
+/*
+ * Some VRR eDP panels violate the EDID spec and neglect
+ * to include the monitor range descriptor in the EDID.
+ * Cook up the VRR refresh rate limits based on the modes
+ * reported by the panel.
+ */
+static void
+intel_edp_infer_vrr_range(struct intel_connector *connector)
+{
+	struct drm_i915_private *i915 = to_i915(connector->base.dev);
+	struct drm_display_info *info = &connector->base.display_info;
+	const struct edid *edid = connector->edid;
+	const struct drm_display_mode *mode;
+
+	if (!HAS_VRR(i915))
+		return;
+
+	if (!edid || edid->revision < 4 ||
+	    !(edid->features & DRM_EDID_FEATURE_CONTINUOUS_FREQ) ||
+	    info->vrr_range.min_vfreq || info->vrr_range.max_vfreq)
+		return;
+
+	if (list_empty(&connector->base.probed_modes))
+		return;
+
+	info->vrr_range.min_vfreq = ~0;
+	info->vrr_range.max_vfreq = 0;
+
+	list_for_each_entry(mode, &connector->base.probed_modes, head) {
+		int vrefresh = drm_mode_vrefresh(mode);
+
+		info->vrr_range.min_vfreq = min_t(int, vrefresh,
+						  info->vrr_range.min_vfreq);
+		info->vrr_range.max_vfreq = max_t(int, vrefresh,
+						  info->vrr_range.max_vfreq);
+	}
+
+	drm_dbg_kms(&i915->drm,
+		    "[CONNECTOR:%d:%s] does not report refresh rate range, assuming: %d Hz - %d Hz\n",
+		    connector->base.base.id, connector->base.name,
+		    info->vrr_range.min_vfreq, info->vrr_range.max_vfreq);
+}
+
 static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 				     struct intel_connector *intel_connector)
 {
@@ -5270,6 +5313,8 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 		edid = ERR_PTR(-ENOENT);
 	}
 	intel_connector->edid = edid;
+
+	intel_edp_infer_vrr_range(intel_connector);
 
 	intel_bios_init_panel(dev_priv, &intel_connector->panel,
 			      encoder->devdata, IS_ERR(edid) ? NULL : edid);
