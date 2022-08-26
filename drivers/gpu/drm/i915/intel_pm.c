@@ -2861,16 +2861,75 @@ static void ilk_compute_wm_level(const struct drm_i915_private *dev_priv,
 	result->enable = true;
 }
 
+static void
+adjust_wm_latency(struct drm_i915_private *i915,
+		  u16 wm[], int max_level, int read_latency)
+{
+	bool wm_lv_0_adjust_needed = i915->dram_info.wm_lv_0_adjust_needed;
+	int i, level;
+
+	/*
+	 * If a level n (n > 1) has a 0us latency, all levels m (m >= n)
+	 * need to be disabled. We make sure to sanitize the values out
+	 * of the punit to satisfy this requirement.
+	 */
+	for (level = 1; level <= max_level; level++) {
+		if (wm[level] == 0) {
+			for (i = level + 1; i <= max_level; i++)
+				wm[i] = 0;
+
+			max_level = level - 1;
+			break;
+		}
+	}
+
+	/*
+	 * WaWmMemoryReadLatency
+	 *
+	 * punit doesn't take into account the read latency so we need
+	 * to add proper adjustement to each valid level we retrieve
+	 * from the punit when level 0 response data is 0us.
+	 */
+	if (wm[0] == 0) {
+		for (level = 0; level <= max_level; level++)
+			wm[level] += read_latency;
+	}
+
+	/*
+	 * WA Level-0 adjustment for 16GB DIMMs: SKL+
+	 * If we could not get dimm info enable this WA to prevent from
+	 * any underrun. If not able to get Dimm info assume 16GB dimm
+	 * to avoid any underrun.
+	 */
+	if (wm_lv_0_adjust_needed)
+		wm[0] += 1;
+}
+
 static void intel_read_wm_latency(struct drm_i915_private *dev_priv,
 				  u16 wm[])
 {
 	struct intel_uncore *uncore = &dev_priv->uncore;
+	int max_level = ilk_wm_max_level(dev_priv);
 
-	if (DISPLAY_VER(dev_priv) >= 9) {
+	if (DISPLAY_VER(dev_priv) >= 14) {
 		u32 val;
-		int ret, i;
-		int level, max_level = ilk_wm_max_level(dev_priv);
+
+		val = intel_uncore_read(uncore, MTL_LATENCY_LP0_LP1);
+		wm[0] = REG_FIELD_GET(MTL_LATENCY_LEVEL_EVEN_MASK, val);
+		wm[1] = REG_FIELD_GET(MTL_LATENCY_LEVEL_ODD_MASK, val);
+		val = intel_uncore_read(uncore, MTL_LATENCY_LP2_LP3);
+		wm[2] = REG_FIELD_GET(MTL_LATENCY_LEVEL_EVEN_MASK, val);
+		wm[3] = REG_FIELD_GET(MTL_LATENCY_LEVEL_ODD_MASK, val);
+		val = intel_uncore_read(uncore, MTL_LATENCY_LP4_LP5);
+		wm[4] = REG_FIELD_GET(MTL_LATENCY_LEVEL_EVEN_MASK, val);
+		wm[5] = REG_FIELD_GET(MTL_LATENCY_LEVEL_ODD_MASK, val);
+
+		adjust_wm_latency(dev_priv, wm, max_level, 6);
+	} else if (DISPLAY_VER(dev_priv) >= 9) {
+		int read_latency = DISPLAY_VER(dev_priv) >= 12 ? 3 : 2;
 		int mult = IS_DG2(dev_priv) ? 2 : 1;
+		u32 val;
+		int ret;
 
 		/* read the first set of memory latencies[0:3] */
 		val = 0; /* data0 to be programmed to 0 for first set */
@@ -2909,44 +2968,7 @@ static void intel_read_wm_latency(struct drm_i915_private *dev_priv,
 		wm[7] = ((val >> GEN9_MEM_LATENCY_LEVEL_3_7_SHIFT) &
 				GEN9_MEM_LATENCY_LEVEL_MASK) * mult;
 
-		/*
-		 * If a level n (n > 1) has a 0us latency, all levels m (m >= n)
-		 * need to be disabled. We make sure to sanitize the values out
-		 * of the punit to satisfy this requirement.
-		 */
-		for (level = 1; level <= max_level; level++) {
-			if (wm[level] == 0) {
-				for (i = level + 1; i <= max_level; i++)
-					wm[i] = 0;
-
-				max_level = level - 1;
-
-				break;
-			}
-		}
-
-		/*
-		 * WaWmMemoryReadLatency
-		 *
-		 * punit doesn't take into account the read latency so we need
-		 * to add proper adjustement to each valid level we retrieve
-		 * from the punit when level 0 response data is 0us.
-		 */
-		if (wm[0] == 0) {
-			u8 adjust = DISPLAY_VER(dev_priv) >= 12 ? 3 : 2;
-
-			for (level = 0; level <= max_level; level++)
-				wm[level] += adjust;
-		}
-
-		/*
-		 * WA Level-0 adjustment for 16GB DIMMs: SKL+
-		 * If we could not get dimm info enable this WA to prevent from
-		 * any underrun. If not able to get Dimm info assume 16GB dimm
-		 * to avoid any underrun.
-		 */
-		if (dev_priv->dram_info.wm_lv_0_adjust_needed)
-			wm[0] += 1;
+		adjust_wm_latency(dev_priv, wm, max_level, read_latency);
 	} else if (IS_HASWELL(dev_priv) || IS_BROADWELL(dev_priv)) {
 		u64 sskpd = intel_uncore_read64(uncore, MCH_SSKPD);
 
@@ -4905,7 +4927,7 @@ static u8 skl_compute_dbuf_slices(struct intel_crtc *crtc, u8 active_pipes, bool
 
 	if (IS_DG2(dev_priv))
 		return dg2_compute_dbuf_slices(pipe, active_pipes, join_mbus);
-	else if (IS_ALDERLAKE_P(dev_priv))
+	else if (DISPLAY_VER(dev_priv) >= 13)
 		return adlp_compute_dbuf_slices(pipe, active_pipes, join_mbus);
 	else if (DISPLAY_VER(dev_priv) == 12)
 		return tgl_compute_dbuf_slices(pipe, active_pipes, join_mbus);
@@ -6560,7 +6582,10 @@ void skl_wm_get_hw_state(struct drm_i915_private *dev_priv)
 		enum plane_id plane_id;
 		u8 slices;
 
-		skl_pipe_wm_get_hw_state(crtc, &crtc_state->wm.skl.optimal);
+		memset(&crtc_state->wm.skl.optimal, 0,
+		       sizeof(crtc_state->wm.skl.optimal));
+		if (crtc_state->hw.active)
+			skl_pipe_wm_get_hw_state(crtc, &crtc_state->wm.skl.optimal);
 		crtc_state->wm.skl.raw = crtc_state->wm.skl.optimal;
 
 		memset(&dbuf_state->ddb[pipe], 0, sizeof(dbuf_state->ddb[pipe]));
@@ -6570,6 +6595,9 @@ void skl_wm_get_hw_state(struct drm_i915_private *dev_priv)
 				&crtc_state->wm.skl.plane_ddb[plane_id];
 			struct skl_ddb_entry *ddb_y =
 				&crtc_state->wm.skl.plane_ddb_y[plane_id];
+
+			if (!crtc_state->hw.active)
+				continue;
 
 			skl_ddb_get_hw_plane_state(dev_priv, crtc->pipe,
 						   plane_id, ddb, ddb_y);
