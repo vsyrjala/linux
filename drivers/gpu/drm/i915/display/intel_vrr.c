@@ -38,7 +38,7 @@ bool intel_vrr_is_capable(struct intel_connector *connector)
 	}
 
 	return HAS_VRR(i915) &&
-		info->monitor_range.max_vfreq - info->monitor_range.min_vfreq > 10;
+		info->vrr_range.max_vfreq - info->vrr_range.min_vfreq > 10;
 }
 
 void
@@ -117,9 +117,9 @@ intel_vrr_compute_config(struct intel_crtc_state *crtc_state,
 		return;
 
 	vmin = DIV_ROUND_UP(adjusted_mode->crtc_clock * 1000,
-			    adjusted_mode->crtc_htotal * info->monitor_range.max_vfreq);
+			    adjusted_mode->crtc_htotal * info->vrr_range.max_vfreq);
 	vmax = adjusted_mode->crtc_clock * 1000 /
-		(adjusted_mode->crtc_htotal * info->monitor_range.min_vfreq);
+		(adjusted_mode->crtc_htotal * info->vrr_range.min_vfreq);
 
 	vmin = max_t(int, vmin, adjusted_mode->crtc_vtotal);
 	vmax = max_t(int, vmax, adjusted_mode->crtc_vtotal);

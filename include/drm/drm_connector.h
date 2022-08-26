@@ -636,9 +636,9 @@ struct drm_display_info {
 	bool non_desktop;
 
 	/**
-	 * @monitor_range: Frequency range supported by monitor range descriptor
+	 * @vrr_range: Refresh rate range supported by monitor for VRR
 	 */
-	struct drm_monitor_range_info monitor_range;
+	struct drm_monitor_range_info vrr_range;
 
 	/**
 	 * @luminance_range: Luminance range supported by panel

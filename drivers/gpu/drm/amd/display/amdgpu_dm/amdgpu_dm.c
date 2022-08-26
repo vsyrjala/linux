@@ -9921,8 +9921,8 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 		amdgpu_dm_connector->min_vfreq = 0;
 		amdgpu_dm_connector->max_vfreq = 0;
 		amdgpu_dm_connector->pixel_clock_mhz = 0;
-		connector->display_info.monitor_range.min_vfreq = 0;
-		connector->display_info.monitor_range.max_vfreq = 0;
+		connector->display_info.vrr_range.min_vfreq = 0;
+		connector->display_info.vrr_range.max_vfreq = 0;
 		freesync_capable = false;
 
 		goto update;
@@ -9970,8 +9970,8 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 				amdgpu_dm_connector->pixel_clock_mhz =
 					range->pixel_clock_mhz * 10;
 
-				connector->display_info.monitor_range.min_vfreq = range->min_vfreq;
-				connector->display_info.monitor_range.max_vfreq = range->max_vfreq;
+				connector->display_info.vrr_range.min_vfreq = range->min_vfreq;
+				connector->display_info.vrr_range.max_vfreq = range->max_vfreq;
 
 				break;
 			}
@@ -9993,8 +9993,8 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 			if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
 				freesync_capable = true;
 
-			connector->display_info.monitor_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
-			connector->display_info.monitor_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
+			connector->display_info.vrr_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
+			connector->display_info.vrr_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
 		}
 	}
 

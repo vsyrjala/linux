@@ -6020,11 +6020,11 @@ static void drm_parse_cea_ext(struct drm_connector *connector,
 }
 
 static
-void get_monitor_range(const struct detailed_timing *timing, void *c)
+void get_vrr_range(const struct detailed_timing *timing, void *c)
 {
 	struct detailed_mode_closure *closure = c;
 	struct drm_display_info *info = &closure->connector->display_info;
-	struct drm_monitor_range_info *monitor_range = &info->monitor_range;
+	struct drm_monitor_range_info *vrr_range = &info->vrr_range;
 	const struct detailed_non_pixel *data = &timing->data.other_data;
 	const struct detailed_data_monitor_range *range = &data->data.range;
 	const struct edid *edid = closure->drm_edid->edid;
@@ -6044,19 +6044,19 @@ void get_monitor_range(const struct detailed_timing *timing, void *c)
 	if (range->flags != DRM_EDID_RANGE_LIMITS_ONLY_FLAG)
 		return;
 
-	monitor_range->min_vfreq = range->min_vfreq;
-	monitor_range->max_vfreq = range->max_vfreq;
+	vrr_range->min_vfreq = range->min_vfreq;
+	vrr_range->max_vfreq = range->max_vfreq;
 
 	if (edid->revision >= 4) {
 		if (data->pad2 & DRM_EDID_RANGE_OFFSET_MIN_VFREQ)
-			monitor_range->min_vfreq += 255;
+			vrr_range->min_vfreq += 255;
 		if (data->pad2 & DRM_EDID_RANGE_OFFSET_MAX_VFREQ)
-			monitor_range->max_vfreq += 255;
+			vrr_range->max_vfreq += 255;
 	}
 }
 
-static void drm_get_monitor_range(struct drm_connector *connector,
-				  const struct drm_edid *drm_edid)
+static void drm_get_vrr_range(struct drm_connector *connector,
+			      const struct drm_edid *drm_edid)
 {
 	const struct drm_display_info *info = &connector->display_info;
 	struct detailed_mode_closure closure = {
@@ -6067,11 +6067,11 @@ static void drm_get_monitor_range(struct drm_connector *connector,
 	if (!version_greater(drm_edid, 1, 1))
 		return;
 
-	drm_for_each_detailed_block(drm_edid, get_monitor_range, &closure);
+	drm_for_each_detailed_block(drm_edid, get_vrr_range, &closure);
 
 	DRM_DEBUG_KMS("Supported Monitor Refresh rate range is %d Hz - %d Hz\n",
-		      info->monitor_range.min_vfreq,
-		      info->monitor_range.max_vfreq);
+		      info->vrr_range.min_vfreq,
+		      info->vrr_range.max_vfreq);
 }
 
 static void drm_parse_vesa_mso_data(struct drm_connector *connector,
@@ -6164,7 +6164,7 @@ static void drm_reset_display_info(struct drm_connector *connector)
 	info->edid_hdmi_ycbcr444_dc_modes = 0;
 
 	info->non_desktop = 0;
-	memset(&info->monitor_range, 0, sizeof(info->monitor_range));
+	memset(&info->vrr_range, 0, sizeof(info->vrr_range));
 	memset(&info->luminance_range, 0, sizeof(info->luminance_range));
 
 	info->mso_stream_count = 0;
@@ -6184,7 +6184,7 @@ static u32 update_display_info(struct drm_connector *connector,
 	info->width_mm = edid->width_cm * 10;
 	info->height_mm = edid->height_cm * 10;
 
-	drm_get_monitor_range(connector, drm_edid);
+	drm_get_vrr_range(connector, drm_edid);
 
 	if (edid->revision < 3)
 		goto out;
