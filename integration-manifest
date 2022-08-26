@@ -1,0 +1,28 @@
+drm drm-fixes 100d0ae82b5c240a4dc17486698e67bf116bd598
+	Merge tag 'amd-drm-fixes-6.0-2022-08-25' of https://gitlab.freedesktop.org/agd5f/linux into drm-fixes
+drm-misc drm-misc-fixes a3f7c10a269d5b77dd5822ade822643ced3057f0
+	dma-buf/dma-resv: check if the new fence is really later
+drm-intel drm-intel-fixes 6067c82c576af13a6b1c892b42ac4a189aced8ee
+	drm/i915/backlight: Disable pps power hook for aux based backlight
+drm drm-next 2c2d7a67defa198a8b8148dbaddc9e5554efebc8
+	Merge tag 'drm-intel-gt-next-2022-08-24' of git://anongit.freedesktop.org/drm/drm-intel into drm-next
+drm-misc drm-misc-next-fixes 2939deac1fa220bc82b89235f146df1d9b52e876
+	drm/gem: Properly annotate WW context on drm_gem_lock_reservations() error
+drm-intel drm-intel-next-fixes 9d50bff40e3e366886ec37299fc317edf84be0c9
+	drm/i915: pass a pointer for tlb seqno at vma_invalidate_tlb()
+drm-misc drm-misc-next 61a9fa154d217c13eea90aa5bc635bc4b1fcb66e
+	drm/tve200: Fix smatch warning
+drm-intel drm-intel-next 6215a7c8f55243779a44bc257af0e1b1bb928e76
+	drm/i915: Add new ADL-S pci id
+drm-intel drm-intel-gt-next 25bcc828d237cda65d34c736d70e4467fffb80b9
+	drm/i915/dg2: Incorporate Wa_16014892111 into DRAW_WATERMARK tuning
+sound-upstream for-linus 7cf3dead1ad70c72edb03e2d98e1f3dcd332cdb2
+	Linux 5.13
+sound-upstream for-next 7cf3dead1ad70c72edb03e2d98e1f3dcd332cdb2
+	Linux 5.13
+drm-intel topic/core-for-CI 71c564ea758b4d4c64f29dd09a192e9039d37e98
+	scsi: sd: Revert "Rework asynchronous resume support"
+drm-misc topic/i915-ttm 1e3944578b749449bd7fa6bf0bae4c3d3f5f1733
+	Merge tag 'amd-drm-next-5.16-2021-09-27' of https://gitlab.freedesktop.org/agd5f/linux into drm-next
+drm topic/nouveau-misc dfc4005f8c172eea359f9db08c3b2b0ff0153699
+	drm/nouveau/disp: move DAC load detection method
