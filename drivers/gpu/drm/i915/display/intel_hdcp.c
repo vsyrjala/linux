@@ -23,6 +23,7 @@
 #include "intel_display_power_well.h"
 #include "intel_display_types.h"
 #include "intel_hdcp.h"
+#include "intel_hdcp_regs.h"
 #include "intel_pcode.h"
 
 #define KEY_LOAD_TRIES	5
@@ -30,8 +31,30 @@
 
 static int intel_conn_to_vcpi(struct intel_connector *connector)
 {
+	struct drm_dp_mst_topology_mgr *mgr;
+	struct drm_dp_mst_atomic_payload *payload;
+	struct drm_dp_mst_topology_state *mst_state;
+	int vcpi = 0;
+
 	/* For HDMI this is forced to be 0x0. For DP SST also this is 0x0. */
-	return connector->port	? connector->port->vcpi.vcpi : 0;
+	if (!connector->port)
+		return 0;
+	mgr = connector->port->mgr;
+
+	drm_modeset_lock(&mgr->base.lock, NULL);
+	mst_state = to_drm_dp_mst_topology_state(mgr->base.state);
+	payload = drm_atomic_get_mst_payload_state(mst_state, connector->port);
+	if (drm_WARN_ON(mgr->dev, !payload))
+		goto out;
+
+	vcpi = payload->vcpi;
+	if (drm_WARN_ON(mgr->dev, vcpi < 0)) {
+		vcpi = 0;
+		goto out;
+	}
+out:
+	drm_modeset_unlock(&mgr->base.lock);
+	return vcpi;
 }
 
 /*
@@ -1109,8 +1132,8 @@ static void intel_hdcp_prop_work(struct work_struct *work)
 
 bool is_hdcp_supported(struct drm_i915_private *dev_priv, enum port port)
 {
-	return INTEL_INFO(dev_priv)->display.has_hdcp &&
-			(DISPLAY_VER(dev_priv) >= 12 || port < PORT_E);
+	return RUNTIME_INFO(dev_priv)->has_hdcp &&
+		(DISPLAY_VER(dev_priv) >= 12 || port < PORT_E);
 }
 
 static int

@@ -1107,7 +1107,12 @@ void gen6_rps_get_freq_caps(struct intel_rps *rps, struct intel_rps_freq_caps *c
 		caps->min_freq = (rp_state_cap >>  0) & 0xff;
 	} else {
 		caps->rp0_freq = (rp_state_cap >>  0) & 0xff;
-		caps->rp1_freq = (rp_state_cap >>  8) & 0xff;
+		if (GRAPHICS_VER(i915) >= 10)
+			caps->rp1_freq = REG_FIELD_GET(RPE_MASK,
+						       intel_uncore_read(to_gt(i915)->uncore,
+						       GEN10_FREQ_INFO_REC));
+		else
+			caps->rp1_freq = (rp_state_cap >>  8) & 0xff;
 		caps->min_freq = (rp_state_cap >> 16) & 0xff;
 	}
 
@@ -1546,6 +1551,9 @@ void intel_rps_disable(struct intel_rps *rps)
 {
 	struct drm_i915_private *i915 = rps_to_i915(rps);
 
+	if (!intel_rps_is_enabled(rps))
+		return;
+
 	intel_rps_clear_enabled(rps);
 	intel_rps_clear_interrupts(rps);
 	intel_rps_clear_timer(rps);
@@ -1979,7 +1987,9 @@ void intel_rps_init(struct intel_rps *rps)
 
 	/* Derive initial user preferences/limits from the hardware limits */
 	rps->max_freq_softlimit = rps->max_freq;
+	rps_to_gt(rps)->defaults.max_freq = rps->max_freq_softlimit;
 	rps->min_freq_softlimit = rps->min_freq;
+	rps_to_gt(rps)->defaults.min_freq = rps->min_freq_softlimit;
 
 	/* After setting max-softlimit, find the overclock max freq */
 	if (GRAPHICS_VER(i915) == 6 || IS_IVYBRIDGE(i915) || IS_HASWELL(i915)) {
