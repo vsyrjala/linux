@@ -82,12 +82,16 @@ static bool is_alt_drrs_mode(const struct drm_display_mode *mode,
 		mode->clock != preferred_mode->clock;
 }
 
+#define DRM_MODE_FLAG_SYNC_MASK (DRM_MODE_FLAG_PHSYNC | \
+				 DRM_MODE_FLAG_NHSYNC | \
+				 DRM_MODE_FLAG_PVSYNC | \
+				 DRM_MODE_FLAG_NVSYNC)
+
 static bool is_alt_fixed_mode(const struct drm_display_mode *mode,
 			      const struct drm_display_mode *preferred_mode)
 {
-	return drm_mode_match(mode, preferred_mode,
-			      DRM_MODE_MATCH_FLAGS |
-			      DRM_MODE_MATCH_3D_FLAGS) &&
+	return (mode->flags & ~DRM_MODE_FLAG_SYNC_MASK) ==
+		(preferred_mode->flags & ~DRM_MODE_FLAG_SYNC_MASK) &&
 		mode->hdisplay == preferred_mode->hdisplay &&
 		mode->vdisplay == preferred_mode->vdisplay;
 }
