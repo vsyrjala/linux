@@ -4572,8 +4572,8 @@ static bool encoders_cloneable(const struct intel_encoder *a,
 			       const struct intel_encoder *b)
 {
 	/* masks could be asymmetric, so check both ways */
-	return a == b || (a->cloneable & (1 << b->type) &&
-			  b->cloneable & (1 << a->type));
+	return a == b || (a->cloneable & BIT(b->type) &&
+			  b->cloneable & BIT(a->type));
 }
 
 static bool check_single_encoder_cloning(struct intel_atomic_state *state,
@@ -5937,7 +5937,8 @@ intel_verify_planes(struct intel_atomic_state *state)
 			     plane_state->uapi.visible);
 }
 
-int intel_modeset_all_pipes(struct intel_atomic_state *state)
+int intel_modeset_all_pipes(struct intel_atomic_state *state,
+			    const char *reason)
 {
 	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
 	struct intel_crtc *crtc;
@@ -5957,6 +5958,9 @@ int intel_modeset_all_pipes(struct intel_atomic_state *state)
 		if (!crtc_state->hw.active ||
 		    drm_atomic_crtc_needs_modeset(&crtc_state->uapi))
 			continue;
+
+		drm_dbg_kms(&dev_priv->drm, "[CRTC:%d:%s] Full modeset due to %s\n",
+			    crtc->base.base.id, crtc->base.name, reason);
 
 		crtc_state->uapi.mode_changed = true;
 
@@ -8344,6 +8348,7 @@ void intel_init_display_hooks(struct drm_i915_private *dev_priv)
 	if (!HAS_DISPLAY(dev_priv))
 		return;
 
+	intel_color_init_hooks(dev_priv);
 	intel_init_cdclk_hooks(dev_priv);
 	intel_audio_hooks_init(dev_priv);
 
