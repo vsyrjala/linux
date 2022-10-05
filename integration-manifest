@@ -1,0 +1,28 @@
+drm drm-fixes 414208e48963fdb136240d7f59c15e627832d288
+	Merge tag 'amd-drm-fixes-6.0-2022-09-30-1' of https://gitlab.freedesktop.org/agd5f/linux into drm-fixes
+drm-misc drm-misc-fixes cc62d98bd56d45de4531844ca23913a15136c05b
+	Revert "drm: bridge: analogix/dp: add panel prepare/unprepare in suspend/resume time"
+drm-intel drm-intel-fixes 7738be973fc4e2ba22154fafd3a5d7b9666f9abf
+	drm/i915/gt: Perf_limit_reasons are only available for Gen11+
+drm drm-next 65898687cf7392c372ea8d04a88617e2cb794465
+	Merge tag 'amd-drm-next-6.1-2022-09-30' of https://gitlab.freedesktop.org/agd5f/linux into drm-next
+drm-misc drm-misc-next-fixes 2939deac1fa220bc82b89235f146df1d9b52e876
+	drm/gem: Properly annotate WW context on drm_gem_lock_reservations() error
+drm-intel drm-intel-next-fixes cdf6428dd518435a05739abf7659589de30970f4
+	drm/i915: Reject excessive dotclocks early
+drm-misc drm-misc-next dd3abfe4e6b679e4258f922540da2277f962eb1f
+	drm/edid: Make version checks less convoluted
+drm-intel drm-intel-next 47d4ae2192cb44ccf845c5cca79f9cb6d8394f09
+	drm/i915/mtl: Extend PSR support
+drm-intel drm-intel-gt-next 0add082cebac8555ee3972ba768ae5c01db7a498
+	drm/i915/guc: Fix revocation of non-persistent contexts
+sound-upstream for-linus 7cf3dead1ad70c72edb03e2d98e1f3dcd332cdb2
+	Linux 5.13
+sound-upstream for-next 7cf3dead1ad70c72edb03e2d98e1f3dcd332cdb2
+	Linux 5.13
+drm-intel topic/core-for-CI a9c65b965c5dadf8ce1fed53138431a46b3a75c7
+	Restore "iommu/dma: Fix race condition during iova_domain initialization"
+drm-misc topic/i915-ttm 1e3944578b749449bd7fa6bf0bae4c3d3f5f1733
+	Merge tag 'amd-drm-next-5.16-2021-09-27' of https://gitlab.freedesktop.org/agd5f/linux into drm-next
+drm topic/nouveau-misc dfc4005f8c172eea359f9db08c3b2b0ff0153699
+	drm/nouveau/disp: move DAC load detection method
