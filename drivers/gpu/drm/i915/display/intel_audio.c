@@ -71,6 +71,8 @@ struct intel_audio_funcs {
 	void (*audio_codec_disable)(struct intel_encoder *encoder,
 				    const struct intel_crtc_state *old_crtc_state,
 				    const struct drm_connector_state *old_conn_state);
+	void (*audio_codec_get_config)(struct intel_encoder *encoder,
+				       struct intel_crtc_state *crtc_state);
 };
 
 /* DP N/M table */
@@ -313,6 +315,27 @@ static int g4x_eld_buffer_size(struct drm_i915_private *i915)
 	return REG_FIELD_GET(G4X_ELD_BUFFER_SIZE_MASK, tmp);
 }
 
+static void g4x_audio_codec_get_config(struct intel_encoder *encoder,
+				       struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *i915 = to_i915(encoder->base.dev);
+	u32 *eld = (u32 *)crtc_state->eld;
+	int eld_buffer_size, len, i;
+	u32 tmp;
+
+	tmp = intel_de_read(i915, G4X_AUD_CNTL_ST);
+	if ((tmp & G4X_ELD_VALID) == 0)
+		return;
+
+	intel_de_rmw(i915, G4X_AUD_CNTL_ST, G4X_ELD_ADDRESS_MASK, 0);
+
+	eld_buffer_size = g4x_eld_buffer_size(i915);
+	len = min_t(int, sizeof(crtc_state->eld) / 4, eld_buffer_size);
+
+	for (i = 0; i < len; i++)
+		eld[i] = intel_de_read(i915, G4X_HDMIW_HDMIEDID);
+}
+
 static void g4x_audio_codec_disable(struct intel_encoder *encoder,
 				    const struct intel_crtc_state *old_crtc_state,
 				    const struct drm_connector_state *old_conn_state)
@@ -465,6 +488,29 @@ static int hsw_eld_buffer_size(struct drm_i915_private *i915,
 	tmp = intel_de_read(i915, HSW_AUD_DIP_ELD_CTRL(cpu_transcoder));
 
 	return REG_FIELD_GET(IBX_ELD_BUFFER_SIZE_MASK, tmp);
+}
+
+static void hsw_audio_codec_get_config(struct intel_encoder *encoder,
+				       struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *i915 = to_i915(encoder->base.dev);
+	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
+	u32 *eld = (u32 *)crtc_state->eld;
+	int eld_buffer_size, len, i;
+	u32 tmp;
+
+	tmp = intel_de_read(i915, HSW_AUD_PIN_ELD_CP_VLD);
+	if ((tmp & AUDIO_ELD_VALID(cpu_transcoder)) == 0)
+		return;
+
+	intel_de_rmw(i915, HSW_AUD_DIP_ELD_CTRL(cpu_transcoder),
+		     IBX_ELD_ADDRESS_MASK, 0);
+
+	eld_buffer_size = hsw_eld_buffer_size(i915, cpu_transcoder);
+	len = min_t(int, sizeof(crtc_state->eld) / 4, eld_buffer_size);
+
+	for (i = 0; i < len; i++)
+		eld[i] = intel_de_read(i915, HSW_AUD_EDID_DATA(cpu_transcoder));
 }
 
 static void hsw_audio_codec_disable(struct intel_encoder *encoder,
@@ -700,6 +746,33 @@ static int ilk_eld_buffer_size(struct drm_i915_private *i915,
 	return REG_FIELD_GET(IBX_ELD_BUFFER_SIZE_MASK, tmp);
 }
 
+static void ilk_audio_codec_get_config(struct intel_encoder *encoder,
+				       struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
+	u32 *eld = (u32 *)crtc_state->eld;
+	enum port port = encoder->port;
+	enum pipe pipe = crtc->pipe;
+	int eld_buffer_size, len, i;
+	struct ilk_audio_regs regs;
+	u32 tmp;
+
+	ilk_audio_regs_init(i915, pipe, &regs);
+
+	tmp = intel_de_read(i915, regs.aud_cntrl_st2);
+	if ((tmp & IBX_ELD_VALID(port)) == 0)
+		return;
+
+	intel_de_rmw(i915, regs.aud_cntl_st, IBX_ELD_ADDRESS_MASK, 0);
+
+	eld_buffer_size = ilk_eld_buffer_size(i915, pipe);
+	len = min_t(int, sizeof(crtc_state->eld) / 4, eld_buffer_size);
+
+	for (i = 0; i < len; i++)
+		eld[i] = intel_de_read(i915, regs.hdmiw_hdmiedid);
+}
+
 static void ilk_audio_codec_disable(struct intel_encoder *encoder,
 				    const struct intel_crtc_state *old_crtc_state,
 				    const struct drm_connector_state *old_conn_state)
@@ -919,19 +992,34 @@ void intel_audio_codec_disable(struct intel_encoder *encoder,
 	intel_lpe_audio_notify(i915, pipe, port, NULL, 0, false);
 }
 
+void intel_audio_codec_get_config(struct intel_encoder *encoder,
+				  struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *i915 = to_i915(encoder->base.dev);
+
+	if (!crtc_state->has_audio)
+		return;
+
+	if (i915->display.funcs.audio)
+		i915->display.funcs.audio->audio_codec_get_config(encoder, crtc_state);
+}
+
 static const struct intel_audio_funcs g4x_audio_funcs = {
 	.audio_codec_enable = g4x_audio_codec_enable,
 	.audio_codec_disable = g4x_audio_codec_disable,
+	.audio_codec_get_config = g4x_audio_codec_get_config,
 };
 
 static const struct intel_audio_funcs ilk_audio_funcs = {
 	.audio_codec_enable = ilk_audio_codec_enable,
 	.audio_codec_disable = ilk_audio_codec_disable,
+	.audio_codec_get_config = ilk_audio_codec_get_config,
 };
 
 static const struct intel_audio_funcs hsw_audio_funcs = {
 	.audio_codec_enable = hsw_audio_codec_enable,
 	.audio_codec_disable = hsw_audio_codec_disable,
+	.audio_codec_get_config = hsw_audio_codec_get_config,
 };
 
 /**
