@@ -25,6 +25,7 @@
 						  _IBX_AUD_CNTL_ST_B)
 #define   IBX_ELD_BUFFER_SIZE_MASK	REG_GENMASK(14, 10)
 #define   IBX_ELD_ADDRESS_MASK		REG_GENMASK(9, 5)
+#define   IBX_ELD_ADDRESS(dw)		REG_FIELD_PREP(IBX_ELD_ADDRESS_MASK, (dw))
 #define   IBX_ELD_ACK			REG_BIT(4)
 #define IBX_AUD_CNTL_ST2		_MMIO(0xE20C0)
 #define   IBX_CP_READY(port)		REG_BIT(((port) - 1) * 4 + 1)

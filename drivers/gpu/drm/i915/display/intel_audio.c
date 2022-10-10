@@ -655,6 +655,16 @@ static void enable_audio_dsc_wa(struct intel_encoder *encoder,
 	intel_de_write(i915, AUD_CONFIG_BE, val);
 }
 
+static bool hsw_audio_coded_ready(struct drm_i915_private *i915,
+				  enum transcoder cpu_transcoder)
+{
+	intel_de_rmw(i915, HSW_AUD_DIP_ELD_CTRL(cpu_transcoder),
+		     IBX_ELD_ADDRESS_MASK, IBX_ELD_ADDRESS(1));
+
+	return (intel_de_read(i915, HSW_AUD_DIP_ELD_CTRL(cpu_transcoder)) &
+		IBX_ELD_ADDRESS_MASK) == IBX_ELD_ADDRESS(1);
+}
+
 static void hsw_audio_codec_enable(struct intel_encoder *encoder,
 				   const struct intel_crtc_state *crtc_state,
 				   const struct drm_connector_state *conn_state)
@@ -680,6 +690,9 @@ static void hsw_audio_codec_enable(struct intel_encoder *encoder,
 	/* Invalidate ELD */
 	intel_de_rmw(i915, HSW_AUD_PIN_ELD_CP_VLD,
 		     AUDIO_ELD_VALID(cpu_transcoder), 0);
+
+	if (wait_for(hsw_audio_coded_ready(i915, cpu_transcoder), 100))
+		drm_dbg_kms(&i915->drm, "codec didn't power up\n");
 
 	/* Reset ELD address */
 	intel_de_rmw(i915, HSW_AUD_DIP_ELD_CTRL(cpu_transcoder),
@@ -917,11 +930,6 @@ void intel_audio_codec_enable(struct intel_encoder *encoder,
 		    encoder->base.base.id, encoder->base.name,
 		    pipe_name(pipe), drm_eld_size(crtc_state->eld));
 
-	if (i915->display.funcs.audio)
-		i915->display.funcs.audio->audio_codec_enable(encoder,
-								  crtc_state,
-								  conn_state);
-
 	mutex_lock(&i915->display.audio.mutex);
 	encoder->audio_connector = connector;
 
@@ -941,6 +949,11 @@ void intel_audio_codec_enable(struct intel_encoder *encoder,
 	intel_lpe_audio_notify(i915, pipe, port, crtc_state->eld,
 			       crtc_state->port_clock,
 			       intel_crtc_has_dp_encoder(crtc_state));
+
+	if (i915->display.funcs.audio)
+		i915->display.funcs.audio->audio_codec_enable(encoder,
+								  crtc_state,
+								  conn_state);
 }
 
 /**
