@@ -39,12 +39,16 @@
 #define FORCEWAKE_ACK_RENDER_GEN9		_MMIO(0xd84)
 #define FORCEWAKE_ACK_MEDIA_GEN9		_MMIO(0xd88)
 
+#define FORCEWAKE_ACK_GSC			_MMIO(0xdf8)
+#define FORCEWAKE_ACK_GT_MTL			_MMIO(0xdfc)
+
 #define GMD_ID_GRAPHICS				_MMIO(0xd8c)
 #define GMD_ID_MEDIA				_MMIO(MTL_MEDIA_GSI_BASE + 0xd8c)
 
 #define MCFG_MCR_SELECTOR			_MMIO(0xfd0)
 #define SF_MCR_SELECTOR				_MMIO(0xfd8)
 #define GEN8_MCR_SELECTOR			_MMIO(0xfdc)
+#define GAM_MCR_SELECTOR			_MMIO(0xfe0)
 #define   GEN8_MCR_SLICE(slice)			(((slice) & 3) << 26)
 #define   GEN8_MCR_SLICE_MASK			GEN8_MCR_SLICE(3)
 #define   GEN8_MCR_SUBSLICE(subslice)		(((subslice) & 3) << 24)
@@ -900,6 +904,8 @@
 
 #define FORCEWAKE_MEDIA_VDBOX_GEN11(n)		_MMIO(0xa540 + (n) * 4)
 #define FORCEWAKE_MEDIA_VEBOX_GEN11(n)		_MMIO(0xa560 + (n) * 4)
+
+#define FORCEWAKE_REQ_GSC			_MMIO(0xa618)
 
 #define CHV_POWER_SS0_SIG1			_MMIO(0xa720)
 #define CHV_POWER_SS0_SIG2			_MMIO(0xa724)
