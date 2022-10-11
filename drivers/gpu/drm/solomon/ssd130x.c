@@ -578,21 +578,24 @@ static void ssd130x_primary_plane_helper_atomic_update(struct drm_plane *plane,
 	struct drm_plane_state *plane_state = drm_atomic_get_new_plane_state(state, plane);
 	struct drm_plane_state *old_plane_state = drm_atomic_get_old_plane_state(state, plane);
 	struct drm_shadow_plane_state *shadow_plane_state = to_drm_shadow_plane_state(plane_state);
+	struct drm_atomic_helper_damage_iter iter;
 	struct drm_device *drm = plane->dev;
-	struct drm_rect src_clip, dst_clip;
+	struct drm_rect dst_clip;
+	struct drm_rect damage;
 	int idx;
-
-	if (!drm_atomic_helper_damage_merged(old_plane_state, plane_state, &src_clip))
-		return;
-
-	dst_clip = plane_state->dst;
-	if (!drm_rect_intersect(&dst_clip, &src_clip))
-		return;
 
 	if (!drm_dev_enter(drm, &idx))
 		return;
 
-	ssd130x_fb_blit_rect(plane_state->fb, &shadow_plane_state->data[0], &dst_clip);
+	drm_atomic_helper_damage_iter_init(&iter, old_plane_state, plane_state);
+	drm_atomic_for_each_plane_damage(&iter, &damage) {
+		dst_clip = plane_state->dst;
+
+		if (!drm_rect_intersect(&dst_clip, &damage))
+			continue;
+
+		ssd130x_fb_blit_rect(plane_state->fb, &shadow_plane_state->data[0], &dst_clip);
+	}
 
 	drm_dev_exit(idx);
 }
@@ -648,10 +651,14 @@ static int ssd130x_crtc_helper_atomic_check(struct drm_crtc *crtc,
 	struct drm_crtc_state *new_crtc_state = drm_atomic_get_new_crtc_state(new_state, crtc);
 	int ret;
 
-	ret = drm_atomic_helper_check_crtc_state(new_crtc_state, false);
+	if (!new_crtc_state->enable)
+		goto out;
+
+	ret = drm_atomic_helper_check_crtc_primary_plane(new_crtc_state);
 	if (ret)
 		return ret;
 
+out:
 	return drm_atomic_add_affected_planes(new_state, crtc);
 }
 
