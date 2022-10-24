@@ -275,9 +275,9 @@ void intel_panel_add_edid_fixed_modes(struct intel_connector *connector,
 	intel_panel_destroy_probed_modes(connector);
 }
 
-static void intel_panel_add_fixed_mode(struct intel_connector *connector,
-				       struct drm_display_mode *fixed_mode,
-				       const char *type)
+void intel_panel_add_fixed_mode(struct intel_connector *connector,
+				struct drm_display_mode *fixed_mode,
+				const char *type)
 {
 	struct drm_i915_private *i915 = to_i915(connector->base.dev);
 	struct drm_display_info *info = &connector->base.display_info;
