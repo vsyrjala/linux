@@ -781,6 +781,13 @@ static bool intel_sdvo_get_input_timing(struct intel_sdvo *intel_sdvo,
 				     SDVO_CMD_GET_INPUT_TIMINGS_PART1, dtd);
 }
 
+static bool intel_sdvo_get_output_timing(struct intel_sdvo *intel_sdvo,
+					 struct intel_sdvo_dtd *dtd)
+{
+	return intel_sdvo_set_timing(intel_sdvo,
+				     SDVO_CMD_GET_OUTPUT_TIMINGS_PART1, dtd);
+}
+
 static bool
 intel_sdvo_create_preferred_input_timing(struct intel_sdvo *intel_sdvo,
 					 struct intel_sdvo_connector *intel_sdvo_connector,
@@ -2864,6 +2871,31 @@ intel_sdvo_analog_init(struct intel_sdvo *intel_sdvo, int device)
 	return true;
 }
 
+static void
+intel_sdvo_dump_current_mode(struct intel_sdvo *intel_sdvo,
+			     struct intel_sdvo_connector *connector)
+{
+	struct drm_i915_private *i915 = to_i915(intel_sdvo->base.base.dev);
+	struct drm_display_mode mode = {};
+	struct intel_sdvo_dtd dtd = {};
+	u16 active_outputs = 0;
+
+	intel_sdvo_get_active_outputs(intel_sdvo, &active_outputs);
+
+	drm_dbg_kms(&i915->drm, "Current SDVO active outputs: 0x%x (connector output 0x%x)\n",
+		    active_outputs, connector->output_flag);
+
+	if (!intel_sdvo_get_output_timing(intel_sdvo, &dtd)) {
+		drm_dbg_kms(&i915->drm, "failed to get SDVO output timings\n");
+		return;
+	}
+
+	intel_sdvo_get_mode_from_dtd(&mode, &dtd);
+
+	drm_dbg_kms(&i915->drm, "Current SDVO output timings: " DRM_MODE_FMT "\n",
+		    DRM_MODE_ARG(&mode));
+}
+
 static bool
 intel_sdvo_lvds_init(struct intel_sdvo *intel_sdvo, int device)
 {
@@ -2912,6 +2944,8 @@ intel_sdvo_lvds_init(struct intel_sdvo *intel_sdvo, int device)
 		intel_ddc_get_modes(connector, &intel_sdvo->ddc);
 		intel_panel_add_edid_fixed_modes(intel_connector, false);
 	}
+
+	intel_sdvo_dump_current_mode(intel_sdvo, intel_sdvo_connector);
 
 	intel_panel_init(intel_connector);
 
