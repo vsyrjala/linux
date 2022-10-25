@@ -784,7 +784,7 @@ static bool intel_sdvo_get_input_timing(struct intel_sdvo *intel_sdvo,
 static bool intel_sdvo_get_output_timing(struct intel_sdvo *intel_sdvo,
 					 struct intel_sdvo_dtd *dtd)
 {
-	return intel_sdvo_set_timing(intel_sdvo,
+	return intel_sdvo_get_timing(intel_sdvo,
 				     SDVO_CMD_GET_OUTPUT_TIMINGS_PART1, dtd);
 }
 
