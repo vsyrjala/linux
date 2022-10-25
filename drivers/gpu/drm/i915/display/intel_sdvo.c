@@ -2882,8 +2882,16 @@ intel_sdvo_dump_current_mode(struct intel_sdvo *intel_sdvo,
 
 	intel_sdvo_get_active_outputs(intel_sdvo, &active_outputs);
 
+	drm_dbg_kms(&i915->drm, "v2\n");
+
 	drm_dbg_kms(&i915->drm, "Current SDVO active outputs: 0x%x (connector output 0x%x)\n",
 		    active_outputs, connector->output_flag);
+
+	if (!intel_sdvo_set_target_output(intel_sdvo,
+					  connector->output_flag)) {
+		drm_dbg_kms(&i915->drm, "failed to set SDVO target output\n");
+		return;
+	}
 
 	if (!intel_sdvo_get_output_timing(intel_sdvo, &dtd)) {
 		drm_dbg_kms(&i915->drm, "failed to get SDVO output timings\n");
