@@ -288,6 +288,12 @@ void intel_dsb_wait_usec(struct intel_dsb *dsb, int count)
 		       DSB_OPCODE_WAIT_USEC << DSB_OPCODE_SHIFT);
 }
 
+void intel_dsb_wait_vblanks(struct intel_dsb *dsb, int count)
+{
+	intel_dsb_emit(dsb, count,
+		       DSB_OPCODE_WAIT_VBLANKS << DSB_OPCODE_SHIFT);
+}
+
 static bool pre_commit_is_vrr_active(struct intel_atomic_state *state,
 				     struct intel_crtc *crtc)
 {
