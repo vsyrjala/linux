@@ -42,6 +42,8 @@ void intel_dsb_nonpost_start(struct intel_dsb *dsb);
 void intel_dsb_nonpost_end(struct intel_dsb *dsb);
 void intel_dsb_wait_usec(struct intel_dsb *dsb, int count);
 void intel_dsb_wait_vblanks(struct intel_dsb *dsb, int count);
+void intel_dsb_poll(struct intel_dsb *dsb,
+		    i915_reg_t reg, u32 mask, u32 val);
 void intel_dsb_wait_scanline(struct intel_atomic_state *state,
 			     struct intel_dsb *dsb,
 			     int scanline);
