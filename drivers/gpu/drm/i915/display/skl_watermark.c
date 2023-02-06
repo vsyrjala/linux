@@ -755,7 +755,7 @@ skl_cursor_allocation(const struct intel_crtc_state *crtc_state,
 		min_ddb_alloc = wm.min_ddb_alloc;
 	}
 
-	return max(num_active == 1 ? 32 : 8, min_ddb_alloc);
+	return i915->params.cursor_ddb_extra + min_ddb_alloc;
 }
 
 static void skl_ddb_entry_init_from_hw(struct skl_ddb_entry *entry, u32 reg)

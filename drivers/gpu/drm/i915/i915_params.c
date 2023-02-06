@@ -222,6 +222,9 @@ i915_param_named_unsafe(lmem_size, uint, 0400,
 i915_param_named_unsafe(lmem_bar_size, uint, 0400,
 			"Set the lmem bar size(in MiB).");
 
+i915_param_named_unsafe(cursor_ddb_extra, uint, 0600,
+			"How much extra DDB to allocate for the cursor.");
+
 static void _param_print_bool(struct drm_printer *p, const char *name,
 			      bool val)
 {
