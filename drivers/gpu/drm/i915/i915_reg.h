@@ -541,9 +541,10 @@
 #define _BXT_PHY0_BASE			0x6C000
 #define _BXT_PHY1_BASE			0x162000
 #define _BXT_PHY2_BASE			0x163000
-#define BXT_PHY_BASE(phy)		_PHY3((phy), _BXT_PHY0_BASE, \
-						     _BXT_PHY1_BASE, \
-						     _BXT_PHY2_BASE)
+#define BXT_PHY_BASE(phy)							\
+	 _PICK_EVEN_2RANGES(phy, 1,						\
+			    _BXT_PHY0_BASE, _BXT_PHY0_BASE,			\
+			    _BXT_PHY1_BASE, _BXT_PHY2_BASE)
 
 #define _BXT_PHY(phy, reg)						\
 	_MMIO(BXT_PHY_BASE(phy) - _BXT_PHY0_BASE + (reg))
@@ -566,13 +567,14 @@
 #define BXT_PHY_CTL(port)		_MMIO_PORT(port, _BXT_PHY_CTL_DDI_A, \
 							 _BXT_PHY_CTL_DDI_B)
 
-#define _PHY_CTL_FAMILY_EDP		0x64C80
 #define _PHY_CTL_FAMILY_DDI		0x64C90
+#define _PHY_CTL_FAMILY_EDP		0x64C80
 #define _PHY_CTL_FAMILY_DDI_C		0x64CA0
 #define   COMMON_RESET_DIS		(1 << 31)
-#define BXT_PHY_CTL_FAMILY(phy)		_MMIO_PHY3((phy), _PHY_CTL_FAMILY_DDI, \
-							  _PHY_CTL_FAMILY_EDP, \
-							  _PHY_CTL_FAMILY_DDI_C)
+#define BXT_PHY_CTL_FAMILY(phy)							\
+	 _MMIO(_PICK_EVEN_2RANGES(phy, 1,					\
+				  _PHY_CTL_FAMILY_DDI, _PHY_CTL_FAMILY_DDI,	\
+				  _PHY_CTL_FAMILY_EDP, _PHY_CTL_FAMILY_DDI_C))
 
 /* BXT PHY PLL registers */
 #define _PORT_PLL_A			0x46074
@@ -1038,9 +1040,11 @@
 #define _MBUS_ABOX0_CTL			0x45038
 #define _MBUS_ABOX1_CTL			0x45048
 #define _MBUS_ABOX2_CTL			0x4504C
-#define MBUS_ABOX_CTL(x)		_MMIO(_PICK(x, _MBUS_ABOX0_CTL, \
-						    _MBUS_ABOX1_CTL, \
-						    _MBUS_ABOX2_CTL))
+#define MBUS_ABOX_CTL(x)							\
+	_MMIO(_PICK_EVEN_2RANGES(x, 2,						\
+				 _MBUS_ABOX0_CTL, _MBUS_ABOX1_CTL,		\
+				 _MBUS_ABOX2_CTL, _MBUS_ABOX2_CTL))
+
 #define MBUS_ABOX_BW_CREDIT_MASK	(3 << 20)
 #define MBUS_ABOX_BW_CREDIT(x)		((x) << 20)
 #define MBUS_ABOX_B_CREDIT_MASK		(0xF << 16)
@@ -1730,10 +1734,11 @@
 #define   PALETTE_10BIT_BLUE_EXP_MASK	REG_GENMASK(7, 6)
 #define   PALETTE_10BIT_BLUE_MANT_MASK	REG_GENMASK(5, 2)
 #define   PALETTE_10BIT_BLUE_UDW_MASK	REG_GENMASK(1, 0)
-#define PALETTE(pipe, i)	_MMIO(DISPLAY_MMIO_BASE(dev_priv) + \
-				      _PICK((pipe), _PALETTE_A,		\
-					    _PALETTE_B, _CHV_PALETTE_C) + \
-				      (i) * 4)
+#define PALETTE(pipe, i) _MMIO(DISPLAY_MMIO_BASE(dev_priv) +			\
+			       _PICK_EVEN_2RANGES(pipe, 2,			\
+						  _PALETTE_A, _PALETTE_B,	\
+						  _CHV_PALETTE_C, _CHV_PALETTE_C) + \
+						  (i) * 4)
 
 #define PEG_BAND_GAP_DATA	_MMIO(0x14d68)
 
@@ -2591,59 +2596,6 @@
 #define   SDVO_PIPE_SEL_SHIFT_CHV		24
 #define   SDVO_PIPE_SEL_MASK_CHV		(3 << 24)
 #define   SDVO_PIPE_SEL_CHV(pipe)		((pipe) << 24)
-
-/* LVDS port control */
-#define LVDS			_MMIO(0x61180)
-/*
- * Enables the LVDS port.  This bit must be set before DPLLs are enabled, as
- * the DPLL semantics change when the LVDS is assigned to that pipe.
- */
-#define   LVDS_PORT_EN			(1 << 31)
-/* Selects pipe B for LVDS data.  Must be set on pre-965. */
-#define   LVDS_PIPE_SEL_SHIFT		30
-#define   LVDS_PIPE_SEL_MASK		(1 << 30)
-#define   LVDS_PIPE_SEL(pipe)		((pipe) << 30)
-#define   LVDS_PIPE_SEL_SHIFT_CPT	29
-#define   LVDS_PIPE_SEL_MASK_CPT	(3 << 29)
-#define   LVDS_PIPE_SEL_CPT(pipe)	((pipe) << 29)
-/* LVDS dithering flag on 965/g4x platform */
-#define   LVDS_ENABLE_DITHER		(1 << 25)
-/* LVDS sync polarity flags. Set to invert (i.e. negative) */
-#define   LVDS_VSYNC_POLARITY		(1 << 21)
-#define   LVDS_HSYNC_POLARITY		(1 << 20)
-
-/* Enable border for unscaled (or aspect-scaled) display */
-#define   LVDS_BORDER_ENABLE		(1 << 15)
-/*
- * Enables the A0-A2 data pairs and CLKA, containing 18 bits of color data per
- * pixel.
- */
-#define   LVDS_A0A2_CLKA_POWER_MASK	(3 << 8)
-#define   LVDS_A0A2_CLKA_POWER_DOWN	(0 << 8)
-#define   LVDS_A0A2_CLKA_POWER_UP	(3 << 8)
-/*
- * Controls the A3 data pair, which contains the additional LSBs for 24 bit
- * mode.  Only enabled if LVDS_A0A2_CLKA_POWER_UP also indicates it should be
- * on.
- */
-#define   LVDS_A3_POWER_MASK		(3 << 6)
-#define   LVDS_A3_POWER_DOWN		(0 << 6)
-#define   LVDS_A3_POWER_UP		(3 << 6)
-/*
- * Controls the CLKB pair.  This should only be set when LVDS_B0B3_POWER_UP
- * is set.
- */
-#define   LVDS_CLKB_POWER_MASK		(3 << 4)
-#define   LVDS_CLKB_POWER_DOWN		(0 << 4)
-#define   LVDS_CLKB_POWER_UP		(3 << 4)
-/*
- * Controls the B0-B3 data pairs.  This must be set to match the DPLL p2
- * setting for whether we are in dual-channel mode.  The B3 pair will
- * additionally only be powered up when LVDS_A3_POWER_UP is set.
- */
-#define   LVDS_B0B3_POWER_MASK		(3 << 2)
-#define   LVDS_B0B3_POWER_DOWN		(0 << 2)
-#define   LVDS_B0B3_POWER_UP		(3 << 2)
 
 /* Video Data Island Packet control */
 #define VIDEO_DIP_DATA		_MMIO(0x61178)
@@ -6392,9 +6344,6 @@
 #define FDI_PLL_CTL_1           _MMIO(0xfe000)
 #define FDI_PLL_CTL_2           _MMIO(0xfe004)
 
-#define PCH_LVDS	_MMIO(0xe1180)
-#define  LVDS_DETECTED	(1 << 1)
-
 #define _PCH_DP_B		0xe4100
 #define PCH_DP_B		_MMIO(_PCH_DP_B)
 #define _PCH_DPB_AUX_CH_CTL	0xe4110
@@ -7224,21 +7173,23 @@ enum skl_power_gate {
 							ADLS_DPCLKA_DDIK_SEL_MASK)
 
 /* ICL PLL */
-#define DPLL0_ENABLE		0x46010
-#define DPLL1_ENABLE		0x46014
+#define _DPLL0_ENABLE		0x46010
+#define _DPLL1_ENABLE		0x46014
 #define _ADLS_DPLL2_ENABLE	0x46018
 #define _ADLS_DPLL3_ENABLE	0x46030
-#define  PLL_ENABLE		(1 << 31)
-#define  PLL_LOCK		(1 << 30)
-#define  PLL_POWER_ENABLE	(1 << 27)
-#define  PLL_POWER_STATE	(1 << 26)
-#define ICL_DPLL_ENABLE(pll)	_MMIO_PLL3(pll, DPLL0_ENABLE, DPLL1_ENABLE, \
-					   _ADLS_DPLL2_ENABLE, _ADLS_DPLL3_ENABLE)
+#define   PLL_ENABLE		REG_BIT(31)
+#define   PLL_LOCK		REG_BIT(30)
+#define   PLL_POWER_ENABLE	REG_BIT(27)
+#define   PLL_POWER_STATE	REG_BIT(26)
+#define ICL_DPLL_ENABLE(pll)	_MMIO(_PICK_EVEN_2RANGES(pll, 3,			\
+							_DPLL0_ENABLE, _DPLL1_ENABLE,	\
+							_ADLS_DPLL3_ENABLE, _ADLS_DPLL3_ENABLE))
 
 #define _DG2_PLL3_ENABLE	0x4601C
 
-#define DG2_PLL_ENABLE(pll) _MMIO_PLL3(pll, DPLL0_ENABLE, DPLL1_ENABLE, \
-				       _ADLS_DPLL2_ENABLE, _DG2_PLL3_ENABLE)
+#define DG2_PLL_ENABLE(pll)	_MMIO(_PICK_EVEN_2RANGES(pll, 3,			\
+							_DPLL0_ENABLE, _DPLL1_ENABLE,	\
+							_DG2_PLL3_ENABLE, _DG2_PLL3_ENABLE))
 
 #define TBT_PLL_ENABLE		_MMIO(0x46020)
 
@@ -7246,13 +7197,14 @@ enum skl_power_gate {
 #define _MG_PLL2_ENABLE		0x46034
 #define _MG_PLL3_ENABLE		0x46038
 #define _MG_PLL4_ENABLE		0x4603C
-/* Bits are the same as DPLL0_ENABLE */
+/* Bits are the same as _DPLL0_ENABLE */
 #define MG_PLL_ENABLE(tc_port)	_MMIO_PORT((tc_port), _MG_PLL1_ENABLE, \
 					   _MG_PLL2_ENABLE)
 
 /* DG1 PLL */
-#define DG1_DPLL_ENABLE(pll)    _MMIO_PLL3(pll, DPLL0_ENABLE, DPLL1_ENABLE, \
-					   _MG_PLL1_ENABLE, _MG_PLL2_ENABLE)
+#define DG1_DPLL_ENABLE(pll)    _MMIO(_PICK_EVEN_2RANGES(pll, 2,			\
+							_DPLL0_ENABLE, _DPLL1_ENABLE,	\
+							_MG_PLL1_ENABLE, _MG_PLL2_ENABLE))
 
 /* ADL-P Type C PLL */
 #define PORTTC1_PLL_ENABLE	0x46038
@@ -7312,9 +7264,9 @@ enum skl_power_gate {
 #define _TGL_DPLL0_CFGCR0		0x164284
 #define _TGL_DPLL1_CFGCR0		0x16428C
 #define _TGL_TBTPLL_CFGCR0		0x16429C
-#define TGL_DPLL_CFGCR0(pll)		_MMIO_PLL3(pll, _TGL_DPLL0_CFGCR0, \
-						  _TGL_DPLL1_CFGCR0, \
-						  _TGL_TBTPLL_CFGCR0)
+#define TGL_DPLL_CFGCR0(pll)		_MMIO(_PICK_EVEN_2RANGES(pll, 2,		\
+					      _TGL_DPLL0_CFGCR0, _TGL_DPLL1_CFGCR0,	\
+					      _TGL_TBTPLL_CFGCR0, _TGL_TBTPLL_CFGCR0))
 #define RKL_DPLL_CFGCR0(pll)		_MMIO_PLL(pll, _TGL_DPLL0_CFGCR0, \
 						  _TGL_DPLL1_CFGCR0)
 
@@ -7327,40 +7279,36 @@ enum skl_power_gate {
 #define _TGL_DPLL0_CFGCR1		0x164288
 #define _TGL_DPLL1_CFGCR1		0x164290
 #define _TGL_TBTPLL_CFGCR1		0x1642A0
-#define TGL_DPLL_CFGCR1(pll)		_MMIO_PLL3(pll, _TGL_DPLL0_CFGCR1, \
-						   _TGL_DPLL1_CFGCR1, \
-						   _TGL_TBTPLL_CFGCR1)
+#define TGL_DPLL_CFGCR1(pll)		_MMIO(_PICK_EVEN_2RANGES(pll, 2,		\
+					      _TGL_DPLL0_CFGCR1, _TGL_DPLL1_CFGCR1,	\
+					      _TGL_TBTPLL_CFGCR1, _TGL_TBTPLL_CFGCR1))
 #define RKL_DPLL_CFGCR1(pll)		_MMIO_PLL(pll, _TGL_DPLL0_CFGCR1, \
 						  _TGL_DPLL1_CFGCR1)
 
 #define _DG1_DPLL2_CFGCR0		0x16C284
 #define _DG1_DPLL3_CFGCR0		0x16C28C
-#define DG1_DPLL_CFGCR0(pll)		_MMIO_PLL3(pll, _TGL_DPLL0_CFGCR0, \
-						   _TGL_DPLL1_CFGCR0, \
-						   _DG1_DPLL2_CFGCR0, \
-						   _DG1_DPLL3_CFGCR0)
+#define DG1_DPLL_CFGCR0(pll)		_MMIO(_PICK_EVEN_2RANGES(pll, 2,		\
+					      _TGL_DPLL0_CFGCR0, _TGL_DPLL1_CFGCR0,	\
+					      _DG1_DPLL2_CFGCR0, _DG1_DPLL3_CFGCR0))
 
 #define _DG1_DPLL2_CFGCR1               0x16C288
 #define _DG1_DPLL3_CFGCR1               0x16C290
-#define DG1_DPLL_CFGCR1(pll)            _MMIO_PLL3(pll, _TGL_DPLL0_CFGCR1, \
-						   _TGL_DPLL1_CFGCR1, \
-						   _DG1_DPLL2_CFGCR1, \
-						   _DG1_DPLL3_CFGCR1)
+#define DG1_DPLL_CFGCR1(pll)            _MMIO(_PICK_EVEN_2RANGES(pll, 2,		\
+					      _TGL_DPLL0_CFGCR1, _TGL_DPLL1_CFGCR1,	\
+					      _DG1_DPLL2_CFGCR1, _DG1_DPLL3_CFGCR1))
 
 /* For ADL-S DPLL4_CFGCR0/1 are used to control DPLL2 */
-#define _ADLS_DPLL3_CFGCR0		0x1642C0
 #define _ADLS_DPLL4_CFGCR0		0x164294
-#define ADLS_DPLL_CFGCR0(pll)		_MMIO_PLL3(pll, _TGL_DPLL0_CFGCR0, \
-						   _TGL_DPLL1_CFGCR0, \
-						   _ADLS_DPLL4_CFGCR0, \
-						   _ADLS_DPLL3_CFGCR0)
+#define _ADLS_DPLL3_CFGCR0		0x1642C0
+#define ADLS_DPLL_CFGCR0(pll)		_MMIO(_PICK_EVEN_2RANGES(pll, 2,		\
+					      _TGL_DPLL0_CFGCR0, _TGL_DPLL1_CFGCR0,	\
+					      _ADLS_DPLL4_CFGCR0, _ADLS_DPLL3_CFGCR0))
 
-#define _ADLS_DPLL3_CFGCR1		0x1642C4
 #define _ADLS_DPLL4_CFGCR1		0x164298
-#define ADLS_DPLL_CFGCR1(pll)		_MMIO_PLL3(pll, _TGL_DPLL0_CFGCR1, \
-						   _TGL_DPLL1_CFGCR1, \
-						   _ADLS_DPLL4_CFGCR1, \
-						   _ADLS_DPLL3_CFGCR1)
+#define _ADLS_DPLL3_CFGCR1		0x1642C4
+#define ADLS_DPLL_CFGCR1(pll)		_MMIO(_PICK_EVEN_2RANGES(pll, 2,		\
+					      _TGL_DPLL0_CFGCR1, _TGL_DPLL1_CFGCR1,	\
+					      _ADLS_DPLL4_CFGCR1, _ADLS_DPLL3_CFGCR1))
 
 /* BXT display engine PLL */
 #define BXT_DE_PLL_CTL			_MMIO(0x6d000)
