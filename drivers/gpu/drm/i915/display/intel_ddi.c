@@ -4275,9 +4275,9 @@ static void intel_ddi_encoder_shutdown(struct intel_encoder *encoder)
 
 void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 {
+	struct intel_bios_encoder_data *devdata;
 	struct intel_digital_port *dig_port;
 	struct intel_encoder *encoder;
-	const struct intel_bios_encoder_data *devdata;
 	bool init_hdmi, init_dp;
 	enum phy phy = intel_port_to_phy(dev_priv, port);
 
@@ -4300,6 +4300,8 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 			    port_name(port));
 		return;
 	}
+
+	intel_bios_encoder_sanitize(devdata, port);
 
 	init_hdmi = intel_bios_encoder_supports_dvi(devdata) ||
 		intel_bios_encoder_supports_hdmi(devdata);
@@ -4522,8 +4524,12 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 	dig_port->ddi_io_power_domain = intel_display_power_ddi_io_domain(dev_priv, port);
 
 	if (init_dp) {
-		if (!intel_ddi_init_dp_connector(dig_port))
+		if (!intel_ddi_init_dp_connector(dig_port)) {
+			/* Bogus eDP -> get rid of the child device definition */
+			encoder->devdata = NULL;
+			intel_bios_encoder_remove(devdata);
 			goto err;
+		}
 
 		dig_port->hpd_pulse = intel_dp_hpd_pulse;
 

@@ -241,6 +241,7 @@ void intel_bios_init_panel_late(struct drm_i915_private *dev_priv,
 				const struct drm_edid *drm_edid);
 void intel_bios_fini_panel(struct intel_panel *panel);
 void intel_bios_driver_remove(struct drm_i915_private *dev_priv);
+void intel_bios_encoder_remove(struct intel_bios_encoder_data *devdata);
 bool intel_bios_is_valid_vbt(const void *buf, size_t size);
 bool intel_bios_is_tv_present(struct drm_i915_private *dev_priv);
 bool intel_bios_is_lvds_present(struct drm_i915_private *dev_priv, u8 *i2c_pin);
@@ -261,8 +262,10 @@ int intel_bios_dp_max_lane_count(struct intel_encoder *encoder);
 int intel_bios_alternate_ddc_pin(struct intel_encoder *encoder);
 bool intel_bios_port_supports_typec_usb(struct drm_i915_private *i915, enum port port);
 bool intel_bios_port_supports_tbt(struct drm_i915_private *i915, enum port port);
+void intel_bios_encoder_sanitize(struct intel_bios_encoder_data *devdata,
+				 enum port port);
 
-const struct intel_bios_encoder_data *
+struct intel_bios_encoder_data *
 intel_bios_encoder_data_lookup(struct drm_i915_private *i915, enum port port);
 
 bool intel_bios_encoder_supports_dvi(const struct intel_bios_encoder_data *devdata);

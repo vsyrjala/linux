@@ -1279,13 +1279,14 @@ static const struct drm_encoder_funcs intel_dp_enc_funcs = {
 bool g4x_dp_init(struct drm_i915_private *dev_priv,
 		 i915_reg_t output_reg, enum port port)
 {
-	const struct intel_bios_encoder_data *devdata;
+	struct intel_bios_encoder_data *devdata;
 	struct intel_digital_port *dig_port;
 	struct intel_encoder *intel_encoder;
 	struct drm_encoder *encoder;
 	struct intel_connector *intel_connector;
 
 	devdata = intel_bios_encoder_data_lookup(dev_priv, port);
+	intel_bios_encoder_sanitize(devdata, port);
 
 	/* FIXME bail? */
 	if (!devdata)
@@ -1402,8 +1403,12 @@ bool g4x_dp_init(struct drm_i915_private *dev_priv,
 		intel_infoframe_init(dig_port);
 
 	dig_port->aux_ch = intel_bios_port_aux_ch(dev_priv, devdata, port);
-	if (!intel_dp_init_connector(dig_port, intel_connector))
+	if (!intel_dp_init_connector(dig_port, intel_connector)) {
+		/* Bogus eDP -> get rid of the child device definition */
+		intel_encoder->devdata = NULL;
+		intel_bios_encoder_remove(devdata);
 		goto err_init_connector;
+	}
 
 	return true;
 
