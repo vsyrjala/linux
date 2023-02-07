@@ -2593,6 +2593,30 @@ intel_bios_encoder_is_lspcon(const struct intel_bios_encoder_data *devdata)
 	return devdata && HAS_LSPCON(devdata->i915) && devdata->child.lspcon;
 }
 
+bool
+intel_bios_for_each_child(struct drm_i915_private *i915,
+			  enum port port,
+			  bool (*func)(struct drm_i915_private *i915,
+				       struct intel_bios_encoder_data *devdata, enum port port))
+{
+	struct intel_bios_encoder_data *devdata;
+	bool found = false;
+
+	list_for_each_entry(devdata, &i915->display.vbt.display_devices, node) {
+		const struct child_device_config *child = &devdata->child;
+
+		if (dvo_port_to_port(i915, child->dvo_port) != port)
+			continue;
+
+		found = true;
+
+		if (func(i915, devdata, port))
+			break;
+	}
+
+	return found;
+}
+
 static int _intel_bios_hdmi_level_shift(const struct intel_bios_encoder_data *devdata)
 {
 	if (!devdata || devdata->i915->display.vbt.version < 158)

@@ -1406,7 +1406,7 @@ bool g4x_dp_init(struct drm_i915_private *dev_priv,
 	if (!intel_dp_init_connector(dig_port, intel_connector)) {
 		/* Bogus eDP -> get rid of the child device definition */
 		intel_encoder->devdata = NULL;
-		intel_bios_encoder_remove(devdata);
+		//intel_bios_encoder_remove(devdata);
 		goto err_init_connector;
 	}
 

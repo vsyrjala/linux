@@ -280,4 +280,10 @@ int intel_bios_encoder_hdmi_boost_level(const struct intel_bios_encoder_data *de
 bool intel_bios_encoder_lane_reversal(const struct intel_bios_encoder_data *devdata);
 bool intel_bios_encoder_hpd_invert(const struct intel_bios_encoder_data *devdata);
 
+bool
+intel_bios_for_each_child(struct drm_i915_private *i915,
+			  enum port port,
+			  bool (*func)(struct drm_i915_private *i915,
+				       struct intel_bios_encoder_data *devdata, enum port port));
+
 #endif /* _INTEL_BIOS_H_ */

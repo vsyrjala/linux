@@ -35,6 +35,7 @@
 #include "intel_audio.h"
 #include "intel_audio_regs.h"
 #include "intel_backlight.h"
+#include "intel_bios.h"
 #include "intel_combo_phy.h"
 #include "intel_combo_phy_regs.h"
 #include "intel_connector.h"
@@ -4273,9 +4274,10 @@ static void intel_ddi_encoder_shutdown(struct intel_encoder *encoder)
 #define port_tc_name(port) ((port) - PORT_TC1 + '1')
 #define tc_port_name(tc_port) ((tc_port) - TC_PORT_1 + '1')
 
-void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
+static bool _intel_ddi_init(struct drm_i915_private *dev_priv,
+			    struct intel_bios_encoder_data *devdata,
+			    enum port port)
 {
-	struct intel_bios_encoder_data *devdata;
 	struct intel_digital_port *dig_port;
 	struct intel_encoder *encoder;
 	bool init_hdmi, init_dp;
@@ -4290,15 +4292,7 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 	if (intel_hti_uses_phy(dev_priv, phy)) {
 		drm_dbg_kms(&dev_priv->drm, "PORT %c / PHY %c reserved by HTI\n",
 			    port_name(port), phy_name(phy));
-		return;
-	}
-
-	devdata = intel_bios_encoder_data_lookup(dev_priv, port);
-	if (!devdata) {
-		drm_dbg_kms(&dev_priv->drm,
-			    "VBT says port %c is not present\n",
-			    port_name(port));
-		return;
+		return false;
 	}
 
 	intel_bios_encoder_sanitize(devdata, port);
@@ -4323,7 +4317,7 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 		drm_dbg_kms(&dev_priv->drm,
 			    "VBT says port %c is not DVI/HDMI/DP compatible, respect it\n",
 			    port_name(port));
-		return;
+		return false;
 	}
 
 	if (intel_phy_is_snps(dev_priv, phy) &&
@@ -4335,7 +4329,7 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 
 	dig_port = kzalloc(sizeof(*dig_port), GFP_KERNEL);
 	if (!dig_port)
-		return;
+		return false;
 
 	encoder = &dig_port->base;
 	encoder->devdata = devdata;
@@ -4527,7 +4521,7 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 		if (!intel_ddi_init_dp_connector(dig_port)) {
 			/* Bogus eDP -> get rid of the child device definition */
 			encoder->devdata = NULL;
-			intel_bios_encoder_remove(devdata);
+			//intel_bios_encoder_remove(devdata);
 			goto err;
 		}
 
@@ -4564,9 +4558,18 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 
 	intel_infoframe_init(dig_port);
 
-	return;
+	return true;
 
 err:
 	drm_encoder_cleanup(&encoder->base);
 	kfree(dig_port);
+	return false;
+}
+
+void intel_ddi_init(struct drm_i915_private *i915, enum port port)
+{
+	if (!intel_bios_for_each_child(i915, port, _intel_ddi_init))
+		drm_dbg_kms(&i915->drm,
+			    "VBT says port %c is not present\n",
+			    port_name(port));
 }
