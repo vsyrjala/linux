@@ -2222,31 +2222,31 @@ static u8 map_ddc_pin(struct drm_i915_private *i915, u8 vbt_pin)
 	return 0;
 }
 
-static enum port get_port_by_ddc_pin(struct drm_i915_private *i915, u8 ddc_pin)
+static struct intel_encoder *
+get_encoder_by_ddc_pin(struct drm_i915_private *i915, u8 ddc_pin)
 {
-	enum port port;
+	struct intel_encoder *encoder;
 
 	if (!ddc_pin)
-		return PORT_NONE;
+		return NULL;
 
-	for_each_port(port) {
-		const struct intel_bios_encoder_data *devdata =
-			i915->display.vbt.ports[port];
+	for_each_intel_encoder(&i915->drm, encoder) {
+		const struct intel_bios_encoder_data *devdata = encoder->devdata;
 
 		if (devdata && ddc_pin == devdata->child.ddc_pin)
-			return port;
+			return encoder;
 	}
 
-	return PORT_NONE;
+	return NULL;
 }
 
 static void sanitize_ddc_pin(struct intel_bios_encoder_data *devdata,
 			     enum port port)
 {
 	struct drm_i915_private *i915 = devdata->i915;
-	struct child_device_config *child;
+	struct child_device_config *child = &devdata->child;
+	struct intel_encoder *other;
 	u8 mapped_ddc_pin;
-	enum port p;
 
 	if (!devdata->child.ddc_pin)
 		return;
@@ -2261,79 +2261,85 @@ static void sanitize_ddc_pin(struct intel_bios_encoder_data *devdata,
 		return;
 	}
 
-	p = get_port_by_ddc_pin(i915, devdata->child.ddc_pin);
-	if (p == PORT_NONE)
+	other = get_encoder_by_ddc_pin(i915, devdata->child.ddc_pin);
+	if (!other)
+		return;
+
+	/*
+	 * Pre-HSW uses separate DP and HDMI encoders
+	 * for the same port. Let them pass.
+	 */
+	if (!HAS_DDI(i915) && devdata == other->devdata)
 		return;
 
 	drm_dbg_kms(&i915->drm,
 		    "port %c trying to use the same DDC pin (0x%x) as port %c, "
 		    "disabling port %c DVI/HDMI support\n",
 		    port_name(port), mapped_ddc_pin,
-		    port_name(p), port_name(p));
+		    port_name(other->port), port_name(port));
 
 	/*
 	 * If we have multiple ports supposedly sharing the pin, then dvi/hdmi
 	 * couldn't exist on the shared port. Otherwise they share the same ddc
 	 * pin and system couldn't communicate with them separately.
 	 *
-	 * Give inverse child device order the priority, last one wins. Yes,
-	 * there are real machines (eg. Asrock B250M-HDV) where VBT has both
-	 * port A and port E with the same AUX ch and we must pick port E :(
+	 * First successfully initialized encoder wins.
 	 */
-	child = &i915->display.vbt.ports[p]->child;
-
 	child->device_type &= ~DEVICE_TYPE_TMDS_DVI_SIGNALING;
 	child->device_type |= DEVICE_TYPE_NOT_HDMI_OUTPUT;
 
 	child->ddc_pin = 0;
 }
 
-static enum port get_port_by_aux_ch(struct drm_i915_private *i915, u8 aux_ch)
+static struct intel_encoder *
+get_encoder_by_aux_ch(struct drm_i915_private *i915, u8 aux_ch)
 {
-	enum port port;
+	struct intel_encoder *encoder;
 
 	if (!aux_ch)
-		return PORT_NONE;
+		return NULL;
 
-	for_each_port(port) {
-		const struct intel_bios_encoder_data *devdata =
-			i915->display.vbt.ports[port];
+	for_each_intel_encoder(&i915->drm, encoder) {
+		const struct intel_bios_encoder_data *devdata = encoder->devdata;
 
 		if (devdata && aux_ch == devdata->child.aux_channel)
-			return port;
+			return encoder;
 	}
 
-	return PORT_NONE;
+	return NULL;
 }
 
 static void sanitize_aux_ch(struct intel_bios_encoder_data *devdata,
 			    enum port port)
 {
 	struct drm_i915_private *i915 = devdata->i915;
-	struct child_device_config *child;
-	enum port p;
+	struct child_device_config *child = &devdata->child;
+	struct intel_encoder *other;
 
-	p = get_port_by_aux_ch(i915, devdata->child.aux_channel);
-	if (p == PORT_NONE)
+	other = get_encoder_by_aux_ch(i915, devdata->child.aux_channel);
+	if (!other)
+		return;
+
+	/*
+	 * Pre-HSW uses separate DP and HDMI encoders
+	 * for the same port. Let them pass.
+	 */
+	if (!HAS_DDI(i915) && devdata == other->devdata)
 		return;
 
 	drm_dbg_kms(&i915->drm,
 		    "port %c trying to use the same AUX CH (0x%x) as port %c, "
 		    "disabling port %c DP support\n",
 		    port_name(port), devdata->child.aux_channel,
-		    port_name(p), port_name(p));
+		    port_name(other->port), port_name(port));
 
 	/*
 	 * If we have multiple ports supposedly sharing the aux channel, then DP
 	 * couldn't exist on the shared port. Otherwise they share the same aux
 	 * channel and system couldn't communicate with them separately.
 	 *
-	 * Give inverse child device order the priority, last one wins. Yes,
-	 * there are real machines (eg. Asrock B250M-HDV) where VBT has both
-	 * port A and port E with the same AUX ch and we must pick port E :(
+	 * First successfully initialized encoder wins.
 	 */
-	child = &i915->display.vbt.ports[p]->child;
-
 	child->device_type &= ~DEVICE_TYPE_DISPLAYPORT_OUTPUT;
 	child->aux_channel = 0;
 }
@@ -2745,13 +2751,20 @@ static void parse_ddi_port(struct intel_bios_encoder_data *devdata)
 
 	sanitize_device_type(devdata, port);
 
+	i915->display.vbt.ports[port] = devdata;
+}
+
+void intel_bios_encoder_sanitize(struct intel_bios_encoder_data *devdata,
+				 enum port port)
+{
+	if (!devdata)
+		return;
+
 	if (intel_bios_encoder_supports_dvi(devdata))
 		sanitize_ddc_pin(devdata, port);
 
 	if (intel_bios_encoder_supports_dp(devdata))
 		sanitize_aux_ch(devdata, port);
-
-	i915->display.vbt.ports[port] = devdata;
 }
 
 static bool has_ddi_port_info(struct drm_i915_private *i915)
@@ -3712,7 +3725,7 @@ bool intel_bios_encoder_hpd_invert(const struct intel_bios_encoder_data *devdata
 	return devdata && devdata->child.hpd_invert;
 }
 
-const struct intel_bios_encoder_data *
+struct intel_bios_encoder_data *
 intel_bios_encoder_data_lookup(struct drm_i915_private *i915, enum port port)
 {
 	return i915->display.vbt.ports[port];

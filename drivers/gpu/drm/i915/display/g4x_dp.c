@@ -1276,7 +1276,7 @@ static const struct drm_encoder_funcs intel_dp_enc_funcs = {
 bool g4x_dp_init(struct drm_i915_private *dev_priv,
 		 i915_reg_t output_reg, enum port port)
 {
-	const struct intel_bios_encoder_data *devdata;
+	struct intel_bios_encoder_data *devdata;
 	struct intel_digital_port *dig_port;
 	struct intel_encoder *intel_encoder;
 	struct drm_encoder *encoder;
@@ -1286,6 +1286,7 @@ bool g4x_dp_init(struct drm_i915_private *dev_priv,
 		return false;
 
 	devdata = intel_bios_encoder_data_lookup(dev_priv, port);
+	intel_bios_encoder_sanitize(devdata, port);
 
 	/* FIXME bail? */
 	if (!devdata)

@@ -253,8 +253,10 @@ bool intel_bios_get_dsc_params(struct intel_encoder *encoder,
 			       int dsc_max_bpc);
 bool intel_bios_port_supports_typec_usb(struct drm_i915_private *i915, enum port port);
 bool intel_bios_port_supports_tbt(struct drm_i915_private *i915, enum port port);
+void intel_bios_encoder_sanitize(struct intel_bios_encoder_data *devdata,
+				 enum port port);
 
-const struct intel_bios_encoder_data *
+struct intel_bios_encoder_data *
 intel_bios_encoder_data_lookup(struct drm_i915_private *i915, enum port port);
 
 bool intel_bios_encoder_supports_dvi(const struct intel_bios_encoder_data *devdata);

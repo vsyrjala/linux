@@ -563,7 +563,7 @@ static bool assert_hdmi_port_valid(struct drm_i915_private *i915, enum port port
 void g4x_hdmi_init(struct drm_i915_private *dev_priv,
 		   i915_reg_t hdmi_reg, enum port port)
 {
-	const struct intel_bios_encoder_data *devdata;
+	struct intel_bios_encoder_data *devdata;
 	struct intel_digital_port *dig_port;
 	struct intel_encoder *intel_encoder;
 	struct intel_connector *intel_connector;
@@ -575,6 +575,7 @@ void g4x_hdmi_init(struct drm_i915_private *dev_priv,
 		return;
 
 	devdata = intel_bios_encoder_data_lookup(dev_priv, port);
+	intel_bios_encoder_sanitize(devdata, port);
 
 	/* FIXME bail? */
 	if (!devdata)

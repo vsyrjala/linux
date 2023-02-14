@@ -35,6 +35,7 @@
 #include "intel_audio.h"
 #include "intel_audio_regs.h"
 #include "intel_backlight.h"
+#include "intel_bios.h"
 #include "intel_combo_phy.h"
 #include "intel_combo_phy_regs.h"
 #include "intel_connector.h"
@@ -4259,7 +4260,7 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 {
 	struct intel_digital_port *dig_port;
 	struct intel_encoder *encoder;
-	const struct intel_bios_encoder_data *devdata;
+	struct intel_bios_encoder_data *devdata;
 	bool init_hdmi, init_dp;
 	enum phy phy = intel_port_to_phy(dev_priv, port);
 
@@ -4285,6 +4286,7 @@ void intel_ddi_init(struct drm_i915_private *dev_priv, enum port port)
 			    port_name(port));
 		return;
 	}
+	intel_bios_encoder_sanitize(devdata, port);
 
 	init_hdmi = intel_bios_encoder_supports_dvi(devdata) ||
 		intel_bios_encoder_supports_hdmi(devdata);
