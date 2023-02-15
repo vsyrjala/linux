@@ -251,6 +251,7 @@ struct intel_runtime_info {
 	struct {
 		u8 pipe_mask;
 		u8 cpu_transcoder_mask;
+		u16 port_mask; /* DVO/sDVO/DP/HDMI/DDI ports */
 
 		u8 num_sprites[I915_MAX_PIPES];
 		u8 num_scalers[I915_MAX_PIPES];
