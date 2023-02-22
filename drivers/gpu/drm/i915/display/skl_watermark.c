@@ -727,6 +727,22 @@ static unsigned int skl_wm_latency(struct drm_i915_private *i915, int level,
 	return latency;
 }
 
+static int max_cursor_width(struct drm_i915_private *i915)
+{
+	int w = i915->drm.mode_config.cursor_width;
+	if (i915->params.cursor_max_size)
+		w = min_t(int, w, i915->params.cursor_max_size);
+	return w;
+}
+
+static int max_cursor_height(struct drm_i915_private *i915)
+{
+	int h = i915->drm.mode_config.cursor_height;
+	if (i915->params.cursor_max_size)
+		h = min_t(int, h, i915->params.cursor_max_size);
+	return h;
+}
+
 static unsigned int
 skl_cursor_allocation(const struct intel_crtc_state *crtc_state,
 		      int num_active)
@@ -738,7 +754,8 @@ skl_cursor_allocation(const struct intel_crtc_state *crtc_state,
 	struct skl_wm_params wp;
 	int level;
 
-	ret = skl_compute_wm_params(crtc_state, 256,
+	ret = skl_compute_wm_params(crtc_state,
+				    max_cursor_width(i915),
 				    drm_format_info(DRM_FORMAT_ARGB8888),
 				    DRM_FORMAT_MOD_LINEAR,
 				    DRM_MODE_ROTATE_0,
@@ -753,6 +770,13 @@ skl_cursor_allocation(const struct intel_crtc_state *crtc_state,
 			break;
 
 		min_ddb_alloc = wm.min_ddb_alloc;
+
+		drm_dbg_kms(plane->base.dev, "[PLANE:%d:%s] size=%dx%d min ddb[%d]=%d, extra ddb=%d\n",
+			    plane->base.base.id, plane->base.name,
+			    max_cursor_width(i915),
+			    max_cursor_height(i915),
+			    level, min_ddb_alloc,
+			    i915->params.cursor_ddb_extra);
 	}
 
 	return i915->params.cursor_ddb_extra + min_ddb_alloc;

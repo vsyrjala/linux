@@ -225,6 +225,9 @@ i915_param_named_unsafe(lmem_bar_size, uint, 0400,
 i915_param_named_unsafe(cursor_ddb_extra, uint, 0600,
 			"How much extra DDB to allocate for the cursor.");
 
+i915_param_named_unsafe(cursor_max_size, uint, 0600,
+			"Limit max cursor w/h used for the minimum cursor DDB allocation.");
+
 static void _param_print_bool(struct drm_printer *p, const char *name,
 			      bool val)
 {
