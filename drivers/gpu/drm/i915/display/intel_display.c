@@ -5869,9 +5869,30 @@ int intel_modeset_all_pipes(struct intel_atomic_state *state,
 		struct intel_crtc_state *crtc_state;
 		int ret;
 
-		crtc_state = intel_atomic_get_crtc_state(&state->base, crtc);
-		if (IS_ERR(crtc_state))
-			return PTR_ERR(crtc_state);
+		crtc_state = intel_atomic_get_new_crtc_state(state, crtc);
+		if (!crtc_state) {
+			const struct intel_crtc_state *old_crtc_state;
+
+			crtc_state = intel_atomic_get_crtc_state(&state->base, crtc);
+			if (IS_ERR(crtc_state))
+				return PTR_ERR(crtc_state);
+
+			old_crtc_state = intel_atomic_get_old_crtc_state(state, crtc);
+
+			/*
+			 * Preserve the inherited flag if this is the
+			 * first time we've seen this crtc, as that
+			 * means we've not done a full .compute_config()
+			 * for a real userspace commit yet.
+			 *
+			 * TODO think about reversing things and not clear
+			 * this in intel_crtc_duplicate_state(), and instead
+			 * clear somewhere early in intel_atomic_check().
+			 * But that apporach would need some other way to
+			 * make intel_initial_commit() preserve it still.
+			 */
+			crtc_state->inherited = old_crtc_state->inherited;
+		}
 
 		if (!crtc_state->hw.active ||
 		    intel_crtc_needs_modeset(crtc_state))
