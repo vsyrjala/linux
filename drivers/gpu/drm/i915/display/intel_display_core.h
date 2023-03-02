@@ -25,7 +25,7 @@
 #include "intel_global_state.h"
 #include "intel_gmbus.h"
 #include "intel_opregion.h"
-#include "intel_pm_types.h"
+#include "intel_wm_types.h"
 
 struct drm_i915_private;
 struct drm_property;
@@ -85,6 +85,7 @@ struct intel_wm_funcs {
 	void (*optimize_watermarks)(struct intel_atomic_state *state,
 				    struct intel_crtc *crtc);
 	int (*compute_global_watermarks)(struct intel_atomic_state *state);
+	void (*get_hw_state)(struct drm_i915_private *i915);
 };
 
 struct intel_audio_state {
@@ -102,7 +103,7 @@ struct intel_audio {
 	u32 freq_cntrl;
 
 	/* current audio state for the audio component hooks */
-	struct intel_audio_state state[I915_MAX_PIPES];
+	struct intel_audio_state state[I915_MAX_TRANSCODERS];
 
 	/* necessary resource sharing with HDMI LPE audio driver. */
 	struct {
@@ -243,7 +244,7 @@ struct intel_wm {
 		struct g4x_wm_values g4x;
 	};
 
-	u8 max_level;
+	u8 num_levels;
 
 	/*
 	 * Should be held around atomic WM register writing; also
