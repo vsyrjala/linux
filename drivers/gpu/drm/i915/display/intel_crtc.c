@@ -425,6 +425,14 @@ static void intel_crtc_vblank_work_init(struct intel_crtc_state *crtc_state)
 	 * work executed as early as possible during the vblank.
 	 */
 	cpu_latency_qos_update_request(&crtc->vblank_pm_qos, 0);
+
+	drm_dbg_kms(crtc->base.dev,
+		    "[CRTC:%d:%s] vblank work %p init: modeset=%d, fastset=%d, color=%d\n",
+		    crtc->base.base.id, crtc->base.name,
+		    &crtc_state->vblank_work,
+		    intel_crtc_needs_modeset(crtc_state),
+		    intel_crtc_needs_fastset(crtc_state),
+		    intel_crtc_needs_color_update(crtc_state));
 }
 
 void intel_wait_for_vblank_workers(struct intel_atomic_state *state)
