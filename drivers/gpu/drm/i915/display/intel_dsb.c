@@ -282,6 +282,12 @@ void intel_dsb_nonpost_end(struct intel_dsb *dsb)
 	intel_dsb_noop(dsb, 4);
 }
 
+void intel_dsb_wait_usec(struct intel_dsb *dsb, int count)
+{
+	intel_dsb_emit(dsb, count,
+		       DSB_OPCODE_WAIT_USEC << DSB_OPCODE_SHIFT);
+}
+
 static bool pre_commit_is_vrr_active(struct intel_atomic_state *state,
 				     struct intel_crtc *crtc)
 {
