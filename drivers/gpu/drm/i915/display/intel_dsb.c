@@ -379,6 +379,18 @@ void intel_dsb_wait_vblanks(struct intel_dsb *dsb, int count)
 		       DSB_OPCODE_WAIT_VBLANKS << DSB_OPCODE_SHIFT);
 }
 
+void intel_dsb_wait_scanline(struct intel_atomic_state *state,
+			     struct intel_dsb *dsb,
+			     int scanline)
+{
+	struct intel_crtc *crtc = dsb->crtc;
+
+	scanline = dsb_scanline_to_hw(state, crtc, scanline);
+
+	intel_dsb_emit(dsb, scanline,
+		       DSB_OPCODE_WAIT_SCANLINE << DSB_OPCODE_SHIFT);
+}
+
 static void intel_dsb_emit_wait_dsl(struct intel_dsb *dsb,
 				    u32 opcode, int lower, int upper)
 {
