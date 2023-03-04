@@ -379,6 +379,18 @@ static u32 dsb_chicken(struct intel_atomic_state *state,
 		return DSB_SKIP_WAITS_EN;
 }
 
+void intel_dsb_wait_scanline(struct intel_atomic_state *state,
+			     struct intel_dsb *dsb,
+			     int scanline)
+{
+	struct intel_crtc *crtc = dsb->crtc;
+
+	scanline = dsb_scanline_to_hw(state, crtc, scanline);
+
+	intel_dsb_emit(dsb, scanline,
+		       DSB_OPCODE_WAIT_SCANLINE << DSB_OPCODE_SHIFT);
+}
+
 static void intel_dsb_emit_wait_dsl(struct intel_dsb *dsb,
 				    u32 opcode, int lower, int upper)
 {
