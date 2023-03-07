@@ -1389,6 +1389,8 @@ struct intel_crtc {
 
 	struct intel_crtc_state *config;
 
+	unsigned long last_modeset;
+
 	/* Access to these should be protected by dev_priv->irq_lock. */
 	bool cpu_fifo_underrun_disabled;
 	bool pch_fifo_underrun_disabled;

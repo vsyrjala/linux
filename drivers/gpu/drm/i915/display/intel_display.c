@@ -6978,6 +6978,8 @@ static void intel_enable_crtc(struct intel_atomic_state *state,
 
 	dev_priv->display.funcs.display->crtc_enable(state, crtc);
 
+	crtc->last_modeset = jiffies;
+
 	if (intel_crtc_is_bigjoiner_slave(new_crtc_state))
 		return;
 

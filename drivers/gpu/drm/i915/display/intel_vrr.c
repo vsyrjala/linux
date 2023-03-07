@@ -218,11 +218,26 @@ bool intel_vrr_is_push_sent(const struct intel_crtc_state *crtc_state)
 
 void intel_vrr_enable(const struct intel_crtc_state *crtc_state)
 {
-	struct drm_i915_private *dev_priv = to_i915(crtc_state->uapi.crtc->dev);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
+	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
 
 	if (!crtc_state->vrr.enable)
 		return;
+
+	/*
+	 * ASUS MG278Q (at least) requires a massive delay (~800ms observed) between
+	 * modeset and when we enable VRR. Otherwise it often fails to sync up and
+	 * just says "no signal", despite everything else operating normally.
+	 * Once in the bad state toggling VRR off and back on at will cure it.
+	 * Make sure enough time has elapsed since the last modeset...
+	 *
+	 * FIXME this is disgusting, maybe instead schedule a work/etc. ~1 sec
+	 * after a modeset to tickle VRR...
+	 */
+	drm_dbg_kms(&dev_priv->drm, "[CRTC:%d:%s] Waiting up to %u ms before enabling VRR\n",
+		    crtc->base.base.id, crtc->base.name, dev_priv->params.vrr_wait);
+	wait_remaining_ms_from_jiffies(crtc->last_modeset, dev_priv->params.vrr_wait);
 
 	intel_de_write(dev_priv, TRANS_PUSH(cpu_transcoder), TRANS_PUSH_EN);
 	intel_de_write(dev_priv, TRANS_VRR_CTL(cpu_transcoder),
