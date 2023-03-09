@@ -2400,6 +2400,11 @@ skl_get_initial_plane_config(struct intel_crtc *crtc,
 		return;
 	}
 
+	if (HAS_DPT(dev_priv) && !dev_priv->params.enable_dpt) {
+		drm_dbg_kms(&dev_priv->drm, "DPT disabled, skipping initial FB\n");
+		return;
+	}
+
 	intel_fb = kzalloc(sizeof(*intel_fb), GFP_KERNEL);
 	if (!intel_fb) {
 		drm_dbg_kms(&dev_priv->drm, "failed to alloc fb\n");
