@@ -10,6 +10,7 @@ struct drm_i915_private;
 
 struct i915_address_space;
 struct i915_vma;
+struct intel_crtc;
 struct intel_framebuffer;
 
 void intel_dpt_destroy(struct i915_address_space *vm);
