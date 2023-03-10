@@ -258,7 +258,7 @@ intel_dpt_create(struct intel_framebuffer *fb)
 
 	dpt_obj = i915_gem_object_create_lmem(i915, size, I915_BO_ALLOC_CONTIGUOUS);
 	if (IS_ERR(dpt_obj) && i915_ggtt_has_aperture(to_gt(i915)->ggtt))
-		dpt_obj = i915_gem_object_create_stolen(i915, size);
+		dpt_obj = ERR_PTR(-ENOMEM);//i915_gem_object_create_stolen(i915, size);
 	if (IS_ERR(dpt_obj) && !HAS_LMEM(i915)) {
 		drm_dbg_kms(&i915->drm, "Allocating dpt from smem\n");
 		dpt_obj = i915_gem_object_create_internal(i915, size);
