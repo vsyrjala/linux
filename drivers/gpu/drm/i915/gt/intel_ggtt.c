@@ -279,6 +279,7 @@ static void gen8_ggtt_insert_entries(struct i915_address_space *vm,
 {
 	struct i915_ggtt *ggtt = i915_vm_to_ggtt(vm);
 	const gen8_pte_t pte_encode = ggtt->vm.pte_encode(0, pat_index, flags);
+	gen8_pte_t __iomem *gsm;
 	gen8_pte_t __iomem *gte;
 	gen8_pte_t __iomem *end;
 	struct sgt_iter iter;
@@ -289,15 +290,22 @@ static void gen8_ggtt_insert_entries(struct i915_address_space *vm,
 	 * not to allow the user to override access to a read only page.
 	 */
 
-	gte = (gen8_pte_t __iomem *)ggtt->gsm;
+	gsm = gte = (gen8_pte_t __iomem *)ggtt->gsm;
 	gte += (vma_res->start - vma_res->guard) / I915_GTT_PAGE_SIZE;
 	end = gte + vma_res->guard / I915_GTT_PAGE_SIZE;
 	while (gte < end)
 		gen8_set_pte(gte++, vm->scratch[0]->encode);
 	end += (vma_res->node_size + vma_res->guard) / I915_GTT_PAGE_SIZE;
 
-	for_each_sgt_daddr(addr, iter, vma_res->bi.pages)
-		gen8_set_pte(gte++, pte_encode | addr);
+	for_each_sgt_daddr(addr, iter, vma_res->bi.pages) {
+		gen8_set_pte(gte, pte_encode | addr);
+		if (vma_res->dpt)
+			drm_err(&vm->i915->drm, "dpt %p bind into ggtt: 0x%llx = 0x%llx (readback 0x%llx)\n",
+				vma_res->dpt,
+				(gte - gsm) * I915_GTT_PAGE_SIZE,
+				pte_encode | addr, readq(gte));
+		gte++;
+	}
 	GEM_BUG_ON(gte > end);
 
 	/* Fill the allocated but "unused" space beyond the end of the buffer */

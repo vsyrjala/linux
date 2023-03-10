@@ -420,7 +420,8 @@ i915_vma_resource_init_from_vma(struct i915_vma_resource *vma_res,
 			       obj->mm.rsgt, i915_gem_object_is_readonly(obj),
 			       i915_gem_object_is_lmem(obj), obj->mm.region,
 			       vma->ops, vma->private, __i915_vma_offset(vma),
-			       __i915_vma_size(vma), vma->size, vma->guard);
+			       __i915_vma_size(vma), vma->size, vma->guard,
+			       obj->dpt);
 }
 
 /**

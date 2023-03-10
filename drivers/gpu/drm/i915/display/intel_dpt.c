@@ -80,6 +80,18 @@ static void dpt_clear_range(struct i915_address_space *vm,
 {
 }
 
+static void intel_dpt_debug(struct i915_address_space *vm)
+{
+	struct i915_dpt *dpt = i915_vm_to_dpt(vm);
+	struct page *page;
+	struct sgt_iter iter;
+	int i = 0;
+
+	for_each_sgt_page(page, iter, dpt->obj->mm.pages)
+		drm_err(&vm->i915->drm, "dpt %p [%d] physical address 0x%llx\n",
+			dpt, i++, page_to_phys(page));
+}
+
 static void dpt_bind_vma(struct i915_address_space *vm,
 			 struct i915_vm_pt_stash *stash,
 			 struct i915_vma_resource *vma_res,
@@ -90,6 +102,8 @@ static void dpt_bind_vma(struct i915_address_space *vm,
 
 	if (vma_res->bound_flags)
 		return;
+
+	intel_dpt_debug(vm);
 
 	/* Applicable to VLV (gen8+ do not support RO in the GGTT) */
 	pte_flags = 0;
@@ -304,6 +318,8 @@ intel_dpt_create(struct intel_framebuffer *fb)
 
 	dpt->obj = dpt_obj;
 	dpt->obj->is_dpt = true;
+
+	dpt_obj->dpt = vm;
 
 	return &dpt->vm;
 }

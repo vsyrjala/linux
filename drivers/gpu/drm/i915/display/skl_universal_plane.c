@@ -1196,6 +1196,28 @@ skl_plane_update_arm(struct intel_plane *plane,
 }
 
 static void
+dpt_debug(struct intel_plane *plane,
+	  const struct intel_plane_state *plane_state)
+{
+	struct drm_i915_private *i915 = to_i915(plane->base.dev);
+	const struct drm_framebuffer *fb = plane_state->hw.fb;
+	int color_plane = icl_plane_color_plane(plane_state);
+	u32 old, new;
+
+	if (!intel_fb_uses_dpt(fb))
+		return;
+
+	old = intel_de_read_fw(i915, PLANE_SURF(plane->pipe, plane->id));
+	new = skl_plane_surf(plane_state, color_plane);
+
+	if (old != new)
+		drm_err(&i915->drm, "[PLANE:%d:%s] dpt %p SURF 0x%x -> 0x%x\n",
+			plane->base.base.id, plane->base.name,
+			to_intel_framebuffer(fb)->dpt_vm,
+			old, new);
+}
+
+static void
 icl_plane_update_noarm(struct intel_plane *plane,
 		       const struct intel_crtc_state *crtc_state,
 		       const struct intel_plane_state *plane_state)
@@ -1213,6 +1235,8 @@ icl_plane_update_noarm(struct intel_plane *plane,
 	int src_w = drm_rect_width(&plane_state->uapi.src) >> 16;
 	int src_h = drm_rect_height(&plane_state->uapi.src) >> 16;
 	u32 plane_color_ctl;
+
+	dpt_debug(plane, plane_state);
 
 	plane_color_ctl = plane_state->color_ctl |
 		glk_plane_color_ctl_crtc(crtc_state);

@@ -136,6 +136,8 @@ struct i915_vma_resource {
 	bool skip_pte_rewrite:1;
 
 	u32 *tlb;
+
+	void *dpt;
 };
 
 bool i915_vma_resource_hold(struct i915_vma_resource *vma_res,
@@ -211,7 +213,8 @@ static inline void i915_vma_resource_init(struct i915_vma_resource *vma_res,
 					  u64 start,
 					  u64 node_size,
 					  u64 size,
-					  u32 guard)
+					  u32 guard,
+					  void *dpt)
 {
 	__i915_vma_resource_init(vma_res);
 	vma_res->vm = vm;
@@ -230,6 +233,7 @@ static inline void i915_vma_resource_init(struct i915_vma_resource *vma_res,
 	vma_res->node_size = node_size;
 	vma_res->vma_size = size;
 	vma_res->guard = guard;
+	vma_res->dpt = dpt;
 }
 
 static inline void i915_vma_resource_fini(struct i915_vma_resource *vma_res)
