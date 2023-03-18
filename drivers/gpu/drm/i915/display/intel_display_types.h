@@ -1145,6 +1145,7 @@ struct intel_crtc_state {
 	/* m2_n2 for eDP downclock */
 	struct intel_link_m_n dp_m2_n2;
 	bool has_drrs;
+	bool has_lrr;
 	bool seamless_m_n;
 
 	/* PSR is supported but might not be enabled due the lack of enabled planes */

@@ -114,8 +114,11 @@ intel_vrr_compute_config(struct intel_crtc_state *crtc_state,
 	if (adjusted_mode->flags & DRM_MODE_FLAG_INTERLACE)
 		return;
 
-	if (!crtc_state->uapi.vrr_enabled)
+	if (!crtc_state->uapi.vrr_enabled) {
+		/* FIXME figure out the interactions between VRR and LRR */
+		crtc_state->has_lrr = HAS_LRR(i915);
 		return;
+	}
 
 	vmin = DIV_ROUND_UP(adjusted_mode->crtc_clock * 1000,
 			    adjusted_mode->crtc_htotal * info->monitor_range.max_vfreq);
