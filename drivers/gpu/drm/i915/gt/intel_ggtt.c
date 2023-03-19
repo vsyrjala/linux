@@ -130,6 +130,11 @@ retry:
 
 		GEM_BUG_ON(!drm_mm_node_allocated(&vma->node));
 
+		if (vma->obj->dpt)
+			drm_err(&vm->i915->drm, "dpt %p vma %p, pinned %d, bound global %d\n",
+				vm, vma, i915_vma_is_pinned(vma),
+				i915_vma_is_bound(vma, I915_VMA_GLOBAL_BIND));
+
 		if (i915_vma_is_pinned(vma) || !i915_vma_is_bound(vma, I915_VMA_GLOBAL_BIND))
 			continue;
 
@@ -173,11 +178,15 @@ void i915_ggtt_suspend(struct i915_ggtt *ggtt)
 {
 	struct intel_gt *gt;
 
+	drm_err(&ggtt->vm.i915->drm, "GGTT %p suspend start\n", ggtt);
+
 	i915_ggtt_suspend_vm(&ggtt->vm);
 	ggtt->invalidate(ggtt);
 
 	list_for_each_entry(gt, &ggtt->gt_list, ggtt_link)
 		intel_gt_check_and_clear_faults(gt);
+
+	drm_err(&ggtt->vm.i915->drm, "GGTT %p suspend end\n", ggtt);
 }
 
 void gen6_ggtt_invalidate(struct i915_ggtt *ggtt)
@@ -1298,6 +1307,10 @@ bool i915_ggtt_resume_vm(struct i915_address_space *vm)
 		unsigned int was_bound =
 			atomic_read(&vma->flags) & I915_VMA_BIND_MASK;
 
+		if (vma->obj->dpt)
+			drm_err(&vm->i915->drm, "dpt %p vma %p, pinned %d, was bound %d\n",
+				vm, vma, i915_vma_is_pinned(vma), was_bound);
+
 		GEM_BUG_ON(!was_bound);
 
 		/*
@@ -1325,6 +1338,8 @@ void i915_ggtt_resume(struct i915_ggtt *ggtt)
 	struct intel_gt *gt;
 	bool flush;
 
+	drm_err(&ggtt->vm.i915->drm, "GGTT %p resume start\n", ggtt);
+
 	list_for_each_entry(gt, &ggtt->gt_list, ggtt_link)
 		intel_gt_check_and_clear_faults(gt);
 
@@ -1343,4 +1358,6 @@ void i915_ggtt_resume(struct i915_ggtt *ggtt)
 		wbinvd_on_all_cpus();
 
 	intel_ggtt_restore_fences(ggtt);
+
+	drm_err(&ggtt->vm.i915->drm, "GGTT %p resume end\n", ggtt);
 }

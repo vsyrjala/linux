@@ -65,6 +65,9 @@ static void dpt_insert_entries(struct i915_address_space *vm,
 	dma_addr_t addr;
 	int i;
 
+	drm_err(&vm->i915->drm, "dpt %p insert entries, vma_res %p, start %llx, iomem=%p\n",
+		vm, vma_res, vma_res->start, dpt->iomem);
+
 	/*
 	 * Note that we ignore PTE_READ_ONLY here. The caller must be careful
 	 * not to allow the user to override access to a read only page.
@@ -72,12 +75,23 @@ static void dpt_insert_entries(struct i915_address_space *vm,
 
 	i = vma_res->start / I915_GTT_PAGE_SIZE;
 	for_each_sgt_daddr(addr, sgt_iter, vma_res->bi.pages)
-		gen8_set_pte(&base[i++], pte_encode | addr);
+	{
+		gen8_pte_t *p = &base[i];
+
+		gen8_set_pte(p, pte_encode | addr);
+		drm_err(&vm->i915->drm, "obj %p bind into dpt %p: 0x%llx = 0x%llx (readback 0x%llx)\n",
+			vma_res->obj, dpt,
+			(p - base) * I915_GTT_PAGE_SIZE,
+			pte_encode | addr, readq(p));
+		i++;
+	}
 }
 
 static void dpt_clear_range(struct i915_address_space *vm,
 			    u64 start, u64 length)
 {
+	drm_err(&vm->i915->drm, "dpt %p clear range %llx, len %lld, iomem=%p\n",
+		vm, start, length, i915_vm_to_dpt(vm)->iomem);
 }
 
 static void intel_dpt_debug(struct i915_address_space *vm)
@@ -99,6 +113,9 @@ static void dpt_bind_vma(struct i915_address_space *vm,
 			 u32 flags)
 {
 	u32 pte_flags;
+
+	drm_err(&vm->i915->drm, "dpt %p bind vma, vma_res = %p, bound_flags=0x%x\n",
+		vm, vma_res, vma_res->bound_flags);
 
 	if (vma_res->bound_flags)
 		return;
@@ -127,6 +144,9 @@ static void dpt_bind_vma(struct i915_address_space *vm,
 static void dpt_unbind_vma(struct i915_address_space *vm,
 			   struct i915_vma_resource *vma_res)
 {
+	drm_err(&vm->i915->drm, "dpt %p unbind vma, vma_res = %p, bound_flags=0x%x\n",
+		vm, vma_res, vma_res->bound_flags);
+
 	vm->clear_range(vm, vma_res->start, vma_res->vma_size);
 }
 
@@ -178,6 +198,9 @@ struct i915_vma *intel_dpt_pin(struct i915_address_space *vm)
 		dpt->iomem = iomem;
 
 		i915_vma_get(vma);
+
+		drm_err(&i915->drm, "dpt %p pin, vma = %p, iomem = %p\n",
+			dpt, dpt->vma, dpt->iomem);
 	}
 
 	atomic_dec(&i915->gpu_error.pending_fb_pin);
@@ -189,6 +212,9 @@ struct i915_vma *intel_dpt_pin(struct i915_address_space *vm)
 void intel_dpt_unpin(struct i915_address_space *vm)
 {
 	struct i915_dpt *dpt = i915_vm_to_dpt(vm);
+
+	drm_err(&vm->i915->drm, "dpt %p unpin, vma = %p, iomem = %p\n",
+		dpt, dpt->vma, dpt->iomem);
 
 	i915_vma_unpin_iomap(dpt->vma);
 	i915_vma_put(dpt->vma);
@@ -217,8 +243,11 @@ void intel_dpt_resume(struct drm_i915_private *i915)
 	drm_for_each_fb(drm_fb, &i915->drm) {
 		struct intel_framebuffer *fb = to_intel_framebuffer(drm_fb);
 
-		if (fb->dpt_vm)
+		if (fb->dpt_vm) {
+			drm_err(&i915->drm, "dpt %p resume start\n", &fb->dpt_vm);
 			i915_ggtt_resume_vm(fb->dpt_vm);
+			drm_err(&i915->drm, "dpt %p resume end\n", &fb->dpt_vm);
+		}
 	}
 	mutex_unlock(&i915->drm.mode_config.fb_lock);
 }
@@ -245,8 +274,11 @@ void intel_dpt_suspend(struct drm_i915_private *i915)
 	drm_for_each_fb(drm_fb, &i915->drm) {
 		struct intel_framebuffer *fb = to_intel_framebuffer(drm_fb);
 
-		if (fb->dpt_vm)
+		if (fb->dpt_vm) {
+			drm_err(&i915->drm, "dpt %p suspend start\n", &fb->dpt_vm);
 			i915_ggtt_suspend_vm(fb->dpt_vm);
+			drm_err(&i915->drm, "dpt %p suspend end\n", &fb->dpt_vm);
+		}
 	}
 
 	mutex_unlock(&i915->drm.mode_config.fb_lock);
@@ -321,12 +353,16 @@ intel_dpt_create(struct intel_framebuffer *fb)
 
 	dpt_obj->dpt = vm;
 
+	drm_err(&i915->drm, "dpt %p create\n", dpt);
+
 	return &dpt->vm;
 }
 
 void intel_dpt_destroy(struct i915_address_space *vm)
 {
 	struct i915_dpt *dpt = i915_vm_to_dpt(vm);
+
+	drm_err(&vm->i915->drm, "dpt %p destroy\n", dpt);
 
 	dpt->obj->is_dpt = false;
 	i915_vm_put(&dpt->vm);

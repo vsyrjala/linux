@@ -421,7 +421,7 @@ i915_vma_resource_init_from_vma(struct i915_vma_resource *vma_res,
 			       i915_gem_object_is_lmem(obj), obj->mm.region,
 			       vma->ops, vma->private, __i915_vma_offset(vma),
 			       __i915_vma_size(vma), vma->size, vma->guard,
-			       obj->dpt);
+			       obj, obj->dpt);
 }
 
 /**
@@ -569,10 +569,18 @@ void __iomem *i915_vma_pin_iomap(struct i915_vma *vma)
 		if (i915_gem_object_is_lmem(vma->obj)) {
 			ptr = i915_gem_object_lmem_io_map(vma->obj, 0,
 							  vma->obj->base.size);
+			if (vma->obj->dpt)
+				drm_err(&vma->vm->i915->drm, "dpt %p do iomap lmem: vma %p iomap %p\n",
+					vma->vm, vma, ptr);
+
 		} else if (i915_vma_is_map_and_fenceable(vma)) {
 			ptr = io_mapping_map_wc(&i915_vm_to_ggtt(vma->vm)->iomap,
 						i915_vma_offset(vma),
 						i915_vma_size(vma));
+			if (vma->obj->dpt)
+				drm_err(&vma->vm->i915->drm, "dpt %p do iomap gmadr: vma %p iomap %p\n",
+					vma->vm, vma, ptr);
+
 		} else {
 			ptr = (void __iomem *)
 				i915_gem_object_pin_map(vma->obj, I915_MAP_WC);
@@ -581,6 +589,9 @@ void __iomem *i915_vma_pin_iomap(struct i915_vma *vma)
 				goto err;
 			}
 			ptr = page_pack_bits(ptr, 1);
+			if (vma->obj->dpt)
+				drm_err(&vma->vm->i915->drm, "dpt %p do iomap wc: vma %p iomap %p\n",
+					vma->vm, vma, ptr);
 		}
 
 		if (ptr == NULL) {
@@ -1819,6 +1830,10 @@ static void __i915_vma_iounmap(struct i915_vma *vma)
 {
 	GEM_BUG_ON(i915_vma_is_pinned(vma));
 
+	if (vma->obj->dpt)
+		drm_err(&vma->vm->i915->drm, "dpt %p do iounmap: vma %p iomap %p\n",
+			vma->vm, vma, vma->iomap);
+
 	if (vma->iomap == NULL)
 		return;
 
@@ -1950,6 +1965,13 @@ struct dma_fence *__i915_vma_evict(struct i915_vma *vma, bool async)
 	struct i915_vma_resource *vma_res = vma->resource;
 	struct dma_fence *unbind_fence;
 
+	if (vma->obj->dpt)
+		drm_err(&vma->vm->i915->drm, "dpt %p vma %p evict from ggtt (async %d)\n",
+			vma->vm, vma, async);
+	else if (i915_gem_object_is_framebuffer(vma->obj))
+		drm_err(&vma->vm->i915->drm, "obj %p vm %p vma %p evict from vm (async %d)\n",
+			vma->obj, vma->vm, vma, async);
+
 	GEM_BUG_ON(i915_vma_is_pinned(vma));
 	assert_vma_held_evict(vma);
 
@@ -2029,6 +2051,13 @@ int __i915_vma_unbind(struct i915_vma *vma)
 {
 	int ret;
 
+	if (vma->obj->dpt)
+		drm_err(&vma->vm->i915->drm, "dpt %p vma %p unbind from ggtt\n",
+			vma->vm, vma);
+	else if (i915_gem_object_is_framebuffer(vma->obj))
+		drm_err(&vma->vm->i915->drm, "obj %p vm %p vma %p unbind from vm\n",
+			vma->obj, vma->vm, vma);
+
 	lockdep_assert_held(&vma->vm->mutex);
 	assert_vma_held_evict(vma);
 
@@ -2059,6 +2088,13 @@ int __i915_vma_unbind(struct i915_vma *vma)
 static struct dma_fence *__i915_vma_unbind_async(struct i915_vma *vma)
 {
 	struct dma_fence *fence;
+
+	if (vma->obj->dpt)
+		drm_err(&vma->vm->i915->drm, "dpt %p vma %p unbind async from ggtt\n",
+			vma->vm, vma);
+	else if (i915_gem_object_is_framebuffer(vma->obj))
+		drm_err(&vma->vm->i915->drm, "obj %p vm %p vma %p unbind async from vm\n",
+			vma->obj, vma->vm, vma);
 
 	lockdep_assert_held(&vma->vm->mutex);
 

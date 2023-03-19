@@ -93,6 +93,8 @@ struct i915_vma_bindinfo {
  * @skip_pte_rewrite: During ggtt suspend and vm takedown pte rewriting
  * needs to be skipped for unbind.
  * @tlb: pointer for obj->mm.tlb, if async unbind. Otherwise, NULL
+ * @obj: obj
+ * @dpt: dpt
  *
  * The lifetime of a struct i915_vma_resource is from a binding request to
  * the actual possible asynchronous unbind has completed.
@@ -137,6 +139,7 @@ struct i915_vma_resource {
 
 	u32 *tlb;
 
+	void *obj;
 	void *dpt;
 };
 
@@ -194,6 +197,8 @@ static inline void i915_vma_resource_put(struct i915_vma_resource *vma_res)
  * @node_size: Size of the allocated range manager node minus padding.
  * @size: Bind size.
  * @guard: The size of the guard area preceding and trailing the bind.
+ * @obj: obj
+ * @dpt: dpt
  *
  * Initializes a vma resource allocated using i915_vma_resource_alloc().
  * The reason for having separate allocate and initialize function is that
@@ -214,6 +219,7 @@ static inline void i915_vma_resource_init(struct i915_vma_resource *vma_res,
 					  u64 node_size,
 					  u64 size,
 					  u32 guard,
+					  void *obj,
 					  void *dpt)
 {
 	__i915_vma_resource_init(vma_res);
@@ -233,6 +239,7 @@ static inline void i915_vma_resource_init(struct i915_vma_resource *vma_res,
 	vma_res->node_size = node_size;
 	vma_res->vma_size = size;
 	vma_res->guard = guard;
+	vma_res->obj = obj;
 	vma_res->dpt = dpt;
 }
 
