@@ -980,6 +980,12 @@ struct intel_link_m_n {
 	u32 link_n;
 };
 
+struct intel_csc_matrix {
+	u16 coeff[9];
+	u16 preoff[3];
+	u16 postoff[3];
+};
+
 struct intel_crtc_state {
 	/*
 	 * uapi (drm) state. This is the software state shown to userspace.
@@ -1020,6 +1026,8 @@ struct intel_crtc_state {
 
 	/* actual state of LUTs */
 	struct drm_property_blob *pre_csc_lut, *post_csc_lut;
+
+	struct intel_csc_matrix csc, output_csc;
 
 	/**
 	 * quirks - bitfield with hw state readout quirks
