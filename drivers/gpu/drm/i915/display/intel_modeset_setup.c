@@ -69,6 +69,7 @@ static void intel_crtc_disable_noatomic(struct intel_crtc *crtc,
 	}
 
 	state->acquire_ctx = ctx;
+	to_intel_atomic_state(state)->internal = true;
 
 	/* Everything's already locked, -EDEADLK can't happen. */
 	temp_crtc_state = intel_atomic_get_crtc_state(state, crtc);
@@ -559,7 +560,8 @@ static void intel_modeset_readout_hw_state(struct drm_i915_private *i915)
 			 */
 			crtc_state->inherited = true;
 
-			intel_crtc_update_active_timings(crtc_state);
+			intel_crtc_update_active_timings(crtc_state,
+							 crtc_state->vrr.enable);
 
 			intel_crtc_copy_hw_to_uapi_state(crtc_state);
 		}
