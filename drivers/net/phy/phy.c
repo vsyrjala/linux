@@ -1208,7 +1208,7 @@ static void phy_error_precise(struct phy_device *phydev,
  */
 void phy_error(struct phy_device *phydev)
 {
-	WARN_ON(1);
+	pr_notice_once("%s\n", __func__);
 	phy_process_error(phydev);
 }
 EXPORT_SYMBOL(phy_error);
@@ -1326,11 +1326,8 @@ void phy_stop(struct phy_device *phydev)
 	struct net_device *dev = phydev->attached_dev;
 	enum phy_state old_state;
 
-	if (!phy_is_started(phydev) && phydev->state != PHY_DOWN) {
-		WARN(1, "called from state %s\n",
-		     phy_state_to_str(phydev->state));
+	if (!phy_is_started(phydev) && phydev->state != PHY_DOWN)
 		return;
-	}
 
 	mutex_lock(&phydev->lock);
 	old_state = phydev->state;
