@@ -542,7 +542,6 @@ static const struct drm_driver panfrost_drm_driver = {
 	.prime_handle_to_fd	= drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle	= drm_gem_prime_fd_to_handle,
 	.gem_prime_import_sg_table = panfrost_gem_prime_import_sg_table,
-	.gem_prime_mmap		= drm_gem_prime_mmap,
 };
 
 static int panfrost_probe(struct platform_device *pdev)
@@ -611,7 +610,7 @@ err_out0:
 	return err;
 }
 
-static int panfrost_remove(struct platform_device *pdev)
+static void panfrost_remove(struct platform_device *pdev)
 {
 	struct panfrost_device *pfdev = platform_get_drvdata(pdev);
 	struct drm_device *ddev = pfdev->ddev;
@@ -625,7 +624,6 @@ static int panfrost_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(pfdev->dev);
 
 	drm_dev_put(ddev);
-	return 0;
 }
 
 /*
@@ -717,7 +715,7 @@ MODULE_DEVICE_TABLE(of, dt_match);
 
 static struct platform_driver panfrost_driver = {
 	.probe		= panfrost_probe,
-	.remove		= panfrost_remove,
+	.remove_new	= panfrost_remove,
 	.driver		= {
 		.name	= "panfrost",
 		.pm	= pm_ptr(&panfrost_pm_ops),

@@ -227,7 +227,6 @@ static const struct drm_driver rockchip_drm_driver = {
 	.prime_handle_to_fd	= drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle	= drm_gem_prime_fd_to_handle,
 	.gem_prime_import_sg_table	= rockchip_gem_prime_import_sg_table,
-	.gem_prime_mmap		= drm_gem_prime_mmap,
 	.fops			= &rockchip_drm_driver_fops,
 	.name	= DRIVER_NAME,
 	.desc	= DRIVER_DESC,
@@ -450,13 +449,11 @@ static int rockchip_drm_platform_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int rockchip_drm_platform_remove(struct platform_device *pdev)
+static void rockchip_drm_platform_remove(struct platform_device *pdev)
 {
 	component_master_del(&pdev->dev, &rockchip_drm_ops);
 
 	rockchip_drm_match_remove(&pdev->dev);
-
-	return 0;
 }
 
 static void rockchip_drm_platform_shutdown(struct platform_device *pdev)
@@ -475,7 +472,7 @@ MODULE_DEVICE_TABLE(of, rockchip_drm_dt_ids);
 
 static struct platform_driver rockchip_drm_platform_driver = {
 	.probe = rockchip_drm_platform_probe,
-	.remove = rockchip_drm_platform_remove,
+	.remove_new = rockchip_drm_platform_remove,
 	.shutdown = rockchip_drm_platform_shutdown,
 	.driver = {
 		.name = "rockchip-drm",
