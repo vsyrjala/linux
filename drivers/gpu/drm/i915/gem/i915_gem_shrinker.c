@@ -198,8 +198,7 @@ i915_gem_shrink(struct i915_gem_ww_ctx *ww,
 			    !is_vmalloc_addr(obj->mm.mapping))
 				continue;
 
-			if (!(shrink & I915_SHRINK_ACTIVE) &&
-			    i915_gem_object_is_framebuffer(obj))
+			if (i915_gem_object_is_framebuffer(obj))
 				continue;
 
 			if (!can_release_pages(obj))
