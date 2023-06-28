@@ -312,6 +312,9 @@ intel_dpt_create(struct intel_framebuffer *fb)
 	if (IS_ERR(dpt_obj))
 		return ERR_CAST(dpt_obj);
 
+	i915_gem_object_make_unshrinkable(to_intel_bo(fb->base.obj[0]));
+	i915_gem_object_make_unshrinkable(dpt_obj);
+
 	ret = i915_gem_object_lock_interruptible(dpt_obj, NULL);
 	if (!ret) {
 		ret = i915_gem_object_set_cache_level(dpt_obj, I915_CACHE_NONE);
