@@ -598,9 +598,9 @@ static void intel_mst_disable_dp(struct intel_atomic_state *state,
 
 	intel_hdcp_disable(intel_mst->connector);
 
-	drm_dp_remove_payload_part1(&intel_dp->mst_mgr, new_mst_state, new_payload);
-
 	intel_audio_codec_disable(encoder, old_crtc_state, old_conn_state);
+
+	drm_dp_remove_payload_part1(&intel_dp->mst_mgr, new_mst_state, new_payload);
 }
 
 static void intel_mst_post_disable_dp(struct intel_atomic_state *state,
