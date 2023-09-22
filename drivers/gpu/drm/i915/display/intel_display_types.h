@@ -198,6 +198,12 @@ struct intel_encoder {
 			    struct intel_encoder *,
 			    const struct intel_crtc_state *,
 			    const struct drm_connector_state *);
+	void (*audio_enable)(struct intel_encoder *,
+			     const struct intel_crtc_state *,
+			     const struct drm_connector_state *);
+	void (*audio_disable)(struct intel_encoder *,
+			      const struct intel_crtc_state *,
+			      const struct drm_connector_state *);
 	/* Read out the current hw state of this connector, returning true if
 	 * the encoder is active. If the encoder is enabled it also set the pipe
 	 * it is connected to in the pipe parameter. */
