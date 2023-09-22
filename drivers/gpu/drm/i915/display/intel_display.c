@@ -939,10 +939,12 @@ static void intel_encoders_audio_disable(struct intel_atomic_state *state,
 }
 
 #define is_enabling(feature, old_crtc_state, new_crtc_state) \
-	((!(old_crtc_state)->feature || intel_crtc_needs_modeset(new_crtc_state)) && \
+	((new_crtc_state)->hw.active && \
+	 (!(old_crtc_state)->feature || intel_crtc_needs_modeset(new_crtc_state)) && \
 	 (new_crtc_state)->feature)
 #define is_disabling(feature, old_crtc_state, new_crtc_state) \
-	((old_crtc_state)->feature && \
+	((old_crtc_state)->hw.active && \
+	 (old_crtc_state)->feature && \
 	 (!(new_crtc_state)->feature || intel_crtc_needs_modeset(new_crtc_state)))
 
 static bool planes_enabling(const struct intel_crtc_state *old_crtc_state,
