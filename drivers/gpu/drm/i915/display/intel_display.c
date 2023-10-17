@@ -3135,6 +3135,9 @@ static void hsw_set_transconf(const struct intel_crtc_state *crtc_state)
 	    crtc_state->output_format != INTEL_OUTPUT_FORMAT_RGB)
 		val |= TRANSCONF_OUTPUT_COLORSPACE_YUV_HSW;
 
+	if (IS_ALDERLAKE_P(dev_priv) && intel_crtc_has_dp_encoder(crtc_state))
+		val |= TRANSCONF_EARLY_PIXEL_COUNT_SCALING_X4;
+
 	intel_de_write(dev_priv, TRANSCONF(cpu_transcoder), val);
 	intel_de_posting_read(dev_priv, TRANSCONF(cpu_transcoder));
 }
