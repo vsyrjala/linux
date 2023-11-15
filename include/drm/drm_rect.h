@@ -108,6 +108,15 @@ static inline void drm_rect_init(struct drm_rect *r, int x, int y,
 }
 
 /**
+ * drm_rect_clear - clear the rectangleOB
+ * @r: rectangle
+ */
+static inline void drm_rect_clear(struct drm_rect *r)
+{
+	drm_rect_init(r, 0, 0, 0, 0);
+}
+
+/**
  * drm_rect_adjust_size - adjust the size of the rectangle
  * @r: rectangle to be adjusted
  * @dw: horizontal adjustment
