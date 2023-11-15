@@ -52,6 +52,33 @@ bool drm_rect_intersect(struct drm_rect *r1, const struct drm_rect *r2)
 }
 EXPORT_SYMBOL(drm_rect_intersect);
 
+/**
+ * drm_rect_union - union two rectangles
+ * @r1: first rectangle
+ * @r2: second rectangle
+ *
+ * Calculate the union of rectangles @r1 and @r2.
+ * @r1 will be overwritten with the union.
+ *
+ * RETURNS:
+ * %true if rectangle @r1 is still visible after the operation,
+ * %false otherwise.
+ */
+bool drm_rect_union(struct drm_rect *r1, const struct drm_rect *r2)
+{
+	if (drm_rect_visible(r1) && drm_rect_visible(r2)) {
+		r1->x1 = max(r1->x1, r2->x1);
+		r1->y1 = max(r1->y1, r2->y1);
+		r1->x2 = min(r1->x2, r2->x2);
+		r1->y2 = min(r1->y2, r2->y2);
+	} else if (drm_rect_visible(r2)) {
+		*r1 = *r2;
+	}
+
+	return drm_rect_visible(r1);
+}
+EXPORT_SYMBOL(drm_rect_union);
+
 static u32 clip_scaled(int src, int dst, int *clip)
 {
 	u64 tmp;
