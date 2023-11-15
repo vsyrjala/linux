@@ -79,6 +79,26 @@ bool drm_rect_union(struct drm_rect *r1, const struct drm_rect *r2)
 }
 EXPORT_SYMBOL(drm_rect_union);
 
+/**
+ * drm_rect_align - align rectangle
+ * @r: rectangle to be aligned
+ * @halign: horizontal alignment
+ * @valign: vertical alignment
+ *
+ * Align the coordinates of rectangle @r to @halign and @valign.
+ */
+void drm_rect_align(struct drm_rect *r, int halign, int valign)
+{
+	if (!drm_rect_visible(r))
+		return;
+
+	r->x1 = rounddown(r->x1, halign);
+	r->y1 = rounddown(r->y1, valign);
+	r->x2 = roundup(r->x2, halign);
+	r->y2 = roundup(r->y2, valign);
+}
+EXPORT_SYMBOL(drm_rect_align);
+
 static u32 clip_scaled(int src, int dst, int *clip)
 {
 	u64 tmp;
