@@ -48,6 +48,7 @@
 #include "intel_fb.h"
 #include "intel_fb_pin.h"
 #include "skl_scaler.h"
+#include "skl_universal_plane.h"
 #include "skl_watermark.h"
 
 static void intel_plane_state_reset(struct intel_plane_state *plane_state,
@@ -58,6 +59,8 @@ static void intel_plane_state_reset(struct intel_plane_state *plane_state,
 	__drm_atomic_helper_plane_state_reset(&plane_state->uapi, &plane->base);
 
 	plane_state->scaler_id = -1;
+	drm_rect_clear(&plane_state->sel_fetch.src);
+	drm_rect_clear(&plane_state->sel_fetch.dst);
 }
 
 struct intel_plane *intel_plane_alloc(void)
@@ -320,6 +323,42 @@ static void intel_plane_clear_hw_state(struct intel_plane_state *plane_state)
 	memset(&plane_state->hw, 0, sizeof(plane_state->hw));
 }
 
+static void mode_rect_to_rect(struct drm_rect *r,
+			      const struct drm_mode_rect *clip)
+{
+	r->x1 = clip->x1 << 16;
+	r->y1 = clip->y1 << 16;
+	r->x2 = clip->x2 << 16;
+	r->y2 = clip->y2 << 16;
+}
+
+static void sel_fetch_add_uapi_damage(struct intel_plane_state *plane_state,
+				      const struct drm_plane_state *from_plane_state)
+{
+	struct drm_i915_private *i915 = to_i915(plane_state->uapi.plane->dev);
+	const struct drm_property_blob *blob = from_plane_state->fb_damage_clips;
+	const struct drm_mode_rect *clips = blob ? blob->data : NULL;
+	int i, num_clips = blob ? blob->length / sizeof(clips[0]) : 0;
+
+	if (!HAS_PSR2_SEL_FETCH(i915))
+		return;
+
+	if (!clips) {
+		plane_state->sel_fetch.src = drm_plane_state_src(from_plane_state);
+		return;
+	}
+
+	mode_rect_to_rect(&plane_state->sel_fetch.src, &clips[0]);
+
+	for (i = 1; i < num_clips; i++) {
+		struct drm_rect r;
+
+		mode_rect_to_rect(&r, &clips[i]);
+
+		drm_rect_union(&plane_state->sel_fetch.src, &r);
+	}
+}
+
 void intel_plane_copy_uapi_to_hw_state(struct intel_plane_state *plane_state,
 				       const struct intel_plane_state *from_plane_state,
 				       struct intel_crtc *crtc)
@@ -348,6 +387,8 @@ void intel_plane_copy_uapi_to_hw_state(struct intel_plane_state *plane_state,
 
 	plane_state->uapi.src = drm_plane_state_src(&from_plane_state->uapi);
 	plane_state->uapi.dst = drm_plane_state_dest(&from_plane_state->uapi);
+
+	sel_fetch_add_uapi_damage(plane_state, &from_plane_state->uapi);
 }
 
 void intel_plane_copy_hw_state(struct intel_plane_state *plane_state,
@@ -474,6 +515,340 @@ static bool i9xx_must_disable_cxsr(const struct intel_crtc_state *new_crtc_state
 	}
 
 	return old_ctl != new_ctl;
+}
+
+static bool plane_needs_full_fetch_old(const struct intel_plane_state *old_plane_state,
+				       const struct intel_plane_state *new_plane_state)
+{
+	if (!old_plane_state->uapi.visible)
+		return false;
+
+	if (old_plane_state->uapi.visible != new_plane_state->uapi.visible)
+		return true;
+
+	if (!drm_rect_equals(&old_plane_state->uapi.dst,
+			     &new_plane_state->uapi.dst))
+		return true;
+
+	return false;
+}
+
+static bool plane_needs_full_fetch_new(const struct intel_plane_state *old_plane_state,
+				       const struct intel_plane_state *new_plane_state)
+{
+	if (!new_plane_state->uapi.visible)
+		return false;
+
+	if (old_plane_state->uapi.visible != new_plane_state->uapi.visible)
+		return true;
+
+	if (!drm_rect_equals(&old_plane_state->uapi.dst,
+			     &new_plane_state->uapi.dst))
+		return true;
+
+	if (old_plane_state->ctl != new_plane_state->ctl)
+		return true;
+
+	if (old_plane_state->color_ctl != new_plane_state->color_ctl)
+		return true;
+
+	if (old_plane_state->hw.alpha != new_plane_state->hw.alpha)
+		return true;
+
+	if (memcmp(&old_plane_state->ckey, &new_plane_state->ckey,
+		   sizeof(new_plane_state->ckey)))
+		return true;
+
+	return false;
+}
+
+static void sel_fetch_alignment(const struct intel_crtc_state *crtc_state,
+				int *halign, int *valign)
+{
+	struct drm_i915_private *dev_priv = to_i915(crtc_state->uapi.crtc->dev);
+	const struct drm_dsc_config *vdsc_cfg = &crtc_state->dsc.config;
+
+	*halign = drm_rect_width(&crtc_state->pipe_src);
+
+	/* ADLP aligns the SU region to vdsc slice height in case dsc is enabled */
+	if (crtc_state->dsc.compression_enable &&
+	    (IS_ALDERLAKE_P(dev_priv) || DISPLAY_VER(dev_priv) >= 14))
+		*valign = vdsc_cfg->slice_height;
+	else
+		*valign = crtc_state->su_y_granularity;
+}
+
+static struct drm_rect
+rel_pipe_src(const struct intel_crtc_state *crtc_state)
+{
+	struct drm_rect pipe_src = crtc_state->pipe_src;
+
+	drm_rect_translate_to(&pipe_src, 0, 0);
+
+	return pipe_src;
+}
+
+static void sel_fetch_align(struct intel_crtc_state *crtc_state)
+{
+	struct drm_i915_private *i915 = to_i915(crtc_state->uapi.crtc->dev);
+	struct drm_rect pipe_src = rel_pipe_src(crtc_state);
+	int halign, valign;
+
+	sel_fetch_alignment(crtc_state, &halign, &valign);
+
+	drm_rect_align(&crtc_state->sel_fetch, halign, valign);
+
+	drm_rect_intersect(&crtc_state->sel_fetch, &pipe_src);
+
+	/* Wa_14014971492 */
+	if ((IS_DISPLAY_IP_STEP(i915, IP_VER(14, 0), STEP_A0, STEP_B0) ||
+	     IS_ALDERLAKE_P(i915) || IS_TIGERLAKE(i915)) &&
+	    crtc_state->splitter.enable && drm_rect_visible(&crtc_state->sel_fetch))
+		crtc_state->sel_fetch.y1 = 0;
+}
+
+static enum plane_id
+planar_uv_plane_id(const struct intel_plane_state *plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
+	struct intel_plane *linked = plane_state->planar_linked_plane;
+
+	return plane_state->planar_slave ? linked->id : plane->id;
+}
+
+static bool plane_needs_full_fetch(const struct intel_plane_state *plane_state)
+{
+	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
+	struct drm_i915_private *i915 = to_i915(plane->base.dev);
+	const struct drm_framebuffer *fb = plane_state->hw.fb;
+
+	/*
+	 * Cursor doesn't have registers for clipped coordinates.
+	 *
+	 * TODO figure out whether the hardware automagically clips the
+	 * cursor to the selective fetch area, or if we need to extend the
+	 * area to fully encopass the cursor. For now this will do the latter.
+	 */
+	if (plane->id == PLANE_CURSOR)
+		return true;
+
+	/* Scaler doesn't support selective fetch */
+	if (intel_plane_is_scaled(plane_state))
+		return true;
+
+	/* SDR UV plane always need to use the scaler as well */
+	if (intel_format_info_is_yuv_semiplanar(fb->format, fb->modifier) &&
+	    !icl_is_hdr_plane(i915, planar_uv_plane_id(plane_state)))
+		return true;
+
+	return false;
+}
+
+static void intel_crtc_sel_fetch_accumulate_damage(struct intel_atomic_state *state,
+						   struct intel_crtc *crtc)
+{
+	struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+	const struct intel_plane_state *old_plane_state;
+	struct intel_plane_state *new_plane_state;
+	struct intel_plane *plane;
+	int i;
+
+	if (intel_crtc_needs_modeset(new_crtc_state) ||
+	    intel_crtc_needs_fastset(new_crtc_state) ||
+	    intel_crtc_needs_color_update(new_crtc_state)) {
+		new_crtc_state->sel_fetch = rel_pipe_src(new_crtc_state);
+		return;
+	}
+
+	drm_rect_clear(&new_crtc_state->sel_fetch);
+
+	for_each_oldnew_intel_plane_in_state(state, plane, old_plane_state, new_plane_state, i) {
+		if (old_plane_state->hw.crtc != &crtc->base &&
+		    new_plane_state->hw.crtc != &crtc->base)
+			continue;
+
+		drm_rect_union(&new_crtc_state->sel_fetch,
+			       &new_plane_state->sel_fetch.dst);
+
+		if (plane_needs_full_fetch_old(old_plane_state, new_plane_state))
+			drm_rect_union(&new_crtc_state->sel_fetch, &old_plane_state->uapi.dst);
+
+		if (plane_needs_full_fetch_new(old_plane_state, new_plane_state))
+			drm_rect_union(&new_crtc_state->sel_fetch, &new_plane_state->uapi.dst);
+	}
+
+	sel_fetch_align(new_crtc_state);
+}
+
+static int check_src_coordinates(const struct intel_plane_state *plane_state,
+				 const struct drm_rect *src);
+
+static bool plane_compute_sel_fetch_src(struct intel_plane_state *plane_state)
+{
+	if (!drm_rect_visible(&plane_state->sel_fetch.dst)) {
+		drm_rect_clear(&plane_state->sel_fetch.dst);
+		drm_rect_clear(&plane_state->sel_fetch.src);
+		return false;
+	}
+
+	if (plane_needs_full_fetch(plane_state)) {
+		plane_state->sel_fetch.src = plane_state->uapi.src;
+		return false;
+	}
+
+	/*
+	 * Translate the selective fetch destination coordinates
+	 * to source coordinates (relative to the plane surface address).
+	 */
+	plane_state->sel_fetch.src = plane_state->sel_fetch.dst;
+
+	drm_rect_translate(&plane_state->sel_fetch.src,
+			   -plane_state->uapi.dst.x1, -plane_state->uapi.dst.y1);
+
+	/*
+	 * Rotate back to original fb orientation.
+	 *
+	 * width/height may need to be swapped here since we're
+	 * getting them from the rotated dst coordinate space.
+	 */
+	if (drm_rotation_90_or_270(plane_state->hw.rotation))
+		drm_rect_rotate_inv(&plane_state->sel_fetch.src,
+				    drm_rect_height(&plane_state->uapi.dst),
+				    drm_rect_width(&plane_state->uapi.dst),
+				    plane_state->hw.rotation);
+	else
+		drm_rect_rotate_inv(&plane_state->sel_fetch.src,
+				    drm_rect_width(&plane_state->uapi.dst),
+				    drm_rect_height(&plane_state->uapi.dst),
+				    plane_state->hw.rotation);
+
+	/*
+	 * We can assume 1:1 scaling here as all scaled planes will
+	 * have taken the plane_needs_full_fetch() path anyway.
+	 */
+	drm_rect_init(&plane_state->sel_fetch.src,
+		      plane_state->sel_fetch.src.x1 << 16,
+		      plane_state->sel_fetch.src.y1 << 16,
+		      drm_rect_width(&plane_state->sel_fetch.src) << 16,
+		      drm_rect_height(&plane_state->sel_fetch.src) << 16);
+
+	/*
+	 * Rotate to match rotated GTT view.
+	 *
+	 * width/height need to be swapped here since we're
+	 * getting them from the rotated src coordinate space.
+	 */
+	if (drm_rotation_90_or_270(plane_state->hw.rotation))
+		drm_rect_rotate(&plane_state->sel_fetch.src,
+				drm_rect_height(&plane_state->uapi.src),
+				drm_rect_width(&plane_state->uapi.src),
+				DRM_MODE_ROTATE_270);
+
+	/* Finally make it relative to the plane surface address */
+	drm_rect_translate(&plane_state->sel_fetch.src,
+			   plane_state->uapi.src.x1,
+			   plane_state->uapi.src.y1);
+
+	return check_src_coordinates(plane_state, &plane_state->sel_fetch.src) != 0;
+}
+
+static bool sel_fetch_process_plane(struct intel_crtc_state *crtc_state,
+				    struct intel_plane_state *plane_state)
+{
+	const struct drm_rect orig_sel_fetch = crtc_state->sel_fetch;
+
+	if (!plane_state->uapi.visible) {
+		drm_rect_clear(&plane_state->sel_fetch.dst);
+		return false;
+	}
+
+	plane_state->sel_fetch.dst = plane_state->uapi.dst;
+	drm_rect_intersect(&plane_state->sel_fetch.dst, &crtc_state->sel_fetch);
+
+	if (!drm_rect_visible(&plane_state->sel_fetch.dst))
+		return false;
+
+	if (!plane_needs_full_fetch(plane_state))
+		return false;
+
+	plane_state->sel_fetch.dst = plane_state->uapi.dst;
+	drm_rect_union(&crtc_state->sel_fetch, &plane_state->sel_fetch.dst);
+
+	sel_fetch_align(crtc_state);
+
+	return !drm_rect_equals(&orig_sel_fetch, &crtc_state->sel_fetch);
+}
+
+int intel_crtc_compute_sel_fetch(struct intel_atomic_state *state,
+				 struct intel_crtc *crtc);
+
+int intel_crtc_compute_sel_fetch(struct intel_atomic_state *state,
+				 struct intel_crtc *crtc)
+{
+	const struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(state, crtc);
+	struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+	const struct intel_plane_state *old_plane_state;
+	struct intel_plane_state *new_plane_state;
+	struct intel_plane *plane;
+	bool changed;
+	int ret, i;
+
+	intel_crtc_sel_fetch_accumulate_damage(state, crtc);
+
+	/*
+	 * We'll need all the active planes in the state to
+	 * figure out which ones overlap with the update region.
+	 */
+	ret = intel_crtc_add_planes_to_state(state, crtc,
+					     old_crtc_state->active_planes |
+					     new_crtc_state->active_planes);
+	if (ret)
+		return ret;
+
+	do {
+		do {
+			changed = false;
+			for_each_oldnew_intel_plane_in_state(state, plane, old_plane_state,
+							     new_plane_state, i) {
+				if (old_plane_state->hw.crtc != &crtc->base &&
+				    new_plane_state->hw.crtc != &crtc->base)
+					continue;
+
+				if (sel_fetch_process_plane(new_crtc_state, new_plane_state)) {
+					changed = true;
+					break;
+				}
+			}
+		} while (changed);
+
+		for_each_oldnew_intel_plane_in_state(state, plane, old_plane_state,
+						     new_plane_state, i) {
+			if (old_plane_state->hw.crtc != &crtc->base &&
+			    new_plane_state->hw.crtc != &crtc->base)
+				continue;
+
+			if (plane_compute_sel_fetch_src(new_plane_state)) {
+				/*
+				 * Just punt to a full update if we didn't end
+				 * up with suitably aligned src coordinates.
+				 */
+				new_plane_state->sel_fetch.dst = new_plane_state->uapi.dst;
+				changed = true;
+				break;
+			}
+
+			if (!drm_rect_equals(&old_plane_state->sel_fetch.src,
+					     &new_plane_state->sel_fetch.src) ||
+			    !drm_rect_equals(&old_plane_state->sel_fetch.dst,
+					     &new_plane_state->sel_fetch.dst))
+				new_crtc_state->update_planes |= BIT(plane->id);
+		}
+	} while (changed);
+
+	return 0;
 }
 
 static int intel_plane_atomic_calc_changes(const struct intel_crtc_state *old_crtc_state,
@@ -897,6 +1272,42 @@ void intel_crtc_planes_update_arm(struct intel_atomic_state *state,
 		i9xx_crtc_planes_update_arm(state, crtc);
 }
 
+static void intel_plane_calc_damage(struct intel_plane_state *plane_state,
+				    int hscale, int vscale)
+{
+	struct drm_i915_private *i915 = to_i915(plane_state->uapi.plane->dev);
+
+	if (!HAS_PSR2_SEL_FETCH(i915))
+		return;
+
+	if (!plane_state->uapi.visible)
+		return;
+
+	/* Translate damage to plane output coordinates */
+	plane_state->sel_fetch.dst = plane_state->sel_fetch.src;
+
+	drm_rect_translate(&plane_state->sel_fetch.dst,
+			   -plane_state->uapi.src.x1,
+			   -plane_state->uapi.src.y1);
+
+	drm_rect_rotate(&plane_state->sel_fetch.dst,
+			drm_rect_width(&plane_state->uapi.src),
+			drm_rect_height(&plane_state->uapi.src),
+			plane_state->hw.rotation);
+
+	plane_state->sel_fetch.dst.x1 = plane_state->sel_fetch.dst.x1 / hscale;
+	plane_state->sel_fetch.dst.x2 = DIV_ROUND_UP(plane_state->sel_fetch.dst.x2, hscale);
+	plane_state->sel_fetch.dst.y1 = plane_state->sel_fetch.dst.y1 / vscale;
+	plane_state->sel_fetch.dst.y2 = DIV_ROUND_UP(plane_state->sel_fetch.dst.y2, vscale);
+
+	drm_rect_translate(&plane_state->sel_fetch.dst,
+			   plane_state->uapi.dst.x1,
+			   plane_state->uapi.dst.y1);
+
+	drm_rect_intersect(&plane_state->sel_fetch.dst,
+			   &plane_state->uapi.dst);
+}
+
 int intel_atomic_plane_check_clipping(struct intel_plane_state *plane_state,
 				      struct intel_crtc_state *crtc_state,
 				      int min_scale, int max_scale,
@@ -946,14 +1357,28 @@ int intel_atomic_plane_check_clipping(struct intel_plane_state *plane_state,
 	/* final plane coordinates will be relative to the plane's pipe */
 	drm_rect_translate(dst, -clip->x1, -clip->y1);
 
+	intel_plane_calc_damage(plane_state, hscale, vscale);
+
 	return 0;
 }
 
-int intel_plane_check_src_coordinates(struct intel_plane_state *plane_state)
+static void truncate_subpixel_coords(struct drm_rect *r)
+{
+	int x, y, w, h;
+
+	x = r->x1 >> 16;
+	y = r->y1 >> 16;
+	w = drm_rect_width(r) >> 16;
+	h = drm_rect_height(r) >> 16;
+
+	drm_rect_init(r, x << 16, y << 16, w << 16, h << 16);
+}
+
+static int check_src_coordinates(const struct intel_plane_state *plane_state,
+				 const struct drm_rect *src)
 {
 	struct drm_i915_private *i915 = to_i915(plane_state->uapi.plane->dev);
 	const struct drm_framebuffer *fb = plane_state->hw.fb;
-	struct drm_rect *src = &plane_state->uapi.src;
 	u32 src_x, src_y, src_w, src_h, hsub, vsub;
 	bool rotated = drm_rotation_90_or_270(plane_state->hw.rotation);
 
@@ -967,19 +1392,10 @@ int intel_plane_check_src_coordinates(struct intel_plane_state *plane_state)
 	    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS)
 		return 0;
 
-	/*
-	 * Hardware doesn't handle subpixel coordinates.
-	 * Adjust to (macro)pixel boundary, but be careful not to
-	 * increase the source viewport size, because that could
-	 * push the downscaling factor out of bounds.
-	 */
 	src_x = src->x1 >> 16;
 	src_w = drm_rect_width(src) >> 16;
 	src_y = src->y1 >> 16;
 	src_h = drm_rect_height(src) >> 16;
-
-	drm_rect_init(src, src_x << 16, src_y << 16,
-		      src_w << 16, src_h << 16);
 
 	if (fb->format->format == DRM_FORMAT_RGB565 && rotated) {
 		hsub = 2;
@@ -1013,6 +1429,33 @@ int intel_plane_check_src_coordinates(struct intel_plane_state *plane_state)
 	}
 
 	return 0;
+}
+
+int intel_plane_check_src_coordinates(struct intel_plane_state *plane_state)
+{
+	const struct drm_framebuffer *fb = plane_state->hw.fb;
+
+	/*
+	 * FIXME hsub/vsub vs. block size is a mess. Pre-tgl CCS
+	 * abuses hsub/vsub so we can't use them here. But as they
+	 * are limited to 32bpp RGB formats we don't actually need
+	 * to check anything.
+	 */
+	if (fb->modifier == I915_FORMAT_MOD_Y_TILED_CCS ||
+	    fb->modifier == I915_FORMAT_MOD_Yf_TILED_CCS)
+		return 0;
+
+	/*
+	 * Hardware doesn't handle subpixel coordinates,
+	 * Adjust to (macro)pixel boundary, but be careful not to
+	 * increase the source viewport size, because that could
+	 * push the downscaling factor out of bounds.
+	 *
+	 * TODO: On SKL+ scaler could be used to handle this.
+	 */
+	truncate_subpixel_coords(&plane_state->uapi.src);
+
+	return check_src_coordinates(plane_state, &plane_state->uapi.src);
 }
 
 static int add_dma_resv_fences(struct dma_resv *resv,

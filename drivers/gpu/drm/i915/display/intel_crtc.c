@@ -177,6 +177,7 @@ void intel_crtc_state_reset(struct intel_crtc_state *crtc_state,
 	crtc_state->scaler_state.scaler_id = -1;
 	crtc_state->mst_master_transcoder = INVALID_TRANSCODER;
 	crtc_state->max_link_bpp_x16 = INT_MAX;
+	drm_rect_clear(&crtc_state->sel_fetch);
 }
 
 static struct intel_crtc *intel_crtc_alloc(void)

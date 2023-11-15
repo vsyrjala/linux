@@ -766,7 +766,9 @@ struct intel_plane_state {
 
 	struct drm_intel_sprite_colorkey ckey;
 
-	struct drm_rect psr2_sel_fetch_area;
+	struct {
+		struct drm_rect src, dst;
+	} sel_fetch;
 
 	/* Clear Color Value */
 	u64 ccval;
@@ -1105,6 +1107,9 @@ struct intel_crtc_state {
 	 * All planes will be positioned inside this space,
 	 * and get clipped at the edges. */
 	struct drm_rect pipe_src;
+
+	/* Selective fetch area */
+	struct drm_rect sel_fetch;
 
 	/*
 	 * Pipe pixel rate, adjusted for

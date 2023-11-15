@@ -558,4 +558,8 @@ bool assert_port_valid(struct drm_i915_private *i915, enum port port);
 
 bool intel_scanout_needs_vtd_wa(struct drm_i915_private *i915);
 
+int intel_crtc_add_planes_to_state(struct intel_atomic_state *state,
+				   struct intel_crtc *crtc,
+				   u8 plane_ids_mask);
+
 #endif

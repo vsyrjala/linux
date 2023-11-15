@@ -4174,6 +4174,7 @@ static int icl_check_nv12_planes(struct intel_crtc_state *crtc_state)
 		intel_plane_copy_hw_state(linked_state, plane_state);
 		linked_state->uapi.src = plane_state->uapi.src;
 		linked_state->uapi.dst = plane_state->uapi.dst;
+		linked_state->sel_fetch = plane_state->sel_fetch;
 
 		if (icl_is_hdr_plane(dev_priv, plane->id)) {
 			if (linked->id == PLANE_SPRITE5)
@@ -5714,9 +5715,9 @@ static void intel_crtc_check_fastset(const struct intel_crtc_state *old_crtc_sta
 		new_crtc_state->update_pipe = true;
 }
 
-static int intel_crtc_add_planes_to_state(struct intel_atomic_state *state,
-					  struct intel_crtc *crtc,
-					  u8 plane_ids_mask)
+int intel_crtc_add_planes_to_state(struct intel_atomic_state *state,
+				   struct intel_crtc *crtc,
+				   u8 plane_ids_mask)
 {
 	struct drm_i915_private *dev_priv = to_i915(state->base.dev);
 	struct intel_plane *plane;
