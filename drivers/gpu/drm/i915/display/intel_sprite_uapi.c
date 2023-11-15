@@ -21,6 +21,7 @@ static void intel_plane_set_ckey(struct intel_plane_state *plane_state,
 	struct drm_intel_sprite_colorkey *key = &plane_state->ckey;
 
 	*key = *set;
+	key->plane_id = 0; /* only for uapi */
 
 	/*
 	 * We want src key enabled on the
