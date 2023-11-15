@@ -238,7 +238,7 @@ static inline void drm_rect_fp_to_int(struct drm_rect *dst,
 		      drm_rect_height(src) >> 16);
 }
 
-bool drm_rect_intersect(struct drm_rect *r, const struct drm_rect *clip);
+bool drm_rect_intersect(struct drm_rect *r, const struct drm_rect *r2);
 bool drm_rect_clip_scaled(struct drm_rect *src, struct drm_rect *dst,
 			  const struct drm_rect *clip);
 int drm_rect_calc_hscale(const struct drm_rect *src,
