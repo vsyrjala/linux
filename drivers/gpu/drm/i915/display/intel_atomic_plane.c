@@ -684,8 +684,35 @@ static void intel_crtc_sel_fetch_accumulate_damage(struct intel_atomic_state *st
 static int check_src_coordinates(const struct intel_plane_state *plane_state,
 				 const struct drm_rect *src);
 
+static void plane_compute_sel_fetch_surface(struct intel_plane_state *plane_state,
+					    int color_plane)
+{
+	int x, y;
+
+	x = plane_state->view.color_plane[color_plane].x;
+	y = plane_state->view.color_plane[color_plane].y;
+
+	if (color_plane == 1) {
+		x *= 2;
+		y *= 2;
+	}
+
+	x += plane_state->sel_fetch.src.x1 >> 16;
+	y += plane_state->sel_fetch.src.y1 >> 16;
+
+	if (color_plane == 1) {
+		x /= 2;
+		y /= 2;
+	}
+
+	plane_state->sel_fetch.color_plane[color_plane].x = x;
+	plane_state->sel_fetch.color_plane[color_plane].y = y;
+}
+
 static bool plane_compute_sel_fetch_src(struct intel_plane_state *plane_state)
 {
+	const struct drm_framebuffer *fb = plane_state->hw.fb;
+
 	if (!drm_rect_visible(&plane_state->sel_fetch.dst)) {
 		drm_rect_clear(&plane_state->sel_fetch.dst);
 		drm_rect_clear(&plane_state->sel_fetch.src);
@@ -694,6 +721,12 @@ static bool plane_compute_sel_fetch_src(struct intel_plane_state *plane_state)
 
 	if (plane_needs_full_fetch(plane_state)) {
 		plane_state->sel_fetch.src = plane_state->uapi.src;
+
+		plane_state->sel_fetch.color_plane[0].x = plane_state->view.color_plane[0].x;
+		plane_state->sel_fetch.color_plane[0].y = plane_state->view.color_plane[0].y;
+		plane_state->sel_fetch.color_plane[1].x = plane_state->view.color_plane[1].x;
+		plane_state->sel_fetch.color_plane[1].y = plane_state->view.color_plane[1].y;
+
 		return false;
 	}
 
@@ -744,6 +777,10 @@ static bool plane_compute_sel_fetch_src(struct intel_plane_state *plane_state)
 				drm_rect_height(&plane_state->uapi.src),
 				drm_rect_width(&plane_state->uapi.src),
 				DRM_MODE_ROTATE_270);
+
+	plane_compute_sel_fetch_surface(plane_state, 0);
+	if (intel_format_info_is_yuv_semiplanar(fb->format, fb->modifier))
+		plane_compute_sel_fetch_surface(plane_state, 1);
 
 	/* Finally make it relative to the plane surface address */
 	drm_rect_translate(&plane_state->sel_fetch.src,

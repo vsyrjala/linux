@@ -1960,8 +1960,8 @@ void intel_psr2_program_plane_sel_fetch_noarm(struct intel_plane *plane,
 	enum pipe pipe = plane->pipe;
 	int crtc_x = plane_state->sel_fetch.dst.x1;
 	int crtc_y = plane_state->sel_fetch.dst.y1;
-	u32 src_x = plane_state->sel_fetch.src.x1 >> 16;
-	u32 src_y = plane_state->sel_fetch.src.y1 >> 16;
+	u32 src_x = plane_state->sel_fetch.color_plane[color_plane].x;
+	u32 src_y = plane_state->sel_fetch.color_plane[color_plane].y;
 	u32 src_w = drm_rect_width(&plane_state->sel_fetch.src) >> 16;
 	u32 src_h = drm_rect_height(&plane_state->sel_fetch.src) >> 16;
 

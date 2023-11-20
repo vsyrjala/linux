@@ -768,6 +768,10 @@ struct intel_plane_state {
 
 	struct {
 		struct drm_rect src, dst;
+
+		struct {
+			unsigned int x, y;
+		} color_plane[2];
 	} sel_fetch;
 
 	/* Clear Color Value */
