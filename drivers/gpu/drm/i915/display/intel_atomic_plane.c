@@ -654,7 +654,8 @@ static void intel_crtc_sel_fetch_accumulate_damage(struct intel_atomic_state *st
 	struct intel_plane *plane;
 	int i;
 
-	if (intel_crtc_needs_modeset(new_crtc_state) ||
+	if (new_crtc_state->pch_pfit.enabled ||
+	    intel_crtc_needs_modeset(new_crtc_state) ||
 	    intel_crtc_needs_fastset(new_crtc_state) ||
 	    intel_crtc_needs_color_update(new_crtc_state)) {
 		new_crtc_state->sel_fetch = rel_pipe_src(new_crtc_state);
