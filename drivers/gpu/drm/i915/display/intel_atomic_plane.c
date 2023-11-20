@@ -654,7 +654,13 @@ static void intel_crtc_sel_fetch_accumulate_damage(struct intel_atomic_state *st
 	struct intel_plane *plane;
 	int i;
 
+	/*
+	 * TODO: Allow smaller selective fetch region with bigjoiner.
+	 * All joined pipes will need the same selective fetch region
+	 * as this is a transcoder level feature.
+	 */
 	if (new_crtc_state->pch_pfit.enabled ||
+	    new_crtc_state->bigjoiner_pipes ||
 	    intel_crtc_needs_modeset(new_crtc_state) ||
 	    intel_crtc_needs_fastset(new_crtc_state) ||
 	    intel_crtc_needs_color_update(new_crtc_state)) {
