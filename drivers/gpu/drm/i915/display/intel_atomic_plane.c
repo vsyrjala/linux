@@ -794,7 +794,7 @@ static bool sel_fetch_process_plane(struct intel_crtc_state *crtc_state,
 	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
 	const struct drm_rect orig_sel_fetch = crtc_state->sel_fetch;
 
-	if (!plane_state->uapi.visible) {
+	if (!plane_state->uapi.visible && !plane_state->planar_slave) {
 		drm_rect_clear(&plane_state->sel_fetch.dst);
 		return false;
 	}
