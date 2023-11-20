@@ -618,19 +618,8 @@ planar_uv_plane_id(const struct intel_plane_state *plane_state)
 
 static bool plane_needs_full_fetch(const struct intel_plane_state *plane_state)
 {
-	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
-	struct drm_i915_private *i915 = to_i915(plane->base.dev);
+	struct drm_i915_private *i915 = to_i915(plane_state->uapi.plane->dev);
 	const struct drm_framebuffer *fb = plane_state->hw.fb;
-
-	/*
-	 * Cursor doesn't have registers for clipped coordinates.
-	 *
-	 * TODO figure out whether the hardware automagically clips the
-	 * cursor to the selective fetch area, or if we need to extend the
-	 * area to fully encopass the cursor. For now this will do the latter.
-	 */
-	if (plane->id == PLANE_CURSOR)
-		return true;
 
 	/* Scaler doesn't support selective fetch */
 	if (intel_plane_is_scaled(plane_state))
@@ -718,6 +707,7 @@ static void plane_compute_sel_fetch_surface(struct intel_plane_state *plane_stat
 
 static bool plane_compute_sel_fetch_src(struct intel_plane_state *plane_state)
 {
+	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
 	const struct drm_framebuffer *fb = plane_state->hw.fb;
 
 	if (!drm_rect_visible(&plane_state->sel_fetch.dst)) {
@@ -726,7 +716,8 @@ static bool plane_compute_sel_fetch_src(struct intel_plane_state *plane_state)
 		return false;
 	}
 
-	if (plane_needs_full_fetch(plane_state)) {
+	/* Cursor doesn't have registers for clipped coordinates */
+	if (plane->id == PLANE_CURSOR || plane_needs_full_fetch(plane_state)) {
 		plane_state->sel_fetch.src = plane_state->uapi.src;
 
 		plane_state->sel_fetch.color_plane[0].x = plane_state->view.color_plane[0].x;
@@ -800,6 +791,7 @@ static bool plane_compute_sel_fetch_src(struct intel_plane_state *plane_state)
 static bool sel_fetch_process_plane(struct intel_crtc_state *crtc_state,
 				    struct intel_plane_state *plane_state)
 {
+	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
 	const struct drm_rect orig_sel_fetch = crtc_state->sel_fetch;
 
 	if (!plane_state->uapi.visible) {
@@ -812,6 +804,16 @@ static bool sel_fetch_process_plane(struct intel_crtc_state *crtc_state,
 
 	if (!drm_rect_visible(&plane_state->sel_fetch.dst))
 		return false;
+
+	/*
+	 * Cursor doesn't have registers for clipped coordinates, but
+	 * hardware will automagically clip the cursor, so no need to
+	 * extend the selective fetch area to cover the entire plane.
+	 */
+	if (plane->id == PLANE_CURSOR) {
+		plane_state->sel_fetch.dst = plane_state->uapi.dst;
+		return false;
+	}
 
 	if (!plane_needs_full_fetch(plane_state))
 		return false;
