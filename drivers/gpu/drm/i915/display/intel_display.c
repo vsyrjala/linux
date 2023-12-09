@@ -7315,6 +7315,29 @@ static void intel_atomic_track_fbs(struct intel_atomic_state *state)
 					plane->frontbuffer_bit);
 }
 
+static bool helper_crtc_active(const struct drm_crtc_state *crtc_state)
+{
+	return to_intel_crtc_state(crtc_state)->hw.active;
+}
+
+static struct drm_crtc *helper_connector_crtc(const struct drm_connector_state *conn_state)
+{
+	return conn_state->crtc;
+}
+
+static struct drm_crtc *helper_plane_crtc(const struct drm_plane_state *plane_state)
+{
+	return to_intel_plane_state(plane_state)->hw.crtc;
+}
+
+static int intel_atomic_setup_commit(struct intel_atomic_state *state, bool nonblock)
+{
+	return drm_atomic_helper_setup_commit_custom(&state->base, nonblock,
+						     helper_crtc_active,
+						     helper_connector_crtc,
+						     helper_plane_crtc);
+}
+
 static int intel_atomic_swap_state(struct intel_atomic_state *state)
 {
 	int ret;
@@ -7377,7 +7400,7 @@ int intel_atomic_commit(struct drm_device *dev, struct drm_atomic_state *_state,
 		return ret;
 	}
 
-	ret = drm_atomic_helper_setup_commit(&state->base, nonblock);
+	ret = intel_atomic_setup_commit(state, nonblock);
 	if (!ret)
 		ret = intel_atomic_swap_state(state);
 
