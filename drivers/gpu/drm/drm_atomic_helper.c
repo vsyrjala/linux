@@ -2224,9 +2224,12 @@ crtc_or_fake_commit(struct drm_atomic_state *state, struct drm_crtc *crtc)
 }
 
 /**
- * drm_atomic_helper_setup_commit - setup possibly nonblocking commit
+ * drm_atomic_helper_setup_commit_custom - setup possibly nonblocking commit
  * @state: new modeset state to be committed
  * @nonblock: whether nonblocking behavior is requested.
+ * @crtc_active: function to determine whether the crtc is active
+ * @connector_crtc: function to determine connector's current crtc
+ * @plane_crtc: function to determine plane's current crtc
  *
  * This function prepares @state to be used by the atomic helper's support for
  * nonblocking commits. Drivers using the nonblocking commit infrastructure
@@ -2264,13 +2267,20 @@ crtc_or_fake_commit(struct drm_atomic_state *state, struct drm_crtc *crtc)
  * explicitly: drm_atomic_state_default_clear() will take care of that
  * automatically.
  *
+ * @crtc_active, @connector_crtc  and @plane_crtc can be used to customize
+ * behaviour for driver specific needs. Use drm_atomic_helper_setup_commit()
+ * if there is no need for custom behaviour.
+ *
  * Returns:
  *
  * 0 on success. -EBUSY when userspace schedules nonblocking commits too fast,
  * -ENOMEM on allocation failures and -EINTR when a signal is pending.
  */
-int drm_atomic_helper_setup_commit(struct drm_atomic_state *state,
-				   bool nonblock)
+int drm_atomic_helper_setup_commit_custom(struct drm_atomic_state *state,
+					  bool nonblock,
+					  bool (*crtc_active)(const struct drm_crtc_state *crtc_state),
+					  struct drm_crtc *(*connector_crtc)(const struct drm_connector_state *conn_state),
+					  struct drm_crtc *(*plane_crtc)(const struct drm_plane_state *plane_state))
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
@@ -2302,7 +2312,7 @@ int drm_atomic_helper_setup_commit(struct drm_atomic_state *state,
 		 * new CRTC state is active. Complete right away if everything
 		 * stays off.
 		 */
-		if (!old_crtc_state->active && !new_crtc_state->active) {
+		if (!crtc_active(old_crtc_state) && !crtc_active(new_crtc_state)) {
 			complete_all(&commit->flip_done);
 			continue;
 		}
@@ -2347,7 +2357,8 @@ int drm_atomic_helper_setup_commit(struct drm_atomic_state *state,
 		}
 
 		/* Always track connectors explicitly for e.g. link retraining. */
-		commit = crtc_or_fake_commit(state, new_conn_state->crtc ?: old_conn_state->crtc);
+		commit = crtc_or_fake_commit(state, connector_crtc(new_conn_state) ?:
+					     connector_crtc(old_conn_state));
 		if (!commit)
 			return -ENOMEM;
 
@@ -2369,7 +2380,8 @@ int drm_atomic_helper_setup_commit(struct drm_atomic_state *state,
 		}
 
 		/* Always track planes explicitly for async pageflip support. */
-		commit = crtc_or_fake_commit(state, new_plane_state->crtc ?: old_plane_state->crtc);
+		commit = crtc_or_fake_commit(state, plane_crtc(new_plane_state) ?:
+					     plane_crtc(old_plane_state));
 		if (!commit)
 			return -ENOMEM;
 
@@ -2380,6 +2392,31 @@ int drm_atomic_helper_setup_commit(struct drm_atomic_state *state,
 		return funcs->atomic_commit_setup(state);
 
 	return 0;
+}
+EXPORT_SYMBOL(drm_atomic_helper_setup_commit_custom);
+
+static bool crtc_active(const struct drm_crtc_state *crtc_state)
+{
+	return crtc_state->active;
+}
+
+static struct drm_crtc *connector_crtc(const struct drm_connector_state *conn_state)
+{
+	return conn_state->crtc;
+}
+
+static struct drm_crtc *plane_crtc(const struct drm_plane_state *plane_state)
+{
+	return plane_state->crtc;
+}
+
+int drm_atomic_helper_setup_commit(struct drm_atomic_state *state,
+				   bool nonblock)
+{
+	return drm_atomic_helper_setup_commit_custom(state, nonblock,
+						     crtc_active,
+						     connector_crtc,
+						     plane_crtc);
 }
 EXPORT_SYMBOL(drm_atomic_helper_setup_commit);
 

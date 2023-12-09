@@ -116,6 +116,11 @@ int __must_check drm_atomic_helper_swap_state(struct drm_atomic_state *state,
 					      bool stall);
 
 /* nonblocking commit helpers */
+int drm_atomic_helper_setup_commit_custom(struct drm_atomic_state *state,
+					  bool nonblock,
+					  bool (*crtc_active)(const struct drm_crtc_state *crtc_state),
+					  struct drm_crtc *(*connector_crtc)(const struct drm_connector_state *conn_state),
+					  struct drm_crtc *(*plane_crtc)(const struct drm_plane_state *plane_state));
 int drm_atomic_helper_setup_commit(struct drm_atomic_state *state,
 				   bool nonblock);
 void drm_atomic_helper_wait_for_dependencies(struct drm_atomic_state *state);
