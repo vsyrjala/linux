@@ -4453,6 +4453,7 @@ copy_bigjoiner_crtc_state_nomodeset(struct intel_atomic_state *state,
 				  master_crtc_state->hw.ctm);
 
 	slave_crtc_state->uapi.color_mgmt_changed = master_crtc_state->uapi.color_mgmt_changed;
+	slave_crtc_state->uapi.async_flip = master_crtc_state->uapi.async_flip;
 }
 
 static int
