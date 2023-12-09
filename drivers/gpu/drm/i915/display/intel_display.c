@@ -4481,7 +4481,7 @@ copy_bigjoiner_crtc_state_modeset(struct intel_atomic_state *state,
 	saved_state->crc_enabled = slave_crtc_state->crc_enabled;
 
 	intel_crtc_free_hw_state(slave_crtc_state);
-	memcpy(slave_crtc_state, saved_state, sizeof(*slave_crtc_state));
+	*slave_crtc_state = *saved_state;
 	kfree(saved_state);
 
 	/* Re-init hw state */
@@ -4541,7 +4541,7 @@ intel_crtc_prepare_cleared_state(struct intel_atomic_state *state,
 	    IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
 		saved_state->wm = crtc_state->wm;
 
-	memcpy(crtc_state, saved_state, sizeof(*crtc_state));
+	*crtc_state = *saved_state;
 	kfree(saved_state);
 
 	intel_crtc_copy_uapi_to_hw_state_modeset(state, crtc);

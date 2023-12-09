@@ -355,8 +355,7 @@ void intel_plane_copy_hw_state(struct intel_plane_state *plane_state,
 {
 	intel_plane_clear_hw_state(plane_state);
 
-	memcpy(&plane_state->hw, &from_plane_state->hw,
-	       sizeof(plane_state->hw));
+	plane_state->hw = from_plane_state->hw;
 
 	if (plane_state->hw.fb)
 		drm_framebuffer_get(plane_state->hw.fb);
