@@ -826,6 +826,57 @@ static bool sel_fetch_process_plane(struct intel_crtc_state *crtc_state,
 	return !drm_rect_equals(&orig_sel_fetch, &crtc_state->sel_fetch);
 }
 
+static void cursor_sel_fetch_enable_wa(struct intel_atomic_state *state,
+				       struct intel_crtc *crtc)
+{
+	struct intel_plane *plane = to_intel_plane(crtc->base.cursor);
+	const struct intel_plane_state *plane_state =
+		intel_atomic_get_new_plane_state(state, plane);
+	struct intel_crtc_state *crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+	struct drm_rect r;
+
+	/*
+	 * Wa_14017110345
+	 * "SEL_FETCH_CUR_CTL is not disabling cursor in selective fetch frames"
+	 *
+	 * Extend the selective fetch area minimally to cover the cursor.
+	 * This makes SEL_FETCH_CUR_CTL.enable match CUR_CTL.enable.
+	 */
+
+	/* Already included? */
+	if (drm_rect_visible(&plane_state->sel_fetch.dst))
+		return;
+
+	if (drm_rect_visible(&crtc_state->sel_fetch)) {
+		/*
+		 * Find the nearest pixel of the
+		 * cursor to the damaged area.
+		 */
+		r.x1 = crtc_state->sel_fetch.x1;
+		r.x1 = max(r.x1, plane_state->uapi.dst.x1);
+		r.x1 = min(r.x1, plane_state->uapi.dst.x2 - 1);
+
+		r.y1 = crtc_state->sel_fetch.y1;
+		r.y1 = max(r.y1, plane_state->uapi.dst.y1);
+		r.y1 = min(r.y1, plane_state->uapi.dst.y2 - 1);
+	} else {
+		/*
+		 * No damage? Arbitrarily pick the
+		 * top left pixel of the cursor then.
+		 */
+		r.x1 = plane_state->uapi.dst.x1;
+		r.y1 = plane_state->uapi.dst.y1;
+	}
+
+	r.x2 = r.x1 + 1;
+	r.y2 = r.y1 + 1;
+
+	drm_rect_union(&crtc_state->sel_fetch, &r);
+
+	sel_fetch_align(crtc_state);
+}
+
 int intel_crtc_compute_sel_fetch(struct intel_atomic_state *state,
 				 struct intel_crtc *crtc);
 
@@ -853,6 +904,9 @@ int intel_crtc_compute_sel_fetch(struct intel_atomic_state *state,
 					     new_crtc_state->active_planes);
 	if (ret)
 		return ret;
+
+	if (new_crtc_state->active_planes & BIT(PLANE_CURSOR))
+		cursor_sel_fetch_enable_wa(state, crtc);
 
 	do {
 		do {
