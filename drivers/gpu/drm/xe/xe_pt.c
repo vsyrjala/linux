@@ -108,11 +108,11 @@ struct xe_pt *xe_pt_create(struct xe_vm *vm, struct xe_tile *tile,
 	pt->level = level;
 	bo = xe_bo_create_pin_map(vm->xe, tile, vm, SZ_4K,
 				  ttm_bo_type_kernel,
-				  XE_BO_CREATE_VRAM_IF_DGFX(tile) |
-				  XE_BO_CREATE_IGNORE_MIN_PAGE_SIZE_BIT |
-				  XE_BO_CREATE_PINNED_BIT |
-				  XE_BO_CREATE_NO_RESV_EVICT |
-				  XE_BO_PAGETABLE);
+				  XE_BO_FLAG_VRAM_IF_DGFX(tile) |
+				  XE_BO_FLAG_IGNORE_MIN_PAGE_SIZE |
+				  XE_BO_FLAG_PINNED |
+				  XE_BO_FLAG_NO_RESV_EVICT |
+				  XE_BO_FLAG_PAGETABLE);
 	if (IS_ERR(bo)) {
 		err = PTR_ERR(bo);
 		goto err_kfree;
@@ -618,7 +618,7 @@ xe_pt_stage_bind(struct xe_tile *tile, struct xe_vma *vma,
 	struct xe_pt *pt = xe_vma_vm(vma)->pt_root[tile->id];
 	int ret;
 
-	if (vma && (vma->gpuva.flags & XE_VMA_ATOMIC_PTE_BIT) &&
+	if ((vma->gpuva.flags & XE_VMA_ATOMIC_PTE_BIT) &&
 	    (is_devmem || !IS_DGFX(xe)))
 		xe_walk.default_pte |= XE_USM_PPGTT_PTE_AE;
 
