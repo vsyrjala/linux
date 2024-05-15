@@ -79,10 +79,11 @@ static void dpt_insert_entries(struct i915_address_space *vm,
 		gen8_pte_t *p = &base[i];
 
 		gen8_set_pte(p, pte_encode | addr);
-		drm_err(&vm->i915->drm, "obj %p bind into dpt %p: 0x%llx = 0x%llx (readback 0x%llx)\n",
-			vma_res->obj, dpt,
-			(p - base) * I915_GTT_PAGE_SIZE,
-			pte_encode | addr, readq(p));
+		if (i == vma_res->start / I915_GTT_PAGE_SIZE)
+			drm_err(&vm->i915->drm, "obj %p bind into dpt %p: 0x%llx = 0x%llx (readback 0x%llx)\n",
+				vma_res->obj, dpt,
+				(p - base) * I915_GTT_PAGE_SIZE,
+				pte_encode | addr, readq(p));
 		i++;
 	}
 }
