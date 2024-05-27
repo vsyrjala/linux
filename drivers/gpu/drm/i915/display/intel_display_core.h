@@ -268,7 +268,8 @@ struct intel_wm {
 		struct g4x_wm_values g4x;
 	};
 
-	u8 num_levels;
+	u8 num_levels; /* hw */
+	u8 num_levels_limit; /* sw */
 
 	/*
 	 * Should be held around atomic WM register writing; also
