@@ -734,6 +734,9 @@ static unsigned int skl_wm_latency(struct drm_i915_private *i915, int level,
 	if (latency == 0)
 		return 0;
 
+	if (level >= i915->display.wm.num_levels_limit)
+		return 0;
+
 	/*
 	 * WaIncreaseLatencyIPCEnabled: kbl,cfl
 	 * Display WA #1141: kbl,cfl
@@ -3379,6 +3382,8 @@ static void skl_setup_wm_latency(struct drm_i915_private *i915)
 		i915->display.wm.num_levels = 6;
 	else
 		i915->display.wm.num_levels = 8;
+
+	i915->display.wm.num_levels_limit = i915->display.wm.num_levels;
 
 	if (DISPLAY_VER(i915) >= 14)
 		mtl_read_wm_latency(i915, i915->display.wm.skl_latency);
