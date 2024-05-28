@@ -447,6 +447,10 @@ static void intel_dsb_emit_wait_dsl(struct intel_dsb *dsb,
 	window = ((u64)upper << DSB_SCANLINE_UPPER_SHIFT) |
 		((u64)lower << DSB_SCANLINE_LOWER_SHIFT);
 
+	DRM_DEBUG_KMS("%d %d -> 0x%08llx\n", lower, upper, window);
+
+	DRM_DEBUG_KMS("%x / %x / %x\n", opcode, upper_32_bits(window), lower_32_bits(window));
+
 	intel_dsb_emit(dsb, lower_32_bits(window),
 		       (opcode << DSB_OPCODE_SHIFT) |
 		       upper_32_bits(window));
@@ -465,12 +469,21 @@ static void intel_dsb_wait_dsl(struct intel_atomic_state *state,
 	lower_out = dsb_scanline_to_hw(state, crtc, lower_out);
 	upper_out = dsb_scanline_to_hw(state, crtc, upper_out);
 
+	drm_dbg_kms(dsb->crtc->base.dev, "dsl in range %d %d\n", lower_in, upper_in);
+	drm_dbg_kms(dsb->crtc->base.dev, "dsl out range %d %d\n", lower_out, upper_out);
+
 	if (upper_in >= lower_in)
+	{
+		drm_dbg_kms(dsb->crtc->base.dev, "dsl in\n");
 		intel_dsb_emit_wait_dsl(dsb, DSB_OPCODE_WAIT_DSL_IN,
 					lower_in, upper_in);
+	}
 	else if (upper_out >= lower_out)
+	{
+		drm_dbg_kms(dsb->crtc->base.dev, "dsl out\n");
 		intel_dsb_emit_wait_dsl(dsb, DSB_OPCODE_WAIT_DSL_OUT,
 					lower_out, upper_out);
+	}
 	else
 		drm_WARN_ON(crtc->base.dev, 1); /* assert_dsl_ok() should have caught it already */
 }
@@ -505,6 +518,8 @@ void intel_dsb_wait_scanline_in(struct intel_atomic_state *state,
 {
 	assert_dsl_ok(state, dsb, start, end);
 
+	drm_dbg_kms(dsb->crtc->base.dev, "wait dsl in %d %d\n", start, end);
+
 	intel_dsb_wait_dsl(state, dsb,
 			   start, end,
 			   end + 1, start - 1);
@@ -515,6 +530,8 @@ void intel_dsb_wait_scanline_out(struct intel_atomic_state *state,
 				 int start, int end)
 {
 	assert_dsl_ok(state, dsb, start, end);
+
+	drm_dbg_kms(dsb->crtc->base.dev, "wait dsl out %d %d\n", start, end);
 
 	intel_dsb_wait_dsl(state, dsb,
 			   end + 1, start - 1,
