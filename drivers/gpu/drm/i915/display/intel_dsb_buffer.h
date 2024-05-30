@@ -17,7 +17,7 @@ struct intel_dsb_buffer {
 	size_t buf_size;
 };
 
-u32 intel_dsb_buffer_ggtt_offset(struct intel_dsb_buffer *dsb_buf);
+u32 intel_dsb_buffer_ggtt_offset(const struct intel_dsb_buffer *dsb_buf);
 void intel_dsb_buffer_write(struct intel_dsb_buffer *dsb_buf, u32 idx, u32 val);
 u32 intel_dsb_buffer_read(struct intel_dsb_buffer *dsb_buf, u32 idx);
 void intel_dsb_buffer_memset(struct intel_dsb_buffer *dsb_buf, u32 idx, u32 val, size_t size);

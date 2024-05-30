@@ -11,7 +11,7 @@
 #include "xe_device_types.h"
 #include "xe_gt.h"
 
-u32 intel_dsb_buffer_ggtt_offset(struct intel_dsb_buffer *dsb_buf)
+u32 intel_dsb_buffer_ggtt_offset(const struct intel_dsb_buffer *dsb_buf)
 {
 	return xe_bo_ggtt_addr(dsb_buf->vma->bo);
 }

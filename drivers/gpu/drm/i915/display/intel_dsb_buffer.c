@@ -10,7 +10,7 @@
 #include "intel_display_types.h"
 #include "intel_dsb_buffer.h"
 
-u32 intel_dsb_buffer_ggtt_offset(struct intel_dsb_buffer *dsb_buf)
+u32 intel_dsb_buffer_ggtt_offset(const struct intel_dsb_buffer *dsb_buf)
 {
 	return i915_ggtt_offset(dsb_buf->vma);
 }
