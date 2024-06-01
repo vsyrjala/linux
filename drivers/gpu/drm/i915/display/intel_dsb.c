@@ -42,6 +42,7 @@ struct intel_dsb {
 	 */
 	unsigned int ins_start_offset;
 
+	u32 chicken;
 	int dewake_scanline;
 };
 
@@ -281,6 +282,185 @@ void intel_dsb_nonpost_end(struct intel_dsb *dsb)
 	intel_dsb_noop(dsb, 4);
 }
 
+static bool pre_commit_is_vrr_active(struct intel_atomic_state *state,
+				     struct intel_crtc *crtc)
+{
+	const struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(state, crtc);
+	const struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+
+	/* VRR will be enabled afterwards, if necessary */
+	if (intel_crtc_needs_modeset(new_crtc_state))
+		return false;
+
+	/* VRR will have been disabled during intel_pre_plane_update() */
+	return old_crtc_state->vrr.enable && !intel_crtc_vrr_disabling(state, crtc);
+}
+
+static const struct intel_crtc_state *pre_commit_crtc_state(struct intel_atomic_state *state,
+							    struct intel_crtc *crtc)
+{
+	const struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(state, crtc);
+	const struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+
+	/*
+	 * During fastsets/etc. the transcoder is still
+	 * running with the old timings at this point.
+	 */
+	if (intel_crtc_needs_modeset(new_crtc_state))
+		return new_crtc_state;
+	else
+		return old_crtc_state;
+}
+
+static int dsb_scanline_to_hw(struct intel_atomic_state *state,
+			      struct intel_crtc *crtc, int scanline)
+{
+	const struct intel_crtc_state *crtc_state =
+		pre_commit_crtc_state(state, crtc);
+	int vtotal;
+
+	if (pre_commit_is_vrr_active(state, crtc))
+		vtotal = crtc_state->vrr.vmax;
+	else
+		vtotal = intel_mode_vtotal(&crtc_state->hw.adjusted_mode);
+
+	return (scanline + vtotal - intel_crtc_scanline_offset(crtc_state)) % vtotal;
+}
+
+static int dsb_vblank_start(struct intel_atomic_state *state,
+			    struct intel_crtc *crtc)
+{
+	const struct intel_crtc_state *crtc_state =
+		pre_commit_crtc_state(state, crtc);
+	int vblank_start;
+
+	if (pre_commit_is_vrr_active(state, crtc))
+		vblank_start = intel_vrr_vmin_vblank_start(crtc_state);
+	else
+		vblank_start = intel_mode_vblank_start(&crtc_state->hw.adjusted_mode);
+
+	return dsb_scanline_to_hw(state, crtc, vblank_start);
+}
+
+static int dsb_dewake_scanline(struct intel_atomic_state *state,
+			       struct intel_crtc *crtc)
+{
+	struct drm_i915_private *i915 = to_i915(state->base.dev);
+	unsigned int latency = skl_watermark_max_latency(i915, 0);
+	const struct intel_crtc_state *crtc_state =
+		pre_commit_crtc_state(state, crtc);
+	int vblank_start, dewake_scanline;
+
+	if (pre_commit_is_vrr_active(state, crtc))
+		vblank_start = intel_vrr_vmin_vblank_start(crtc_state);
+	else
+		vblank_start = intel_mode_vblank_start(&crtc_state->hw.adjusted_mode);
+
+	dewake_scanline = vblank_start -
+		intel_usecs_to_scanlines(&crtc_state->hw.adjusted_mode, latency);
+
+	return dsb_scanline_to_hw(state, crtc, dewake_scanline);
+}
+
+static u32 dsb_chicken(struct intel_atomic_state *state,
+		       struct intel_crtc *crtc)
+{
+	if (pre_commit_is_vrr_active(state, crtc))
+		return DSB_SKIP_WAITS_EN |
+			DSB_CTRL_WAIT_SAFE_WINDOW |
+			DSB_CTRL_NO_WAIT_VBLANK |
+			DSB_INST_WAIT_SAFE_WINDOW |
+			DSB_INST_NO_WAIT_VBLANK;
+	else
+		return DSB_SKIP_WAITS_EN;
+}
+
+static void intel_dsb_emit_wait_dsl(struct intel_dsb *dsb,
+				    u32 opcode, int lower, int upper)
+{
+	u64 window;
+
+	window = ((u64)upper << DSB_SCANLINE_UPPER_SHIFT) |
+		((u64)lower << DSB_SCANLINE_LOWER_SHIFT);
+
+	intel_dsb_emit(dsb, lower_32_bits(window),
+		       (opcode << DSB_OPCODE_SHIFT) |
+		       upper_32_bits(window));
+}
+
+static void intel_dsb_wait_dsl(struct intel_atomic_state *state,
+			       struct intel_dsb *dsb,
+			       int lower_in, int upper_in,
+			       int lower_out, int upper_out)
+{
+	struct intel_crtc *crtc = dsb->crtc;
+
+	lower_in = dsb_scanline_to_hw(state, crtc, lower_in);
+	upper_in = dsb_scanline_to_hw(state, crtc, upper_in);
+
+	lower_out = dsb_scanline_to_hw(state, crtc, lower_out);
+	upper_out = dsb_scanline_to_hw(state, crtc, upper_out);
+
+	if (upper_in >= lower_in)
+		intel_dsb_emit_wait_dsl(dsb, DSB_OPCODE_WAIT_DSL_IN,
+					lower_in, upper_in);
+	else if (upper_out >= lower_out)
+		intel_dsb_emit_wait_dsl(dsb, DSB_OPCODE_WAIT_DSL_OUT,
+					lower_out, upper_out);
+	else
+		drm_WARN_ON(crtc->base.dev, 1); /* assert_dsl_ok() should have caught it already */
+}
+
+static void assert_dsl_ok(struct intel_atomic_state *state,
+			  struct intel_dsb *dsb,
+			  int start, int end)
+{
+	struct intel_crtc *crtc = dsb->crtc;
+	const struct intel_crtc_state *crtc_state =
+		pre_commit_crtc_state(state, crtc);
+	int vtotal;
+
+	if (pre_commit_is_vrr_active(state, crtc))
+		vtotal = crtc_state->vrr.vmax;
+	else
+		vtotal = intel_mode_vtotal(&crtc_state->hw.adjusted_mode);
+
+	/*
+	 * Waiting for the entire frame doesn't make sense,
+	 * (IN==don't wait, OUT=wait forever).
+	 */
+	drm_WARN(crtc->base.dev, (end - start + vtotal) % vtotal == vtotal - 1,
+		 "[CRTC:%d:%s] DSB %d bad scanline window wait: %d-%d (vt=%d)\n",
+		 crtc->base.base.id, crtc->base.name, dsb->id,
+		 start, end, vtotal);
+}
+
+void intel_dsb_wait_scanline_in(struct intel_atomic_state *state,
+				struct intel_dsb *dsb,
+				int start, int end)
+{
+	assert_dsl_ok(state, dsb, start, end);
+
+	intel_dsb_wait_dsl(state, dsb,
+			   start, end,
+			   end + 1, start - 1);
+}
+
+void intel_dsb_wait_scanline_out(struct intel_atomic_state *state,
+				 struct intel_dsb *dsb,
+				 int start, int end)
+{
+	assert_dsl_ok(state, dsb, start, end);
+
+	intel_dsb_wait_dsl(state, dsb,
+			   end + 1, start - 1,
+			   start, end);
+}
+
 static void intel_dsb_align_tail(struct intel_dsb *dsb)
 {
 	u32 aligned_tail, tail;
@@ -310,35 +490,6 @@ void intel_dsb_finish(struct intel_dsb *dsb)
 	intel_dsb_align_tail(dsb);
 
 	intel_dsb_buffer_flush_map(&dsb->dsb_buf);
-}
-
-static int intel_dsb_dewake_scanline(const struct intel_crtc_state *crtc_state)
-{
-	struct drm_i915_private *i915 = to_i915(crtc_state->uapi.crtc->dev);
-	const struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
-	unsigned int latency = skl_watermark_max_latency(i915, 0);
-	int vblank_start, dewake_scanline;
-
-	if (crtc_state->vrr.enable)
-		vblank_start = intel_vrr_vmin_vblank_start(crtc_state);
-	else
-		vblank_start = intel_mode_vblank_start(adjusted_mode);
-
-	dewake_scanline = max(0, vblank_start - intel_usecs_to_scanlines(adjusted_mode, latency));
-
-	return intel_crtc_scanline_to_hw(crtc_state, dewake_scanline);
-}
-
-static u32 dsb_chicken(struct intel_crtc *crtc)
-{
-	if (crtc->mode_flags & I915_MODE_FLAG_VRR)
-		return DSB_SKIP_WAITS_EN |
-			DSB_CTRL_WAIT_SAFE_WINDOW |
-			DSB_CTRL_NO_WAIT_VBLANK |
-			DSB_INST_WAIT_SAFE_WINDOW |
-			DSB_INST_NO_WAIT_VBLANK;
-	else
-		return DSB_SKIP_WAITS_EN;
 }
 
 static u32 dsb_error_int_status(struct intel_display *display)
@@ -377,6 +528,77 @@ static u32 dsb_error_int_en(struct intel_display *display)
 	return errors;
 }
 
+static void _intel_dsb_chain(struct intel_atomic_state *state,
+			     struct intel_dsb *dsb,
+			     const struct intel_dsb *chained_dsb,
+			     u32 ctrl,
+			     int vblank_start,
+			     int dewake_scanline,
+			     int repeat_count)
+{
+	struct intel_display *display = to_intel_display(state->base.dev);
+	struct intel_crtc *crtc = dsb->crtc;
+	enum pipe pipe = crtc->pipe;
+	u32 tail;
+
+	if (drm_WARN_ON(display->drm, dsb->id == chained_dsb->id))
+		return;
+
+	tail = chained_dsb->free_pos * 4;
+	if (drm_WARN_ON(display->drm, !IS_ALIGNED(tail, CACHELINE_BYTES)))
+		return;
+
+	intel_dsb_reg_write(dsb, DSB_CTRL(pipe, chained_dsb->id),
+			    ctrl | DSB_ENABLE);
+
+	/* FIXME is VRR on or off at this point? */
+	intel_dsb_reg_write(dsb, DSB_CHICKEN(pipe, chained_dsb->id),
+			    dsb_chicken(state, crtc));
+
+	intel_dsb_reg_write(dsb, DSB_BUFRPT_CNT(pipe, chained_dsb->id),
+			    repeat_count);
+
+	intel_dsb_reg_write(dsb, DSB_HEAD(pipe, chained_dsb->id),
+			    intel_dsb_buffer_ggtt_offset(&chained_dsb->dsb_buf));
+
+	intel_dsb_reg_write(dsb, DSB_INTERRUPT(pipe, chained_dsb->id),
+			    dsb_error_int_status(display) | DSB_PROG_INT_STATUS |
+			    dsb_error_int_en(display));
+
+	if (dewake_scanline >= 0)
+		intel_dsb_reg_write(dsb, DSB_PMCTRL(pipe, chained_dsb->id),
+				    DSB_ENABLE_DEWAKE |
+				    DSB_SCANLINE_FOR_DEWAKE(dewake_scanline));
+
+	intel_dsb_reg_write(dsb, DSB_TAIL(pipe, chained_dsb->id),
+			    intel_dsb_buffer_ggtt_offset(&chained_dsb->dsb_buf) + tail);
+
+	if (dewake_scanline >= 0) {
+		/*
+		 * Keep DEwake alive via the first DSB, in
+		 * case we're already past dewake_scanline
+		 * (and thus DSB_ENABLE_DEWAKE won't do its job).
+		 */
+		intel_dsb_reg_write_masked(dsb, DSB_PMCTRL_2(pipe, dsb->id),
+					   DSB_FORCE_DEWAKE, DSB_FORCE_DEWAKE);
+
+		intel_dsb_wait_scanline_out(state, dsb,
+					    dewake_scanline, vblank_start);
+	}
+}
+
+void intel_dsb_chain(struct intel_atomic_state *state,
+		     struct intel_dsb *dsb,
+		     const struct intel_dsb *chained_dsb,
+		     bool wait_for_vblank)
+{
+	_intel_dsb_chain(state, dsb, chained_dsb,
+			 wait_for_vblank ? DSB_WAIT_FOR_VBLANK : 0,
+			 wait_for_vblank ? dsb_vblank_start(state, dsb->crtc) : -1,
+			 wait_for_vblank ? dsb_dewake_scanline(state, dsb->crtc) : -1,
+			 0);
+}
+
 static void _intel_dsb_commit(struct intel_dsb *dsb, u32 ctrl,
 			      int dewake_scanline)
 {
@@ -400,7 +622,7 @@ static void _intel_dsb_commit(struct intel_dsb *dsb, u32 ctrl,
 			  ctrl | DSB_ENABLE);
 
 	intel_de_write_fw(display, DSB_CHICKEN(pipe, dsb->id),
-			  dsb_chicken(crtc));
+			  dsb->chicken);
 
 	intel_de_write_fw(display, DSB_INTERRUPT(pipe, dsb->id),
 			  dsb_error_int_status(display) | DSB_PROG_INT_STATUS |
@@ -497,8 +719,6 @@ struct intel_dsb *intel_dsb_prepare(struct intel_atomic_state *state,
 				    unsigned int max_cmds)
 {
 	struct drm_i915_private *i915 = to_i915(state->base.dev);
-	const struct intel_crtc_state *crtc_state =
-		intel_atomic_get_new_crtc_state(state, crtc);
 	intel_wakeref_t wakeref;
 	struct intel_dsb *dsb;
 	unsigned int size;
@@ -532,7 +752,9 @@ struct intel_dsb *intel_dsb_prepare(struct intel_atomic_state *state,
 	dsb->size = size / 4; /* in dwords */
 	dsb->free_pos = 0;
 	dsb->ins_start_offset = 0;
-	dsb->dewake_scanline = intel_dsb_dewake_scanline(crtc_state);
+
+	dsb->chicken = dsb_chicken(state, crtc);
+	dsb->dewake_scanline = dsb_dewake_scanline(state, crtc);
 
 	return dsb;
 
