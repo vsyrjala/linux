@@ -319,6 +319,12 @@ void intel_dsb_poll(struct intel_dsb *dsb,
 	intel_dsb_emit_poll(dsb, reg, mask, val, 2, 50);
 }
 
+void intel_dsb_interrupt(struct intel_dsb *dsb)
+{
+	intel_dsb_emit(dsb, 0,
+		       DSB_OPCODE_INTERRUPT << DSB_OPCODE_SHIFT);
+}
+
 static bool pre_commit_is_vrr_active(struct intel_atomic_state *state,
 				     struct intel_crtc *crtc)
 {
@@ -614,7 +620,7 @@ static void _intel_dsb_chain(struct intel_atomic_state *state,
 
 	intel_dsb_reg_write(dsb, DSB_INTERRUPT(pipe, chained_dsb->id),
 			    dsb_error_int_status(display) | DSB_PROG_INT_STATUS |
-			    dsb_error_int_en(display));
+			    dsb_error_int_en(display) | DSB_PROG_INT_EN);
 
 	if (dewake_scanline >= 0)
 		intel_dsb_reg_write(dsb, DSB_PMCTRL(pipe, chained_dsb->id),
@@ -677,7 +683,7 @@ static void _intel_dsb_commit(struct intel_dsb *dsb, u32 ctrl,
 
 	intel_de_write_fw(display, DSB_INTERRUPT(pipe, dsb->id),
 			  dsb_error_int_status(display) | DSB_PROG_INT_STATUS |
-			  dsb_error_int_en(display));
+			  dsb_error_int_en(display) | DSB_PROG_INT_EN);
 
 	intel_de_write_fw(display, DSB_HEAD(pipe, dsb->id),
 			  intel_dsb_buffer_ggtt_offset(&dsb->dsb_buf));
@@ -831,6 +837,28 @@ void intel_dsb_cleanup(struct intel_dsb *dsb)
 {
 	intel_dsb_buffer_cleanup(&dsb->dsb_buf);
 	kfree(dsb);
+}
+
+void intel_dsb_setup(struct intel_display *display)
+{
+	init_waitqueue_head(&display->dsb.wait_queue);
+}
+
+void intel_dsb_wait_interrupt(struct intel_dsb *dsb)
+{
+	struct intel_crtc *crtc = dsb->crtc;
+	struct intel_display *display = to_intel_display(crtc->base.dev);
+	DEFINE_WAIT(wait);
+
+	add_wait_queue(&display->dsb.wait_queue, &wait);
+
+	/* FIXME need something fancier here */
+	if (wait_for(!is_dsb_busy(display, crtc->pipe, dsb->id), 1000))
+		drm_err(display->drm,
+			"[CRTC:%d:%s] DSB %d timed out waiting for interrupt\n",
+			crtc->base.base.id, crtc->base.name, dsb->id);
+
+	remove_wait_queue(&display->dsb.wait_queue, &wait);
 }
 
 void intel_dsb_irq_handler(struct intel_display *display,

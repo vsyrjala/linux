@@ -39,6 +39,7 @@
 #include "intel_dp_tunnel.h"
 #include "intel_dpll.h"
 #include "intel_dpll_mgr.h"
+#include "intel_dsb.h"
 #include "intel_fb.h"
 #include "intel_fbc.h"
 #include "intel_fbdev.h"
@@ -422,6 +423,8 @@ int intel_display_driver_probe_nogem(struct drm_i915_private *i915)
 
 	if (!HAS_DISPLAY(i915))
 		return 0;
+
+	intel_dsb_setup(&i915->display);
 
 	intel_wm_init(i915);
 

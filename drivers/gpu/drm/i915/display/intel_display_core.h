@@ -379,6 +379,10 @@ struct intel_display {
 	} dmc;
 
 	struct {
+		wait_queue_head_t wait_queue;
+	} dsb;
+
+	struct {
 		/* VLV/CHV/BXT/GLK DSI MMIO register base address */
 		u32 mmio_base;
 	} dsi;
