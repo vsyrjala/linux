@@ -1368,7 +1368,7 @@ static int test_reiterate(struct dsb_test_data *d)
 	ret = -EINVAL;
 
 	/* 0 == 2^32, don't want to wait that long */
-	for (count = 1; count <= 5; count++) {
+	for (count = 0; count <= 5; count++) {
 		struct intel_dsb *dsb;
 
 		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, 512);
