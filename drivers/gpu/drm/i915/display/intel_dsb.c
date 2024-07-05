@@ -22,6 +22,8 @@
 #include "skl_universal_plane_regs.h"
 #include "skl_watermark.h"
 
+#include "intel_color_regs.h"
+
 #define CACHELINE_BYTES 64
 
 struct intel_dsb {
@@ -1120,32 +1122,57 @@ static int test_noop(struct dsb_test_data *d)
 
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		struct intel_dsb *dsb;
+		struct intel_dsb *dsb2;
 		ktime_t pre, post;
+		u32 surf = intel_de_read_fw(i915, PLANE_SURF(crtc->pipe, 0));
 
-		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, counts[i] + 64);
+		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, 1024);
 		if (!dsb)
 			goto restore;
 
 		/* FIXME come up with something to check. Duration of noops? */
-		intel_dsb_noop(dsb, counts[i]);
+		for (int r = 0; r < 256; r++) {
+			intel_dsb_reg_write(dsb, LGC_PALETTE(crtc->pipe, r), 0);
+			intel_dsb_reg_write(dsb, LGC_PALETTE(crtc->pipe, r), 0);
+		}
 
 		intel_dsb_finish(dsb);
 		if (counts[i] == 1)
 			intel_dsb_dump(dsb);
 
+		dsb2 = intel_dsb_prepare(d->state, crtc, INTEL_DSB_1, 1024);
+		if (!dsb2) {
+			intel_dsb_cleanup(dsb);
+			goto restore;
+		}
+
+#define NREG 256
+		for (int r = 0; r < NREG; r++)
+			intel_dsb_reg_write(dsb2, PLANE_SURF(crtc->pipe, 0), surf);
+
+		intel_dsb_finish(dsb2);
+		if (counts[i] == 1)
+			intel_dsb_dump(dsb2);
+
 		/* TODO use flip timestamps to check here too? */
 		pre = ktime_get();
 
-		_intel_dsb_commit(dsb, 0, -1, 0);
+		//_intel_dsb_commit(dsb, 0, -1, 0);
+		_intel_dsb_commit(dsb, DSB_BUF_REITERATE, -1, 0);
+		_intel_dsb_commit(dsb2, DSB_BUF_REITERATE, -1, 0);
 		_intel_dsb_wait_inf(dsb);
+		_intel_dsb_wait_inf(dsb2);
 		intel_dsb_wait(dsb);
+		intel_dsb_wait(dsb2);
 
 		post = ktime_get();
 
 		intel_dsb_cleanup(dsb);
+		intel_dsb_cleanup(dsb2);
 
 		drm_dbg_kms(&i915->drm, "%s: %d NOOPs took %lld usecs\n",
 			    d->name, counts[i], ktime_us_delta(post, pre));
+		break;
 	}
 
 	ret = 0;
