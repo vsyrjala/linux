@@ -23,6 +23,10 @@
 #include "xe_sriov_types.h"
 #include "xe_step_types.h"
 
+#if IS_ENABLED(CONFIG_DRM_XE_DEBUG)
+#define TEST_VM_OPS_ERROR
+#endif
+
 #if IS_ENABLED(CONFIG_DRM_XE_DISPLAY)
 #include "soc/intel_pch.h"
 #include "intel_display_core.h"
@@ -463,7 +467,7 @@ struct xe_device {
 	/** @heci_gsc: graphics security controller */
 	struct xe_heci_gsc heci_gsc;
 
-	/** @oa: oa perf counter subsystem */
+	/** @oa: oa observation subsystem */
 	struct xe_oa oa;
 
 	/** @needs_flr_on_fini: requests function-reset on fini */
@@ -476,6 +480,14 @@ struct xe_device {
 		/** @wedged.mode: Mode controlled by kernel parameter and debugfs */
 		int mode;
 	} wedged;
+
+#ifdef TEST_VM_OPS_ERROR
+	/**
+	 * @vm_inject_error_position: inject errors at different places in VM
+	 * bind IOCTL based on this value
+	 */
+	u8 vm_inject_error_position;
+#endif
 
 	/* private: */
 

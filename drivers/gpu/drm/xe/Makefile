@@ -25,16 +25,19 @@ $(obj)/generated/%_wa_oob.c $(obj)/generated/%_wa_oob.h: $(obj)/xe_gen_wa_oob \
 
 uses_generated_oob := \
 	$(obj)/xe_ggtt.o \
+	$(obj)/xe_device.o \
 	$(obj)/xe_gsc.o \
 	$(obj)/xe_gt.o \
 	$(obj)/xe_guc.o \
 	$(obj)/xe_guc_ads.o \
 	$(obj)/xe_guc_pc.o \
 	$(obj)/xe_migrate.o \
+	$(obj)/xe_pat.o \
 	$(obj)/xe_ring_ops.o \
 	$(obj)/xe_vm.o \
 	$(obj)/xe_wa.o \
-	$(obj)/xe_ttm_stolen_mgr.o
+	$(obj)/xe_ttm_stolen_mgr.o \
+	$(obj)/display/xe_display_wa.o
 
 $(uses_generated_oob): $(generated_oob)
 
@@ -96,10 +99,10 @@ xe-y += xe_bb.o \
 	xe_mocs.o \
 	xe_module.o \
 	xe_oa.o \
+	xe_observation.o \
 	xe_pat.o \
 	xe_pci.o \
 	xe_pcode.o \
-	xe_perf.o \
 	xe_pm.o \
 	xe_preempt_fence.o \
 	xe_pt.o \
@@ -192,6 +195,7 @@ xe-$(CONFIG_DRM_XE_DISPLAY) += \
 	display/xe_display.o \
 	display/xe_display_misc.o \
 	display/xe_display_rps.o \
+	display/xe_display_wa.o \
 	display/xe_dsb_buffer.o \
 	display/xe_fb_pin.o \
 	display/xe_hdcp_gsc.o \
