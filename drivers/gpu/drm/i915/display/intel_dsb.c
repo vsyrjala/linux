@@ -527,7 +527,7 @@ static void intel_dsb_align_tail(struct intel_dsb *dsb)
 
 void intel_dsb_finish(struct intel_dsb *dsb)
 {
-	struct intel_crtc *crtc = dsb->crtc;
+	//struct intel_crtc *crtc = dsb->crtc;
 
 	/*
 	 * DSB_FORCE_DEWAKE remains active even after DSB is
@@ -535,9 +535,9 @@ void intel_dsb_finish(struct intel_dsb *dsb)
 	 * intel_dsb_commit()). And clear DSB_ENABLE_DEWAKE as
 	 * well for good measure.
 	 */
-	intel_dsb_reg_write(dsb, DSB_PMCTRL(crtc->pipe, dsb->id), 0);
-	intel_dsb_reg_write_masked(dsb, DSB_PMCTRL_2(crtc->pipe, dsb->id),
-				   DSB_FORCE_DEWAKE, 0);
+	//intel_dsb_reg_write(dsb, DSB_PMCTRL(crtc->pipe, dsb->id), 0);
+	//intel_dsb_reg_write_masked(dsb, DSB_PMCTRL_2(crtc->pipe, dsb->id),
+	//DSB_FORCE_DEWAKE, 0);
 
 	intel_dsb_align_tail(dsb);
 
@@ -1124,7 +1124,7 @@ static int test_noop(struct dsb_test_data *d)
 		struct intel_dsb *dsb;
 		struct intel_dsb *dsb2;
 		ktime_t pre, post;
-		u32 surf = intel_de_read_fw(i915, PLANE_SURF(crtc->pipe, 0));
+		//u32 surf = intel_de_read_fw(i915, PLANE_SURF(crtc->pipe, 0));
 
 		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, 1024);
 		if (!dsb)
@@ -1134,21 +1134,27 @@ static int test_noop(struct dsb_test_data *d)
 		for (int r = 0; r < 256; r++) {
 			intel_dsb_reg_write(dsb, LGC_PALETTE(crtc->pipe, r), 0);
 			intel_dsb_reg_write(dsb, LGC_PALETTE(crtc->pipe, r), 0);
+			intel_dsb_noop(dsb, 1);
 		}
 
 		intel_dsb_finish(dsb);
 		if (counts[i] == 1)
 			intel_dsb_dump(dsb);
 
-		dsb2 = intel_dsb_prepare(d->state, crtc, INTEL_DSB_1, 1024);
+#define NREG 256
+#define NNOP 4
+
+		dsb2 = intel_dsb_prepare(d->state, crtc, INTEL_DSB_1, (2 + NNOP) * NREG);
 		if (!dsb2) {
 			intel_dsb_cleanup(dsb);
 			goto restore;
 		}
 
-#define NREG 256
-		for (int r = 0; r < NREG; r++)
-			intel_dsb_reg_write(dsb2, PLANE_SURF(crtc->pipe, 0), surf);
+		intel_dsb_reg_write(dsb2, d->reg, 0);
+		for (int r = 0; r < NREG; r++) {
+			//intel_dsb_reg_write_masked(dsb2, PLANE_SURF(crtc->pipe, 0), 0xffffffff, surf);
+			intel_dsb_noop(dsb2, NNOP);
+		}
 
 		intel_dsb_finish(dsb2);
 		if (counts[i] == 1)
@@ -1158,11 +1164,11 @@ static int test_noop(struct dsb_test_data *d)
 		pre = ktime_get();
 
 		//_intel_dsb_commit(dsb, 0, -1, 0);
-		_intel_dsb_commit(dsb, DSB_BUF_REITERATE, -1, 0);
+		//_intel_dsb_commit(dsb, DSB_BUF_REITERATE, -1, 0);
 		_intel_dsb_commit(dsb2, DSB_BUF_REITERATE, -1, 0);
-		_intel_dsb_wait_inf(dsb);
+		//_intel_dsb_wait_inf(dsb);
 		_intel_dsb_wait_inf(dsb2);
-		intel_dsb_wait(dsb);
+		//intel_dsb_wait(dsb);
 		intel_dsb_wait(dsb2);
 
 		post = ktime_get();
