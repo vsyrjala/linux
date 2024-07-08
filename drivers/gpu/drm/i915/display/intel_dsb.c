@@ -1151,8 +1151,12 @@ static int test_noop(struct dsb_test_data *d)
 		}
 
 		intel_dsb_reg_write(dsb2, d->reg, 0);
+		intel_dsb_emit_poll(dsb2, PIPE_FRMTMSTMP(crtc->pipe),
+				    0, 0, 0, 1);
+		//intel_dsb_reg_write(dsb2, d->reg, 0);
 		for (int r = 0; r < NREG; r++) {
 			//intel_dsb_reg_write_masked(dsb2, PLANE_SURF(crtc->pipe, 0), 0xffffffff, surf);
+			//intel_dsb_reg_write(dsb2, d->reg, 0);
 			intel_dsb_noop(dsb2, NNOP);
 		}
 
