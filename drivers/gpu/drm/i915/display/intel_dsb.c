@@ -554,6 +554,7 @@ static void intel_dsb_align_tail(struct intel_dsb *dsb)
 
 void intel_dsb_finish(struct intel_dsb *dsb)
 {
+#if 0
 	struct intel_crtc *crtc = dsb->crtc;
 
 	/*
@@ -565,6 +566,7 @@ void intel_dsb_finish(struct intel_dsb *dsb)
 	intel_dsb_reg_write(dsb, DSB_PMCTRL(crtc->pipe, dsb->id), 0);
 	intel_dsb_reg_write_masked(dsb, DSB_PMCTRL_2(crtc->pipe, dsb->id),
 				   DSB_FORCE_DEWAKE, 0);
+#endif
 
 	intel_dsb_align_tail(dsb);
 
@@ -956,7 +958,7 @@ static int dsb_test_prepare(struct dsb_test_data *d)
 	struct drm_atomic_state *state;
 
 	/* FIXME maybe pick a disabled plane, or disable it explicitly? */
-	d->plane_id = PLANE_2;
+	d->plane_id = PLANE_1;
 
 	/* a mostly harmless register with all bits writable by DSB */
 	d->reg = PIPE_CRC_EXP_HSW(crtc->pipe);
@@ -2124,6 +2126,51 @@ static int test_chained_start_on_vblank(struct dsb_test_data *d)
 	return test_chain(d, true);
 }
 
+static int test_ts_test(struct dsb_test_data *d)
+{
+	struct intel_crtc *crtc = d->crtc;
+	int ret;
+
+	ret = dsb_test_prepare(d);
+	if (ret)
+		goto restore;
+
+	ret = -EINVAL;
+
+	{
+		struct intel_dsb *dsb;
+
+#define NREG 256
+#define NNOP 4
+
+		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, (2 + NNOP) * NREG);
+		if (!dsb)
+			goto restore;
+
+		intel_dsb_reg_write(dsb, d->reg, 0);
+		for (int r = 0; r < NREG; r++) {
+			//intel_dsb_reg_write(dsb, d->reg, 0);
+			intel_dsb_noop(dsb, NNOP);
+		}
+
+		intel_dsb_finish(dsb);
+		intel_dsb_dump(dsb);
+
+		_intel_dsb_commit(dsb, DSB_BUF_REITERATE, -1, 0);
+		_intel_dsb_wait_inf(dsb);
+		intel_dsb_wait(dsb);
+
+		intel_dsb_cleanup(dsb);
+	}
+
+	ret = 0;
+
+restore:
+	dsb_test_restore(d);
+
+	return ret;
+}
+
 struct intel_dsb_test {
 	int (*func)(struct dsb_test_data *d);
 	const char *name;
@@ -2149,6 +2196,7 @@ static const struct intel_dsb_test tests[] = {
 	{ .func = test_latency_dewake, .name = "latency_dewake", },
 	{ .func = test_chained, .name = "chained", },
 	{ .func = test_chained_start_on_vblank, .name = "chained_start_on_vblank", },
+	{ .func = test_ts_test, .name = "ts_test", },
 };
 
 static int intel_dsb_debugfs_test(const struct intel_dsb_test *test,
