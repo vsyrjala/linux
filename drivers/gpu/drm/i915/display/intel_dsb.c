@@ -527,7 +527,8 @@ static void intel_dsb_align_tail(struct intel_dsb *dsb)
 
 void intel_dsb_finish(struct intel_dsb *dsb)
 {
-	//struct intel_crtc *crtc = dsb->crtc;
+#if 0
+	struct intel_crtc *crtc = dsb->crtc;
 
 	/*
 	 * DSB_FORCE_DEWAKE remains active even after DSB is
@@ -535,9 +536,10 @@ void intel_dsb_finish(struct intel_dsb *dsb)
 	 * intel_dsb_commit()). And clear DSB_ENABLE_DEWAKE as
 	 * well for good measure.
 	 */
-	//intel_dsb_reg_write(dsb, DSB_PMCTRL(crtc->pipe, dsb->id), 0);
-	//intel_dsb_reg_write_masked(dsb, DSB_PMCTRL_2(crtc->pipe, dsb->id),
-	//DSB_FORCE_DEWAKE, 0);
+	intel_dsb_reg_write(dsb, DSB_PMCTRL(crtc->pipe, dsb->id), 0);
+	intel_dsb_reg_write_masked(dsb, DSB_PMCTRL_2(crtc->pipe, dsb->id),
+				   DSB_FORCE_DEWAKE, 0);
+#endif
 
 	intel_dsb_align_tail(dsb);
 
@@ -953,7 +955,7 @@ static int dsb_test_prepare(struct dsb_test_data *d)
 	struct drm_atomic_state *state;
 
 	/* FIXME maybe pick a disabled plane, or disable it explicitly? */
-	d->plane_id = PLANE_2;
+	d->plane_id = PLANE_1;
 
 	/* a mostly harmless register with all bits writable by DSB */
 	d->reg = PIPE_CRC_EXP_HSW(crtc->pipe);
@@ -1122,67 +1124,32 @@ static int test_noop(struct dsb_test_data *d)
 
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		struct intel_dsb *dsb;
-		struct intel_dsb *dsb2;
 		ktime_t pre, post;
-		//u32 surf = intel_de_read_fw(i915, PLANE_SURF(crtc->pipe, 0));
 
-		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, 1024);
+		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, counts[i] + 64);
 		if (!dsb)
 			goto restore;
 
 		/* FIXME come up with something to check. Duration of noops? */
-		for (int r = 0; r < 256; r++) {
-			intel_dsb_reg_write(dsb, LGC_PALETTE(crtc->pipe, r), 0);
-			intel_dsb_reg_write(dsb, LGC_PALETTE(crtc->pipe, r), 0);
-			intel_dsb_noop(dsb, 1);
-		}
+		intel_dsb_noop(dsb, counts[i]);
 
 		intel_dsb_finish(dsb);
 		if (counts[i] == 1)
 			intel_dsb_dump(dsb);
 
-#define NREG 256
-#define NNOP 4
-
-		dsb2 = intel_dsb_prepare(d->state, crtc, INTEL_DSB_1, (2 + NNOP) * NREG);
-		if (!dsb2) {
-			intel_dsb_cleanup(dsb);
-			goto restore;
-		}
-
-		intel_dsb_reg_write(dsb2, d->reg, 0);
-		intel_dsb_emit_poll(dsb2, PIPE_FRMTMSTMP(crtc->pipe),
-				    0, 0, 0, 1);
-		//intel_dsb_reg_write(dsb2, d->reg, 0);
-		for (int r = 0; r < NREG; r++) {
-			//intel_dsb_reg_write_masked(dsb2, PLANE_SURF(crtc->pipe, 0), 0xffffffff, surf);
-			//intel_dsb_reg_write(dsb2, d->reg, 0);
-			intel_dsb_noop(dsb2, NNOP);
-		}
-
-		intel_dsb_finish(dsb2);
-		if (counts[i] == 1)
-			intel_dsb_dump(dsb2);
-
 		/* TODO use flip timestamps to check here too? */
 		pre = ktime_get();
 
-		//_intel_dsb_commit(dsb, 0, -1, 0);
-		//_intel_dsb_commit(dsb, DSB_BUF_REITERATE, -1, 0);
-		_intel_dsb_commit(dsb2, DSB_BUF_REITERATE, -1, 0);
-		//_intel_dsb_wait_inf(dsb);
-		_intel_dsb_wait_inf(dsb2);
-		//intel_dsb_wait(dsb);
-		intel_dsb_wait(dsb2);
+		_intel_dsb_commit(dsb, 0, -1, 0);
+		_intel_dsb_wait_inf(dsb);
+		intel_dsb_wait(dsb);
 
 		post = ktime_get();
 
 		intel_dsb_cleanup(dsb);
-		intel_dsb_cleanup(dsb2);
 
 		drm_dbg_kms(&i915->drm, "%s: %d NOOPs took %lld usecs\n",
 			    d->name, counts[i], ktime_us_delta(post, pre));
-		break;
 	}
 
 	ret = 0;
@@ -2156,6 +2123,49 @@ static int test_chained_start_on_vblank(struct dsb_test_data *d)
 	return test_chain(d, true);
 }
 
+static int test_ts_test(struct dsb_test_data *d)
+{
+	struct intel_crtc *crtc = d->crtc;
+	int ret;
+
+	ret = dsb_test_prepare(d);
+	if (ret)
+		goto restore;
+
+	ret = -EINVAL;
+
+	{
+		struct intel_dsb *dsb;
+
+#define NREG 256
+#define NNOP 4
+
+		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, (2 + NNOP) * NREG);
+		if (!dsb)
+			goto restore;
+
+		intel_dsb_reg_write(dsb, d->reg, 0);
+		for (int r = 0; r < NREG; r++)
+			intel_dsb_noop(dsb, NNOP);
+
+		intel_dsb_finish(dsb);
+		intel_dsb_dump(dsb);
+
+		_intel_dsb_commit(dsb, DSB_BUF_REITERATE, -1, 0);
+		_intel_dsb_wait_inf(dsb);
+		intel_dsb_wait(dsb);
+
+		intel_dsb_cleanup(dsb);
+	}
+
+	ret = 0;
+
+restore:
+	dsb_test_restore(d);
+
+	return ret;
+}
+
 struct intel_dsb_test {
 	int (*func)(struct dsb_test_data *d);
 	const char *name;
@@ -2181,6 +2191,7 @@ static const struct intel_dsb_test tests[] = {
 	{ .func = test_latency_dewake, .name = "latency_dewake", },
 	{ .func = test_chained, .name = "chained", },
 	{ .func = test_chained_start_on_vblank, .name = "chained_start_on_vblank", },
+	{ .func = test_ts_test, .name = "ts_test", },
 };
 
 static int intel_dsb_debugfs_test(const struct intel_dsb_test *test,
