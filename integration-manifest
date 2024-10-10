@@ -1,0 +1,28 @@
+drm drm-fixes fc4d262721705f2a7b860946504e7b8a313f06e1
+	Merge tag 'amd-drm-fixes-6.12-2024-10-08' of https://gitlab.freedesktop.org/agd5f/linux into drm-fixes
+drm-misc drm-misc-fixes fcddc71ec7ecf15b4df3c41288c9cf0b8e886111
+	drm/fbdev-dma: Only cleanup deferred I/O if necessary
+drm-intel drm-intel-fixes 4cc2718f621a6a57a02581125bb6d914ce74d23b
+	drm/i915/hdcp: fix connector refcounting
+drm-xe drm-xe-fixes 1badf482816417dca71f8120b4c540cdc82aa03c
+	drm/xe: Make wedged_mode debugfs writable
+drm drm-next 54bc1d32551eecfee703962ad23cd4f926aa91a9
+	Merge tag 'drm-misc-next-2024-09-26' of https://gitlab.freedesktop.org/drm/misc/kernel into drm-next
+drm-misc drm-misc-next-fixes ba2b9de0c1ac2abfbe663414a292c5881e64c361
+	drm/tegra: fix potential uninitialized variable use
+drm-intel drm-intel-next-fixes e860513f56d8428fcb2bd0282ac8ab691a53fc6c
+	drm/i915/dp: Fix colorimetry detection
+drm-xe drm-xe-next-fixes d7126c0cfc137a580eba92bd82b6d288bd43961d
+	Merge tag 'drm-xe-next-fixes-2024-09-19' of https://gitlab.freedesktop.org/drm/xe/kernel into drm-next
+drm-misc drm-misc-next 33c255312660653cf54f8019896b5dca28e3c580
+	drm/mipi-dsi: fix kernel doc on mipi_dsi_compression_mode_multi
+drm-intel drm-intel-next 388629a219ace83a09f8431a2e709c6c2efcf6ee
+	drm/i915/mtl: Update PLL c20 phy value for DP uhbr20
+drm-intel drm-intel-gt-next aa944281bd00647dbef2f1b5e8a69e9ceebbc263
+	drm/i915/gt: Fixed "CPU" -> "GPU" typo
+drm-xe drm-xe-next 46bcb0a1214ac6677df8660ac0f6bdf1eff27e8f
+	drm/xe/guc: Fix inverted logic on snapshot->copy check
+drm-intel topic/core-for-CI 20ef35f70a8e49809b248df3f8e05fdd53753534
+	x86/apic: Stop the TSC Deadline timer during lapic timer shutdown
+drm-xe topic/xe-for-CI ec78e665e25834158bb45dd6c62452677cd5ceaf
+	drm/xe/guc: Pre-release GuC firmware v70.29.2 for PVC
