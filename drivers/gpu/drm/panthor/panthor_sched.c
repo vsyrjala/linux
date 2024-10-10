@@ -137,8 +137,6 @@ enum panthor_csg_priority {
 	 * non-real-time groups. When such a group becomes executable,
 	 * it will evict the group with the lowest non-rt priority if
 	 * there's no free group slot available.
-	 *
-	 * Currently not exposed to userspace.
 	 */
 	PANTHOR_CSG_PRIORITY_RT,
 
@@ -2545,7 +2543,7 @@ static void queue_start(struct panthor_queue *queue)
 	list_for_each_entry(job, &queue->scheduler.pending_list, base.list)
 		job->base.s_fence->parent = dma_fence_get(job->done_fence);
 
-	drm_sched_start(&queue->scheduler);
+	drm_sched_start(&queue->scheduler, 0);
 }
 
 static void panthor_group_stop(struct panthor_group *group)
