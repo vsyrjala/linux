@@ -2135,7 +2135,11 @@ static int intel_dsb_debugfs_test(const struct intel_dsb_test *test,
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
 	const struct intel_crtc_state *crtc_state;
 	struct drm_modeset_acquire_ctx ctx;
-	struct dsb_test_data d = {};
+	struct dsb_test_data d = {
+		.name = test->name,
+		.crtc = crtc,
+		.ctx = &ctx,
+	};
 	int ret;
 
 	drm_modeset_acquire_init(&ctx, 0);
@@ -2155,10 +2159,6 @@ again:
 		ret = -EBUSY;
 		goto unlock;
 	}
-
-	d.crtc = crtc;
-	d.ctx = &ctx;
-	d.name = test->name;
 
 	ret = test->func(&d);
 
@@ -2188,8 +2188,6 @@ static ssize_t intel_dsb_debugfs_test_write(struct file *file,
 	bool valid = false;
 	char *name;
 	int i;
-
-	printk(KERN_CRIT "len = %zu\n", len);
 
 	name = memdup_user_nul(ubuf, len);
 	if (IS_ERR(name))
