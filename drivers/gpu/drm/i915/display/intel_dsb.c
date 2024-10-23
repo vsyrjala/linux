@@ -1705,6 +1705,61 @@ static int test_wait_scanline_out(struct dsb_test_data *d)
 	return test_wait_scanline_inout(d, false);
 }
 
+static int test_interrupt(struct dsb_test_data *d)
+{
+	struct intel_crtc *crtc = d->crtc;
+	enum pipe pipe = crtc->pipe;
+	int count, ret;
+
+	ret = dsb_test_prepare(d);
+	if (ret)
+		goto restore;
+
+	ret = -EINVAL;
+
+	for (count = 1; count < 2; count++) {
+		struct intel_dsb *dsb;
+
+		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, 512);
+		if (!dsb)
+			goto restore;
+
+		intel_dsb_reg_write(dsb, PLANE_SURF(pipe, d->plane_id), d->surf);
+		//FDOIXME intel_dsb_interrupt(dsb);
+
+		intel_dsb_finish(dsb);
+		intel_dsb_dump(dsb);
+
+		/* make sure pkgC latency is not an issue */
+		dsb_test_set_force_dewake(crtc, dsb->id);
+
+		intel_crtc_wait_for_next_vblank(crtc);
+
+		dsb_test_sample_counts(crtc, &d->pre);
+
+		_intel_dsb_commit(dsb, DSB_WAIT_FOR_VBLANK, -1, 0);
+
+		//intel_dsb_wait_interrupt(dsb);
+		intel_dsb_wait(dsb);
+
+		dsb_test_clear_force_dewake(crtc, dsb->id);
+
+		intel_dsb_cleanup(dsb);
+
+		dsb_test_sample_counts(crtc, &d->post);
+
+		if (dsb_test_compare_flipcount(d, 1))
+			goto restore;
+	}
+
+	ret = 0;
+
+restore:
+	dsb_test_restore(d);
+
+	return ret;
+}
+
 static int test_poll(struct dsb_test_data *d)
 {
 	struct intel_crtc *crtc = d->crtc;
@@ -2066,6 +2121,7 @@ static const struct intel_dsb_test tests[] = {
 	{ .func = test_wait_vblanks, .name = "wait_vblanks", },
 	{ .func = test_wait_scanline_in, .name = "wait_scanline_in", },
 	{ .func = test_wait_scanline_out, .name = "wait_scanline_out", },
+	{ .func = test_interrupt, .name = "interrupt", },
 	{ .func = test_poll, .name = "poll", },
 	{ .func = test_latency, .name = "latency", },
 	{ .func = test_latency_dewake, .name = "latency_dewake", },
