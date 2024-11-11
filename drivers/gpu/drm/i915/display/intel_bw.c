@@ -448,6 +448,10 @@ static int icl_get_bw_info(struct drm_i915_private *dev_priv, const struct intel
 
 			bi->deratedbw[j] = min(maxdebw,
 					       bw * (100 - sa->derating) / 100);
+			bi->peakbw[j] = DIV_ROUND_CLOSEST(sp->dclk *
+							  num_channels *
+							  qi.channel_width, 8);
+			bi->dclk[j] = sp->dclk;
 
 			drm_dbg_kms(&dev_priv->drm,
 				    "BW%d / QGV %d: num_planes=%d deratedbw=%u\n",
@@ -553,6 +557,7 @@ static int tgl_get_bw_info(struct drm_i915_private *dev_priv, const struct intel
 			bi->peakbw[j] = DIV_ROUND_CLOSEST(sp->dclk *
 							  num_channels *
 							  qi.channel_width, 8);
+			bi->dclk[j] = sp->dclk;
 
 			drm_dbg_kms(&dev_priv->drm,
 				    "BW%d / QGV %d: num_planes=%d deratedbw=%u peakbw: %u\n",
@@ -628,12 +633,13 @@ static int xe2_hpd_get_bw_info(struct drm_i915_private *i915,
 	maxdebw = min(sa->deprogbwlimit * 1000, peakbw * DEPROGBWPCLIMIT / 10);
 
 	for (i = 0; i < qi.num_points; i++) {
-		const struct intel_qgv_point *point = &qi.points[i];
-		int bw = num_channels * (qi.channel_width / 8) * point->dclk;
+		const struct intel_qgv_point *sp = &qi.points[i];
+		int bw = num_channels * (qi.channel_width / 8) * sp->dclk;
 
 		i915->display.bw.max[0].deratedbw[i] =
 			min(maxdebw, (100 - sa->derating) * bw / 100);
 		i915->display.bw.max[0].peakbw[i] = bw;
+		i915->display.bw.max[0].dclk[i] = sp->dclk;
 
 		drm_dbg_kms(&i915->drm, "QGV %d: deratedbw=%u peakbw: %u\n",
 			    i, i915->display.bw.max[0].deratedbw[i],
@@ -965,7 +971,7 @@ static int mtl_find_qgv_points(struct drm_i915_private *i915,
 			       unsigned int num_active_planes,
 			       struct intel_bw_state *new_bw_state)
 {
-	unsigned int best_rate = UINT_MAX;
+	unsigned int best_diff = UINT_MAX;
 	unsigned int num_qgv_points = i915->display.bw.max[0].num_qgv_points;
 	unsigned int qgv_peak_bw  = 0;
 	int i;
@@ -1003,8 +1009,8 @@ static int mtl_find_qgv_points(struct drm_i915_private *i915,
 		if (max_data_rate < data_rate)
 			continue;
 
-		if (max_data_rate - data_rate < best_rate) {
-			best_rate = max_data_rate - data_rate;
+		if (max_data_rate - data_rate < best_diff) {
+			best_diff = max_data_rate - data_rate;
 			qgv_peak_bw = i915->display.bw.max[bw_index].peakbw[i];
 		}
 

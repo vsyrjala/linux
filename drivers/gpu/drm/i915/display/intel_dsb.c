@@ -10,6 +10,8 @@
 #include "i915_drv.h"
 #include "i915_irq.h"
 #include "i915_reg.h"
+#include "intel_bw.h"
+#include "intel_color_regs.h"
 #include "intel_crtc.h"
 #include "intel_de.h"
 #include "intel_display_types.h"
@@ -1109,11 +1111,55 @@ static bool dsb_test_compare_reg(struct dsb_test_data *d,
 	return val != expected;
 }
 
+static int dclk(struct intel_display *display)
+{
+	const struct intel_bw_state *bw_state = to_intel_bw_state(display->bw.obj.state);
+	const struct intel_bw_info *bw = &display->bw.max[0];
+	u16 dclk = 0;
+
+	for (int j = 0; j < ARRAY_SIZE(bw->peakbw); j++) {
+		if (bw->dclk[j] == 0)
+			continue;
+		if (bw->peakbw[j] == 0)
+			continue;
+
+		if (bw_state->qgv_points_mask & BIT(j))
+			continue;
+
+		dclk = max(dclk, bw->dclk[j]);
+	}
+
+	return dclk;
+}
+
+static unsigned int peakbw(struct intel_display *display)
+{
+	const struct intel_bw_state *bw_state = to_intel_bw_state(display->bw.obj.state);
+	const struct intel_bw_info *bw = &display->bw.max[0];
+	unsigned int peakbw = 0;
+
+	for (int j = 0; j < ARRAY_SIZE(bw->peakbw); j++) {
+		if (bw->dclk[j] == 0)
+			continue;
+		if (bw->peakbw[j] == 0)
+			continue;
+
+		if (bw_state->qgv_points_mask & BIT(j))
+			continue;
+
+		peakbw = max(peakbw, bw->peakbw[j]);
+	}
+
+	return peakbw;
+}
+
 static int test_noop(struct dsb_test_data *d)
 {
 	struct intel_crtc *crtc = d->crtc;
+	struct intel_display *display = to_intel_display(crtc);
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
-	int counts[] = { 1, 1<<5, (1<<10) - 64, (1<<15) - 64, (1<<20) - 64 };
+	int counts[] = { 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, };
+	//	int counts[] = { 1, 1<<5, (1<<10) - 64, (1<<15) - 64, (1<<20) - 64 };
 	int i, ret;
 
 	ret = dsb_test_prepare(d);
@@ -1122,9 +1168,9 @@ static int test_noop(struct dsb_test_data *d)
 
 	ret = -EINVAL;
 
+	for (int j = 0; j < 10; j++) {
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		struct intel_dsb *dsb;
-		ktime_t pre, post;
 
 		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, counts[i] + 64);
 		if (!dsb)
@@ -1133,23 +1179,33 @@ static int test_noop(struct dsb_test_data *d)
 		/* FIXME come up with something to check. Duration of noops? */
 		intel_dsb_noop(dsb, counts[i]);
 
+		intel_dsb_reg_write(dsb, PLANE_SURF(crtc->pipe, d->plane_id), d->surf);
+
 		intel_dsb_finish(dsb);
 		if (counts[i] == 1)
 			intel_dsb_dump(dsb);
 
-		/* TODO use flip timestamps to check here too? */
-		pre = ktime_get();
+		/* make sure pkgC latency is not an issue */
+		dsb_test_set_force_dewake(crtc, dsb->id);
+		intel_crtc_wait_for_next_vblank(crtc);
 
-		_intel_dsb_commit(dsb, 0, -1, 0);
+		//_intel_dsb_commit(dsb, 0, -1, 0);
+		_intel_dsb_commit(dsb, DSB_WAIT_FOR_VBLANK, -1, 0);
 		_intel_dsb_wait_inf(dsb);
 		intel_dsb_wait(dsb);
 
-		post = ktime_get();
+		dsb_test_clear_force_dewake(crtc, dsb->id);
 
 		intel_dsb_cleanup(dsb);
 
-		drm_dbg_kms(&i915->drm, "%s: %d NOOPs took %lld usecs\n",
-			    d->name, counts[i], ktime_us_delta(post, pre));
+		dsb_test_sample_timestamps(crtc, &d->ts);
+
+		drm_dbg_kms(&i915->drm, "%s: %d NOOPs took %d usecs\n",
+			    d->name, counts[i], d->ts.flip - d->ts.frame);
+		drm_err(&i915->drm, "xxx %s: count %d time %d cdclk %d dclk %d peakbw %d\n",
+			d->name, counts[i], d->ts.flip - d->ts.frame,
+			display->cdclk.hw.cdclk, dclk(display), peakbw(display));
+	}
 	}
 
 	ret = 0;
@@ -1164,8 +1220,9 @@ static int test_reg_time(struct dsb_test_data *d,
 			 bool indexed, bool nonposted)
 {
 	struct intel_crtc *crtc = d->crtc;
+	struct intel_display *display = to_intel_display(crtc);
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
-	int counts[] = { 1, 1<<5, (1<<10) - 64, (1<<15) - 64, (1<<20) - 64 };
+	int counts[] = { 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, };
 	int i, ret;
 
 	ret = dsb_test_prepare(d);
@@ -1174,9 +1231,9 @@ static int test_reg_time(struct dsb_test_data *d,
 
 	ret = -EINVAL;
 
+	for (int j = 0; j < 10; j++) {
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		struct intel_dsb *dsb;
-		ktime_t pre, post;
 		int j;
 
 		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, counts[i] + 64);
@@ -1188,31 +1245,43 @@ static int test_reg_time(struct dsb_test_data *d,
 
 		for (j = 0; j < counts[i]; j++) {
 			if (indexed)
-				intel_dsb_reg_write(dsb, d->reg, 0);
+				//intel_dsb_reg_write(dsb, d->reg, 0);
+				intel_dsb_reg_write(dsb, LGC_PALETTE(crtc->pipe, (j/2) & 0xff), 0);
 			else
-				intel_dsb_reg_write_masked(dsb, d->reg, 0xffffffff, 0);
+				//intel_dsb_reg_write_masked(dsb, d->reg, 0xffffffff, 0);
+				intel_dsb_reg_write_masked(dsb, LGC_PALETTE(crtc->pipe, (j/2) & 0xff),
+							   0xffffffff, 0);
 		}
 
 		if (nonposted)
 			intel_dsb_nonpost_end(dsb);
 
+		intel_dsb_reg_write(dsb, PLANE_SURF(crtc->pipe, d->plane_id), d->surf);
+
 		intel_dsb_finish(dsb);
-		if (counts[i] == 1)
+		if (counts[i] <= 1<<5)
 			intel_dsb_dump(dsb);
 
-		/* TODO use flip timestamps to check here too? */
-		pre = ktime_get();
+		/* make sure pkgC latency is not an issue */
+		dsb_test_set_force_dewake(crtc, dsb->id);
+		intel_crtc_wait_for_next_vblank(crtc);
 
-		_intel_dsb_commit(dsb, 0, -1, 0);
+		_intel_dsb_commit(dsb, DSB_WAIT_FOR_VBLANK, -1, 0);
 		_intel_dsb_wait_inf(dsb);
 		intel_dsb_wait(dsb);
 
-		post = ktime_get();
+		dsb_test_clear_force_dewake(crtc, dsb->id);
 
 		intel_dsb_cleanup(dsb);
 
-		drm_dbg_kms(&i915->drm, "%s: %d MMIO writes took %lld usecs\n",
-			    d->name, counts[i], ktime_us_delta(post, pre));
+		dsb_test_sample_timestamps(crtc, &d->ts);
+
+		drm_dbg_kms(&i915->drm, "%s: %d MMIO writes took %d usecs\n",
+			    d->name, counts[i], d->ts.flip - d->ts.frame);
+		drm_err(&i915->drm, "xxx %s: count %d time %d cdclk %d dclk %d peakbw %d\n",
+			d->name, counts[i], d->ts.flip - d->ts.frame,
+			display->cdclk.hw.cdclk, dclk(display), peakbw(display));
+	}
 	}
 
 	ret = 0;

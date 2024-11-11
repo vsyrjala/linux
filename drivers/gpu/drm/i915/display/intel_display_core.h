@@ -335,6 +335,7 @@ struct intel_display {
 			unsigned int psf_bw[I915_NUM_PSF_GV_POINTS];
 			/* Peak BW for each QGV point */
 			unsigned int peakbw[I915_NUM_QGV_POINTS];
+			unsigned int dclk[I915_NUM_QGV_POINTS];
 			u8 num_qgv_points;
 			u8 num_psf_gv_points;
 			u8 num_planes;
