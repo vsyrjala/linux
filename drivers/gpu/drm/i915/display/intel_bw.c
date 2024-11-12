@@ -950,6 +950,86 @@ static unsigned int icl_max_bw_psf_gv_point_mask(struct drm_i915_private *i915)
 	return max_bw_point_mask;
 }
 
+static u16 qgv_points_mask(struct drm_i915_private *i915)
+{
+	unsigned int num_qgv_points = i915->display.bw.max[0].num_qgv_points;
+	u16 qgv_points = 0;
+
+	/*
+	 * We can _not_ use the whole ADLS_QGV_PT_MASK here, as PCode rejects
+	 * it with failure if we try masking any unadvertised points.
+	 * So need to operate only with those returned from PCode.
+	 */
+	if (num_qgv_points > 0)
+		qgv_points = GENMASK(num_qgv_points - 1, 0);
+
+	return ICL_PCODE_REQ_QGV_PT(qgv_points);
+}
+
+static u16 psf_points_mask(struct drm_i915_private *i915)
+{
+	unsigned int num_psf_gv_points = i915->display.bw.max[0].num_psf_gv_points;
+	u16 psf_points = 0;
+
+	if (num_psf_gv_points > 0)
+		psf_points = GENMASK(num_psf_gv_points - 1, 0);
+
+	return ADLS_PCODE_REQ_PSF_PT(psf_points);
+}
+
+int intel_bw_force_qgv(struct intel_display *display, int point);
+void intel_bw_unforce_qgv(struct intel_display *display, u16 qgv_points_mask);
+
+int intel_bw_force_qgv(struct intel_display *display, int point)
+{
+	struct drm_i915_private *i915 = to_i915(display->drm);
+	struct intel_bw_state *bw_state = to_intel_bw_state(display->bw.obj.state);
+	u16 orig_qgv_points_mask = bw_state->qgv_points_mask;
+	u16 qgv_points = ~bw_state->qgv_points_mask & qgv_points_mask(i915);
+	u16 psf_points = ~bw_state->qgv_points_mask & psf_points_mask(i915);
+	u16 qgv_points_mask;
+
+	if ((qgv_points & BIT(point)) == 0) {
+		drm_err(display->drm, "QGV point %d not in curent mask (0x%x)\n",
+			point, qgv_points);
+		return -EINVAL;
+	}
+
+	qgv_points = BIT(point);
+
+	qgv_points_mask = icl_prepare_qgv_points_mask(i915, qgv_points, psf_points);
+
+	if (qgv_points_mask == bw_state->qgv_points_mask) {
+		drm_err(display->drm, "QGV mask already: 0x%x\n", qgv_points_mask);
+		return 0;
+	}
+
+	drm_err(display->drm, "Forcing QGV mask: 0x%x (full mask 0x%x)\n", qgv_points_mask,
+		icl_qgv_points_mask(i915));
+
+	if (icl_pcode_restrict_qgv_points(i915, qgv_points_mask) == 0)
+		bw_state->qgv_points_mask = qgv_points_mask;
+
+	return orig_qgv_points_mask;
+}
+
+void intel_bw_unforce_qgv(struct intel_display *display, u16 qgv_points_mask)
+{
+	struct drm_i915_private *i915 = to_i915(display->drm);
+	struct intel_bw_state *bw_state = to_intel_bw_state(display->bw.obj.state);
+
+	if (qgv_points_mask == bw_state->qgv_points_mask) {
+		drm_err(display->drm, "QGV mask already: 0x%x\n", qgv_points_mask);
+		return;
+	}
+
+	drm_err(display->drm, "Unorcing QGV mask: 0x%x (full mask 0x%x)\n", qgv_points_mask,
+		icl_qgv_points_mask(i915));
+
+	if (icl_pcode_restrict_qgv_points(i915, qgv_points_mask) == 0)
+		bw_state->qgv_points_mask = qgv_points_mask;
+}
+
 static void icl_force_disable_sagv(struct drm_i915_private *i915,
 				   struct intel_bw_state *bw_state)
 {

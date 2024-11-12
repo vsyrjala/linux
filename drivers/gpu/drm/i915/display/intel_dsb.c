@@ -1111,11 +1111,11 @@ static bool dsb_test_compare_reg(struct dsb_test_data *d,
 	return val != expected;
 }
 
-static int dclk(struct intel_display *display)
+static unsigned int dclk(struct intel_display *display)
 {
 	const struct intel_bw_state *bw_state = to_intel_bw_state(display->bw.obj.state);
 	const struct intel_bw_info *bw = &display->bw.max[0];
-	u16 dclk = 0;
+	unsigned int dclk = 0;
 
 	for (int j = 0; j < ARRAY_SIZE(bw->peakbw); j++) {
 		if (bw->dclk[j] == 0)
@@ -1126,7 +1126,7 @@ static int dclk(struct intel_display *display)
 		if (bw_state->qgv_points_mask & BIT(j))
 			continue;
 
-		dclk = max(dclk, bw->dclk[j]);
+		dclk = max_t(unsigned int, dclk, bw->dclk[j]);
 	}
 
 	return dclk;
@@ -1147,19 +1147,25 @@ static unsigned int peakbw(struct intel_display *display)
 		if (bw_state->qgv_points_mask & BIT(j))
 			continue;
 
-		peakbw = max(peakbw, bw->peakbw[j]);
+		peakbw = max_t(unsigned int, peakbw, bw->peakbw[j]);
 	}
 
 	return peakbw;
 }
+
+int intel_bw_force_qgv(struct intel_display *display, int point);
+void intel_bw_unforce_qgv(struct intel_display *display, u16 qgv_points_mask);
+
+static int force_qgv_point;
 
 static int test_noop(struct dsb_test_data *d)
 {
 	struct intel_crtc *crtc = d->crtc;
 	struct intel_display *display = to_intel_display(crtc);
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
-	int counts[] = { 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, };
+	int counts[] = { 64, 128, 256, 512, 768, 1024, 1280, 1536, 1792, 2048, 2303, 2560, 2816, 3072, 3328, 2584, 3840, 4096, };
 	//	int counts[] = { 1, 1<<5, (1<<10) - 64, (1<<15) - 64, (1<<20) - 64 };
+	int qgv_points_mask = -1;
 	int i, ret;
 
 	ret = dsb_test_prepare(d);
@@ -1167,6 +1173,9 @@ static int test_noop(struct dsb_test_data *d)
 		goto restore;
 
 	ret = -EINVAL;
+
+	if (force_qgv_point >= 0)
+		qgv_points_mask = intel_bw_force_qgv(display, force_qgv_point);
 
 	for (int j = 0; j < 10; j++) {
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
@@ -1211,23 +1220,51 @@ static int test_noop(struct dsb_test_data *d)
 	ret = 0;
 
 restore:
+	if (qgv_points_mask >= 0)
+		intel_bw_unforce_qgv(display, qgv_points_mask);
 	dsb_test_restore(d);
 
 	return ret;
 }
 
+enum reg {
+	REG_DEFAULT,
+	REG_LGC_PALETTE,
+	REG_PREC_PALETTE,
+};
+
+static i915_reg_t real_reg(struct dsb_test_data *d, enum reg reg, int index)
+{
+	struct intel_crtc *crtc = d->crtc;
+
+	switch (reg) {
+	default:
+		return d->reg;
+	case REG_LGC_PALETTE:
+		return LGC_PALETTE(crtc->pipe, (index / 2) & 0xff);
+	case REG_PREC_PALETTE:
+		return PREC_PAL_DATA(crtc->pipe);
+	}
+}
+
 static int test_reg_time(struct dsb_test_data *d,
-			 bool indexed, bool nonposted)
+			 bool indexed, bool nonposted,
+			 enum reg reg)
 {
 	struct intel_crtc *crtc = d->crtc;
 	struct intel_display *display = to_intel_display(crtc);
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
-	int counts[] = { 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, };
+	int counts[] = { 64, 128, 256, 512, 768, 1024, 1280, 1536, 1792, 2048, 2303, 2560, 2816, 3072, 3328, 2584, 3840, 4096, };
+	//	int counts[] = { 16, 24, 32, 72, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, };
+	int qgv_points_mask = -1;
 	int i, ret;
 
 	ret = dsb_test_prepare(d);
 	if (ret)
 		goto restore;
+
+	if (force_qgv_point >= 0)
+		qgv_points_mask = intel_bw_force_qgv(display, force_qgv_point);
 
 	ret = -EINVAL;
 
@@ -1243,15 +1280,21 @@ static int test_reg_time(struct dsb_test_data *d,
 		if (nonposted)
 			intel_dsb_nonpost_start(dsb);
 
+		if (reg == REG_PREC_PALETTE) {
+			intel_dsb_reg_write(dsb, PREC_PAL_INDEX(crtc->pipe), 0);
+			intel_dsb_reg_write(dsb, PREC_PAL_INDEX(crtc->pipe), PAL_PREC_AUTO_INCREMENT);
+		}
+
 		for (j = 0; j < counts[i]; j++) {
 			if (indexed)
-				//intel_dsb_reg_write(dsb, d->reg, 0);
-				intel_dsb_reg_write(dsb, LGC_PALETTE(crtc->pipe, (j/2) & 0xff), 0);
+				intel_dsb_reg_write(dsb, real_reg(d, reg, j), 0);
 			else
-				//intel_dsb_reg_write_masked(dsb, d->reg, 0xffffffff, 0);
-				intel_dsb_reg_write_masked(dsb, LGC_PALETTE(crtc->pipe, (j/2) & 0xff),
+				intel_dsb_reg_write_masked(dsb, real_reg(d, reg, j),
 							   0xffffffff, 0);
 		}
+
+		if (reg == REG_PREC_PALETTE)
+			intel_dsb_reg_write(dsb, PREC_PAL_INDEX(crtc->pipe), 0);
 
 		if (nonposted)
 			intel_dsb_nonpost_end(dsb);
@@ -1287,6 +1330,8 @@ static int test_reg_time(struct dsb_test_data *d,
 	ret = 0;
 
 restore:
+	if (qgv_points_mask >= 0)
+		intel_bw_unforce_qgv(display, qgv_points_mask);
 	dsb_test_restore(d);
 
 	return ret;
@@ -1294,22 +1339,62 @@ restore:
 
 static int test_reg_time_mmio_posted(struct dsb_test_data *d)
 {
-	return test_reg_time(d, false, false);
+	return test_reg_time(d, false, false, REG_DEFAULT);
 }
 
 static int test_reg_time_mmio_nonposted(struct dsb_test_data *d)
 {
-	return test_reg_time(d, false, true);
+	return test_reg_time(d, false, true, REG_DEFAULT);
 }
 
 static int test_reg_time_indexed_posted(struct dsb_test_data *d)
 {
-	return test_reg_time(d, true, false);
+	return test_reg_time(d, true, false, REG_DEFAULT);
 }
 
 static int test_reg_time_indexed_nonposted(struct dsb_test_data *d)
 {
-	return test_reg_time(d, true, true);
+	return test_reg_time(d, true, true, REG_DEFAULT);
+}
+
+static int test_reg_time_lgc_mmio_posted(struct dsb_test_data *d)
+{
+	return test_reg_time(d, false, false, REG_LGC_PALETTE);
+}
+
+static int test_reg_time_lgc_mmio_nonposted(struct dsb_test_data *d)
+{
+	return test_reg_time(d, false, true, REG_LGC_PALETTE);
+}
+
+static int test_reg_time_lgc_indexed_posted(struct dsb_test_data *d)
+{
+	return test_reg_time(d, true, false, REG_LGC_PALETTE);
+}
+
+static int test_reg_time_lgc_indexed_nonposted(struct dsb_test_data *d)
+{
+	return test_reg_time(d, true, true, REG_LGC_PALETTE);
+}
+
+static int test_reg_time_prec_mmio_posted(struct dsb_test_data *d)
+{
+	return test_reg_time(d, false, false, REG_PREC_PALETTE);
+}
+
+static int test_reg_time_prec_mmio_nonposted(struct dsb_test_data *d)
+{
+	return test_reg_time(d, false, true, REG_PREC_PALETTE);
+}
+
+static int test_reg_time_prec_indexed_posted(struct dsb_test_data *d)
+{
+	return test_reg_time(d, true, false, REG_PREC_PALETTE);
+}
+
+static int test_reg_time_prec_indexed_nonposted(struct dsb_test_data *d)
+{
+	return test_reg_time(d, true, true, REG_PREC_PALETTE);
 }
 
 static int test_reg_write(struct dsb_test_data *d)
@@ -2246,6 +2331,14 @@ static const struct intel_dsb_test tests[] = {
 	{ .func = test_reg_time_indexed_posted, .name = "reg_time_indexed_posted", },
 	{ .func = test_reg_time_mmio_nonposted, .name = "reg_time_mmio_nonposted", },
 	{ .func = test_reg_time_indexed_nonposted, .name = "reg_time_indexed_nonposted", },
+	{ .func = test_reg_time_lgc_mmio_posted, .name = "reg_time_lgc_mmio_posted", },
+	{ .func = test_reg_time_lgc_indexed_posted, .name = "reg_time_lgc_indexed_posted", },
+	{ .func = test_reg_time_lgc_mmio_nonposted, .name = "reg_time_lgc_mmio_nonposted", },
+	{ .func = test_reg_time_lgc_indexed_nonposted, .name = "reg_time_lgc_indexed_nonposted", },
+	{ .func = test_reg_time_prec_mmio_posted, .name = "reg_time_prec_mmio_posted", },
+	{ .func = test_reg_time_prec_indexed_posted, .name = "reg_time_prec_indexed_posted", },
+	{ .func = test_reg_time_prec_mmio_nonposted, .name = "reg_time_prec_mmio_nonposted", },
+	{ .func = test_reg_time_prec_indexed_nonposted, .name = "reg_time_prec_indexed_nonposted", },
 	{ .func = test_reg_write, .name = "reg_write", },
 	{ .func = test_start_on_vblank, .name = "start_on_vblank", },
 	{ .func = test_reiterate, .name = "reiterate", },
@@ -2372,8 +2465,29 @@ static const struct file_operations intel_dsb_debugfs_test_fops = {
 	.release = single_release,
 };
 
+static int intel_dsb_debugfs_force_qgv_get(void *data, u64 *val)
+{
+	*val = force_qgv_point;
+
+	return 0;
+}
+
+static int intel_dsb_debugfs_force_qgv_set(void *data, u64 val)
+{
+	force_qgv_point = val;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE_SIGNED(intel_dsb_debugfs_force_qgv_fops,
+				intel_dsb_debugfs_force_qgv_get,
+				intel_dsb_debugfs_force_qgv_set,
+				"%lld\n");
+
 void intel_dsb_crtc_debugfs_add(struct intel_crtc *crtc)
 {
 	debugfs_create_file("i915_dsb_test", 0644, crtc->base.debugfs_entry,
 			    crtc, &intel_dsb_debugfs_test_fops);
+	debugfs_create_file("i915_dsb_force_qgv", 0644, crtc->base.debugfs_entry,
+			    crtc, &intel_dsb_debugfs_force_qgv_fops);
 }
