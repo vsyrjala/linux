@@ -3366,6 +3366,19 @@ static int intel_compute_max_dotclk(struct intel_display *display)
 	return ppc * max_cdclk_freq * guardband / 100;
 }
 
+static int bxt_max_cdclk(struct intel_display *display)
+{
+	const struct intel_cdclk_vals *table = display->cdclk.table;
+	int i, max_cdclk = 0;
+
+	for (i = 0; table[i].refclk; i++) {
+		if (table[i].refclk == display->cdclk.hw.ref)
+			max_cdclk = max_t(int, max_cdclk, table[i].cdclk);
+	}
+
+	return max_cdclk;
+}
+
 /**
  * intel_update_max_cdclk - Determine the maximum support CDCLK frequency
  * @display: display instance
@@ -3378,22 +3391,8 @@ void intel_update_max_cdclk(struct intel_display *display)
 {
 	struct drm_i915_private *dev_priv = to_i915(display->drm);
 
-	if (DISPLAY_VER(display) >= 30) {
-		display->cdclk.max_cdclk_freq = 691200;
-	} else if (IS_JASPERLAKE(dev_priv) || IS_ELKHARTLAKE(dev_priv)) {
-		if (display->cdclk.hw.ref == 24000)
-			display->cdclk.max_cdclk_freq = 552000;
-		else
-			display->cdclk.max_cdclk_freq = 556800;
-	} else if (DISPLAY_VER(display) >= 11) {
-		if (display->cdclk.hw.ref == 24000)
-			display->cdclk.max_cdclk_freq = 648000;
-		else
-			display->cdclk.max_cdclk_freq = 652800;
-	} else if (IS_GEMINILAKE(dev_priv)) {
-		display->cdclk.max_cdclk_freq = 316800;
-	} else if (IS_BROXTON(dev_priv)) {
-		display->cdclk.max_cdclk_freq = 624000;
+	if (DISPLAY_VER(display) >= 10 || IS_BROXTON(dev_priv)) {
+		display->cdclk.max_cdclk_freq = bxt_max_cdclk(display);
 	} else if (DISPLAY_VER(display) == 9) {
 		u32 limit = intel_de_read(display, SKL_DFSM) & SKL_DFSM_CDCLK_LIMIT_MASK;
 		int max_cdclk, vco;
