@@ -3393,6 +3393,7 @@ void intel_update_max_cdclk(struct intel_display *display)
 
 	if (DISPLAY_VER(display) >= 10 || IS_BROXTON(dev_priv)) {
 		display->cdclk.max_cdclk_freq = bxt_max_cdclk(display);
+		display->cdclk.min_cdclk_freq = bxt_calc_cdclk(display, 0);
 	} else if (DISPLAY_VER(display) == 9) {
 		u32 limit = intel_de_read(display, SKL_DFSM) & SKL_DFSM_CDCLK_LIMIT_MASK;
 		int max_cdclk, vco;
@@ -3415,6 +3416,7 @@ void intel_update_max_cdclk(struct intel_display *display)
 			max_cdclk = 308571;
 
 		display->cdclk.max_cdclk_freq = skl_calc_cdclk(max_cdclk, vco);
+		display->cdclk.min_cdclk_freq = skl_calc_cdclk(0, vco);
 	} else if (IS_BROADWELL(dev_priv))  {
 		/*
 		 * FIXME with extra cooling we can allow
@@ -3430,13 +3432,18 @@ void intel_update_max_cdclk(struct intel_display *display)
 			display->cdclk.max_cdclk_freq = 540000;
 		else
 			display->cdclk.max_cdclk_freq = 675000;
+
+		display->cdclk.min_cdclk_freq = bdw_calc_cdclk(0);
 	} else if (IS_CHERRYVIEW(dev_priv)) {
 		display->cdclk.max_cdclk_freq = 320000;
+		display->cdclk.min_cdclk_freq = vlv_calc_cdclk(display, 0);
 	} else if (IS_VALLEYVIEW(dev_priv)) {
 		display->cdclk.max_cdclk_freq = 400000;
+		display->cdclk.min_cdclk_freq = vlv_calc_cdclk(display, 0);
 	} else {
 		/* otherwise assume cdclk is fixed */
 		display->cdclk.max_cdclk_freq = display->cdclk.hw.cdclk;
+		display->cdclk.min_cdclk_freq = display->cdclk.hw.cdclk;
 	}
 
 	display->cdclk.max_dotclk_freq = intel_compute_max_dotclk(display);
@@ -3576,6 +3583,7 @@ static int i915_cdclk_info_show(struct seq_file *m, void *unused)
 	struct intel_display *display = m->private;
 
 	seq_printf(m, "Current CD clock frequency: %d kHz\n", display->cdclk.hw.cdclk);
+	seq_printf(m, "Min CD clock frequency: %d kHz\n", display->cdclk.min_cdclk_freq);
 	seq_printf(m, "Max CD clock frequency: %d kHz\n", display->cdclk.max_cdclk_freq);
 	seq_printf(m, "Max pixel clock frequency: %d kHz\n", display->cdclk.max_dotclk_freq);
 

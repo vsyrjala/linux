@@ -349,6 +349,7 @@ struct intel_display {
 
 		struct intel_global_obj obj;
 
+		unsigned int min_cdclk_freq;
 		unsigned int max_cdclk_freq;
 		unsigned int max_dotclk_freq;
 		unsigned int skl_preferred_vco_freq;
