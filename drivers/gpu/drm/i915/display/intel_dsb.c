@@ -1172,7 +1172,7 @@ static int test_noop(struct dsb_test_data *d)
 	struct intel_crtc *crtc = d->crtc;
 	struct intel_display *display = to_intel_display(crtc);
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
-	int counts[] = { 64, 128, 256, 512, 768, 1024, 1280, 1536, 1792, 2048, 2303, 2560, 2816, 3072, 3328, 3584, 3840, 4096, };
+	int counts[] = { 64,128,192,256,320,384,448,512,576,640,704,768,832,896,960,1024,1088,1152,1216,1280,1344,1408,1472,1536,1600,1664,1728,1792,1856,1920,1984,2048};
 	//	int counts[] = { 1, 1<<5, (1<<10) - 64, (1<<15) - 64, (1<<20) - 64 };
 	int qgv_points_mask = -1;
 	int i, ret;
@@ -1263,8 +1263,7 @@ static int test_reg_time(struct dsb_test_data *d,
 	struct intel_crtc *crtc = d->crtc;
 	struct intel_display *display = to_intel_display(crtc);
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
-	int counts[] = { 64, 128, 256, 512, 768, 1024, 1280, 1536, 1792, 2048, 2303, 2560, 2816, 3072, 3328, 3584, 3840, 4096, };
-	//	int counts[] = { 16, 24, 32, 72, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, };
+	int counts[] = { 64,128,192,256,320,384,448,512,576,640,704,768,832,896,960,1024,1088,1152,1216,1280,1344,1408,1472,1536,1600,1664,1728,1792,1856,1920,1984,2048};
 	int qgv_points_mask = -1;
 	int i, ret;
 
