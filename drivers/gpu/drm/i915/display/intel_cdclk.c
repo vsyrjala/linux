@@ -1411,18 +1411,18 @@ static const struct intel_cdclk_vals rplu_cdclk_table[] = {
 
 static const struct intel_cdclk_vals dg2_cdclk_table[] = {
 	{ .refclk = 38400, .cdclk = 163200, .ratio = 34, .waveform = 0x8888 },
-	{ .refclk = 38400, .cdclk = 204000, .ratio = 34, .waveform = 0x9248 },
+	{ .refclk = 38400, .cdclk = 204000, .ratio = 34, .waveform = 0x9248 },//
 	{ .refclk = 38400, .cdclk = 244800, .ratio = 34, .waveform = 0xa4a4 },
 	{ .refclk = 38400, .cdclk = 285600, .ratio = 34, .waveform = 0xa54a },
-	{ .refclk = 38400, .cdclk = 326400, .ratio = 34, .waveform = 0xaaaa },
+	{ .refclk = 38400, .cdclk = 326400, .ratio = 34, .waveform = 0xaaaa },//
 	{ .refclk = 38400, .cdclk = 367200, .ratio = 34, .waveform = 0xad5a },
-	{ .refclk = 38400, .cdclk = 408000, .ratio = 34, .waveform = 0xb6b6 },
+	{ .refclk = 38400, .cdclk = 408000, .ratio = 34, .waveform = 0xb6b6 },//
 	{ .refclk = 38400, .cdclk = 448800, .ratio = 34, .waveform = 0xdbb6 },
-	{ .refclk = 38400, .cdclk = 489600, .ratio = 34, .waveform = 0xeeee },
+	{ .refclk = 38400, .cdclk = 489600, .ratio = 34, .waveform = 0xeeee },//
 	{ .refclk = 38400, .cdclk = 530400, .ratio = 34, .waveform = 0xf7de },
-	{ .refclk = 38400, .cdclk = 571200, .ratio = 34, .waveform = 0xfefe },
+	{ .refclk = 38400, .cdclk = 571200, .ratio = 34, .waveform = 0xfefe },//
 	{ .refclk = 38400, .cdclk = 612000, .ratio = 34, .waveform = 0xfffe },
-	{ .refclk = 38400, .cdclk = 652800, .ratio = 34, .waveform = 0xffff },
+	{ .refclk = 38400, .cdclk = 652800, .ratio = 34, .waveform = 0xffff },//
 	{}
 };
 

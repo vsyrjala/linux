@@ -339,6 +339,15 @@ void intel_dsb_reg_write_masked(struct intel_dsb *dsb,
 		       i915_mmio_reg_offset(reg));
 }
 
+void intel_dsb_reg_write_noindex(struct intel_dsb *dsb,
+				 i915_reg_t reg, u32 val)
+{
+	intel_dsb_emit(dsb, val,
+		       (DSB_OPCODE_MMIO_WRITE << DSB_OPCODE_SHIFT) |
+		       (DSB_BYTE_EN << DSB_BYTE_EN_SHIFT) |
+		       i915_mmio_reg_offset(reg));
+}
+
 void intel_dsb_noop(struct intel_dsb *dsb, int count)
 {
 	int i;
@@ -1163,7 +1172,7 @@ static int test_noop(struct dsb_test_data *d)
 	struct intel_crtc *crtc = d->crtc;
 	struct intel_display *display = to_intel_display(crtc);
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
-	int counts[] = { 64, 128, 256, 512, 768, 1024, 1280, 1536, 1792, 2048, 2303, 2560, 2816, 3072, 3328, 2584, 3840, 4096, };
+	int counts[] = { 64, 128, 256, 512, 768, 1024, 1280, 1536, 1792, 2048, 2303, 2560, 2816, 3072, 3328, 3584, 3840, 4096, };
 	//	int counts[] = { 1, 1<<5, (1<<10) - 64, (1<<15) - 64, (1<<20) - 64 };
 	int qgv_points_mask = -1;
 	int i, ret;
@@ -1177,7 +1186,7 @@ static int test_noop(struct dsb_test_data *d)
 	if (force_qgv_point >= 0)
 		qgv_points_mask = intel_bw_force_qgv(display, force_qgv_point);
 
-	for (int j = 0; j < 10; j++) {
+	for (int k = 0; k < 10; k++) {
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		struct intel_dsb *dsb;
 
@@ -1191,7 +1200,7 @@ static int test_noop(struct dsb_test_data *d)
 		intel_dsb_reg_write(dsb, PLANE_SURF(crtc->pipe, d->plane_id), d->surf);
 
 		intel_dsb_finish(dsb);
-		if (counts[i] == 1)
+		if (k == 0 && counts[i] <= 1<<6)
 			intel_dsb_dump(dsb);
 
 		/* make sure pkgC latency is not an issue */
@@ -1254,7 +1263,7 @@ static int test_reg_time(struct dsb_test_data *d,
 	struct intel_crtc *crtc = d->crtc;
 	struct intel_display *display = to_intel_display(crtc);
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
-	int counts[] = { 64, 128, 256, 512, 768, 1024, 1280, 1536, 1792, 2048, 2303, 2560, 2816, 3072, 3328, 2584, 3840, 4096, };
+	int counts[] = { 64, 128, 256, 512, 768, 1024, 1280, 1536, 1792, 2048, 2303, 2560, 2816, 3072, 3328, 3584, 3840, 4096, };
 	//	int counts[] = { 16, 24, 32, 72, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, };
 	int qgv_points_mask = -1;
 	int i, ret;
@@ -1268,7 +1277,7 @@ static int test_reg_time(struct dsb_test_data *d,
 
 	ret = -EINVAL;
 
-	for (int j = 0; j < 10; j++) {
+	for (int k = 0; k < 10; k++) {
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		struct intel_dsb *dsb;
 		int j;
@@ -1286,11 +1295,10 @@ static int test_reg_time(struct dsb_test_data *d,
 		}
 
 		for (j = 0; j < counts[i]; j++) {
-			if (indexed)
+			if (indexed)// & (j % 5 != 0))
 				intel_dsb_reg_write(dsb, real_reg(d, reg, j), 0);
 			else
-				intel_dsb_reg_write_masked(dsb, real_reg(d, reg, j),
-							   0xffffffff, 0);
+				intel_dsb_reg_write_noindex(dsb, real_reg(d, reg, j), 0);
 		}
 
 		if (reg == REG_PREC_PALETTE)
@@ -1302,7 +1310,7 @@ static int test_reg_time(struct dsb_test_data *d,
 		intel_dsb_reg_write(dsb, PLANE_SURF(crtc->pipe, d->plane_id), d->surf);
 
 		intel_dsb_finish(dsb);
-		if (counts[i] <= 1<<5)
+		if (k == 0 && counts[i] <= 1<<6)
 			intel_dsb_dump(dsb);
 
 		/* make sure pkgC latency is not an issue */

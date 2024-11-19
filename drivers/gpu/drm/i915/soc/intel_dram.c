@@ -31,8 +31,11 @@ static const char *intel_dram_type_str(enum intel_dram_type type)
 		DRAM_TYPE_STR(UNKNOWN),
 		DRAM_TYPE_STR(DDR3),
 		DRAM_TYPE_STR(DDR4),
+		DRAM_TYPE_STR(DDR5),
 		DRAM_TYPE_STR(LPDDR3),
 		DRAM_TYPE_STR(LPDDR4),
+		DRAM_TYPE_STR(LPDDR5),
+		DRAM_TYPE_STR(GDDR),
 	};
 
 	if (type >= ARRAY_SIZE(str))
@@ -444,8 +447,6 @@ skl_get_dram_info(struct drm_i915_private *i915)
 	int ret;
 
 	dram_info->type = skl_get_dram_type(i915);
-	drm_dbg_kms(&i915->drm, "DRAM type: %s\n",
-		    intel_dram_type_str(dram_info->type));
 
 	ret = skl_dram_get_channels_info(i915);
 	if (ret)
@@ -588,8 +589,10 @@ static int icl_pcode_read_mem_global_info(struct drm_i915_private *dev_priv)
 
 	ret = snb_pcode_read(&dev_priv->uncore, ICL_PCODE_MEM_SUBSYSYSTEM_INFO |
 			     ICL_PCODE_MEM_SS_READ_GLOBAL_INFO, &val, NULL);
-	if (ret)
+	if (ret) {
+		drm_dbg_kms(&dev_priv->drm, "failed ot read mem ss info\n");
 		return ret;
+	}
 
 	if (GRAPHICS_VER(dev_priv) == 12) {
 		switch (val & 0xf) {
@@ -707,7 +710,7 @@ void intel_dram_detect(struct drm_i915_private *i915)
 	detect_fsb_freq(i915);
 	detect_mem_freq(i915);
 
-	if (GRAPHICS_VER(i915) < 9 || IS_DG2(i915) || !HAS_DISPLAY(i915))
+	if (GRAPHICS_VER(i915) < 9 || !HAS_DISPLAY(i915))
 		return;
 
 	/*
@@ -726,13 +729,13 @@ void intel_dram_detect(struct drm_i915_private *i915)
 		ret = bxt_get_dram_info(i915);
 	else
 		ret = skl_get_dram_info(i915);
-	if (ret)
-		return;
+	(void)ret;
+	//if (ret)
+	//return;
 
 	drm_dbg_kms(&i915->drm, "Num qgv points %u\n", dram_info->num_qgv_points);
-
+	drm_dbg_kms(&i915->drm, "DRAM type: %s\n", intel_dram_type_str(dram_info->type));
 	drm_dbg_kms(&i915->drm, "DRAM channels: %u\n", dram_info->num_channels);
-
 	drm_dbg_kms(&i915->drm, "Watermark level 0 adjustment needed: %s\n",
 		    str_yes_no(dram_info->wm_lv_0_adjust_needed));
 }

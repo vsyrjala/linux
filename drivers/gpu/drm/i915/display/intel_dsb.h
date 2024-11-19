@@ -75,5 +75,6 @@ void intel_dsb_dump(struct intel_dsb *dsb);
 void intel_dsb_crtc_debugfs_add(struct intel_crtc *crtc);
 
 void intel_dsb_setup(struct intel_display *display);
+void intel_dsb_dump(struct intel_dsb *dsb);
 
 #endif

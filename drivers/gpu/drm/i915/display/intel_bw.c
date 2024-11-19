@@ -589,6 +589,7 @@ static int tgl_get_bw_info(struct drm_i915_private *dev_priv, const struct intel
 	return 0;
 }
 
+#if 0
 static void dg2_get_bw_info(struct drm_i915_private *i915)
 {
 	unsigned int deratedbw = IS_DG2_G11(i915) ? 38000 : 50000;
@@ -613,7 +614,7 @@ static void dg2_get_bw_info(struct drm_i915_private *i915)
 
 	i915->display.sagv.status = I915_SAGV_NOT_CONTROLLED;
 }
-
+#endif
 static int xe2_hpd_get_bw_info(struct drm_i915_private *i915,
 			       const struct intel_sa_info *sa)
 {
@@ -749,12 +750,17 @@ void intel_bw_init_hw(struct drm_i915_private *dev_priv)
 	if (!HAS_DISPLAY(dev_priv))
 		return;
 
+	drm_dbg_kms(&dev_priv->drm, "init bw hw\n");
+
 	if (DISPLAY_VERx100(dev_priv) >= 1401 && IS_DGFX(dev_priv))
 		xe2_hpd_get_bw_info(dev_priv, &xe2_hpd_sa_info);
 	else if (DISPLAY_VER(dev_priv) >= 14)
 		tgl_get_bw_info(dev_priv, &mtl_sa_info);
 	else if (IS_DG2(dev_priv))
-		dg2_get_bw_info(dev_priv);
+	{
+		tgl_get_bw_info(dev_priv, &tgl_sa_info);
+		//dg2_get_bw_info(dev_priv);
+	}
 	else if (IS_ALDERLAKE_P(dev_priv))
 		tgl_get_bw_info(dev_priv, &adlp_sa_info);
 	else if (IS_ALDERLAKE_S(dev_priv))
