@@ -1284,7 +1284,7 @@ static int test_reg_time(struct dsb_test_data *d,
 		for (j = 0; j < counts[i]; j++) {
 			if (indexed)
 				_intel_dsb_reg_write_indexed(dsb, real_reg(d, reg, j), 0,
-							     j % 2 != 0);
+							     j % 4 != 0);
 			else
 				intel_dsb_reg_write(dsb, real_reg(d, reg, j), 0);
 		}
