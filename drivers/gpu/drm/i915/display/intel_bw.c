@@ -165,7 +165,7 @@ int icl_pcode_restrict_qgv_points(struct drm_i915_private *dev_priv,
 
 	if (ret < 0) {
 		drm_err(&dev_priv->drm,
-			"Failed to disable qgv points (0x%x) points: 0x%x\n",
+			"Failed to disable qgv points (%d) points: 0x%x\n",
 			ret, points_mask);
 		return ret;
 	}
@@ -931,6 +931,15 @@ static u16 icl_prepare_qgv_points_mask(struct drm_i915_private *i915,
 				       unsigned int qgv_points,
 				       unsigned int psf_points)
 {
+	drm_err(&i915->drm, "%x %x %x %x %x %x %x\n",
+		qgv_points, psf_points,
+		ICL_PCODE_REQ_QGV_PT(qgv_points),
+		ADLS_PCODE_REQ_PSF_PT(psf_points),
+		ICL_PCODE_REQ_QGV_PT(qgv_points) | ADLS_PCODE_REQ_PSF_PT(psf_points),
+		~(ICL_PCODE_REQ_QGV_PT(qgv_points) | ADLS_PCODE_REQ_PSF_PT(psf_points)),
+		~(ICL_PCODE_REQ_QGV_PT(qgv_points) | ADLS_PCODE_REQ_PSF_PT(psf_points)) &
+		icl_qgv_points_mask(i915));
+
 	return ~(ICL_PCODE_REQ_QGV_PT(qgv_points) |
 		 ADLS_PCODE_REQ_PSF_PT(psf_points)) & icl_qgv_points_mask(i915);
 }
@@ -991,8 +1000,10 @@ int intel_bw_force_qgv(struct intel_display *display, int point)
 	struct drm_i915_private *i915 = to_i915(display->drm);
 	struct intel_bw_state *bw_state = to_intel_bw_state(display->bw.obj.state);
 	u16 orig_qgv_points_mask = bw_state->qgv_points_mask;
-	u16 qgv_points = ~bw_state->qgv_points_mask & qgv_points_mask(i915);
-	u16 psf_points = ~bw_state->qgv_points_mask & psf_points_mask(i915);
+	u16 qgv_points = REG_FIELD_GET(ICL_PCODE_REQ_QGV_PT_MASK,
+				       ~bw_state->qgv_points_mask & qgv_points_mask(i915));
+	u16 psf_points = REG_FIELD_GET(ADLS_PCODE_REQ_PSF_PT_MASK,
+				       ~bw_state->qgv_points_mask & psf_points_mask(i915));
 	u16 qgv_points_mask;
 
 	if ((qgv_points & BIT(point)) == 0) {
@@ -1010,7 +1021,8 @@ int intel_bw_force_qgv(struct intel_display *display, int point)
 		return 0;
 	}
 
-	drm_err(display->drm, "Forcing QGV mask: 0x%x (full mask 0x%x)\n", qgv_points_mask,
+	drm_err(display->drm, "Forcing QGV mask: 0x%x (qgv 0x%x, psf 0x%x) (old 0x%x) (full mask 0x%x)\n",
+		qgv_points_mask, qgv_points, psf_points, bw_state->qgv_points_mask,
 		icl_qgv_points_mask(i915));
 
 	if (icl_pcode_restrict_qgv_points(i915, qgv_points_mask) == 0)
