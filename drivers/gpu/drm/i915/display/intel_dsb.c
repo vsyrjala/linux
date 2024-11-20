@@ -261,21 +261,8 @@ static bool intel_dsb_prev_ins_is_indexed_write(struct intel_dsb *dsb, i915_reg_
 					   reg);
 }
 
-/**
- * intel_dsb_reg_write_indexed() - Emit indexed register write to the DSB context
- * @dsb: DSB context
- * @reg: register address.
- * @val: value.
- *
- * This function is used for writing register-value pair in command
- * buffer of DSB.
- *
- * Note that indexed writes are slower than normal MMIO writes
- * for a small number (less than 5 or so) of writes to the same
- * register.
- */
-void intel_dsb_reg_write_indexed(struct intel_dsb *dsb,
-				 i915_reg_t reg, u32 val)
+static void _intel_dsb_reg_write_indexed(struct intel_dsb *dsb,
+					 i915_reg_t reg, u32 val, bool allow_merge)
 {
 	/*
 	 * For example the buffer will look like below for 3 dwords for auto
@@ -293,7 +280,7 @@ void intel_dsb_reg_write_indexed(struct intel_dsb *dsb,
 	 * we are writing odd no of dwords, Zeros will be added in the end for
 	 * padding.
 	 */
-	if (!intel_dsb_prev_ins_is_indexed_write(dsb, reg))
+	if (!allow_merge || !intel_dsb_prev_ins_is_indexed_write(dsb, reg))
 		intel_dsb_emit(dsb, 0, /* count */
 			       (DSB_OPCODE_INDEXED_WRITE << DSB_OPCODE_SHIFT) |
 			       i915_mmio_reg_offset(reg));
@@ -312,13 +299,23 @@ void intel_dsb_reg_write_indexed(struct intel_dsb *dsb,
 		intel_dsb_buffer_write(&dsb->dsb_buf, dsb->free_pos, 0);
 }
 
-void intel_dsb_reg_write(struct intel_dsb *dsb,
-			 i915_reg_t reg, u32 val)
+/**
+ * intel_dsb_reg_write_indexed() - Emit indexed register write to the DSB context
+ * @dsb: DSB context
+ * @reg: register address.
+ * @val: value.
+ *
+ * This function is used for writing register-value pair in command
+ * buffer of DSB.
+ *
+ * Note that indexed writes are slower than normal MMIO writes
+ * for a small number (less than 5 or so) of writes to the same
+ * register.
+ */
+void intel_dsb_reg_write_indexed(struct intel_dsb *dsb,
+				 i915_reg_t reg, u32 val)
 {
-	intel_dsb_emit(dsb, val,
-		       (DSB_OPCODE_MMIO_WRITE << DSB_OPCODE_SHIFT) |
-		       (DSB_BYTE_EN << DSB_BYTE_EN_SHIFT) |
-		       i915_mmio_reg_offset(reg));
+	_intel_dsb_reg_write_indexed(dsb, reg, val, true);
 }
 
 static u32 intel_dsb_mask_to_byte_en(u32 mask)
@@ -336,15 +333,6 @@ void intel_dsb_reg_write_masked(struct intel_dsb *dsb,
 	intel_dsb_emit(dsb, val,
 		       (DSB_OPCODE_MMIO_WRITE << DSB_OPCODE_SHIFT) |
 		       (intel_dsb_mask_to_byte_en(mask) << DSB_BYTE_EN_SHIFT) |
-		       i915_mmio_reg_offset(reg));
-}
-
-void intel_dsb_reg_write_noindex(struct intel_dsb *dsb,
-				 i915_reg_t reg, u32 val)
-{
-	intel_dsb_emit(dsb, val,
-		       (DSB_OPCODE_MMIO_WRITE << DSB_OPCODE_SHIFT) |
-		       (DSB_BYTE_EN << DSB_BYTE_EN_SHIFT) |
 		       i915_mmio_reg_offset(reg));
 }
 
@@ -1294,10 +1282,11 @@ static int test_reg_time(struct dsb_test_data *d,
 		}
 
 		for (j = 0; j < counts[i]; j++) {
-			if (indexed)// & (j % 5 != 0))
-				intel_dsb_reg_write(dsb, real_reg(d, reg, j), 0);
+			if (indexed)
+				_intel_dsb_reg_write_indexed(dsb, real_reg(d, reg, j), 0,
+							     j % 2 != 0);
 			else
-				intel_dsb_reg_write_noindex(dsb, real_reg(d, reg, j), 0);
+				intel_dsb_reg_write(dsb, real_reg(d, reg, j), 0);
 		}
 
 		if (reg == REG_PREC_PALETTE)
