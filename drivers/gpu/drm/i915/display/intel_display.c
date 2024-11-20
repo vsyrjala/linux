@@ -7737,6 +7737,11 @@ static void intel_atomic_dsb_finish(struct intel_atomic_state *state,
 				new_crtc_state->dsb_color_vblank, true);
 
 	intel_dsb_finish(new_crtc_state->dsb_commit);
+
+	if (new_crtc_state->dsb_commit)
+		intel_dsb_dump(new_crtc_state->dsb_commit);
+	if (new_crtc_state->dsb_color_vblank)
+		intel_dsb_dump(new_crtc_state->dsb_color_vblank);
 }
 
 static void intel_atomic_commit_tail(struct intel_atomic_state *state)
