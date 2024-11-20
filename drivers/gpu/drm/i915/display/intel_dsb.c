@@ -218,7 +218,7 @@ static bool assert_dsb_tail_is_aligned(struct intel_dsb *dsb)
 			    !IS_ALIGNED(dsb->free_pos * 4, CACHELINE_BYTES));
 }
 
-static void intel_dsb_dump(struct intel_dsb *dsb)
+void intel_dsb_dump(struct intel_dsb *dsb)
 {
 	struct intel_crtc *crtc = dsb->crtc;
 	struct intel_display *display = to_intel_display(crtc->base.dev);
