@@ -1743,7 +1743,7 @@ static int test_wait_vblanks(struct dsb_test_data *d)
 		intel_dsb_reg_write(dsb, TRANS_PUSH(display, cpu_transcoder),
 				    TRANS_PUSH_EN | TRANS_PUSH_SEND);
 		intel_dsb_nonpost_end(dsb);
-		intel_dsb_wait_usec(dsb, 10);//
+		//intel_dsb_wait_usec(dsb, 10);//
 		intel_dsb_wait_vblanks(dsb, count);
 
 		intel_dsb_reg_write(dsb, PLANE_SURF(pipe, d->plane_id), d->surf);
@@ -1770,6 +1770,203 @@ static int test_wait_vblanks(struct dsb_test_data *d)
 			} while (dsl < crtc_state->hw.adjusted_mode.crtc_vdisplay + 10 ||
 				 dsl > crtc_state->hw.adjusted_mode.crtc_vdisplay + 100);
 		}
+
+		dsb_test_sample_counts(crtc, &d->pre);
+
+		intel_de_write(display, IVB_TIMESTAMP_CTR, 0x0);
+
+		_intel_dsb_commit(dsb, 0, -1, 0);
+		_intel_dsb_wait_inf(dsb);
+		intel_dsb_wait(dsb);
+
+		dsb_test_clear_force_dewake(crtc, dsb->id);
+
+		intel_dsb_cleanup(dsb);
+
+		dsb_test_sample_timestamps(crtc, &d->ts);
+		dsb_test_sample_counts(crtc, &d->post);
+
+		if (dsb_test_compare_flipcount(d, 1))
+		{
+			//goto restore;
+		}
+
+		if (dsb_test_compare_framecount(d, count))
+		{
+			//goto restore;
+		}
+
+		/*
+		 * Zero vblanks means no wait so the flip happens whenever
+		 * DSB starts executing -> flips timestamp is meaningless.
+		 */
+		/* FIXME this assumes that delayed vblank is not used */
+		if (count && dsb_test_compare_timestamps(d, 0, 5))
+		{
+			//goto restore;
+		}
+	}
+	
+
+	ret = 0;
+
+restore:
+	dsb_test_restore(d);
+
+	return ret;
+}
+
+
+static int test_wait_vblanks2(struct dsb_test_data *d)
+{
+	struct intel_crtc *crtc = d->crtc;
+	struct intel_display *display = to_intel_display(crtc);
+	enum pipe pipe = crtc->pipe;
+	int count, ret;
+
+	ret = dsb_test_prepare(d);
+	if (ret)
+		goto restore;
+
+	ret = -EINVAL;
+
+	for (count = 0; count <= 5; count++) {
+		struct intel_dsb *dsb;
+		enum transcoder cpu_transcoder = (enum transcoder)pipe;
+
+		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, 512);
+		if (!dsb)
+			goto restore;
+
+		intel_dsb_nonpost_start(dsb);
+		intel_dsb_reg_write(dsb, TRANS_PUSH(display, cpu_transcoder),
+				    TRANS_PUSH_EN | TRANS_PUSH_SEND);
+		intel_dsb_nonpost_end(dsb);
+		//intel_dsb_wait_usec(dsb, 10);//
+		intel_dsb_wait_vblanks(dsb, count);
+
+		intel_dsb_reg_write(dsb, PLANE_SURF(pipe, d->plane_id), d->surf);
+
+		intel_dsb_finish(dsb);
+		intel_dsb_dump(dsb);
+
+		/* make sure pkgC latency is not an issue */
+		dsb_test_set_force_dewake(crtc, dsb->id);
+
+		if (intel_de_wait_for_clear(display,
+					    TRANS_PUSH(display, cpu_transcoder),
+					    TRANS_PUSH_SEND, 1000))
+			drm_err(display->drm,
+				"Timed out waiting for PUSH send to clear\n");
+
+		intel_crtc_wait_for_next_vblank(crtc);
+		{
+			u32 dsl;
+			do {
+				dsl = intel_de_read_fw(display, PIPEDSL(display, pipe)) & PIPEDSL_LINE_MASK;
+			} while (dsl < 10 || dsl > 100);
+		}
+
+		dsb_test_sample_counts(crtc, &d->pre);
+
+		intel_de_write(display, IVB_TIMESTAMP_CTR, 0x0);
+
+		_intel_dsb_commit(dsb, 0, -1, 0);
+		_intel_dsb_wait_inf(dsb);
+		intel_dsb_wait(dsb);
+
+		dsb_test_clear_force_dewake(crtc, dsb->id);
+
+		intel_dsb_cleanup(dsb);
+
+		dsb_test_sample_timestamps(crtc, &d->ts);
+		dsb_test_sample_counts(crtc, &d->post);
+
+		if (dsb_test_compare_flipcount(d, 1))
+		{
+			//goto restore;
+		}
+
+		if (dsb_test_compare_framecount(d, count))
+		{
+			//goto restore;
+		}
+
+		/*
+		 * Zero vblanks means no wait so the flip happens whenever
+		 * DSB starts executing -> flips timestamp is meaningless.
+		 */
+		/* FIXME this assumes that delayed vblank is not used */
+		if (count && dsb_test_compare_timestamps(d, 0, 5))
+		{
+			//goto restore;
+		}
+	}
+	
+
+	ret = 0;
+
+restore:
+	dsb_test_restore(d);
+
+	return ret;
+}
+
+static int test_wait_vblanks3(struct dsb_test_data *d)
+{
+	struct intel_crtc *crtc = d->crtc;
+	struct intel_display *display = to_intel_display(crtc);
+	enum pipe pipe = crtc->pipe;
+	int count, ret;
+
+	ret = dsb_test_prepare(d);
+	if (ret)
+		goto restore;
+
+	ret = -EINVAL;
+
+	for (count = 0; count <= 5; count++) {
+		struct intel_dsb *dsb;
+		enum transcoder cpu_transcoder = (enum transcoder)pipe;
+		const struct intel_crtc_state *crtc_state =
+			intel_atomic_get_new_crtc_state(d->state, crtc);
+
+		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, 512);
+		if (!dsb)
+			goto restore;
+
+		intel_dsb_nonpost_start(dsb);
+		//hax
+		{
+			int n = display->params.dsb_vblank_n;
+			intel_dsb_wait_scanline_in(d->state, dsb,
+						   intel_vrr_vmax_vblank_start(crtc_state) + n,
+						   intel_vrr_vmax_vblank_start(crtc_state) + n);
+		}
+		intel_dsb_reg_write(dsb, TRANS_PUSH(display, cpu_transcoder),
+				    TRANS_PUSH_EN | TRANS_PUSH_SEND);
+		intel_dsb_emit_poll(dsb, TRANS_PUSH(display, cpu_transcoder),
+				    TRANS_PUSH_SEND, 0,
+				    120, REG_FIELD_GET(DSB_POLL_COUNT_MASK, DSB_POLL_COUNT_MASK));
+		intel_dsb_nonpost_end(dsb);
+		//intel_dsb_wait_usec(dsb, 10);//
+		//intel_dsb_wait_vblanks(dsb, count);
+
+		intel_dsb_reg_write(dsb, PLANE_SURF(pipe, d->plane_id), d->surf);
+
+		intel_dsb_finish(dsb);
+		intel_dsb_dump(dsb);
+
+		/* make sure pkgC latency is not an issue */
+		dsb_test_set_force_dewake(crtc, dsb->id);
+
+		if (intel_de_wait_for_clear(display,
+					    TRANS_PUSH(display, cpu_transcoder),
+					    TRANS_PUSH_SEND, 1000))
+			drm_err(display->drm,
+				"Timed out waiting for PUSH send to clear\n");
+
+		intel_crtc_wait_for_next_vblank(crtc);
 
 		dsb_test_sample_counts(crtc, &d->pre);
 
@@ -2384,6 +2581,8 @@ static const struct intel_dsb_test tests[] = {
 	{ .func = test_wait_usec, .name = "wait_usec", },
 	{ .func = test_wait_scanline, .name = "wait_scanline", },
 	{ .func = test_wait_vblanks, .name = "wait_vblanks", },
+	{ .func = test_wait_vblanks2, .name = "wait_vblanks2", },
+	{ .func = test_wait_vblanks3, .name = "wait_vblanks3", },
 	{ .func = test_wait_scanline_in, .name = "wait_scanline_in", },
 	{ .func = test_wait_scanline_out, .name = "wait_scanline_out", },
 	{ .func = test_interrupt, .name = "interrupt", },

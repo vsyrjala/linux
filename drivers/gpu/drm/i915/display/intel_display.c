@@ -4971,6 +4971,7 @@ intel_modeset_pipe_config(struct intel_atomic_state *state,
 			  struct intel_crtc *crtc,
 			  const struct intel_link_bw_limits *limits)
 {
+	struct intel_display *display = to_intel_display(state);
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
 	struct intel_crtc_state *crtc_state =
 		intel_atomic_get_new_crtc_state(state, crtc);
