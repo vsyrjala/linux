@@ -7,9 +7,9 @@
 #include "i915_reg.h"
 #include "intel_de.h"
 #include "intel_display_types.h"
+#include "intel_dp.h"
 #include "intel_vrr.h"
 #include "intel_vrr_regs.h"
-#include "intel_dp.h"
 
 #define FIXED_POINT_PRECISION		100
 #define CMRR_PRECISION_TOLERANCE	10
@@ -75,6 +75,46 @@ intel_vrr_check_modeset(struct intel_atomic_state *state)
 	}
 }
 
+static int intel_vrr_real_vblank_delay(const struct intel_crtc_state *crtc_state)
+{
+	return crtc_state->hw.adjusted_mode.crtc_vblank_start -
+		crtc_state->hw.adjusted_mode.crtc_vdisplay;
+}
+
+static int intel_vrr_extra_vblank_delay(struct intel_display *display)
+{
+	/*
+	 * On ICL/TGL VRR hardware inserts one extra scanline
+	 * just after vactive, which pushes the vmin decision
+	 * boundary ahead accordingly. We'll include the extra
+	 * scanline in our vblank delay estimates to make sure
+	 * that we never underestimate how long we have until
+	 * the delayed vblank has passed.
+	 */
+	return DISPLAY_VER(display) < 13 ? 1 : 0;
+}
+
+int intel_vrr_vblank_delay(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_display *display = to_intel_display(crtc_state);
+
+	return intel_vrr_real_vblank_delay(crtc_state) +
+		intel_vrr_extra_vblank_delay(display);
+}
+
+static int intel_vrr_flipline_offset(struct intel_display *display)
+{
+	/* ICL/TGL hardware imposes flipline>=vmin+1 */
+	return DISPLAY_VER(display) < 13 ? 1 : 0;
+}
+
+static int intel_vrr_vmin_flipline(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_display *display = to_intel_display(crtc_state);
+
+	return crtc_state->vrr.vmin + intel_vrr_flipline_offset(display);
+}
+
 /*
  * Without VRR registers get latched at:
  *  vblank_start
@@ -98,19 +138,41 @@ static int intel_vrr_vblank_exit_length(const struct intel_crtc_state *crtc_stat
 	if (DISPLAY_VER(display) >= 13)
 		return crtc_state->vrr.guardband;
 	else
-		/* The hw imposes the extra scanline before frame start */
+		/* hardware imposes one extra scanline somewhere */
 		return crtc_state->vrr.pipeline_full + crtc_state->framestart_delay + 1;
+}
+
+int intel_vrr_vmin_vtotal(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_display *display = to_intel_display(crtc_state);
+
+	/* Min vblank actually determined by flipline */
+	if (DISPLAY_VER(display) >= 13)
+		return intel_vrr_vmin_flipline(crtc_state);
+	else
+		return intel_vrr_vmin_flipline(crtc_state) +
+			intel_vrr_real_vblank_delay(crtc_state);
+}
+
+int intel_vrr_vmax_vtotal(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_display *display = to_intel_display(crtc_state);
+
+	if (DISPLAY_VER(display) >= 13)
+		return crtc_state->vrr.vmax;
+	else
+		return crtc_state->vrr.vmax +
+			intel_vrr_real_vblank_delay(crtc_state);
 }
 
 int intel_vrr_vmin_vblank_start(const struct intel_crtc_state *crtc_state)
 {
-	/* Min vblank actually determined by flipline that is always >=vmin+1 */
-	return crtc_state->vrr.vmin + 1 - intel_vrr_vblank_exit_length(crtc_state);
+	return intel_vrr_vmin_vtotal(crtc_state) - intel_vrr_vblank_exit_length(crtc_state);
 }
 
 int intel_vrr_vmax_vblank_start(const struct intel_crtc_state *crtc_state)
 {
-	return crtc_state->vrr.vmax - intel_vrr_vblank_exit_length(crtc_state);
+	return intel_vrr_vmax_vtotal(crtc_state) - intel_vrr_vblank_exit_length(crtc_state);
 }
 
 static bool
@@ -202,15 +264,17 @@ intel_vrr_compute_config(struct intel_crtc_state *crtc_state,
 	if (vmin >= vmax)
 		return;
 
-	/*
-	 * flipline determines the min vblank length the hardware will
-	 * generate, and flipline>=vmin+1, hence we reduce vmin by one
-	 * to make sure we can get the actual min vblank length.
-	 */
-	crtc_state->vrr.vmin = vmin - 1;
+	crtc_state->vrr.vmin = vmin;
 	crtc_state->vrr.vmax = vmax;
 
-	crtc_state->vrr.flipline = crtc_state->vrr.vmin + 1;
+	crtc_state->vrr.flipline = crtc_state->vrr.vmin;
+
+	/*
+	 * flipline determines the min vblank length the hardware will
+	 * generate, and on ICL/TGL flipline>=vmin+1, hence we reduce
+	 * vmin by one to make sure we can get the actual min vblank length.
+	 */
+	crtc_state->vrr.vmin -= intel_vrr_flipline_offset(display);
 
 	/*
 	 * When panel is VRR capable and userspace has
@@ -255,11 +319,20 @@ void intel_vrr_compute_config_late(struct intel_crtc_state *crtc_state)
 
 	if (DISPLAY_VER(display) >= 13) {
 		crtc_state->vrr.guardband =
-			crtc_state->vrr.vmin + 1 - adjusted_mode->crtc_vblank_start;
+			crtc_state->vrr.vmin - adjusted_mode->crtc_vblank_start;
 	} else {
+		/* hardware imposes one extra scanline somewhere */
 		crtc_state->vrr.pipeline_full =
 			min(255, crtc_state->vrr.vmin - adjusted_mode->crtc_vblank_start -
 			    crtc_state->framestart_delay - 1);
+
+		/*
+		 * vmin/vmax/flipline also need to be adjusted by
+		 * the vblank delay to maintain correct vtotals.
+		 */
+		crtc_state->vrr.vmin -= intel_vrr_real_vblank_delay(crtc_state);
+		crtc_state->vrr.vmax -= intel_vrr_real_vblank_delay(crtc_state);
+		crtc_state->vrr.flipline -= intel_vrr_real_vblank_delay(crtc_state);
 	}
 }
 
@@ -317,7 +390,8 @@ void intel_vrr_set_transcoder_timings(const struct intel_crtc_state *crtc_state)
 		       crtc_state->vrr.flipline - 1);
 }
 
-void intel_vrr_send_push(const struct intel_crtc_state *crtc_state)
+void intel_vrr_send_push(struct intel_dsb *dsb,
+			 const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	enum transcoder cpu_transcoder = crtc_state->cpu_transcoder;
@@ -325,8 +399,15 @@ void intel_vrr_send_push(const struct intel_crtc_state *crtc_state)
 	if (!crtc_state->vrr.enable)
 		return;
 
-	intel_de_write(display, TRANS_PUSH(display, cpu_transcoder),
-		       TRANS_PUSH_EN | TRANS_PUSH_SEND);
+	if (dsb)
+		intel_dsb_nonpost_start(dsb);
+
+	intel_de_write_dsb(display, dsb,
+			   TRANS_PUSH(display, cpu_transcoder),
+			   TRANS_PUSH_EN | TRANS_PUSH_SEND);
+
+	if (dsb)
+		intel_dsb_nonpost_end(dsb);
 }
 
 bool intel_vrr_is_push_sent(const struct intel_crtc_state *crtc_state)
