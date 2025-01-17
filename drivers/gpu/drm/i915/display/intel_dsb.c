@@ -19,6 +19,7 @@
 #include "intel_dsb_buffer.h"
 #include "intel_dsb_regs.h"
 #include "intel_pipe_crc_regs.h"
+#include "intel_psr_regs.h"
 #include "intel_vblank.h"
 #include "intel_vrr.h"
 #include "intel_vrr_regs.h"
@@ -176,13 +177,13 @@ static u32 dsb_chicken(struct intel_atomic_state *state,
 		       struct intel_crtc *crtc)
 {
 	if (pre_commit_is_vrr_active(state, crtc))
-		return DSB_SKIP_WAITS_EN |
+		return //DSB_SKIP_WAITS_EN |
 			DSB_CTRL_WAIT_SAFE_WINDOW |
 			DSB_CTRL_NO_WAIT_VBLANK |
 			DSB_INST_WAIT_SAFE_WINDOW |
 			DSB_INST_NO_WAIT_VBLANK;
 	else
-		return DSB_SKIP_WAITS_EN;
+		return 0;//DSB_SKIP_WAITS_EN;
 }
 
 static bool assert_dsb_has_room(struct intel_dsb *dsb)
@@ -904,6 +905,9 @@ void intel_dsb_cleanup(struct intel_dsb *dsb)
 	kfree(dsb);
 }
 
+static u32 interrupt_ts;
+static u32 old_surf;
+
 void intel_dsb_irq_handler(struct intel_display *display,
 			   enum pipe pipe, enum intel_dsb_id dsb_id)
 {
@@ -913,7 +917,12 @@ void intel_dsb_irq_handler(struct intel_display *display,
 	tmp = intel_de_read_fw(display, DSB_INTERRUPT(pipe, dsb_id));
 	intel_de_write_fw(display, DSB_INTERRUPT(pipe, dsb_id), tmp);
 
+	//drm_err(display->drm, "DSB %d interrupt 0x%x\n", dsb_id, tmp);
+
 	if (tmp & DSB_PROG_INT_STATUS) {
+		//intel_de_write_fw(display, PLANE_SURF(crtc->pipe, PLANE_1), old_surf);
+		interrupt_ts = intel_de_read_fw(display, IVB_TIMESTAMP_CTR);
+
 		spin_lock(&display->drm->event_lock);
 
 		if (crtc->dsb_event) {
@@ -1067,6 +1076,8 @@ static bool dsb_test_compare_timestamps(struct dsb_test_data *d,
 	struct drm_i915_private *i915 = to_i915(d->crtc->base.dev);
 	int diff = d->ts.flip - d->ts.frame;
 
+	drm_dbg_kms(&i915->drm, "%s: timestamp interrupt %d\n",
+		    d->name, interrupt_ts);
 	drm_dbg_kms(&i915->drm, "%s: timestamp flip %d, frame %d\n",
 		    d->name, d->ts.flip, d->ts.frame);
 	drm_dbg_kms(&i915->drm, "%s: timestamp expected %d, got %d (max diff %d)\n",
@@ -2013,6 +2024,117 @@ restore:
 	return ret;
 }
 
+static int test_psr(struct dsb_test_data *d)
+{
+	struct intel_crtc *crtc = d->crtc;
+	struct intel_display *display = to_intel_display(crtc);
+	enum pipe pipe = crtc->pipe;
+	int count, ret;
+
+	ret = dsb_test_prepare(d);
+	if (ret)
+		goto restore;
+
+	ret = -EINVAL;
+
+	for (count = 0; count <= 5; count++) {
+		struct intel_dsb *dsb;
+		enum transcoder cpu_transcoder = (enum transcoder)pipe;
+		//const struct intel_crtc_state *crtc_state =
+		//intel_atomic_get_new_crtc_state(d->state, crtc);
+
+		old_surf = d->surf;
+		u32 ctl = intel_de_read(display, PLANE_CTL(crtc->pipe, d->plane_id));
+
+		dsb = intel_dsb_prepare(d->state, crtc, INTEL_DSB_0, 512);
+		if (!dsb)
+			goto restore;
+
+		intel_dsb_reg_write(dsb, PLANE_CTL(pipe, d->plane_id), ctl);
+		intel_dsb_emit_wait_dsl(dsb, DSB_OPCODE_WAIT_DSL_OUT, 0, 0);
+		intel_dsb_emit_wait_dsl(dsb, DSB_OPCODE_WAIT_DSL_OUT, 0x86e - 0, 0x86e - 0);
+
+		intel_dsb_reg_write(dsb, PLANE_SURF(pipe, d->plane_id), 0);//d->surf);
+		//intel_dsb_wait_usec(dsb, 1);
+
+		intel_dsb_wait_vblanks(dsb, 1);
+		intel_dsb_reg_write(dsb, PLANE_SURF(crtc->pipe, d->plane_id), d->surf);///
+#if 0
+#if 0
+		intel_dsb_nonpost_start(dsb);
+		intel_dsb_emit_poll(dsb, EDP_PSR_STATUS(display, cpu_transcoder),
+				    EDP_PSR_STATUS_STATE_MASK, 0,
+				    120, REG_FIELD_GET(DSB_POLL_COUNT_MASK, DSB_POLL_COUNT_MASK));
+		intel_dsb_nonpost_end(dsb);
+#else
+		intel_dsb_emit_poll(dsb, PLANE_SURFLIVE(pipe, d->plane_id),
+				    ~0xfff, d->surf,
+				    120, REG_FIELD_GET(DSB_POLL_COUNT_MASK, DSB_POLL_COUNT_MASK));
+#endif
+#endif
+		intel_dsb_interrupt(dsb);
+		intel_dsb_finish(dsb);
+		intel_dsb_dump(dsb);
+
+		/* make sure pkgC latency is not an issue */
+		dsb_test_set_force_dewake(crtc, dsb->id);
+
+		//intel_de_write(display, PLANE_SURF(pipe, d->plane_id), d->surf + 0x1000);
+
+		if (intel_de_wait_for_clear(display,
+					    EDP_PSR_STATUS(display, cpu_transcoder),
+					    EDP_PSR_STATUS_LINK_FULL_ON, 1000))
+			drm_err(display->drm,
+				"Timed out waiting for PSR link off\n");
+
+		//dsb_test_sample_counts(crtc, &d->pre);
+
+		intel_de_write(display, IVB_TIMESTAMP_CTR, 0x0);
+
+		_intel_dsb_commit(dsb, 0, -1, 0);
+		_intel_dsb_wait_inf(dsb);
+		intel_synchronize_irq(to_i915(display->drm));
+		msleep(10);
+		intel_dsb_wait(dsb);
+
+		dsb_test_clear_force_dewake(crtc, dsb->id);
+
+		intel_dsb_cleanup(dsb);
+
+
+		dsb_test_sample_timestamps(crtc, &d->ts);
+		dsb_test_sample_counts(crtc, &d->post);
+
+		if (dsb_test_compare_flipcount(d, 1))
+		{
+			//goto restore;
+		}
+
+		if (dsb_test_compare_framecount(d, 1))
+		{
+			//goto restore;
+		}
+
+		/*
+		 * Zero vblanks means no wait so the flip happens whenever
+		 * DSB starts executing -> flips timestamp is meaningless.
+		 */
+		/* FIXME this assumes that delayed vblank is not used */
+		if (dsb_test_compare_timestamps(d, 0, 5))
+		{
+			//goto restore;
+		}
+	}
+	
+
+	ret = 0;
+
+restore:
+	dsb_test_restore(d);
+
+	return ret;
+}
+
 static int test_wait_scanline_inout(struct dsb_test_data *d, bool scanline_in)
 {
 	struct intel_crtc *crtc = d->crtc;
@@ -2592,6 +2714,7 @@ static const struct intel_dsb_test tests[] = {
 	{ .func = test_chained, .name = "chained", },
 	{ .func = test_chained_start_on_vblank, .name = "chained_start_on_vblank", },
 	{ .func = test_ts_test, .name = "ts_test", },
+	{ .func = test_psr, .name = "psr_test", },
 };
 
 static int intel_dsb_debugfs_test(const struct intel_dsb_test *test,
