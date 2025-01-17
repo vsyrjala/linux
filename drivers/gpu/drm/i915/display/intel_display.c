@@ -4980,6 +4980,10 @@ intel_modeset_pipe_config(struct intel_atomic_state *state,
 
 	crtc_state->framestart_delay = 1;
 
+	if (display->params.framestart_delay >= 0)
+		crtc_state->framestart_delay =
+			clamp(display->params.framestart_delay, 1, 4);
+
 	/*
 	 * Sanitize sync polarity flags based on requested ones. If neither
 	 * positive or negative polarity is requested, treat this as meaning
