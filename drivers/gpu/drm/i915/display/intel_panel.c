@@ -315,6 +315,19 @@ static void intel_panel_destroy_probed_modes(struct intel_connector *connector)
 void intel_panel_add_edid_fixed_modes(struct intel_connector *connector,
 				      bool use_alt_fixed_modes)
 {
+	if (!list_empty(&connector->base.probed_modes)) {
+		struct intel_display *display = to_intel_display(connector);
+		struct drm_display_mode *mode = list_first_entry(&connector->base.probed_modes,
+								 typeof(*mode), head);
+		mode = drm_mode_duplicate(display->drm, mode);
+		if (mode) {
+			mode->clock = 40*mode->clock/drm_mode_vrefresh(mode);
+			mode->type &= ~DRM_MODE_TYPE_PREFERRED;
+			mode->type |= DRM_MODE_TYPE_DRIVER;
+			list_add_tail(&mode->head, &connector->base.probed_modes);
+		}
+	}
+
 	intel_panel_add_edid_preferred_mode(connector);
 	if (intel_panel_preferred_fixed_mode(connector) && use_alt_fixed_modes)
 		intel_panel_add_edid_alt_fixed_modes(connector);
