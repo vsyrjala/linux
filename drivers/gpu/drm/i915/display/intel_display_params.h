@@ -43,6 +43,7 @@ struct drm_printer;
 	param(bool, verbose_state_checks, true, 0400) \
 	param(bool, nuclear_pageflip, false, 0400) \
 	param(bool, enable_dp_mst, true, 0600) \
+	param(int, min_cdclk, 0, 0600) \
 	param(int, enable_fbc, -1, 0600) \
 	param(int, enable_psr, -1, 0600) \
 	param(bool, psr_safest_params, false, 0400) \

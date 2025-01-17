@@ -2806,6 +2806,7 @@ static int intel_planes_min_cdclk(const struct intel_crtc_state *crtc_state)
 
 int intel_crtc_compute_min_cdclk(const struct intel_crtc_state *crtc_state)
 {
+	struct intel_display *display = to_intel_display(crtc_state);
 	int min_cdclk;
 
 	if (!crtc_state->hw.enable)
@@ -2817,6 +2818,10 @@ int intel_crtc_compute_min_cdclk(const struct intel_crtc_state *crtc_state)
 	min_cdclk = max(min_cdclk, vlv_dsi_min_cdclk(crtc_state));
 	min_cdclk = max(min_cdclk, intel_planes_min_cdclk(crtc_state));
 	min_cdclk = max(min_cdclk, intel_vdsc_min_cdclk(crtc_state));
+
+	min_cdclk = max(min_cdclk,
+			min_t(int, display->params.min_cdclk,
+			      display->cdclk.max_cdclk_freq));
 
 	return min_cdclk;
 }
