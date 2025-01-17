@@ -64,12 +64,6 @@
  * credit limit, the job won't be executed. Instead, the scheduler will wait
  * until the credit count has decreased enough to not overflow its credit limit.
  * This implies waiting for previously executed jobs.
- *
- * Optionally, drivers may register a callback (update_job_credits) provided by
- * struct drm_sched_backend_ops to update the job's credits dynamically. The
- * scheduler executes this callback every time the scheduler considers a job for
- * execution and subsequently checks whether the job fits the scheduler's credit
- * limit.
  */
 
 #include <linux/wait.h>
@@ -132,13 +126,6 @@ static bool drm_sched_can_queue(struct drm_gpu_scheduler *sched,
 	s_job = to_drm_sched_job(spsc_queue_peek(&entity->job_queue));
 	if (!s_job)
 		return false;
-
-	if (sched->ops->update_job_credits) {
-		s_job->credits = sched->ops->update_job_credits(s_job);
-
-		drm_WARN(sched, !s_job->credits,
-			 "Jobs with zero credits bypass job-flow control.\n");
-	}
 
 	/* If a job exceeds the credit limit, truncate it to the credit limit
 	 * itself to guarantee forward progress.
@@ -1166,9 +1153,6 @@ static void drm_sched_free_job_work(struct work_struct *w)
 		container_of(w, struct drm_gpu_scheduler, work_free_job);
 	struct drm_sched_job *job;
 
-	if (READ_ONCE(sched->pause_submit))
-		return;
-
 	job = drm_sched_get_finished_job(sched);
 	if (job)
 		sched->ops->free_job(job);
@@ -1191,9 +1175,6 @@ static void drm_sched_run_job_work(struct work_struct *w)
 	struct drm_sched_fence *s_fence;
 	struct drm_sched_job *sched_job;
 	int r;
-
-	if (READ_ONCE(sched->pause_submit))
-		return;
 
 	/* Find entity with a ready job */
 	entity = drm_sched_select_entity(sched);
