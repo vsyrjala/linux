@@ -13,6 +13,7 @@
 #include "intel_de.h"
 #include "intel_display_rpm.h"
 #include "intel_display_types.h"
+#include "intel_dmc_regs.h"
 #include "intel_dsb.h"
 #include "intel_dsb_buffer.h"
 #include "intel_dsb_regs.h"
