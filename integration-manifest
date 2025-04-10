@@ -1,0 +1,28 @@
+drm drm-fixes 0af2f6be1b4281385b618cb86ad946eded089ac8
+	Linux 6.15-rc1
+drm-misc drm-misc-fixes 1d34597a1e23004c7dd0ab5f58ba1ef95fd9ded5
+	drm/rockchip: dw_hdmi_qp: Fix io init for dw_hdmi_qp_rockchip_resume
+drm-intel drm-intel-fixes e3ea2eae70692a455e256787e4f54153fb739b90
+	drm/i915/huc: Fix fence not released on early probe errors
+drm-xe drm-xe-fixes 88ecb66b9956a14577d513a6c8c28bb2e7989703
+	drm/xe: Restore EIO errno return when GuC PC start fails
+drm drm-next 0af2f6be1b4281385b618cb86ad946eded089ac8
+	Linux 6.15-rc1
+drm-misc drm-misc-next-fixes 85a063b8b281e144ed96463936fb4e6b3d4fe9e4
+	drm/i2c: tda998x: select CONFIG_DRM_KMS_HELPER
+drm-intel drm-intel-next-fixes 0af2f6be1b4281385b618cb86ad946eded089ac8
+	Linux 6.15-rc1
+drm-xe drm-xe-next-fixes 5e66cf6edddb5f6237e3afb07475ace57ecb56bc
+	drm/xe: Fix unmet direct dependencies warning
+drm-misc drm-misc-next 0ac7ad5e352dcf18a4d42a4671f7cda69847712b
+	drm: Mark CONFIG_DRM_HEADER_TEST as BROKEN
+drm-intel drm-intel-next d35b913f0e1cb003b658827f5a900d648b092c5b
+	drm/i915/wm: convert i9xx_wm.c internally to struct intel_display
+drm-intel drm-intel-gt-next 795dbde92fe5c6996a02a5b579481de73035e7bf
+	drm/i915/huc: Fix fence not released on early probe errors
+drm-xe drm-xe-next 29582e0ea75c95668d168b12406e3c56cf5a73c4
+	drm/xe: Add page queue multiplier
+drm-intel topic/core-for-CI abfe4d1d04b5806ffcf552b2482b8b279846f152
+	Revert "lockdep: Enable PROVE_RAW_LOCK_NESTING with PROVE_LOCKING."
+drm-xe topic/xe-for-CI 7cccfd9303aa2d0311a86fcb38fde73760bd8e8a
+	drm/xe/pm: Re-enable D3Cold by default on BMG
