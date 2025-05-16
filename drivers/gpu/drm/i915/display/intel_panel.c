@@ -107,6 +107,7 @@ static bool is_alt_drrs_mode(const struct drm_display_mode *mode,
 			      DRM_MODE_MATCH_TIMINGS |
 			      DRM_MODE_MATCH_FLAGS |
 			      DRM_MODE_MATCH_3D_FLAGS) &&
+		drm_mode_vrefresh(mode) > 50 &&
 		mode->clock != preferred_mode->clock;
 }
 
