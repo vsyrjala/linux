@@ -7446,7 +7446,10 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 			intel_vrr_check_push_sent(NULL, new_crtc_state);
 
 		if (new_crtc_state->use_flipq)
+		{
+			intel_flipq_dump(crtc, INTEL_FLIPQ_PLANE_1);
 			intel_flipq_disable(new_crtc_state);
+		}
 	}
 
 	/*
