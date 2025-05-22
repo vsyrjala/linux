@@ -967,6 +967,7 @@ static u32 parse_dmc_fw_header(struct intel_dmc *dmc,
 	}
 
 	drm_dbg_kms(display->drm, "DMC %d:\n", dmc_id);
+	drm_dbg_kms(display->drm, " program base = 0x%x\n", start_mmioaddr);
 	for (i = 0; i < mmio_count; i++) {
 		dmc_info->mmioaddr[i] = _MMIO(mmioaddr[i]);
 		dmc_info->mmiodata[i] = mmiodata[i];
