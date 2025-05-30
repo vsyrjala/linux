@@ -210,6 +210,21 @@ bool intel_any_crtc_needs_modeset(struct intel_atomic_state *state)
 	return false;
 }
 
+bool intel_any_crtc_needs_modeset_or_fastset(struct intel_atomic_state *state)
+{
+	struct intel_crtc *crtc;
+	struct intel_crtc_state *crtc_state;
+	int i;
+
+	for_each_new_intel_crtc_in_state(state, crtc, crtc_state, i) {
+		if (intel_crtc_needs_modeset(crtc_state) ||
+		    intel_crtc_needs_fastset(crtc_state))
+			return true;
+	}
+
+	return false;
+}
+
 struct intel_digital_connector_state *
 intel_atomic_get_digital_connector_state(struct intel_atomic_state *state,
 					 struct intel_connector *connector)
