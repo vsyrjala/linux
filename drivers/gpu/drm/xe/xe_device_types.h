@@ -30,11 +30,7 @@
 #define TEST_VM_OPS_ERROR
 #endif
 
-#if IS_ENABLED(CONFIG_DRM_XE_DISPLAY)
-#include "intel_display_core.h"
-#include "intel_display_device.h"
-#endif
-
+struct intel_display;
 struct xe_ggtt;
 struct xe_pat_ops;
 struct xe_pxp;
@@ -589,7 +585,7 @@ struct xe_device {
 	 * drm_i915_private during build. After cleanup these should go away,
 	 * migrating to the right sub-structs
 	 */
-	struct intel_display display;
+	struct intel_display *display;
 
 	struct dram_info {
 		bool wm_lv_0_adjust_needed;

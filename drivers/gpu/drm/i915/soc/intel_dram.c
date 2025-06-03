@@ -5,12 +5,14 @@
 
 #include <linux/string_helpers.h>
 
+#include "../display/intel_display_core.h" /* FIXME */
+
 #include "i915_drv.h"
 #include "i915_reg.h"
 #include "intel_dram.h"
 #include "intel_mchbar_regs.h"
 #include "intel_pcode.h"
-#include "vlv_sideband.h"
+#include "vlv_iosf_sb.h"
 
 struct dram_dimm_info {
 	u16 size;
@@ -97,9 +99,9 @@ static unsigned int chv_mem_freq(struct drm_i915_private *i915)
 {
 	u32 val;
 
-	vlv_iosf_sb_get(i915, BIT(VLV_IOSF_SB_CCK));
-	val = vlv_cck_read(i915, CCK_FUSE_REG);
-	vlv_iosf_sb_put(i915, BIT(VLV_IOSF_SB_CCK));
+	vlv_iosf_sb_get(&i915->drm, BIT(VLV_IOSF_SB_CCK));
+	val = vlv_iosf_sb_read(&i915->drm, VLV_IOSF_SB_CCK, CCK_FUSE_REG);
+	vlv_iosf_sb_put(&i915->drm, BIT(VLV_IOSF_SB_CCK));
 
 	switch ((val >> 2) & 0x7) {
 	case 3:
@@ -113,9 +115,9 @@ static unsigned int vlv_mem_freq(struct drm_i915_private *i915)
 {
 	u32 val;
 
-	vlv_iosf_sb_get(i915, BIT(VLV_IOSF_SB_PUNIT));
-	val = vlv_punit_read(i915, PUNIT_REG_GPU_FREQ_STS);
-	vlv_iosf_sb_put(i915, BIT(VLV_IOSF_SB_PUNIT));
+	vlv_iosf_sb_get(&i915->drm, BIT(VLV_IOSF_SB_PUNIT));
+	val = vlv_iosf_sb_read(&i915->drm, VLV_IOSF_SB_PUNIT, PUNIT_REG_GPU_FREQ_STS);
+	vlv_iosf_sb_put(&i915->drm, BIT(VLV_IOSF_SB_PUNIT));
 
 	switch ((val >> 6) & 3) {
 	case 0:
