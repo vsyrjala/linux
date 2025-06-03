@@ -532,8 +532,8 @@ static int rzg2l_mipi_dsi_attach(struct drm_bridge *bridge,
 				 flags);
 }
 
-static void rzg2l_mipi_dsi_atomic_enable(struct drm_bridge *bridge,
-					 struct drm_atomic_state *state)
+static void rzg2l_mipi_dsi_atomic_pre_enable(struct drm_bridge *bridge,
+					     struct drm_atomic_state *state)
 {
 	struct rzg2l_mipi_dsi *dsi = bridge_to_rzg2l_mipi_dsi(bridge);
 	const struct drm_display_mode *mode;
@@ -550,6 +550,13 @@ static void rzg2l_mipi_dsi_atomic_enable(struct drm_bridge *bridge,
 		return;
 
 	rzg2l_mipi_dsi_set_display_timing(dsi, mode);
+}
+
+static void rzg2l_mipi_dsi_atomic_enable(struct drm_bridge *bridge,
+					 struct drm_atomic_state *state)
+{
+	struct rzg2l_mipi_dsi *dsi = bridge_to_rzg2l_mipi_dsi(bridge);
+	int ret;
 
 	ret = rzg2l_mipi_dsi_start_hs_clock(dsi);
 	if (ret < 0)
@@ -593,6 +600,7 @@ static const struct drm_bridge_funcs rzg2l_mipi_dsi_bridge_ops = {
 	.atomic_duplicate_state = drm_atomic_helper_bridge_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_bridge_destroy_state,
 	.atomic_reset = drm_atomic_helper_bridge_reset,
+	.atomic_pre_enable = rzg2l_mipi_dsi_atomic_pre_enable,
 	.atomic_enable = rzg2l_mipi_dsi_atomic_enable,
 	.atomic_disable = rzg2l_mipi_dsi_atomic_disable,
 	.mode_valid = rzg2l_mipi_dsi_bridge_mode_valid,
@@ -701,9 +709,10 @@ static int rzg2l_mipi_dsi_probe(struct platform_device *pdev)
 	u32 txsetr;
 	int ret;
 
-	dsi = devm_kzalloc(&pdev->dev, sizeof(*dsi), GFP_KERNEL);
-	if (!dsi)
-		return -ENOMEM;
+	dsi = devm_drm_bridge_alloc(&pdev->dev, struct rzg2l_mipi_dsi, bridge,
+				    &rzg2l_mipi_dsi_bridge_ops);
+	if (IS_ERR(dsi))
+		return PTR_ERR(dsi);
 
 	platform_set_drvdata(pdev, dsi);
 	dsi->dev = &pdev->dev;
@@ -761,7 +770,6 @@ static int rzg2l_mipi_dsi_probe(struct platform_device *pdev)
 	pm_runtime_put(dsi->dev);
 
 	/* Initialize the DRM bridge. */
-	dsi->bridge.funcs = &rzg2l_mipi_dsi_bridge_ops;
 	dsi->bridge.of_node = dsi->dev->of_node;
 
 	/* Init host device */
