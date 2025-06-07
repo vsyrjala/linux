@@ -255,6 +255,8 @@ static void intel_panel_add_edid_alt_fixed_modes(struct intel_connector *connect
 		intel_panel_preferred_fixed_mode(connector);
 	struct drm_display_mode *mode, *next;
 
+	return;
+
 	list_for_each_entry_safe(mode, next, &connector->base.probed_modes, head) {
 		if (!is_alt_fixed_mode(mode, preferred_mode))
 			continue;
@@ -281,6 +283,15 @@ static void intel_panel_add_edid_preferred_mode(struct intel_connector *connecto
 		if (scan->type & DRM_MODE_TYPE_PREFERRED) {
 			fixed_mode = scan;
 			break;
+		}
+	}
+
+	if (fixed_mode && drm_mode_vrefresh(fixed_mode) > 200) {
+		list_for_each_entry(scan, &connector->base.probed_modes, head) {
+			if (drm_mode_vrefresh(scan) < 200) {
+				fixed_mode = scan;
+				break;
+			}
 		}
 	}
 
