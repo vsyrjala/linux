@@ -467,7 +467,7 @@ void intel_flipq_wait_dmc_halt(struct intel_dsb *dsb, struct intel_crtc *crtc)
 	struct intel_display *display = to_intel_display(crtc);
 
 	if (need_dmc_halt_wa(display))
-		intel_dsb_wait_usec(dsb, 10);
+		intel_dsb_wait_usec(dsb, 2);
 }
 
 void intel_flipq_unhalt_dmc(struct intel_dsb *dsb, struct intel_crtc *crtc)
