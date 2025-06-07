@@ -153,6 +153,9 @@ static void intel_flipq_preempt(struct intel_crtc *crtc, bool preempt)
 {
 	struct intel_display *display = to_intel_display(crtc);
 
+	drm_dbg_kms(display->drm, "[CRTC:%d:%s] flip queue preempt: %s\n",
+		    crtc->base.base.id, crtc->base.name, str_yes_no(preempt));
+
 	intel_de_rmw(display, PIPEDMC_FQ_CTRL(crtc->pipe),
 		     PIPEDMC_FQ_CTRL_PREEMPT, preempt ? PIPEDMC_FQ_CTRL_PREEMPT : 0);
 
@@ -274,6 +277,9 @@ void intel_flipq_enable(const struct intel_crtc_state *crtc_state)
 	/* FIXME what to do with VRR? */
 	int scanline = intel_mode_vblank_start(&crtc_state->hw.adjusted_mode) -
 		intel_flipq_exec_time_lines(crtc_state);
+
+	drm_dbg_kms(display->drm, "[CRTC:%d:%s] flip queue scanline %d-%d\n",
+		    crtc->base.base.id, crtc->base.name, scanline - 2, scanline);
 
 	if (DISPLAY_VER(display) >= 30) {
 		u32 start_mmioaddr = intel_pipedmc_start_mmioaddr(crtc);
