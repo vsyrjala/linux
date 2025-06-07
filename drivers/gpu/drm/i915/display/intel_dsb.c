@@ -628,18 +628,6 @@ void intel_dsb_gosub_finish(struct intel_dsb *dsb)
 
 void intel_dsb_finish(struct intel_dsb *dsb)
 {
-	struct intel_crtc *crtc = dsb->crtc;
-
-	/*
-	 * DSB_FORCE_DEWAKE remains active even after DSB is
-	 * disabled, so make sure to clear it (if set during
-	 * intel_dsb_commit()). And clear DSB_ENABLE_DEWAKE as
-	 * well for good measure.
-	 */
-	intel_dsb_reg_write(dsb, DSB_PMCTRL(crtc->pipe, dsb->id), 0);
-	intel_dsb_reg_write_masked(dsb, DSB_PMCTRL_2(crtc->pipe, dsb->id),
-				   DSB_FORCE_DEWAKE, 0);
-
 	intel_dsb_align_tail(dsb);
 
 	intel_dsb_buffer_flush_map(&dsb->dsb_buf);
@@ -801,6 +789,16 @@ static void _intel_dsb_chain(struct intel_atomic_state *state,
 		intel_dsb_wait_scanline_out(state, dsb,
 					    dsb_dewake_scanline_start(state, crtc),
 					    dsb_dewake_scanline_end(state, crtc));
+
+		/*
+		 * DSB_FORCE_DEWAKE remains active even after DSB is
+		 * disabled, so make sure to clear it (if set during
+		 * intel_dsb_commit()). And clear DSB_ENABLE_DEWAKE as
+		 * well for good measure.
+		 */
+		intel_dsb_reg_write(dsb, DSB_PMCTRL(crtc->pipe, dsb->id), 0);
+		intel_dsb_reg_write_masked(dsb, DSB_PMCTRL_2(crtc->pipe, dsb->id),
+					   DSB_FORCE_DEWAKE, 0);
 	}
 }
 
