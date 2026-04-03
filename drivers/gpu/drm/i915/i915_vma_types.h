@@ -99,7 +99,7 @@ struct i915_vma_resource;
 
 static inline void assert_i915_gem_gtt_types(void)
 {
-	BUILD_BUG_ON(sizeof(struct intel_rotation_info) != 2 * sizeof(u32) + 8 * sizeof(u16));
+	BUILD_BUG_ON(sizeof(struct intel_rotation_info) != 3 * sizeof(u32) + 8 * sizeof(u16));
 	BUILD_BUG_ON(sizeof(struct intel_partial_info) != sizeof(u64) + sizeof(unsigned int));
 	BUILD_BUG_ON(sizeof(struct intel_remapped_info) != 5 * sizeof(u32) + 16 * sizeof(u16));
 

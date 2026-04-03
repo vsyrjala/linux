@@ -989,7 +989,9 @@ add_padding_pages(unsigned int count,
 static struct scatterlist *
 rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 			       struct drm_i915_gem_object *obj,
-			       struct sg_table *st, struct scatterlist *sg)
+			       unsigned int alignment_pad,
+			       struct sg_table *st, struct scatterlist *sg,
+			       unsigned int *gtt_offset)
 {
 	unsigned int offset = plane->offset;
 	unsigned int width = plane->width;
@@ -998,6 +1000,12 @@ rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 	unsigned int dst_stride = plane->dst_stride;
 	unsigned int column, row;
 	pgoff_t src_idx;
+
+	if (!width || !height)
+		return sg;
+
+	if (alignment_pad)
+		sg = add_padding_pages(alignment_pad, st, sg);
 
 	for (column = 0; column < width; column++) {
 		unsigned int left;
@@ -1026,6 +1034,8 @@ rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 		sg = add_padding_pages(left >> PAGE_SHIFT, st, sg);
 	}
 
+	*gtt_offset += alignment_pad + dst_stride * width;
+
 	return sg;
 }
 
@@ -1033,10 +1043,16 @@ static struct scatterlist *
 rotate_color_plane_pages(const struct intel_rotation_info *rot_info,
 			 struct drm_i915_gem_object *obj,
 			 int color_plane,
-			 struct sg_table *st, struct scatterlist *sg)
+			 struct sg_table *st, struct scatterlist *sg,
+			 unsigned int *gtt_offset)
 {
+	unsigned int alignment_pad = 0;
+
+	if (rot_info->plane_alignment)
+		alignment_pad = ALIGN(*gtt_offset, rot_info->plane_alignment) - *gtt_offset;
+
 	return rotate_tiled_color_plane_pages(&rot_info->plane[color_plane], obj,
-					      st, sg);
+					      alignment_pad, st, sg, gtt_offset);
 }
 
 static noinline struct sg_table *
@@ -1047,6 +1063,7 @@ intel_rotate_pages(struct intel_rotation_info *rot_info,
 	struct drm_i915_private *i915 = to_i915(obj->base.dev);
 	struct sg_table *st;
 	struct scatterlist *sg;
+	unsigned int gtt_offset = 0;
 	int ret = -ENOMEM;
 	int i;
 
@@ -1063,7 +1080,7 @@ intel_rotate_pages(struct intel_rotation_info *rot_info,
 	sg = st->sgl;
 
 	for (i = 0 ; i < ARRAY_SIZE(rot_info->plane); i++)
-		sg = rotate_color_plane_pages(rot_info, obj, i, st, sg);
+		sg = rotate_color_plane_pages(rot_info, obj, i, st, sg, &gtt_offset);
 
 	return st;
 

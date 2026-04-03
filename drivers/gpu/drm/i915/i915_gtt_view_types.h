@@ -26,6 +26,8 @@ struct intel_remapped_plane_info {
 
 struct intel_rotation_info {
 	struct intel_remapped_plane_info plane[2];
+	/* in gtt pages */
+	u32 plane_alignment;
 } __packed;
 
 struct intel_partial_info {

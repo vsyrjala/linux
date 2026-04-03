@@ -1510,6 +1510,14 @@ static u32 calc_plane_remap_info(const struct intel_framebuffer *fb, int color_p
 		drm_WARN_ON(display->drm, remap_info->linear);
 		check_array_bounds(display, view->gtt.rotated.plane, color_plane);
 
+		if (view->gtt.rotated.plane_alignment) {
+			u32 aligned_offset = ALIGN(gtt_offset,
+						   view->gtt.rotated.plane_alignment);
+
+			size += aligned_offset - gtt_offset;
+			gtt_offset = aligned_offset;
+		}
+
 		assign_chk_ovf(display, remap_info->dst_stride,
 			       plane_view_dst_stride_tiles(fb, color_plane, remap_info->height));
 
@@ -1890,8 +1898,19 @@ unsigned int intel_rotation_info_size(const struct intel_rotation_info *rot_info
 	unsigned int size = 0;
 	int i;
 
-	for (i = 0 ; i < ARRAY_SIZE(rot_info->plane); i++)
-		size += rot_info->plane[i].dst_stride * rot_info->plane[i].width;
+	for (i = 0 ; i < ARRAY_SIZE(rot_info->plane); i++) {
+		unsigned int plane_size;
+
+		plane_size += rot_info->plane[i].dst_stride * rot_info->plane[i].width;
+
+		if (plane_size == 0)
+			continue;
+
+		if (rot_info->plane_alignment)
+			size = ALIGN(size, rot_info->plane_alignment);
+
+		size += plane_size;
+	}
 
 	return size;
 }
