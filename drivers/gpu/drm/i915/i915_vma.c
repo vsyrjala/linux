@@ -968,9 +968,9 @@ static bool try_qad_pin(struct i915_vma *vma, unsigned int flags)
 }
 
 static struct scatterlist *
-rotate_pages(const struct intel_remapped_plane_info *plane,
-	     struct drm_i915_gem_object *obj,
-	     struct sg_table *st, struct scatterlist *sg)
+rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
+			       struct drm_i915_gem_object *obj,
+			       struct sg_table *st, struct scatterlist *sg)
 {
 	unsigned int offset = plane->offset;
 	unsigned int width = plane->width;
@@ -1020,6 +1020,16 @@ rotate_pages(const struct intel_remapped_plane_info *plane,
 	return sg;
 }
 
+static struct scatterlist *
+rotate_color_plane_pages(const struct intel_rotation_info *rot_info,
+			 struct drm_i915_gem_object *obj,
+			 int color_plane,
+			 struct sg_table *st, struct scatterlist *sg)
+{
+	return rotate_tiled_color_plane_pages(&rot_info->plane[color_plane], obj,
+					      st, sg);
+}
+
 static noinline struct sg_table *
 intel_rotate_pages(struct intel_rotation_info *rot_info,
 		   struct drm_i915_gem_object *obj)
@@ -1044,7 +1054,7 @@ intel_rotate_pages(struct intel_rotation_info *rot_info,
 	sg = st->sgl;
 
 	for (i = 0 ; i < ARRAY_SIZE(rot_info->plane); i++)
-		sg = rotate_pages(&rot_info->plane[i], obj, st, sg);
+		sg = rotate_color_plane_pages(rot_info, obj, i, st, sg);
 
 	return st;
 
