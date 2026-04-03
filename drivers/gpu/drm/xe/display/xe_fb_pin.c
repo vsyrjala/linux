@@ -145,9 +145,9 @@ static unsigned int xe_dpt_size(struct drm_gem_object *obj,
 	unsigned int pages;
 	int pte_size = 8;
 
-	if (view->type == I915_GTT_VIEW_NORMAL)
+	if (i915_gtt_view_is_normal(view))
 		pages = obj->size / XE_PAGE_SIZE;
-	else if (view->type == I915_GTT_VIEW_REMAPPED)
+	else if (i915_gtt_view_is_remapped(view))
 		pages = intel_remapped_info_size(&view->remapped);
 	else
 		pages = intel_rotation_info_size(&view->rotated);
@@ -195,7 +195,7 @@ static int __xe_pin_fb_vma_dpt(const struct intel_framebuffer *fb,
 	if (IS_ERR(dpt))
 		return PTR_ERR(dpt);
 
-	if (view->type == I915_GTT_VIEW_NORMAL) {
+	if (i915_gtt_view_is_normal(view)) {
 		u64 pte = xe_ggtt_encode_pte_flags(ggtt, bo, xe->pat.idx[XE_CACHE_NONE]);
 		u32 x;
 
@@ -204,7 +204,7 @@ static int __xe_pin_fb_vma_dpt(const struct intel_framebuffer *fb,
 
 			iosys_map_wr(&dpt->vmap, x * 8, u64, pte | addr);
 		}
-	} else if (view->type == I915_GTT_VIEW_REMAPPED) {
+	} else if (i915_gtt_view_is_remapped(view)) {
 		write_dpt_remapped(bo, &view->remapped, &dpt->vmap);
 	} else {
 		const struct intel_rotation_info *rot_info = &view->rotated;
@@ -298,7 +298,7 @@ static int __xe_pin_fb_vma_ggtt(const struct intel_framebuffer *fb,
 		align = max(align, SZ_64K);
 
 	/* Fast case, preallocated GGTT view? */
-	if (bo->ggtt_node[tile0->id] && view->type == I915_GTT_VIEW_NORMAL) {
+	if (bo->ggtt_node[tile0->id] && i915_gtt_view_is_normal(view)) {
 		vma->node = bo->ggtt_node[tile0->id];
 		return 0;
 	}
@@ -306,7 +306,7 @@ static int __xe_pin_fb_vma_ggtt(const struct intel_framebuffer *fb,
 	/* TODO: Consider sharing framebuffer mapping?
 	 * embed i915_vma inside intel_framebuffer
 	 */
-	if (view->type == I915_GTT_VIEW_NORMAL)
+	if (i915_gtt_view_is_normal(view))
 		size = xe_bo_size(bo);
 	else
 		/* display uses tiles instead of bytes here, so convert it back.. */
@@ -314,7 +314,7 @@ static int __xe_pin_fb_vma_ggtt(const struct intel_framebuffer *fb,
 
 	pte = xe_ggtt_encode_pte_flags(ggtt, bo, xe->pat.idx[XE_CACHE_NONE]);
 	vma->node = xe_ggtt_insert_node_transform(ggtt, bo, pte, size, align,
-						  view->type == I915_GTT_VIEW_NORMAL ?
+						  i915_gtt_view_is_normal(view) ?
 						  NULL : write_ggtt_rotated_node,
 						  &(struct fb_rotate_args){view, bo});
 	if (IS_ERR(vma->node))
