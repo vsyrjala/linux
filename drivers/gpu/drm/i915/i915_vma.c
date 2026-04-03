@@ -190,9 +190,6 @@ vma_create(struct drm_i915_gem_object *obj,
 			vma->size = view->partial.size;
 			vma->size <<= PAGE_SHIFT;
 			GEM_BUG_ON(vma->size > obj->base.size);
-		} else if (view->type == I915_GTT_VIEW_ROTATED) {
-			vma->size = intel_rotation_info_size(&view->rotated);
-			vma->size <<= PAGE_SHIFT;
 		} else if (view->type == I915_GTT_VIEW_REMAPPED) {
 			vma->size = intel_remapped_info_size(&view->remapped);
 			vma->size <<= PAGE_SHIFT;
@@ -1040,7 +1037,7 @@ rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 }
 
 static struct scatterlist *
-rotate_color_plane_pages(const struct intel_rotation_info *rot_info,
+rotate_color_plane_pages(const struct intel_remapped_info *rot_info,
 			 struct drm_i915_gem_object *obj,
 			 int color_plane,
 			 struct sg_table *st, struct scatterlist *sg,
@@ -1056,10 +1053,10 @@ rotate_color_plane_pages(const struct intel_rotation_info *rot_info,
 }
 
 static noinline struct sg_table *
-intel_rotate_pages(struct intel_rotation_info *rot_info,
+intel_rotate_pages(struct intel_remapped_info *rot_info,
 		   struct drm_i915_gem_object *obj)
 {
-	unsigned int size = intel_rotation_info_size(rot_info);
+	unsigned int size = intel_remapped_info_size(rot_info);
 	struct drm_i915_private *i915 = to_i915(obj->base.dev);
 	struct sg_table *st;
 	struct scatterlist *sg;
@@ -1333,14 +1330,11 @@ __i915_vma_get_pages(struct i915_vma *vma)
 		pages = vma->obj->mm.pages;
 		break;
 
-	case I915_GTT_VIEW_ROTATED:
-		pages =
-			intel_rotate_pages(&vma->gtt_view.rotated, vma->obj);
-		break;
-
 	case I915_GTT_VIEW_REMAPPED:
-		pages =
-			intel_remap_pages(&vma->gtt_view.remapped, vma->obj);
+		if (vma->gtt_view.remapped.rotated)
+			pages = intel_rotate_pages(&vma->gtt_view.remapped, vma->obj);
+		else
+			pages = intel_remap_pages(&vma->gtt_view.remapped, vma->obj);
 		break;
 
 	case I915_GTT_VIEW_PARTIAL:

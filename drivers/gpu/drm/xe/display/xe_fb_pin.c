@@ -147,10 +147,8 @@ static unsigned int xe_dpt_size(struct drm_gem_object *obj,
 
 	if (i915_gtt_view_is_normal(view))
 		pages = obj->size / XE_PAGE_SIZE;
-	else if (i915_gtt_view_is_remapped(view))
-		pages = intel_remapped_info_size(&view->remapped);
 	else
-		pages = intel_rotation_info_size(&view->rotated);
+		pages = intel_remapped_info_size(&view->remapped);
 
 	return ALIGN(pages * pte_size, XE_PAGE_SIZE);
 }
@@ -207,7 +205,7 @@ static int __xe_pin_fb_vma_dpt(const struct intel_framebuffer *fb,
 	} else if (i915_gtt_view_is_remapped(view)) {
 		write_dpt_remapped(bo, &view->remapped, &dpt->vmap);
 	} else {
-		const struct intel_rotation_info *rot_info = &view->rotated;
+		const struct intel_remapped_info *rot_info = &view->remapped;
 		u32 i, dpt_ofs = 0;
 
 		for (i = 0; i < ARRAY_SIZE(rot_info->plane); i++)
@@ -262,7 +260,7 @@ static void write_ggtt_rotated_node(struct xe_ggtt *ggtt, struct xe_ggtt_node *n
 {
 	struct fb_rotate_args *args = data;
 	struct xe_bo *bo = args->bo;
-	const struct intel_rotation_info *rot_info = &args->view->rotated;
+	const struct intel_remapped_info *rot_info = &args->view->remapped;
 	u32 ggtt_ofs = xe_ggtt_node_addr(node);
 
 	for (u32 i = 0; i < ARRAY_SIZE(rot_info->plane); i++)
@@ -309,8 +307,7 @@ static int __xe_pin_fb_vma_ggtt(const struct intel_framebuffer *fb,
 	if (i915_gtt_view_is_normal(view))
 		size = xe_bo_size(bo);
 	else
-		/* display uses tiles instead of bytes here, so convert it back.. */
-		size = intel_rotation_info_size(&view->rotated) * XE_PAGE_SIZE;
+		size = intel_remapped_info_size(&view->remapped) * XE_PAGE_SIZE;
 
 	pte = xe_ggtt_encode_pte_flags(ggtt, bo, xe->pat.idx[XE_CACHE_NONE]);
 	vma->node = xe_ggtt_insert_node_transform(ggtt, bo, pte, size, align,

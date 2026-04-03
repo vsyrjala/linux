@@ -1508,11 +1508,11 @@ static u32 calc_plane_remap_info(const struct intel_framebuffer *fb, int color_p
 
 	if (i915_gtt_view_is_rotated(&view->gtt)) {
 		drm_WARN_ON(display->drm, remap_info->linear);
-		check_array_bounds(display, view->gtt.rotated.plane, color_plane);
+		check_array_bounds(display, view->gtt.remapped.plane, color_plane);
 
-		if (view->gtt.rotated.plane_alignment) {
+		if (view->gtt.remapped.plane_alignment) {
 			u32 aligned_offset = ALIGN(gtt_offset,
-						   view->gtt.rotated.plane_alignment);
+						   view->gtt.remapped.plane_alignment);
 
 			size += aligned_offset - gtt_offset;
 			gtt_offset = aligned_offset;
@@ -1635,10 +1635,14 @@ calc_plane_normal_size(const struct intel_framebuffer *fb, int color_plane,
 
 static void intel_fb_view_init(struct intel_display *display,
 			       struct intel_fb_view *view,
-			       enum i915_gtt_view_type view_type)
+			       enum i915_gtt_view_type view_type,
+			       bool rotated)
 {
 	memset(view, 0, sizeof(*view));
 	view->gtt.type = view_type;
+
+	if (!i915_gtt_view_is_normal(&view->gtt))
+		view->gtt.remapped.rotated = rotated;
 
 	if (i915_gtt_view_is_remapped(&view->gtt) &&
 	    (display->platform.alderlake_p || DISPLAY_VER(display) >= 14))
@@ -1707,16 +1711,16 @@ int intel_fill_fb_info(struct intel_display *display, struct intel_framebuffer *
 	int i, num_planes = fb->base.format->num_planes;
 	unsigned int tile_size = intel_tile_size(display);
 
-	intel_fb_view_init(display, &fb->normal_view, I915_GTT_VIEW_NORMAL);
+	intel_fb_view_init(display, &fb->normal_view, I915_GTT_VIEW_NORMAL, false);
 
 	drm_WARN_ON(display->drm,
 		    intel_fb_supports_90_270_rotation(fb) &&
 		    intel_fb_needs_pot_stride_remap(fb));
 
 	if (intel_fb_supports_90_270_rotation(fb))
-		intel_fb_view_init(display, &fb->rotated_view, I915_GTT_VIEW_ROTATED);
+		intel_fb_view_init(display, &fb->rotated_view, I915_GTT_VIEW_REMAPPED, true);
 	if (intel_fb_needs_pot_stride_remap(fb))
-		intel_fb_view_init(display, &fb->remapped_view, I915_GTT_VIEW_REMAPPED);
+		intel_fb_view_init(display, &fb->remapped_view, I915_GTT_VIEW_REMAPPED, false);
 
 	for (i = 0; i < num_planes; i++) {
 		struct fb_plane_view_dims view_dims;
@@ -1843,8 +1847,8 @@ static void intel_plane_remap_gtt(struct intel_plane_state *plane_state)
 	u32 gtt_offset = 0;
 
 	intel_fb_view_init(display, &plane_state->view,
-			   drm_rotation_90_or_270(rotation) ? I915_GTT_VIEW_ROTATED :
-							      I915_GTT_VIEW_REMAPPED);
+			   I915_GTT_VIEW_REMAPPED,
+			   drm_rotation_90_or_270(rotation));
 
 	src_x = plane_state->uapi.src.x1 >> 16;
 	src_y = plane_state->uapi.src.y1 >> 16;
@@ -1893,28 +1897,6 @@ static void intel_plane_remap_gtt(struct intel_plane_state *plane_state)
 	}
 }
 
-unsigned int intel_rotation_info_size(const struct intel_rotation_info *rot_info)
-{
-	unsigned int size = 0;
-	int i;
-
-	for (i = 0 ; i < ARRAY_SIZE(rot_info->plane); i++) {
-		unsigned int plane_size;
-
-		plane_size += rot_info->plane[i].dst_stride * rot_info->plane[i].width;
-
-		if (plane_size == 0)
-			continue;
-
-		if (rot_info->plane_alignment)
-			size = ALIGN(size, rot_info->plane_alignment);
-
-		size += plane_size;
-	}
-
-	return size;
-}
-
 unsigned int intel_remapped_info_size(const struct intel_remapped_info *rem_info)
 {
 	unsigned int size = 0;
@@ -1925,6 +1907,8 @@ unsigned int intel_remapped_info_size(const struct intel_remapped_info *rem_info
 
 		if (rem_info->plane[i].linear)
 			plane_size = rem_info->plane[i].size;
+		else if (rem_info->rotated)
+			plane_size += rem_info->plane[i].dst_stride * rem_info->plane[i].width;
 		else
 			plane_size = rem_info->plane[i].dst_stride * rem_info->plane[i].height;
 

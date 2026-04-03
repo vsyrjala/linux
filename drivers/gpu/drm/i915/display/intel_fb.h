@@ -20,7 +20,6 @@ struct intel_framebuffer;
 struct intel_plane;
 struct intel_plane_state;
 struct intel_remapped_info;
-struct intel_rotation_info;
 
 #define INTEL_PLANE_CAP_NONE		0
 #define INTEL_PLANE_CAP_CCS_RC		BIT(0)
@@ -80,7 +79,6 @@ u32 intel_plane_compute_aligned_offset(int *x, int *y,
 bool intel_plane_uses_fence(const struct intel_plane_state *plane_state);
 bool intel_fb_supports_90_270_rotation(const struct intel_framebuffer *fb);
 
-unsigned int intel_rotation_info_size(const struct intel_rotation_info *rot_info);
 unsigned int intel_remapped_info_size(const struct intel_remapped_info *rem_info);
 
 int intel_fill_fb_info(struct intel_display *display, struct intel_framebuffer *fb);

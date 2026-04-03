@@ -220,20 +220,6 @@ i915_debugfs_describe_obj(struct seq_file *m, struct drm_i915_gem_object *obj)
 					   vma->gtt_view.partial.size << PAGE_SHIFT);
 				break;
 
-			case I915_GTT_VIEW_ROTATED:
-				seq_printf(m, ", rotated [(%ux%u, src_stride=%u, dst_stride=%u, offset=%u), (%ux%u, src_stride=%u, dst_stride=%u, offset=%u)]",
-					   vma->gtt_view.rotated.plane[0].width,
-					   vma->gtt_view.rotated.plane[0].height,
-					   vma->gtt_view.rotated.plane[0].src_stride,
-					   vma->gtt_view.rotated.plane[0].dst_stride,
-					   vma->gtt_view.rotated.plane[0].offset,
-					   vma->gtt_view.rotated.plane[1].width,
-					   vma->gtt_view.rotated.plane[1].height,
-					   vma->gtt_view.rotated.plane[1].src_stride,
-					   vma->gtt_view.rotated.plane[1].dst_stride,
-					   vma->gtt_view.rotated.plane[1].offset);
-				break;
-
 			case I915_GTT_VIEW_REMAPPED:
 				seq_printf(m, ", remapped [(%ux%u, src_stride=%u, dst_stride=%u, offset=%u), (%ux%u, src_stride=%u, dst_stride=%u, offset=%u)]",
 					   vma->gtt_view.remapped.plane[0].width,

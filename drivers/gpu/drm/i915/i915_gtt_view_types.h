@@ -24,12 +24,6 @@ struct intel_remapped_plane_info {
 	};
 } __packed;
 
-struct intel_rotation_info {
-	struct intel_remapped_plane_info plane[2];
-	/* in gtt pages */
-	u32 plane_alignment;
-} __packed;
-
 struct intel_partial_info {
 	u64 offset;
 	unsigned int size;
@@ -39,11 +33,11 @@ struct intel_remapped_info {
 	struct intel_remapped_plane_info plane[4];
 	/* in gtt pages */
 	u32 plane_alignment;
+	bool rotated;
 } __packed;
 
 enum i915_gtt_view_type {
 	I915_GTT_VIEW_NORMAL = 0,
-	I915_GTT_VIEW_ROTATED = sizeof(struct intel_rotation_info),
 	I915_GTT_VIEW_PARTIAL = sizeof(struct intel_partial_info),
 	I915_GTT_VIEW_REMAPPED = sizeof(struct intel_remapped_info),
 };
@@ -53,7 +47,6 @@ struct i915_gtt_view {
 	union {
 		/* Members need to contain no holes/padding */
 		struct intel_partial_info partial;
-		struct intel_rotation_info rotated;
 		struct intel_remapped_info remapped;
 	};
 };
@@ -65,12 +58,12 @@ static inline bool i915_gtt_view_is_normal(const struct i915_gtt_view *view)
 
 static inline bool i915_gtt_view_is_remapped(const struct i915_gtt_view *view)
 {
-	return view->type == I915_GTT_VIEW_REMAPPED;
+	return view->type == I915_GTT_VIEW_REMAPPED && !view->remapped.rotated;
 }
 
 static inline bool i915_gtt_view_is_rotated(const struct i915_gtt_view *view)
 {
-	return view->type == I915_GTT_VIEW_ROTATED;
+	return view->type == I915_GTT_VIEW_REMAPPED && view->remapped.rotated;
 }
 
 #endif /* __I915_GTT_VIEW_TYPES_H__ */
