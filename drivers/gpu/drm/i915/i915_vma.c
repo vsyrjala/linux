@@ -1080,9 +1080,10 @@ add_padding_pages(unsigned int count,
 
 static struct scatterlist *
 remap_tiled_color_plane_pages(struct drm_i915_gem_object *obj,
-			      unsigned long offset, unsigned int alignment_pad,
+			      unsigned long offset,
 			      unsigned int width, unsigned int height,
 			      unsigned int src_stride, unsigned int dst_stride,
+			      unsigned int alignment_pad,
 			      struct sg_table *st, struct scatterlist *sg,
 			      unsigned int *gtt_offset)
 {
@@ -1172,8 +1173,9 @@ remap_contiguous_pages(struct drm_i915_gem_object *obj,
 
 static struct scatterlist *
 remap_linear_color_plane_pages(struct drm_i915_gem_object *obj,
-			       pgoff_t obj_offset, unsigned int alignment_pad,
+			       pgoff_t obj_offset,
 			       unsigned int size,
+			       unsigned int alignment_pad,
 			       struct sg_table *st, struct scatterlist *sg,
 			       unsigned int *gtt_offset)
 {
@@ -1206,21 +1208,17 @@ remap_color_plane_pages(const struct intel_remapped_info *rem_info,
 	if (rem_info->plane[color_plane].linear)
 		sg = remap_linear_color_plane_pages(obj,
 						    rem_info->plane[color_plane].offset,
-						    alignment_pad,
 						    rem_info->plane[color_plane].size,
-						    st, sg,
-						    gtt_offset);
+						    alignment_pad, st, sg, gtt_offset);
 
 	else
 		sg = remap_tiled_color_plane_pages(obj,
 						   rem_info->plane[color_plane].offset,
-						   alignment_pad,
 						   rem_info->plane[color_plane].width,
 						   rem_info->plane[color_plane].height,
 						   rem_info->plane[color_plane].src_stride,
 						   rem_info->plane[color_plane].dst_stride,
-						   st, sg,
-						   gtt_offset);
+						   alignment_pad, st, sg, gtt_offset);
 
 	return sg;
 }
