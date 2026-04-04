@@ -784,6 +784,21 @@ extern "C" {
 #define I915_FORMAT_MOD_4_TILED_BMG_CCS fourcc_mod_code(INTEL, 17)
 
 /*
+ * Intel Ys-tiling layout
+ *
+ * 64KiB macro tile. Individual 4K tiles are Yf, but they are reordered
+ * withing the 64KiB macro tile like so:
+ * | 0  2  8 10|
+ * | 1  3  9 11|
+ * | 4  6 12 14|
+ * | 5  7 13 15|
+ *
+ * The macro tiles are expected to be 64KiB aligned both
+ * within GEM objects and in GPU virtual address space.
+ */
+#define I915_FORMAT_MOD_Ys_TILED fourcc_mod_code(INTEL, 18)
+
+/*
  * Tiled, NV12MT, grouped in 64 (pixels) x 32 (lines) -sized macroblocks
  *
  * Macroblocks are laid in a Z-shape, and each pixel data is following the
