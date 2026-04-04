@@ -965,22 +965,28 @@ static bool try_qad_pin(struct i915_vma *vma, unsigned int flags)
 }
 
 static struct scatterlist *
-add_padding_pages(unsigned int count,
-		  struct sg_table *st, struct scatterlist *sg)
+add_pages(dma_addr_t addr, unsigned int count,
+	  struct sg_table *st, struct scatterlist *sg)
 {
 	st->nents++;
 
+	sg_set_page(sg, NULL, count * I915_GTT_PAGE_SIZE, 0);
+	sg_dma_address(sg) = addr;
+	sg_dma_len(sg) = count * I915_GTT_PAGE_SIZE;
+
+	return sg_next(sg);
+}
+
+static struct scatterlist *
+add_padding_pages(unsigned int count,
+		  struct sg_table *st, struct scatterlist *sg)
+{
 	/*
 	 * The DE ignores the PTEs for the padding tiles, the sg entry
 	 * here is just a convenience to indicate how many padding PTEs
 	 * to insert at this spot.
 	 */
-	sg_set_page(sg, NULL, count * I915_GTT_PAGE_SIZE, 0);
-	sg_dma_address(sg) = 0;
-	sg_dma_len(sg) = count * I915_GTT_PAGE_SIZE;
-	sg = sg_next(sg);
-
-	return sg;
+	return add_pages(0, count, st, sg);
 }
 
 static struct scatterlist *
@@ -1009,17 +1015,18 @@ rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 
 		src_idx = src_stride * (height - 1) + column + offset;
 		for (row = 0; row < height; row++) {
-			st->nents++;
+			dma_addr_t addr;
+
 			/*
 			 * We don't need the pages, but need to initialize
 			 * the entries so the sg list can be happily traversed.
 			 * The only thing we need are DMA addresses.
 			 */
-			sg_set_page(sg, NULL, I915_GTT_PAGE_SIZE, 0);
-			sg_dma_address(sg) =
-				i915_gem_object_get_dma_address(obj, src_idx);
-			sg_dma_len(sg) = I915_GTT_PAGE_SIZE;
-			sg = sg_next(sg);
+
+			addr = i915_gem_object_get_dma_address(obj, src_idx);
+
+			sg = add_pages(addr, 1, st, sg);
+
 			src_idx -= src_stride;
 		}
 
@@ -1129,12 +1136,7 @@ remap_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 
 			length = min(left, length);
 
-			st->nents++;
-
-			sg_set_page(sg, NULL, length, 0);
-			sg_dma_address(sg) = addr;
-			sg_dma_len(sg) = length;
-			sg = sg_next(sg);
+			sg = add_pages(addr, length >> PAGE_SHIFT, st, sg);
 
 			offset += length / I915_GTT_PAGE_SIZE;
 			left -= length;
