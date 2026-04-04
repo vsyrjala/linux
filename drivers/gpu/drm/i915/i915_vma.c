@@ -968,6 +968,25 @@ static bool try_qad_pin(struct i915_vma *vma, unsigned int flags)
 }
 
 static struct scatterlist *
+add_padding_pages(unsigned int count,
+		  struct sg_table *st, struct scatterlist *sg)
+{
+	st->nents++;
+
+	/*
+	 * The DE ignores the PTEs for the padding tiles, the sg entry
+	 * here is just a convenience to indicate how many padding PTEs
+	 * to insert at this spot.
+	 */
+	sg_set_page(sg, NULL, count * I915_GTT_PAGE_SIZE, 0);
+	sg_dma_address(sg) = 0;
+	sg_dma_len(sg) = count * I915_GTT_PAGE_SIZE;
+	sg = sg_next(sg);
+
+	return sg;
+}
+
+static struct scatterlist *
 rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 			       struct drm_i915_gem_object *obj,
 			       struct sg_table *st, struct scatterlist *sg)
@@ -1004,17 +1023,7 @@ rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 		if (!left)
 			continue;
 
-		st->nents++;
-
-		/*
-		 * The DE ignores the PTEs for the padding tiles, the sg entry
-		 * here is just a convenience to indicate how many padding PTEs
-		 * to insert at this spot.
-		 */
-		sg_set_page(sg, NULL, left, 0);
-		sg_dma_address(sg) = 0;
-		sg_dma_len(sg) = left;
-		sg = sg_next(sg);
+		sg = add_padding_pages(left >> PAGE_SHIFT, st, sg);
 	}
 
 	return sg;
@@ -1067,25 +1076,6 @@ err_st_alloc:
 		rot_info->plane[0].height, size);
 
 	return ERR_PTR(ret);
-}
-
-static struct scatterlist *
-add_padding_pages(unsigned int count,
-		  struct sg_table *st, struct scatterlist *sg)
-{
-	st->nents++;
-
-	/*
-	 * The DE ignores the PTEs for the padding tiles, the sg entry
-	 * here is just a convenience to indicate how many padding PTEs
-	 * to insert at this spot.
-	 */
-	sg_set_page(sg, NULL, count * I915_GTT_PAGE_SIZE, 0);
-	sg_dma_address(sg) = 0;
-	sg_dma_len(sg) = count * I915_GTT_PAGE_SIZE;
-	sg = sg_next(sg);
-
-	return sg;
 }
 
 static struct scatterlist *
