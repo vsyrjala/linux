@@ -634,16 +634,8 @@ static int igt_vma_rotate_remap(void *arg)
 
 					expected_pages = remapped_size(view.type, &plane_info[0], &plane_info[1]);
 
-					if (view.type == I915_GTT_VIEW_ROTATED &&
+					if (view.type != I915_GTT_VIEW_NORMAL &&
 					    vma->size != expected_pages * PAGE_SIZE) {
-						pr_err("VMA is wrong size, expected %lu, found %llu\n",
-						       PAGE_SIZE * expected_pages, vma->size);
-						err = -EINVAL;
-						goto out_object;
-					}
-
-					if (view.type == I915_GTT_VIEW_REMAPPED &&
-					    vma->size > expected_pages * PAGE_SIZE) {
 						pr_err("VMA is wrong size, expected %lu, found %llu\n",
 						       PAGE_SIZE * expected_pages, vma->size);
 						err = -EINVAL;
