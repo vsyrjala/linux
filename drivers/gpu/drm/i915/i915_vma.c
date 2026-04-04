@@ -1044,62 +1044,6 @@ rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 }
 
 static struct scatterlist *
-rotate_color_plane_pages(const struct intel_remapped_info *rot_info,
-			 struct drm_i915_gem_object *obj,
-			 int color_plane,
-			 struct sg_table *st, struct scatterlist *sg,
-			 unsigned int *gtt_offset)
-{
-	unsigned int alignment_pad = 0;
-
-	if (rot_info->plane_alignment)
-		alignment_pad = ALIGN(*gtt_offset, rot_info->plane_alignment) - *gtt_offset;
-
-	return rotate_tiled_color_plane_pages(&rot_info->plane[color_plane], obj,
-					      alignment_pad, st, sg, gtt_offset);
-}
-
-static noinline struct sg_table *
-intel_rotate_pages(struct intel_remapped_info *rot_info,
-		   struct drm_i915_gem_object *obj)
-{
-	unsigned int size = intel_remapped_info_size(rot_info);
-	struct drm_i915_private *i915 = to_i915(obj->base.dev);
-	struct sg_table *st;
-	struct scatterlist *sg;
-	unsigned int gtt_offset = 0;
-	int ret = -ENOMEM;
-	int i;
-
-	/* Allocate target SG list. */
-	st = kmalloc_obj(*st);
-	if (!st)
-		goto err_st_alloc;
-
-	ret = sg_alloc_table(st, size, GFP_KERNEL);
-	if (ret)
-		goto err_sg_alloc;
-
-	st->nents = 0;
-	sg = st->sgl;
-
-	for (i = 0 ; i < ARRAY_SIZE(rot_info->plane); i++)
-		sg = rotate_color_plane_pages(rot_info, obj, i, st, sg, &gtt_offset);
-
-	return st;
-
-err_sg_alloc:
-	kfree(st);
-err_st_alloc:
-
-	drm_dbg(&i915->drm, "Failed to create rotated mapping for object size %zu! (%ux%u tiles, %u pages)\n",
-		obj->base.size, rot_info->plane[0].width,
-		rot_info->plane[0].height, size);
-
-	return ERR_PTR(ret);
-}
-
-static struct scatterlist *
 remap_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 			      struct drm_i915_gem_object *obj,
 			      unsigned int alignment_pad,
@@ -1229,7 +1173,9 @@ remap_color_plane_pages(const struct intel_remapped_info *rem_info,
 	if (rem_info->plane[color_plane].linear)
 		sg = remap_linear_color_plane_pages(&rem_info->plane[color_plane], obj,
 						    alignment_pad, st, sg, gtt_offset);
-
+	else if (rem_info->rotated)
+		sg = rotate_tiled_color_plane_pages(&rem_info->plane[color_plane], obj,
+						    alignment_pad, st, sg, gtt_offset);
 	else
 		sg = remap_tiled_color_plane_pages(&rem_info->plane[color_plane], obj,
 						   alignment_pad, st, sg, gtt_offset);
@@ -1264,7 +1210,8 @@ intel_remap_pages(struct intel_remapped_info *rem_info,
 	for (i = 0 ; i < ARRAY_SIZE(rem_info->plane); i++)
 		sg = remap_color_plane_pages(rem_info, obj, i, st, sg, &gtt_offset);
 
-	i915_sg_trim(st);
+	if (!rem_info->rotated)
+		i915_sg_trim(st);
 
 	return st;
 
@@ -1333,10 +1280,7 @@ __i915_vma_get_pages(struct i915_vma *vma)
 		break;
 
 	case I915_GTT_VIEW_REMAPPED:
-		if (vma->gtt_view.remapped.rotated)
-			pages = intel_rotate_pages(&vma->gtt_view.remapped, vma->obj);
-		else
-			pages = intel_remap_pages(&vma->gtt_view.remapped, vma->obj);
+		pages = intel_remap_pages(&vma->gtt_view.remapped, vma->obj);
 		break;
 
 	case I915_GTT_VIEW_PARTIAL:
