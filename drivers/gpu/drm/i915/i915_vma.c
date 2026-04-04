@@ -990,32 +990,39 @@ add_padding_pages(unsigned int count,
 }
 
 static struct scatterlist *
-rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
-			       struct drm_i915_gem_object *obj,
-			       unsigned int alignment_pad,
-			       struct sg_table *st, struct scatterlist *sg,
-			       unsigned int *gtt_offset)
+remap_single_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
+				     struct drm_i915_gem_object *obj,
+				     unsigned int alignment_pad,
+				     struct sg_table *st, struct scatterlist *sg,
+				     unsigned int *gtt_offset, bool rotated)
 {
 	unsigned int offset = plane->offset;
 	unsigned int width = plane->width;
 	unsigned int height = plane->height;
 	unsigned int src_stride = plane->src_stride;
 	unsigned int dst_stride = plane->dst_stride;
-	unsigned int column, row;
+	unsigned int x, y;
 	pgoff_t src_idx;
 
 	if (!width || !height)
 		return sg;
 
+	if (rotated)
+		swap(width, height);
+
 	if (alignment_pad)
 		sg = add_padding_pages(alignment_pad, st, sg);
 
-	for (column = 0; column < width; column++) {
+	for (y = 0; y < height; y++) {
 		unsigned int left;
 
-		src_idx = src_stride * (height - 1) + column + offset;
-		for (row = 0; row < height; row++) {
+		for (x = 0; x < width; x++) {
 			dma_addr_t addr;
+
+			if (rotated)
+				src_idx = offset + (width - x - 1) * src_stride + y;
+			else
+				src_idx = offset + y * src_stride + x;
 
 			/*
 			 * We don't need the pages, but need to initialize
@@ -1026,11 +1033,9 @@ rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 			addr = i915_gem_object_get_dma_address(obj, src_idx);
 
 			sg = add_pages(addr, 1, st, sg);
-
-			src_idx -= src_stride;
 		}
 
-		left = dst_stride - height;
+		left = dst_stride - width;
 
 		if (!left)
 			continue;
@@ -1038,17 +1043,17 @@ rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 		sg = add_padding_pages(left, st, sg);
 	}
 
-	*gtt_offset += alignment_pad + dst_stride * width;
+	*gtt_offset += alignment_pad + dst_stride * height;
 
 	return sg;
 }
 
 static struct scatterlist *
-remap_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
-			      struct drm_i915_gem_object *obj,
-			      unsigned int alignment_pad,
-			      struct sg_table *st, struct scatterlist *sg,
-			      unsigned int *gtt_offset)
+remap_multi_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
+				    struct drm_i915_gem_object *obj,
+				    unsigned int alignment_pad,
+				    struct sg_table *st, struct scatterlist *sg,
+				    unsigned int *gtt_offset)
 {
 	unsigned long offset = plane->offset;
 	unsigned int width = plane->width;
@@ -1174,11 +1179,11 @@ remap_color_plane_pages(const struct intel_remapped_info *rem_info,
 		sg = remap_linear_color_plane_pages(&rem_info->plane[color_plane], obj,
 						    alignment_pad, st, sg, gtt_offset);
 	else if (rem_info->rotated)
-		sg = rotate_tiled_color_plane_pages(&rem_info->plane[color_plane], obj,
-						    alignment_pad, st, sg, gtt_offset);
+		sg = remap_single_tiled_color_plane_pages(&rem_info->plane[color_plane], obj,
+							  alignment_pad, st, sg, gtt_offset, true);
 	else
-		sg = remap_tiled_color_plane_pages(&rem_info->plane[color_plane], obj,
-						   alignment_pad, st, sg, gtt_offset);
+		sg = remap_multi_tiled_color_plane_pages(&rem_info->plane[color_plane], obj,
+							 alignment_pad, st, sg, gtt_offset);
 
 	return sg;
 }
