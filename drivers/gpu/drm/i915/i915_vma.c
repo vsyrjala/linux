@@ -1030,12 +1030,12 @@ rotate_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 			src_idx -= src_stride;
 		}
 
-		left = (dst_stride - height) * I915_GTT_PAGE_SIZE;
+		left = dst_stride - height;
 
 		if (!left)
 			continue;
 
-		sg = add_padding_pages(left >> PAGE_SHIFT, st, sg);
+		sg = add_padding_pages(left, st, sg);
 	}
 
 	*gtt_offset += alignment_pad + dst_stride * width;
@@ -1120,7 +1120,7 @@ remap_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 		sg = add_padding_pages(alignment_pad, st, sg);
 
 	for (row = 0; row < height; row++) {
-		unsigned int left = width * I915_GTT_PAGE_SIZE;
+		unsigned int left = width;
 
 		while (left) {
 			dma_addr_t addr;
@@ -1134,22 +1134,22 @@ remap_tiled_color_plane_pages(const struct intel_remapped_plane_info *plane,
 
 			addr = i915_gem_object_get_dma_address_len(obj, offset, &length);
 
-			length = min(left, length);
+			length = min(left, length / I915_GTT_PAGE_SIZE);
 
-			sg = add_pages(addr, length >> PAGE_SHIFT, st, sg);
+			sg = add_pages(addr, length, st, sg);
 
-			offset += length / I915_GTT_PAGE_SIZE;
+			offset += length;
 			left -= length;
 		}
 
 		offset += src_stride - width;
 
-		left = (dst_stride - width) * I915_GTT_PAGE_SIZE;
+		left = dst_stride - width;
 
 		if (!left)
 			continue;
 
-		sg = add_padding_pages(left >> PAGE_SHIFT, st, sg);
+		sg = add_padding_pages(left, st, sg);
 	}
 
 	*gtt_offset += alignment_pad + dst_stride * height;
