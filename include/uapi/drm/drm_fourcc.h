@@ -799,6 +799,18 @@ extern "C" {
 #define I915_FORMAT_MOD_Ys_TILED fourcc_mod_code(INTEL, 18)
 
 /*
+ * Intel Tile 64 layout
+ *
+ * 64KiB macro tile. Individual 4K tiles are tile 4, but they are
+ * reordered within the 64KiB macro tile like so:
+ * FIXME describe it here
+ *
+ * The macro tiles are expected to be 64KiB aligned both
+ * within GEM objects and in GPU virtual address space.
+ */
+#define I915_FORMAT_MOD_64_TILED fourcc_mod_code(INTEL, 19)
+
+/*
  * Tiled, NV12MT, grouped in 64 (pixels) x 32 (lines) -sized macroblocks
  *
  * Macroblocks are laid in a Z-shape, and each pixel data is following the
