@@ -346,6 +346,10 @@ static const struct intel_modifier_desc intel_modifiers[] = {
 		.display_ver = { 9, 11 },
 		.plane_caps = INTEL_PLANE_CAP_TILING_Yf,
 	}, {
+		.modifier = I915_FORMAT_MOD_Ys_TILED,
+		.display_ver = { 9, 11 },
+		.plane_caps = INTEL_PLANE_CAP_TILING_Yf,
+	}, {
 		.modifier = I915_FORMAT_MOD_Y_TILED,
 		.display_ver = { 9, 13 },
 		.plane_caps = INTEL_PLANE_CAP_TILING_Y,
@@ -819,6 +823,7 @@ intel_tile_width_bytes(const struct drm_framebuffer *fb, int color_plane)
 			return 128;
 		fallthrough;
 	case I915_FORMAT_MOD_Yf_TILED:
+	case I915_FORMAT_MOD_Ys_TILED:
 		switch (cpp) {
 		case 1:
 			return 64;
@@ -851,12 +856,24 @@ static unsigned int intel_macro_tile_size(const struct drm_framebuffer *fb)
 {
 	struct intel_display *display = to_intel_display(fb->dev);
 
-	return intel_tile_size(display);
+	switch (fb->modifier) {
+	case I915_FORMAT_MOD_Ys_TILED:
+		return 64 * 1024;
+	default:
+		return intel_tile_size(display);
+	}
 }
 
 static unsigned int intel_macro_tile_width_bytes(const struct drm_framebuffer *fb, int color_plane)
 {
-	return intel_tile_width_bytes(fb, color_plane);
+	unsigned int width_bytes = intel_tile_width_bytes(fb, color_plane);
+
+	switch (fb->modifier) {
+	case I915_FORMAT_MOD_Ys_TILED:
+		return 4 * width_bytes;
+	default:
+		return width_bytes;
+	}
 }
 
 static unsigned int intel_macro_tile_height(const struct drm_framebuffer *fb, int color_plane)
@@ -1309,7 +1326,8 @@ static bool intel_fb_needs_pot_stride_remap(const struct intel_framebuffer *fb)
 
 static bool intel_fb_needs_remap(const struct intel_framebuffer *fb)
 {
-	return intel_fb_needs_pot_stride_remap(fb);
+	return fb->base.modifier == I915_FORMAT_MOD_Ys_TILED ||
+		intel_fb_needs_pot_stride_remap(fb);
 }
 
 bool intel_plane_uses_fence(const struct intel_plane_state *plane_state)
@@ -1681,7 +1699,8 @@ static void intel_fb_view_init(struct intel_display *display,
 
 	if (!i915_gtt_view_is_normal(&view->gtt)) {
 		view->gtt.remapped.rotated = rotated;
-		view->gtt.remapped.remap = intel_fb_remap_func(rotated);
+		view->gtt.remapped.remap = intel_fb_remap_func(fb->base.modifier,
+							       rotated);
 	}
 
 	if (i915_gtt_view_is_remapped(&view->gtt) &&
@@ -1697,7 +1716,8 @@ bool intel_fb_supports_90_270_rotation(const struct intel_framebuffer *fb)
 		return false;
 
 	return fb->base.modifier == I915_FORMAT_MOD_Y_TILED ||
-	       fb->base.modifier == I915_FORMAT_MOD_Yf_TILED;
+		fb->base.modifier == I915_FORMAT_MOD_Yf_TILED ||
+		fb->base.modifier == I915_FORMAT_MOD_Ys_TILED;
 }
 
 static unsigned int intel_fb_min_alignment(const struct drm_framebuffer *fb)
@@ -2055,6 +2075,7 @@ intel_fb_stride_alignment(const struct drm_framebuffer *fb, int color_plane)
 	}
 
 	tile_width = intel_macro_tile_width_bytes(fb, color_plane);
+	/* FIXME figure out Ys+CCS interactions */
 	if (intel_fb_is_ccs_modifier(fb->modifier)) {
 		/*
 		 * On TGL the surface stride must be 4 tile aligned, mapped by

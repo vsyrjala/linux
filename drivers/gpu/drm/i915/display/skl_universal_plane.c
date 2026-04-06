@@ -353,6 +353,7 @@ static int skl_plane_max_width(const struct drm_framebuffer *fb,
 		/* FIXME AUX plane? */
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
+	case I915_FORMAT_MOD_Ys_TILED:
 		if (cpp == 8)
 			return 2048;
 		else
@@ -381,6 +382,7 @@ static int glk_plane_max_width(const struct drm_framebuffer *fb,
 		/* FIXME AUX plane? */
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
+	case I915_FORMAT_MOD_Ys_TILED:
 		if (cpp == 8)
 			return 2048;
 		else
@@ -543,6 +545,7 @@ static bool icl_plane_can_async_flip(u64 modifier)
 	case I915_FORMAT_MOD_X_TILED:
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
+	case I915_FORMAT_MOD_Ys_TILED:
 	case I915_FORMAT_MOD_Y_TILED_CCS:
 	case I915_FORMAT_MOD_Yf_TILED_CCS:
 		return true;
@@ -559,6 +562,7 @@ static bool skl_plane_can_async_flip(u64 modifier)
 	case I915_FORMAT_MOD_X_TILED:
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
+	case I915_FORMAT_MOD_Ys_TILED:
 		return true;
 	case I915_FORMAT_MOD_Y_TILED_CCS:
 	case I915_FORMAT_MOD_Yf_TILED_CCS:
@@ -650,6 +654,7 @@ static u32 skl_plane_min_alignment(struct intel_plane *plane,
 	case I915_FORMAT_MOD_Yf_TILED_CCS:
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
+	case I915_FORMAT_MOD_Ys_TILED:
 		return 1 * 1024 * 1024;
 	default:
 		MISSING_CASE(fb->modifier);
@@ -1095,6 +1100,7 @@ static u32 skl_plane_ctl_tiling(u64 fb_modifier)
 	case I915_FORMAT_MOD_Y_TILED_GEN12_MC_CCS:
 		return PLANE_CTL_TILED_Y | PLANE_CTL_MEDIA_DECOMPRESSION_ENABLE;
 	case I915_FORMAT_MOD_Yf_TILED:
+	case I915_FORMAT_MOD_Ys_TILED:
 		return PLANE_CTL_TILED_YF;
 	case I915_FORMAT_MOD_Yf_TILED_CCS:
 		return PLANE_CTL_TILED_YF | PLANE_CTL_RENDER_DECOMPRESSION_ENABLE;
@@ -1787,7 +1793,7 @@ static int skl_plane_check_fb(const struct intel_crtc_state *crtc_state,
 	if (drm_rotation_90_or_270(rotation)) {
 		if (!intel_fb_supports_90_270_rotation(to_intel_framebuffer(fb))) {
 			drm_dbg_kms(display->drm,
-				    "[PLANE:%d:%s] Y/Yf tiling required for 90/270!\n",
+				    "[PLANE:%d:%s] Y/Yf/Ys tiling required for 90/270!\n",
 				    plane->base.base.id, plane->base.name);
 			return -EINVAL;
 		}
@@ -1825,7 +1831,7 @@ static int skl_plane_check_fb(const struct intel_crtc_state *crtc_state,
 	    fb->modifier != DRM_FORMAT_MOD_LINEAR &&
 	    fb->modifier != I915_FORMAT_MOD_X_TILED) {
 		drm_dbg_kms(display->drm,
-			    "[PLANE:%d:%s] Y/Yf tiling not supported in IF-ID mode\n",
+			    "[PLANE:%d:%s] Y/Yf/Ys tiling not supported in IF-ID mode\n",
 			    plane->base.base.id, plane->base.name);
 		return -EINVAL;
 	}
@@ -2558,7 +2564,8 @@ static bool skl_plane_format_mod_supported(struct drm_plane *_plane,
 	case DRM_FORMAT_P012:
 	case DRM_FORMAT_P016:
 	case DRM_FORMAT_XVYU2101010:
-		if (modifier == I915_FORMAT_MOD_Yf_TILED)
+		if (modifier == I915_FORMAT_MOD_Yf_TILED ||
+		    modifier == I915_FORMAT_MOD_Ys_TILED)
 			return true;
 		fallthrough;
 	case DRM_FORMAT_C8:
@@ -2612,7 +2619,8 @@ static bool icl_plane_format_mod_supported(struct drm_plane *_plane,
 	case DRM_FORMAT_P012:
 	case DRM_FORMAT_P016:
 	case DRM_FORMAT_XVYU2101010:
-		if (modifier == I915_FORMAT_MOD_Yf_TILED)
+		if (modifier == I915_FORMAT_MOD_Yf_TILED ||
+		    modifier == I915_FORMAT_MOD_Ys_TILED)
 			return true;
 		fallthrough;
 	case DRM_FORMAT_C8:

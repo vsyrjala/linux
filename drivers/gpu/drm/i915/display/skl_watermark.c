@@ -1694,8 +1694,10 @@ skl_compute_wm_params(const struct intel_crtc_state *crtc_state,
 	wp->cpp = format->cpp[color_plane];
 	wp->plane_pixel_rate = plane_pixel_rate;
 
-	if (DISPLAY_VER(display) >= 11 &&
-	    modifier == I915_FORMAT_MOD_Yf_TILED  && wp->cpp == 1)
+	if (wp->cpp == 1 &&
+	    DISPLAY_VER(display) >= 11 &&
+	    (modifier == I915_FORMAT_MOD_Yf_TILED ||
+	     modifier == I915_FORMAT_MOD_Ys_TILED))
 		wp->dbuf_block_size = 256;
 	else
 		wp->dbuf_block_size = 512;

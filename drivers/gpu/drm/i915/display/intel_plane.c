@@ -1414,6 +1414,7 @@ static unsigned int (*intel_get_tiling_func(u64 fb_modifier))(unsigned int width
 	case I915_FORMAT_MOD_X_TILED:
 	case I915_FORMAT_MOD_Yf_TILED:
 	case I915_FORMAT_MOD_Yf_TILED_CCS:
+	case I915_FORMAT_MOD_Ys_TILED:
 	default:
 	/* Not supported yet */
 		return NULL;
