@@ -100,7 +100,7 @@ struct i915_vma_resource;
 static inline void assert_i915_gem_gtt_types(void)
 {
 	BUILD_BUG_ON(sizeof(struct intel_partial_info) != sizeof(u64) + sizeof(unsigned int));
-	BUILD_BUG_ON(sizeof(struct intel_remapped_info) != 5 * sizeof(u32) + 16 * sizeof(u16) + sizeof(bool));
+	BUILD_BUG_ON(sizeof(struct intel_remapped_info) != 5 * sizeof(u32) + 16 * sizeof(u16) + sizeof(bool) + sizeof(intel_remap_func));
 
 	/* As we encode the size of each branch inside the union into its type,
 	 * we have to be careful that each branch has a unique size.

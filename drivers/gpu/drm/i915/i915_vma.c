@@ -994,7 +994,8 @@ remap_single_tiled_color_plane_pages(const struct intel_remapped_plane_info *pla
 				     struct drm_i915_gem_object *obj,
 				     unsigned int alignment_pad,
 				     struct sg_table *st, struct scatterlist *sg,
-				     unsigned int *gtt_offset, bool rotated)
+				     unsigned int *gtt_offset, bool rotated,
+				     intel_remap_func remap)
 {
 	unsigned int offset = plane->offset;
 	unsigned int width = plane->width;
@@ -1002,7 +1003,6 @@ remap_single_tiled_color_plane_pages(const struct intel_remapped_plane_info *pla
 	unsigned int src_stride = plane->src_stride;
 	unsigned int dst_stride = plane->dst_stride;
 	unsigned int x, y;
-	pgoff_t src_idx;
 
 	if (!width || !height)
 		return sg;
@@ -1017,12 +1017,10 @@ remap_single_tiled_color_plane_pages(const struct intel_remapped_plane_info *pla
 		unsigned int left;
 
 		for (x = 0; x < width; x++) {
+			pgoff_t src_idx;
 			dma_addr_t addr;
 
-			if (rotated)
-				src_idx = offset + (width - x - 1) * src_stride + y;
-			else
-				src_idx = offset + y * src_stride + x;
+			src_idx = remap(offset, x, y, width, height, src_stride);
 
 			/*
 			 * We don't need the pages, but need to initialize
@@ -1178,9 +1176,10 @@ remap_color_plane_pages(const struct intel_remapped_info *rem_info,
 	if (rem_info->plane[color_plane].linear)
 		sg = remap_linear_color_plane_pages(&rem_info->plane[color_plane], obj,
 						    alignment_pad, st, sg, gtt_offset);
-	else if (rem_info->rotated)
+	else if (rem_info->remap)
 		sg = remap_single_tiled_color_plane_pages(&rem_info->plane[color_plane], obj,
-							  alignment_pad, st, sg, gtt_offset, true);
+							  alignment_pad, st, sg, gtt_offset,
+							  rem_info->rotated, rem_info->remap);
 	else
 		sg = remap_multi_tiled_color_plane_pages(&rem_info->plane[color_plane], obj,
 							 alignment_pad, st, sg, gtt_offset);
@@ -1200,6 +1199,9 @@ intel_remap_pages(struct intel_remapped_info *rem_info,
 	int ret = -ENOMEM;
 	int i;
 
+	if (drm_WARN_ON(&i915->drm, rem_info->rotated && !rem_info->remap))
+		return ERR_PTR(-EINVAL);
+
 	/* Allocate target SG list. */
 	st = kmalloc_obj(*st);
 	if (!st)
@@ -1215,7 +1217,7 @@ intel_remap_pages(struct intel_remapped_info *rem_info,
 	for (i = 0 ; i < ARRAY_SIZE(rem_info->plane); i++)
 		sg = remap_color_plane_pages(rem_info, obj, i, st, sg, &gtt_offset);
 
-	if (!rem_info->rotated)
+	if (!rem_info->remap)
 		i915_sg_trim(st);
 
 	return st;

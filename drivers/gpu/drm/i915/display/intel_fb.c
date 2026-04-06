@@ -17,6 +17,7 @@
 #include "intel_display_types.h"
 #include "intel_display_utils.h"
 #include "intel_fb.h"
+#include "intel_fb_remap.h"
 #include "intel_frontbuffer.h"
 #include "intel_parent.h"
 #include "intel_plane.h"
@@ -1277,6 +1278,11 @@ static bool intel_fb_needs_pot_stride_remap(const struct intel_framebuffer *fb)
 		intel_fb_uses_dpt(&fb->base);
 }
 
+static bool intel_fb_needs_remap(const struct intel_framebuffer *fb)
+{
+	return intel_fb_needs_pot_stride_remap(fb);
+}
+
 bool intel_plane_uses_fence(const struct intel_plane_state *plane_state)
 {
 	struct intel_display *display = to_intel_display(plane_state);
@@ -1291,7 +1297,7 @@ static int intel_fb_pitch(const struct intel_framebuffer *fb, int color_plane, u
 {
 	if (drm_rotation_90_or_270(rotation))
 		return fb->rotated_view.color_plane[color_plane].mapping_stride;
-	else if (intel_fb_needs_pot_stride_remap(fb))
+	else if (intel_fb_needs_remap(fb))
 		return fb->remapped_view.color_plane[color_plane].mapping_stride;
 	else
 		return fb->normal_view.color_plane[color_plane].mapping_stride;
@@ -1642,8 +1648,10 @@ static void intel_fb_view_init(struct intel_display *display,
 	memset(view, 0, sizeof(*view));
 	view->gtt.type = view_type;
 
-	if (!i915_gtt_view_is_normal(&view->gtt))
+	if (!i915_gtt_view_is_normal(&view->gtt)) {
 		view->gtt.remapped.rotated = rotated;
+		view->gtt.remapped.remap = intel_fb_remap_func(rotated);
+	}
 
 	if (i915_gtt_view_is_remapped(&view->gtt) &&
 	    intel_fb_needs_pot_stride_remap(fb))
@@ -1722,7 +1730,7 @@ int intel_fill_fb_info(struct intel_display *display, struct intel_framebuffer *
 	if (intel_fb_supports_90_270_rotation(fb))
 		intel_fb_view_init(display, &fb->rotated_view,
 				   I915_GTT_VIEW_REMAPPED, fb, true);
-	if (intel_fb_needs_pot_stride_remap(fb))
+	if (intel_fb_needs_remap(fb))
 		intel_fb_view_init(display, &fb->remapped_view,
 				   I915_GTT_VIEW_REMAPPED, fb, false);
 
@@ -1785,7 +1793,7 @@ int intel_fill_fb_info(struct intel_display *display, struct intel_framebuffer *
 								    offset, gtt_offset_rotated, x, y,
 								    &fb->rotated_view);
 
-		if (intel_fb_needs_pot_stride_remap(fb))
+		if (intel_fb_needs_remap(fb))
 			gtt_offset_remapped += calc_plane_remap_info(fb, i, &view_dims,
 								     offset, gtt_offset_remapped, x, y,
 								     &fb->remapped_view);
@@ -1933,7 +1941,7 @@ void intel_fb_fill_view(const struct intel_framebuffer *fb, unsigned int rotatio
 {
 	if (drm_rotation_90_or_270(rotation))
 		*view = fb->rotated_view;
-	else if (intel_fb_needs_pot_stride_remap(fb))
+	else if (intel_fb_needs_remap(fb))
 		*view = fb->remapped_view;
 	else
 		*view = fb->normal_view;
@@ -2309,7 +2317,7 @@ int intel_framebuffer_init(struct intel_framebuffer *intel_fb,
 		struct intel_dpt *dpt;
 		size_t size = 0;
 
-		if (intel_fb_needs_pot_stride_remap(intel_fb))
+		if (intel_fb_needs_remap(intel_fb))
 			size = intel_remapped_info_size(&intel_fb->remapped_view.gtt.remapped);
 
 		dpt = intel_parent_dpt_create(display, obj, size);

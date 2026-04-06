@@ -29,8 +29,21 @@ struct intel_partial_info {
 	unsigned int size;
 } __packed;
 
+/*
+ * Custom remap function for tiled color planes. Linear color planes
+ * are not remapped by the function. Input x,y,w,h are in destination
+ * coordinate space. The remap function returns the corresponding
+ * source tile offset. Units are 4KiB tiles.
+ */
+typedef unsigned int (*intel_remap_func)(unsigned int offset,
+					 unsigned int x, unsigned int y,
+					 unsigned int w, unsigned int h,
+					 unsigned int src_stride);
+
 struct intel_remapped_info {
 	struct intel_remapped_plane_info plane[4];
+	/* TODO we might need a per-color plane remap func eg. for tile64+NV12 */
+	intel_remap_func remap;
 	/* in gtt pages */
 	u32 plane_alignment;
 	bool rotated;
