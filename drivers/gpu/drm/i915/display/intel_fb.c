@@ -1350,6 +1350,7 @@ static bool intel_fb_needs_remap(const struct intel_framebuffer *fb)
 {
 	return fb->base.modifier == I915_FORMAT_MOD_Ys_TILED ||
 		fb->base.modifier == I915_FORMAT_MOD_64_TILED ||
+		fb->base.modifier == I915_FORMAT_MOD_Yf_TILED ||
 		intel_fb_needs_pot_stride_remap(fb);
 }
 
