@@ -195,7 +195,7 @@ intel_remap_func intel_fb_remap_func(u64 modifier, unsigned int cpp, bool rotate
 	default:
 		if (rotate)
 			return remap_tiled_r270;
-		else if (0)
+		else if (1)
 			return remap_tiled_r0;
 		else
 			return NULL;
