@@ -847,6 +847,24 @@ unsigned int intel_tile_height(const struct drm_framebuffer *fb, int color_plane
 		intel_tile_width_bytes(fb, color_plane);
 }
 
+static unsigned int intel_macro_tile_size(const struct drm_framebuffer *fb)
+{
+	struct intel_display *display = to_intel_display(fb->dev);
+
+	return intel_tile_size(display);
+}
+
+static unsigned int intel_macro_tile_width_bytes(const struct drm_framebuffer *fb, int color_plane)
+{
+	return intel_tile_width_bytes(fb, color_plane);
+}
+
+static unsigned int intel_macro_tile_height(const struct drm_framebuffer *fb, int color_plane)
+{
+	return intel_macro_tile_size(fb) /
+		intel_macro_tile_width_bytes(fb, color_plane);
+}
+
 /*
  * Return the tile dimensions in pixel units, based on the (2 or 4 kbyte) GTT
  * page tile size.
@@ -860,6 +878,17 @@ static void intel_tile_dims(const struct drm_framebuffer *fb, int color_plane,
 
 	*tile_width = tile_width_bytes / cpp;
 	*tile_height = intel_tile_height(fb, color_plane);
+}
+
+static void intel_macro_tile_dims(const struct drm_framebuffer *fb, int color_plane,
+				  unsigned int *tile_width,
+				  unsigned int *tile_height)
+{
+	unsigned int tile_width_bytes = intel_macro_tile_width_bytes(fb, color_plane);
+	unsigned int cpp = fb->format->cpp[color_plane];
+
+	*tile_width = tile_width_bytes / cpp;
+	*tile_height = intel_macro_tile_height(fb, color_plane);
 }
 
 /*
@@ -881,7 +910,7 @@ unsigned int
 intel_fb_align_height(const struct drm_framebuffer *fb,
 		      int color_plane, unsigned int height)
 {
-	unsigned int tile_height = intel_tile_height(fb, color_plane);
+	unsigned int tile_height = intel_macro_tile_height(fb, color_plane);
 
 	return ALIGN(height, tile_height);
 }
@@ -1143,7 +1172,7 @@ static int intel_fb_offset_to_xy(int *x, int *y,
 	unsigned int height, alignment, unused;
 
 	if (fb->modifier != DRM_FORMAT_MOD_LINEAR)
-		alignment = intel_tile_size(display);
+		alignment = intel_macro_tile_size(fb);
 	else
 		alignment = 0;
 
@@ -1155,7 +1184,7 @@ static int intel_fb_offset_to_xy(int *x, int *y,
 	}
 
 	height = drm_format_info_plane_height(fb->format, fb->height, color_plane);
-	height = ALIGN(height, intel_tile_height(fb, color_plane));
+	height = ALIGN(height, intel_macro_tile_height(fb, color_plane));
 
 	/* Catch potential overflows early */
 	if (check_add_overflow(mul_u32_u32(height, fb->pitches[color_plane]),
@@ -1373,13 +1402,13 @@ static int convert_plane_offset_to_xy(const struct intel_framebuffer *fb, int co
 static u32 calc_plane_aligned_offset(const struct intel_framebuffer *fb, int color_plane, int *x, int *y)
 {
 	struct intel_display *display = to_intel_display(fb->base.dev);
+	unsigned int alignment = intel_macro_tile_size(&fb->base);
 	unsigned int tile_size = intel_tile_size(display);
 	u32 offset;
 
 	offset = intel_compute_aligned_offset(display, x, y, &fb->base, color_plane,
 					      fb->base.pitches[color_plane],
-					      DRM_MODE_ROTATE_0,
-					      tile_size);
+					      DRM_MODE_ROTATE_0, alignment);
 
 	return offset / tile_size;
 }
@@ -1387,6 +1416,7 @@ static u32 calc_plane_aligned_offset(const struct intel_framebuffer *fb, int col
 struct fb_plane_view_dims {
 	unsigned int width, height;
 	unsigned int tile_width, tile_height;
+	unsigned int macro_tile_width, macro_tile_height;
 };
 
 static void init_plane_view_dims(const struct intel_framebuffer *fb, int color_plane,
@@ -1397,6 +1427,7 @@ static void init_plane_view_dims(const struct intel_framebuffer *fb, int color_p
 	dims->height = height;
 
 	intel_tile_dims(&fb->base, color_plane, &dims->tile_width, &dims->tile_height);
+	intel_macro_tile_dims(&fb->base, color_plane, &dims->macro_tile_width, &dims->macro_tile_height);
 }
 
 static unsigned int
@@ -1444,7 +1475,7 @@ plane_view_width_tiles(const struct intel_framebuffer *fb, int color_plane,
 		       const struct fb_plane_view_dims *dims,
 		       int x)
 {
-	return DIV_ROUND_UP(x + dims->width, dims->tile_width);
+	return ALIGN(x + dims->width, dims->macro_tile_width) / dims->tile_width;
 }
 
 static unsigned int
@@ -1452,7 +1483,7 @@ plane_view_height_tiles(const struct intel_framebuffer *fb, int color_plane,
 			const struct fb_plane_view_dims *dims,
 			int y)
 {
-	return DIV_ROUND_UP(y + dims->height, dims->tile_height);
+	return ALIGN(y + dims->height, dims->macro_tile_height) / dims->tile_height;
 }
 
 static unsigned int
@@ -1674,6 +1705,9 @@ static unsigned int intel_fb_min_alignment(const struct drm_framebuffer *fb)
 	struct intel_display *display = to_intel_display(fb->dev);
 	struct intel_plane *plane;
 	unsigned int min_alignment = 0;
+
+	if (fb->modifier != DRM_FORMAT_MOD_LINEAR)
+		min_alignment = intel_macro_tile_size(fb);
 
 	for_each_intel_plane(display->drm, plane) {
 		unsigned int plane_min_alignment;
@@ -2020,7 +2054,7 @@ intel_fb_stride_alignment(const struct drm_framebuffer *fb, int color_plane)
 			return 64;
 	}
 
-	tile_width = intel_tile_width_bytes(fb, color_plane);
+	tile_width = intel_macro_tile_width_bytes(fb, color_plane);
 	if (intel_fb_is_ccs_modifier(fb->modifier)) {
 		/*
 		 * On TGL the surface stride must be 4 tile aligned, mapped by
