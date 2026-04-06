@@ -1636,6 +1636,7 @@ calc_plane_normal_size(const struct intel_framebuffer *fb, int color_plane,
 static void intel_fb_view_init(struct intel_display *display,
 			       struct intel_fb_view *view,
 			       enum i915_gtt_view_type view_type,
+			       const struct intel_framebuffer *fb,
 			       bool rotated)
 {
 	memset(view, 0, sizeof(*view));
@@ -1645,7 +1646,7 @@ static void intel_fb_view_init(struct intel_display *display,
 		view->gtt.remapped.rotated = rotated;
 
 	if (i915_gtt_view_is_remapped(&view->gtt) &&
-	    (display->platform.alderlake_p || DISPLAY_VER(display) >= 14))
+	    intel_fb_needs_pot_stride_remap(fb))
 		view->gtt.remapped.plane_alignment = SZ_2M / PAGE_SIZE;
 }
 
@@ -1711,16 +1712,19 @@ int intel_fill_fb_info(struct intel_display *display, struct intel_framebuffer *
 	int i, num_planes = fb->base.format->num_planes;
 	unsigned int tile_size = intel_tile_size(display);
 
-	intel_fb_view_init(display, &fb->normal_view, I915_GTT_VIEW_NORMAL, false);
+	intel_fb_view_init(display, &fb->normal_view,
+			   I915_GTT_VIEW_NORMAL, fb, false);
 
 	drm_WARN_ON(display->drm,
 		    intel_fb_supports_90_270_rotation(fb) &&
 		    intel_fb_needs_pot_stride_remap(fb));
 
 	if (intel_fb_supports_90_270_rotation(fb))
-		intel_fb_view_init(display, &fb->rotated_view, I915_GTT_VIEW_REMAPPED, true);
+		intel_fb_view_init(display, &fb->rotated_view,
+				   I915_GTT_VIEW_REMAPPED, fb, true);
 	if (intel_fb_needs_pot_stride_remap(fb))
-		intel_fb_view_init(display, &fb->remapped_view, I915_GTT_VIEW_REMAPPED, false);
+		intel_fb_view_init(display, &fb->remapped_view,
+				   I915_GTT_VIEW_REMAPPED, fb, false);
 
 	for (i = 0; i < num_planes; i++) {
 		struct fb_plane_view_dims view_dims;
@@ -1847,7 +1851,7 @@ static void intel_plane_remap_gtt(struct intel_plane_state *plane_state)
 	u32 gtt_offset = 0;
 
 	intel_fb_view_init(display, &plane_state->view,
-			   I915_GTT_VIEW_REMAPPED,
+			   I915_GTT_VIEW_REMAPPED, intel_fb,
 			   drm_rotation_90_or_270(rotation));
 
 	src_x = plane_state->uapi.src.x1 >> 16;
