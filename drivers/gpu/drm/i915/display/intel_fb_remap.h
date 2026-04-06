@@ -10,6 +10,6 @@
 
 #include "i915_gtt_view_types.h"
 
-intel_remap_func intel_fb_remap_func(u64 modifier, bool rotate);
+intel_remap_func intel_fb_remap_func(u64 modifier, unsigned int cpp, bool rotate);
 
 #endif /* __INTEL_FB_REMAP_H__ */

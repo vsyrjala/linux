@@ -1402,6 +1402,7 @@ static unsigned int (*intel_get_tiling_func(u64 fb_modifier))(unsigned int width
 	case I915_FORMAT_MOD_Y_TILED_GEN12_MC_CCS:
 		return intel_ytile_get_offset;
 	case I915_FORMAT_MOD_4_TILED:
+	case I915_FORMAT_MOD_64_TILED:
 	case I915_FORMAT_MOD_4_TILED_DG2_RC_CCS:
 	case I915_FORMAT_MOD_4_TILED_DG2_MC_CCS:
 	case I915_FORMAT_MOD_4_TILED_DG2_RC_CCS_CC:

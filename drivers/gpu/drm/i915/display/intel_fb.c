@@ -300,6 +300,10 @@ static const struct intel_modifier_desc intel_modifiers[] = {
 		.display_ver = { 13, -1 },
 		.plane_caps = INTEL_PLANE_CAP_TILING_4,
 	}, {
+		.modifier = I915_FORMAT_MOD_64_TILED,
+		.display_ver = { 13, -1 },
+		.plane_caps = INTEL_PLANE_CAP_TILING_4,
+	}, {
 		.modifier = I915_FORMAT_MOD_Y_TILED_GEN12_MC_CCS,
 		.display_ver = { 12, 13 },
 		.plane_caps = INTEL_PLANE_CAP_TILING_Y | INTEL_PLANE_CAP_CCS_MC,
@@ -794,6 +798,7 @@ intel_tile_width_bytes(const struct drm_framebuffer *fb, int color_plane)
 	case I915_FORMAT_MOD_4_TILED_DG2_RC_CCS_CC:
 	case I915_FORMAT_MOD_4_TILED_DG2_MC_CCS:
 	case I915_FORMAT_MOD_4_TILED:
+	case I915_FORMAT_MOD_64_TILED:
 		/*
 		 * Each 4K tile consists of 64B(8*8) subtiles, with
 		 * same shape as Y Tile(i.e 4*16B OWords)
@@ -858,6 +863,7 @@ static unsigned int intel_macro_tile_size(const struct drm_framebuffer *fb)
 
 	switch (fb->modifier) {
 	case I915_FORMAT_MOD_Ys_TILED:
+	case I915_FORMAT_MOD_64_TILED:
 		return 64 * 1024;
 	default:
 		return intel_tile_size(display);
@@ -867,10 +873,26 @@ static unsigned int intel_macro_tile_size(const struct drm_framebuffer *fb)
 static unsigned int intel_macro_tile_width_bytes(const struct drm_framebuffer *fb, int color_plane)
 {
 	unsigned int width_bytes = intel_tile_width_bytes(fb, color_plane);
+	unsigned int cpp = fb->format->cpp[color_plane];
 
 	switch (fb->modifier) {
 	case I915_FORMAT_MOD_Ys_TILED:
 		return 4 * width_bytes;
+	case I915_FORMAT_MOD_64_TILED:
+		switch (cpp) {
+		case 1:
+			return 2 * width_bytes;
+		case 2:
+		case 4:
+			return 4 * width_bytes;
+		case 8:
+		case 16:
+			return 8 * width_bytes;
+		default:
+			MISSING_CASE(cpp);
+			return width_bytes;
+		}
+		break;
 	default:
 		return width_bytes;
 	}
@@ -1327,6 +1349,7 @@ static bool intel_fb_needs_pot_stride_remap(const struct intel_framebuffer *fb)
 static bool intel_fb_needs_remap(const struct intel_framebuffer *fb)
 {
 	return fb->base.modifier == I915_FORMAT_MOD_Ys_TILED ||
+		fb->base.modifier == I915_FORMAT_MOD_64_TILED ||
 		intel_fb_needs_pot_stride_remap(fb);
 }
 
@@ -1700,6 +1723,7 @@ static void intel_fb_view_init(struct intel_display *display,
 	if (!i915_gtt_view_is_normal(&view->gtt)) {
 		view->gtt.remapped.rotated = rotated;
 		view->gtt.remapped.remap = intel_fb_remap_func(fb->base.modifier,
+							       fb->base.format->cpp[0],
 							       rotated);
 	}
 
@@ -2075,7 +2099,7 @@ intel_fb_stride_alignment(const struct drm_framebuffer *fb, int color_plane)
 	}
 
 	tile_width = intel_macro_tile_width_bytes(fb, color_plane);
-	/* FIXME figure out Ys+CCS interactions */
+	/* FIXME figure out Ys/64+CCS interactions */
 	if (intel_fb_is_ccs_modifier(fb->modifier)) {
 		/*
 		 * On TGL the surface stride must be 4 tile aligned, mapped by

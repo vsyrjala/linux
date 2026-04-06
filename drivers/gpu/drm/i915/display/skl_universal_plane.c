@@ -514,6 +514,7 @@ static bool tgl_plane_can_async_flip(u64 modifier)
 	case I915_FORMAT_MOD_X_TILED:
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_4_TILED:
+	case I915_FORMAT_MOD_64_TILED:
 	case I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS:
 	case I915_FORMAT_MOD_4_TILED_MTL_RC_CCS:
 	case I915_FORMAT_MOD_4_TILED_DG2_RC_CCS:
@@ -608,6 +609,7 @@ static u32 tgl_plane_min_alignment(struct intel_plane *plane,
 	case I915_FORMAT_MOD_X_TILED:
 	case I915_FORMAT_MOD_Y_TILED:
 	case I915_FORMAT_MOD_4_TILED:
+	case I915_FORMAT_MOD_64_TILED:
 		return mult * 4 * 1024;
 	case I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS:
 	case I915_FORMAT_MOD_4_TILED_MTL_RC_CCS:
@@ -1068,6 +1070,7 @@ static u32 skl_plane_ctl_tiling(u64 fb_modifier)
 	case I915_FORMAT_MOD_Y_TILED:
 		return PLANE_CTL_TILED_Y;
 	case I915_FORMAT_MOD_4_TILED:
+	case I915_FORMAT_MOD_64_TILED:
 		return PLANE_CTL_TILED_4;
 	case I915_FORMAT_MOD_4_TILED_DG2_RC_CCS:
 		return PLANE_CTL_TILED_4 |

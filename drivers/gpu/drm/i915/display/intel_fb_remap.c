@@ -77,9 +77,116 @@ static unsigned int remap_ys_tiled_r270(unsigned int offset,
 	return remap_ys_tiled_r0(offset, x, y, w, h, stride);
 }
 
-intel_remap_func intel_fb_remap_func(u64 modifier, bool rotate)
+static unsigned int remap_tile64(unsigned int offset,
+				 unsigned int x, unsigned int y,
+				 unsigned int w, unsigned int h,
+				 unsigned int stride,
+				 unsigned int tw, unsigned int th)
+{
+	/* full 64KiB tile rows */
+	offset += (y & ~(th - 1)) * stride;
+
+	/* full 64KiB tiles */
+	offset += (x & ~(tw - 1)) * th;
+
+	y &= th - 1;
+	x &= tw - 1;
+
+	return offset + y * tw + x;
+}
+
+/*
+ * Each 64KiB Tile64 is made up of 2x8 4KiB Tile4s,
+ * stored in row major order. Use for 8bpp formats.
+ */
+static unsigned int remap_64_tiled_8_r0(unsigned int offset,
+					unsigned int x, unsigned int y,
+					unsigned int w, unsigned int h,
+					unsigned int stride)
+{
+	return remap_tile64(offset, x, y, w, h, stride, 2, 8);
+}
+
+static unsigned int remap_64_tiled_8_r270(unsigned int offset,
+					  unsigned int x, unsigned int y,
+					  unsigned int w, unsigned int h,
+					  unsigned int stride)
+{
+	remap_rotate_270(&x, &y, w, h);
+
+	return remap_64_tiled_8_r0(offset, x, y, w, h, stride);
+}
+
+/*
+ * Each 64KiB Tile64 is made up of 4x4 4KiB Tile4s,
+ * stored in row major order. Use for 16bpp and 32bpp formats.
+ */
+static unsigned int remap_64_tiled_16_32_r0(unsigned int offset,
+					    unsigned int x, unsigned int y,
+					    unsigned int w, unsigned int h,
+					    unsigned int stride)
+{
+	return remap_tile64(offset, x, y, w, h, stride, 4, 4);
+}
+
+static unsigned int remap_64_tiled_16_32_r270(unsigned int offset,
+					      unsigned int x, unsigned int y,
+					      unsigned int w, unsigned int h,
+					      unsigned int stride)
+{
+	remap_rotate_270(&x, &y, w, h);
+
+	return remap_64_tiled_16_32_r0(offset, x, y, w, h, stride);
+}
+
+/*
+ * Each 64KiB Tile64 is made up of 8x2 4KiB Tile4s,
+ * stored in row major order. Use for 64bpp and 128bpp formats.
+ */
+static unsigned int remap_64_tiled_64_128_r0(unsigned int offset,
+					     unsigned int x, unsigned int y,
+					     unsigned int w, unsigned int h,
+					     unsigned int stride)
+{
+	return remap_tile64(offset, x, y, w, h, stride, 8, 2);
+}
+
+static unsigned int remap_64_tiled_64_128_r270(unsigned int offset,
+					       unsigned int x, unsigned int y,
+					       unsigned int w, unsigned int h,
+					       unsigned int stride)
+{
+	remap_rotate_270(&x, &y, w, h);
+
+	return remap_64_tiled_64_128_r0(offset, x, y, w, h, stride);
+}
+
+intel_remap_func intel_fb_remap_func(u64 modifier, unsigned int cpp, bool rotate)
 {
 	switch (modifier) {
+	case I915_FORMAT_MOD_64_TILED:
+		switch (cpp) {
+		case 1:
+			if (rotate)
+				return remap_64_tiled_8_r270;
+			else
+				return remap_64_tiled_8_r0;
+		case 2:
+		case 4:
+			if (rotate)
+				return remap_64_tiled_16_32_r270;
+			else
+				return remap_64_tiled_16_32_r0;
+		case 8:
+		case 16:
+			if (rotate)
+				return remap_64_tiled_64_128_r270;
+			else
+				return remap_64_tiled_64_128_r0;
+		default:
+			MISSING_CASE(cpp);
+			return NULL;
+		}
 	case I915_FORMAT_MOD_Ys_TILED:
 		if (rotate)
 			return remap_ys_tiled_r270;
