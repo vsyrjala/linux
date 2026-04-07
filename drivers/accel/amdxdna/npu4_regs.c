@@ -63,6 +63,13 @@
 #define NPU4_SMU_BAR_BASE	MMNPU_APERTURE4_BASE
 #define NPU4_SRAM_BAR_BASE	MMNPU_APERTURE1_BASE
 
+#define NPU4_DPM_TOPS(ndev, dpm_level) \
+({ \
+	typeof(ndev) _ndev = ndev; \
+	(4096 * (_ndev)->total_col * \
+	 (_ndev)->priv->dpm_clk_tbl[dpm_level].hclk / 1000000); \
+})
+
 const struct rt_config npu4_default_rt_cfg[] = {
 	{ 5, 1, AIE2_RT_CFG_INIT }, /* PDI APP LOAD MODE */
 	{ 10, 1, AIE2_RT_CFG_INIT }, /* DEBUG BUF */
@@ -88,7 +95,7 @@ const struct dpm_clk_freq npu4_dpm_clk_table[] = {
 	{ 0 }
 };
 
-const struct aie2_fw_feature_tbl npu4_fw_feature_table[] = {
+const struct amdxdna_fw_feature_tbl npu4_fw_feature_table[] = {
 	{ .major = 6, .min_minor = 12 },
 	{ .features = BIT_U64(AIE2_NPU_COMMAND), .major = 6, .min_minor = 15 },
 	{ .features = BIT_U64(AIE2_PREEMPT), .major = 6, .min_minor = 12 },
@@ -98,11 +105,29 @@ const struct aie2_fw_feature_tbl npu4_fw_feature_table[] = {
 	{ 0 }
 };
 
+int npu4_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level)
+{
+	int ret;
+
+	ret = aie_smu_set_dpm(ndev->aie.smu_hdl, dpm_level);
+	if (ret)
+		return ret;
+
+	ndev->npuclk_freq = ndev->priv->dpm_clk_tbl[dpm_level].npuclk;
+	ndev->hclk_freq = ndev->priv->dpm_clk_tbl[dpm_level].hclk;
+	ndev->max_tops = NPU4_DPM_TOPS(ndev, ndev->max_dpm_level);
+	ndev->curr_tops = NPU4_DPM_TOPS(ndev, dpm_level);
+
+	XDNA_DBG(ndev->aie.xdna, "MP-NPU clock %d, H clock %d\n",
+		 ndev->npuclk_freq, ndev->hclk_freq);
+
+	return 0;
+}
+
 static const struct amdxdna_dev_priv npu4_dev_priv = {
 	.fw_path        = "amdnpu/17f0_10/",
 	.rt_config	= npu4_default_rt_cfg,
 	.dpm_clk_tbl	= npu4_dpm_clk_table,
-	.fw_feature_tbl = npu4_fw_feature_table,
 	.col_align	= COL_ALIGN_NATURE,
 	.mbox_dev_addr  = NPU4_MBOX_BAR_BASE,
 	.mbox_size      = 0, /* Use BAR size */
@@ -147,5 +172,6 @@ const struct amdxdna_dev_info dev_npu4_info = {
 	.vbnv              = "RyzenAI-npu4",
 	.device_type       = AMDXDNA_DEV_TYPE_KMQ,
 	.dev_priv          = &npu4_dev_priv,
+	.fw_feature_tbl    = npu4_fw_feature_table,
 	.ops               = &aie2_ops, /* NPU4 can share NPU1's callback */
 };
