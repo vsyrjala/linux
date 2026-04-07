@@ -139,6 +139,22 @@ write_dpt_remapped(struct xe_bo *bo,
 	}
 }
 
+static unsigned int xe_dpt_size(struct drm_gem_object *obj,
+				const struct i915_gtt_view *view)
+{
+	unsigned int pages;
+	int pte_size = 8;
+
+	if (view->type == I915_GTT_VIEW_NORMAL)
+		pages = obj->size / XE_PAGE_SIZE;
+	else if (view->type == I915_GTT_VIEW_REMAPPED)
+		pages = intel_remapped_info_size(&view->remapped);
+	else
+		pages = intel_rotation_info_size(&view->rotated);
+
+	return ALIGN(pages * pte_size, XE_PAGE_SIZE);
+}
+
 static int __xe_pin_fb_vma_dpt(const struct intel_framebuffer *fb,
 			       const struct i915_gtt_view *view,
 			       struct i915_vma *vma,
@@ -149,17 +165,7 @@ static int __xe_pin_fb_vma_dpt(const struct intel_framebuffer *fb,
 	struct xe_ggtt *ggtt = tile0->mem.ggtt;
 	struct drm_gem_object *obj = intel_fb_bo(&fb->base);
 	struct xe_bo *bo = gem_to_xe_bo(obj), *dpt;
-	u32 dpt_size, size = bo->ttm.base.size;
-
-	if (view->type == I915_GTT_VIEW_NORMAL)
-		dpt_size = ALIGN(size / XE_PAGE_SIZE * 8, XE_PAGE_SIZE);
-	else if (view->type == I915_GTT_VIEW_REMAPPED)
-		dpt_size = ALIGN(intel_remapped_info_size(&view->remapped) * 8,
-				 XE_PAGE_SIZE);
-	else
-		/* display uses 4K tiles instead of bytes here, convert to entries.. */
-		dpt_size = ALIGN(intel_rotation_info_size(&view->rotated) * 8,
-				 XE_PAGE_SIZE);
+	u32 dpt_size = xe_dpt_size(obj, view);
 
 	if (IS_DGFX(xe))
 		dpt = xe_bo_create_pin_map_at_novm(xe, tile0,
@@ -193,7 +199,7 @@ static int __xe_pin_fb_vma_dpt(const struct intel_framebuffer *fb,
 		u64 pte = xe_ggtt_encode_pte_flags(ggtt, bo, xe->pat.idx[XE_CACHE_NONE]);
 		u32 x;
 
-		for (x = 0; x < size / XE_PAGE_SIZE; x++) {
+		for (x = 0; x < obj->size / XE_PAGE_SIZE; x++) {
 			u64 addr = xe_bo_addr(bo, x * XE_PAGE_SIZE, XE_PAGE_SIZE);
 
 			iosys_map_wr(&dpt->vmap, x * 8, u64, pte | addr);
