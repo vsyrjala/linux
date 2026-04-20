@@ -10,8 +10,10 @@
 
 enum phy;
 enum port;
+enum tc_port;
 struct intel_display;
 
 enum phy intel_port_map_phy(struct intel_display *display, enum port port);
+enum tc_port intel_port_map_tc_port(struct intel_display *display, enum port port);
 
 #endif /* _INTEL_PORT_MAP_H */

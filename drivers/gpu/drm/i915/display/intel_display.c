@@ -1901,7 +1901,7 @@ bool intel_phy_is_snps(struct intel_display *display, enum phy phy)
 	 * For DG2, and for DG2 only, all four "combo" ports and the TC1 port
 	 * (PHY E) use Synopsis PHYs. See intel_phy_is_tc().
 	 */
-	return display->platform.dg2 && phy <= PHY_E;
+	return display->platform.dg2;
 }
 
 /* Prefer intel_encoder_to_phy() */
@@ -1931,10 +1931,7 @@ enum tc_port intel_port_to_tc(struct intel_display *display, enum port port)
  */
 enum tc_port intel_tc_phy_port_to_tc(struct intel_display *display, enum port port)
 {
-	if (!intel_phy_is_tc(display, intel_port_to_phy(display, port)))
-		return TC_PORT_NONE;
-
-	return intel_port_to_tc(display, port);
+	return intel_port_map_tc_port(display, port);
 }
 
 enum phy intel_encoder_to_phy(struct intel_encoder *encoder)

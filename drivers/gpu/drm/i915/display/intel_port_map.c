@@ -3,6 +3,8 @@
  * Copyright © 2026 Intel Corporation
  */
 
+#include <drm/drm_print.h>
+
 #include "intel_display.h"
 #include "intel_display_core.h"
 #include "intel_display_device.h"
@@ -238,4 +240,14 @@ enum phy intel_port_map_phy(struct intel_display *display, enum port port)
 	MISSING_CASE(port);
 
 	return PHY_NONE;
+}
+
+enum tc_port intel_port_map_tc_port(struct intel_display *display, enum port port)
+{
+	enum phy phy = intel_port_map_phy(display, port);
+
+	if (phy < PHY_TC1)
+		return TC_PORT_NONE;
+
+	return phy - PHY_TC1 + TC_PORT_1;
 }
