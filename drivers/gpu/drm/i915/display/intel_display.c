@@ -113,6 +113,7 @@
 #include "intel_pipe_crc.h"
 #include "intel_plane.h"
 #include "intel_pmdemand.h"
+#include "intel_port_map.h"
 #include "intel_pps.h"
 #include "intel_psr.h"
 #include "intel_psr_regs.h"
@@ -1863,21 +1864,18 @@ static void hsw_crtc_disable(struct intel_atomic_state *state,
 /* Prefer intel_encoder_is_combo() */
 bool intel_phy_is_combo(struct intel_display *display, enum phy phy)
 {
-	if (display->platform.alderlake_s)
-		return phy <= PHY_E;
-	else if (display->platform.dg1 || display->platform.rocketlake)
-		return phy <= PHY_D;
-	else if (display->platform.jasperlake || display->platform.elkhartlake)
-		return phy <= PHY_C;
-	else if (display->platform.alderlake_p || IS_DISPLAY_VER(display, 11, 12))
-		return phy <= PHY_B;
-	else
-		/*
-		 * DG2 outputs labelled as "combo PHY" in the bspec use
-		 * SNPS PHYs with completely different programming,
-		 * hence we always return false here.
-		 */
+	if (!IS_DISPLAY_VER(display, 11, 13))
 		return false;
+
+	/*
+	 * DG2 outputs labelled as "combo PHY" in the bspec use
+	 * SNPS PHYs with completely different programming,
+	 * hence we always return false here.
+	 */
+	if (display->platform.dg2)
+		return false;
+
+	return phy >= PHY_A && phy < PHY_TC1;
 }
 
 /*
@@ -1893,21 +1891,7 @@ bool intel_phy_is_combo(struct intel_display *display, enum phy phy)
  */
 bool intel_phy_is_tc(struct intel_display *display, enum phy phy)
 {
-	/*
-	 * Discrete GPU phy's are not attached to FIA's to support TC
-	 * subsystem Legacy or non-legacy, and only support native DP/HDMI
-	 */
-	if (display->platform.dgfx)
-		return false;
-
-	if (DISPLAY_VER(display) >= 13)
-		return phy >= PHY_F && phy <= PHY_I;
-	else if (display->platform.tigerlake)
-		return phy >= PHY_D && phy <= PHY_I;
-	else if (display->platform.icelake)
-		return phy >= PHY_C && phy <= PHY_F;
-
-	return false;
+	return phy >= PHY_TC1;
 }
 
 /* Prefer intel_encoder_is_snps() */
@@ -1923,23 +1907,7 @@ bool intel_phy_is_snps(struct intel_display *display, enum phy phy)
 /* Prefer intel_encoder_to_phy() */
 enum phy intel_port_to_phy(struct intel_display *display, enum port port)
 {
-	if (DISPLAY_VER(display) >= 13 && port >= PORT_D_XELPD)
-		return PHY_D + port - PORT_D_XELPD;
-	else if (DISPLAY_VER(display) >= 13 && port >= PORT_TC1)
-		return PHY_F + port - PORT_TC1;
-	else if (display->platform.alderlake_s && port >= PORT_TC1)
-		return PHY_B + port - PORT_TC1;
-	else if ((display->platform.dg1 || display->platform.rocketlake) && port >= PORT_TC1)
-		return PHY_C + port - PORT_TC1;
-	else if ((display->platform.jasperlake || display->platform.elkhartlake) &&
-		 port == PORT_D)
-		return PHY_A;
-
-	if (drm_WARN(display->drm, port < 0,
-		     "PHY is invalid if port < 0 (%d), assuming PHY_A\n", port))
-		return PHY_A;
-
-	return PHY_A + port - PORT_A;
+	return intel_port_map_phy(display, port);
 }
 
 /* Prefer intel_encoder_to_tc() */
@@ -1973,7 +1941,7 @@ enum phy intel_encoder_to_phy(struct intel_encoder *encoder)
 {
 	struct intel_display *display = to_intel_display(encoder);
 
-	return intel_port_to_phy(display, encoder->port);
+	return intel_port_map_phy(display, encoder->port);
 }
 
 bool intel_encoder_is_combo(struct intel_encoder *encoder)
@@ -1987,7 +1955,7 @@ bool intel_encoder_is_snps(struct intel_encoder *encoder)
 {
 	struct intel_display *display = to_intel_display(encoder);
 
-	return intel_phy_is_snps(display, intel_encoder_to_phy(encoder));
+	return display->platform.dg2;
 }
 
 bool intel_encoder_is_tc(struct intel_encoder *encoder)

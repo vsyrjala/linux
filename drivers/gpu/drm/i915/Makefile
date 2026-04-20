@@ -372,6 +372,7 @@ i915-y += \
 	display/intel_lvds.o \
 	display/intel_panel.o \
 	display/intel_pfit.o \
+	display/intel_port_map.o \
 	display/intel_pps.o \
 	display/intel_qp_tables.o \
 	display/intel_sdvo.o \

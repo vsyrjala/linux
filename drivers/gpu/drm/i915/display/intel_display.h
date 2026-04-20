@@ -136,15 +136,20 @@ enum tc_port {
 };
 
 enum phy {
+	PHY_NONE = -1,
+
 	PHY_A = 0,
 	PHY_B,
 	PHY_C,
 	PHY_D,
 	PHY_E,
-	PHY_F,
-	PHY_G,
-	PHY_H,
-	PHY_I,
+
+	PHY_TC1,
+	PHY_TC2,
+	PHY_TC3,
+	PHY_TC4,
+	PHY_TC5,
+	PHY_TC6,
 
 	I915_MAX_PHYS
 };
