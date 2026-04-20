@@ -5100,7 +5100,9 @@ static enum hpd_pin skl_hpd_pin(struct intel_display *display, enum port port)
 
 static bool intel_ddi_is_tc(struct intel_display *display, enum port port)
 {
-	if (DISPLAY_VER(display) >= 12)
+	if (DISPLAY_VER(display) >= 13)
+		return port >= PORT_TC1 && port < PORT_D_XELPD;
+	else if (DISPLAY_VER(display) >= 12)
 		return port >= PORT_TC1;
 	else if (DISPLAY_VER(display) >= 11)
 		return port >= PORT_C;
