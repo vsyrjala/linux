@@ -78,6 +78,7 @@
 #include "intel_modeset_lock.h"
 #include "intel_panel.h"
 #include "intel_pfit.h"
+#include "intel_port_map.h"
 #include "intel_pps.h"
 #include "intel_psr.h"
 #include "intel_quirks.h"
@@ -5034,70 +5035,6 @@ intel_ddi_max_lanes(struct intel_digital_port *dig_port)
 	return max_lanes;
 }
 
-static enum hpd_pin xelpd_hpd_pin(struct intel_display *display, enum port port)
-{
-	if (port >= PORT_D_XELPD)
-		return HPD_PORT_D + port - PORT_D_XELPD;
-	else if (port >= PORT_TC1)
-		return HPD_PORT_TC1 + port - PORT_TC1;
-	else
-		return HPD_PORT_A + port - PORT_A;
-}
-
-static enum hpd_pin dg1_hpd_pin(struct intel_display *display, enum port port)
-{
-	if (port >= PORT_TC1)
-		return HPD_PORT_C + port - PORT_TC1;
-	else
-		return HPD_PORT_A + port - PORT_A;
-}
-
-static enum hpd_pin tgl_hpd_pin(struct intel_display *display, enum port port)
-{
-	if (port >= PORT_TC1)
-		return HPD_PORT_TC1 + port - PORT_TC1;
-	else
-		return HPD_PORT_A + port - PORT_A;
-}
-
-static enum hpd_pin rkl_hpd_pin(struct intel_display *display, enum port port)
-{
-	if (HAS_PCH_TGP(display))
-		return tgl_hpd_pin(display, port);
-
-	if (port >= PORT_TC1)
-		return HPD_PORT_C + port - PORT_TC1;
-	else
-		return HPD_PORT_A + port - PORT_A;
-}
-
-static enum hpd_pin icl_hpd_pin(struct intel_display *display, enum port port)
-{
-	if (port >= PORT_C)
-		return HPD_PORT_TC1 + port - PORT_C;
-	else
-		return HPD_PORT_A + port - PORT_A;
-}
-
-static enum hpd_pin ehl_hpd_pin(struct intel_display *display, enum port port)
-{
-	if (port == PORT_D)
-		return HPD_PORT_A;
-
-	if (HAS_PCH_TGP(display))
-		return icl_hpd_pin(display, port);
-
-	return HPD_PORT_A + port - PORT_A;
-}
-
-static enum hpd_pin skl_hpd_pin(struct intel_display *display, enum port port)
-{
-	if (HAS_PCH_TGP(display))
-		return icl_hpd_pin(display, port);
-
-	return HPD_PORT_A + port - PORT_A;
-}
-
 static bool intel_ddi_is_tc(struct intel_display *display, enum port port)
 {
 	if (DISPLAY_VER(display) >= 13)
@@ -5448,22 +5385,7 @@ void intel_ddi_init(struct intel_display *display,
 
 	intel_ddi_buf_trans_init(encoder);
 
-	if (DISPLAY_VER(display) >= 13)
-		encoder->hpd_pin = xelpd_hpd_pin(display, port);
-	else if (display->platform.dg1)
-		encoder->hpd_pin = dg1_hpd_pin(display, port);
-	else if (display->platform.rocketlake)
-		encoder->hpd_pin = rkl_hpd_pin(display, port);
-	else if (DISPLAY_VER(display) >= 12)
-		encoder->hpd_pin = tgl_hpd_pin(display, port);
-	else if (display->platform.jasperlake || display->platform.elkhartlake)
-		encoder->hpd_pin = ehl_hpd_pin(display, port);
-	else if (DISPLAY_VER(display) == 11)
-		encoder->hpd_pin = icl_hpd_pin(display, port);
-	else if (DISPLAY_VER(display) == 9 && !display->platform.broxton)
-		encoder->hpd_pin = skl_hpd_pin(display, port);
-	else
-		encoder->hpd_pin = intel_hpd_pin_default(port);
+	encoder->hpd_pin = intel_port_map_hpd_pin(encoder);
 
 	ddi_buf_ctl = intel_de_read(display, DDI_BUF_CTL(port));
 
