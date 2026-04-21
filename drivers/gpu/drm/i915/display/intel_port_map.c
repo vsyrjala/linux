@@ -298,6 +298,18 @@ static bool port_is_valid(struct intel_display *display,
 		DISPLAY_RUNTIME_INFO(display)->port_mask & BIT(port);
 }
 
+enum port intel_port_map_port(struct intel_display *display, enum port port)
+{
+	const struct intel_port_map *port_map = intel_port_map(display);
+
+	if (port_is_valid(display, port_map, port))
+		return port;
+
+	//MISSING_CASE(port);
+
+	return PORT_NONE;
+}
+
 enum phy intel_port_map_phy(struct intel_display *display, enum port port)
 {
 	const struct intel_port_map *port_map = intel_port_map(display);
@@ -305,7 +317,7 @@ enum phy intel_port_map_phy(struct intel_display *display, enum port port)
 	if (port_is_valid(display, port_map, port))
 		return port_map->ports[port].phy;
 
-	MISSING_CASE(port);
+	//MISSING_CASE(port);
 
 	return PHY_NONE;
 }
