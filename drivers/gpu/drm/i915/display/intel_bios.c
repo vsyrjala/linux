@@ -2340,7 +2340,7 @@ static u8 dvo_port_type(u8 dvo_port)
 }
 
 static enum port __dvo_port_to_port(int n_ports, int n_dvo,
-				    const int port_mapping[][3], u8 dvo_port)
+				    const int port_mapping[][2], u8 dvo_port)
 {
 	enum port port;
 	int i;
@@ -2369,51 +2369,51 @@ static enum port dvo_port_to_port(struct intel_display *display,
 	 * Each DDI port can have more than one value on the "DVO Port" field,
 	 * so look for all the possible values for each port.
 	 */
-	static const int port_mapping[][3] = {
-		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, -1 },
-		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, -1 },
-		[PORT_C] = { DVO_PORT_HDMIC, DVO_PORT_DPC, -1 },
-		[PORT_D] = { DVO_PORT_HDMID, DVO_PORT_DPD, -1 },
-		[PORT_E] = { DVO_PORT_HDMIE, DVO_PORT_DPE, -1 },
-		[PORT_F] = { DVO_PORT_HDMIF, DVO_PORT_DPF, -1 },
-		[PORT_G] = { DVO_PORT_HDMIG, DVO_PORT_DPG, -1 },
-		[PORT_H] = { DVO_PORT_HDMIH, DVO_PORT_DPH, -1 },
-		[PORT_I] = { DVO_PORT_HDMII, DVO_PORT_DPI, -1 },
+	static const int port_mapping[][2] = {
+		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, },
+		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, },
+		[PORT_C] = { DVO_PORT_HDMIC, DVO_PORT_DPC, },
+		[PORT_D] = { DVO_PORT_HDMID, DVO_PORT_DPD, },
+		[PORT_E] = { DVO_PORT_HDMIE, DVO_PORT_DPE, },
+		[PORT_F] = { DVO_PORT_HDMIF, DVO_PORT_DPF, },
+		[PORT_G] = { DVO_PORT_HDMIG, DVO_PORT_DPG, },
+		[PORT_H] = { DVO_PORT_HDMIH, DVO_PORT_DPH, },
+		[PORT_I] = { DVO_PORT_HDMII, DVO_PORT_DPI, },
 	};
 	/*
 	 * RKL VBT uses PHY based mapping. Combo PHYs A,B,C,D
 	 * map to DDI A,B,TC1,TC2 respectively.
 	 */
-	static const int rkl_port_mapping[][3] = {
-		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, -1 },
-		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, -1 },
+	static const int rkl_port_mapping[][2] = {
+		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, },
+		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, },
 		[PORT_C] = { -1 },
-		[PORT_TC1] = { DVO_PORT_HDMIC, DVO_PORT_DPC, -1 },
-		[PORT_TC2] = { DVO_PORT_HDMID, DVO_PORT_DPD, -1 },
+		[PORT_TC1] = { DVO_PORT_HDMIC, DVO_PORT_DPC, },
+		[PORT_TC2] = { DVO_PORT_HDMID, DVO_PORT_DPD, },
 	};
 	/*
 	 * Alderlake S ports used in the driver are PORT_A, PORT_D, PORT_E,
 	 * PORT_F and PORT_G, we need to map that to correct VBT sections.
 	 */
-	static const int adls_port_mapping[][3] = {
-		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, -1 },
+	static const int adls_port_mapping[][2] = {
+		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, },
 		[PORT_B] = { -1 },
 		[PORT_C] = { -1 },
-		[PORT_TC1] = { DVO_PORT_HDMIB, DVO_PORT_DPB, -1 },
-		[PORT_TC2] = { DVO_PORT_HDMIC, DVO_PORT_DPC, -1 },
-		[PORT_TC3] = { DVO_PORT_HDMID, DVO_PORT_DPD, -1 },
-		[PORT_TC4] = { DVO_PORT_HDMIE, DVO_PORT_DPE, -1 },
+		[PORT_TC1] = { DVO_PORT_HDMIB, DVO_PORT_DPB, },
+		[PORT_TC2] = { DVO_PORT_HDMIC, DVO_PORT_DPC, },
+		[PORT_TC3] = { DVO_PORT_HDMID, DVO_PORT_DPD, },
+		[PORT_TC4] = { DVO_PORT_HDMIE, DVO_PORT_DPE, },
 	};
-	static const int xelpd_port_mapping[][3] = {
-		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, -1 },
-		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, -1 },
-		[PORT_C] = { DVO_PORT_HDMIC, DVO_PORT_DPC, -1 },
-		[PORT_D_XELPD] = { DVO_PORT_HDMID, DVO_PORT_DPD, -1 },
-		[PORT_E_XELPD] = { DVO_PORT_HDMIE, DVO_PORT_DPE, -1 },
-		[PORT_TC1] = { DVO_PORT_HDMIF, DVO_PORT_DPF, -1 },
-		[PORT_TC2] = { DVO_PORT_HDMIG, DVO_PORT_DPG, -1 },
-		[PORT_TC3] = { DVO_PORT_HDMIH, DVO_PORT_DPH, -1 },
-		[PORT_TC4] = { DVO_PORT_HDMII, DVO_PORT_DPI, -1 },
+	static const int xelpd_port_mapping[][2] = {
+		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, },
+		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, },
+		[PORT_C] = { DVO_PORT_HDMIC, DVO_PORT_DPC, },
+		[PORT_D_XELPD] = { DVO_PORT_HDMID, DVO_PORT_DPD, },
+		[PORT_E_XELPD] = { DVO_PORT_HDMIE, DVO_PORT_DPE, },
+		[PORT_TC1] = { DVO_PORT_HDMIF, DVO_PORT_DPF, },
+		[PORT_TC2] = { DVO_PORT_HDMIG, DVO_PORT_DPG, },
+		[PORT_TC3] = { DVO_PORT_HDMIH, DVO_PORT_DPH, },
+		[PORT_TC4] = { DVO_PORT_HDMII, DVO_PORT_DPI, },
 	};
 
 	if (DISPLAY_VER(display) >= 13)
