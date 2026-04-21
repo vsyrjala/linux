@@ -2340,7 +2340,7 @@ static u8 dvo_port_type(u8 dvo_port)
 }
 
 static enum port __dvo_port_to_port(int n_ports, int n_dvo,
-				    const int port_mapping[][2], u8 dvo_port)
+				    const s8 port_mapping[][2], u8 dvo_port)
 {
 	enum port port;
 	int i;
@@ -2369,7 +2369,7 @@ static enum port dvo_port_to_port(struct intel_display *display,
 	 * Each DDI port can have more than one value on the "DVO Port" field,
 	 * so look for all the possible values for each port.
 	 */
-	static const int port_mapping[][2] = {
+	static const s8 port_mapping[][2] = {
 		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, },
 		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, },
 		[PORT_C] = { DVO_PORT_HDMIC, DVO_PORT_DPC, },
@@ -2384,7 +2384,7 @@ static enum port dvo_port_to_port(struct intel_display *display,
 	 * RKL VBT uses PHY based mapping. Combo PHYs A,B,C,D
 	 * map to DDI A,B,TC1,TC2 respectively.
 	 */
-	static const int rkl_port_mapping[][2] = {
+	static const s8 rkl_port_mapping[][2] = {
 		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, },
 		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, },
 		[PORT_C] = { -1 },
@@ -2395,7 +2395,7 @@ static enum port dvo_port_to_port(struct intel_display *display,
 	 * Alderlake S ports used in the driver are PORT_A, PORT_D, PORT_E,
 	 * PORT_F and PORT_G, we need to map that to correct VBT sections.
 	 */
-	static const int adls_port_mapping[][2] = {
+	static const s8 adls_port_mapping[][2] = {
 		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, },
 		[PORT_B] = { -1 },
 		[PORT_C] = { -1 },
@@ -2404,7 +2404,7 @@ static enum port dvo_port_to_port(struct intel_display *display,
 		[PORT_TC3] = { DVO_PORT_HDMID, DVO_PORT_DPD, },
 		[PORT_TC4] = { DVO_PORT_HDMIE, DVO_PORT_DPE, },
 	};
-	static const int xelpd_port_mapping[][2] = {
+	static const s8 xelpd_port_mapping[][2] = {
 		[PORT_A] = { DVO_PORT_HDMIA, DVO_PORT_DPA, },
 		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, },
 		[PORT_C] = { DVO_PORT_HDMIC, DVO_PORT_DPC, },
