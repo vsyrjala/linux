@@ -2361,6 +2361,10 @@ static enum port __dvo_port_to_port(int n_ports, int n_dvo,
 static enum port dvo_port_to_port(struct intel_display *display,
 				  u8 dvo_port)
 {
+	if (dvo_port == DVO_PORT_CRT &&
+	    (display->platform.broadwell || display->platform.haswell))
+		return PORT_E;
+
 	/*
 	 * Each DDI port can have more than one value on the "DVO Port" field,
 	 * so look for all the possible values for each port.
@@ -2370,7 +2374,7 @@ static enum port dvo_port_to_port(struct intel_display *display,
 		[PORT_B] = { DVO_PORT_HDMIB, DVO_PORT_DPB, -1 },
 		[PORT_C] = { DVO_PORT_HDMIC, DVO_PORT_DPC, -1 },
 		[PORT_D] = { DVO_PORT_HDMID, DVO_PORT_DPD, -1 },
-		[PORT_E] = { DVO_PORT_HDMIE, DVO_PORT_DPE, DVO_PORT_CRT },
+		[PORT_E] = { DVO_PORT_HDMIE, DVO_PORT_DPE, -1 },
 		[PORT_F] = { DVO_PORT_HDMIF, DVO_PORT_DPF, -1 },
 		[PORT_G] = { DVO_PORT_HDMIG, DVO_PORT_DPG, -1 },
 		[PORT_H] = { DVO_PORT_HDMIH, DVO_PORT_DPH, -1 },
