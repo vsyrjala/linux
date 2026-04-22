@@ -2340,6 +2340,39 @@ static u8 dvo_port_type(u8 dvo_port)
 	}
 }
 
+static const char _dvo_port_name(u8 dvo_port)
+{
+	return dvo_port - dvo_port_type(dvo_port) + 'A';
+}
+
+static const char *dvo_port_name(char *str, size_t size,
+				 u8 dvo_port)
+{
+	switch (dvo_port_base) {
+	case DVO_PORT_HDMIA:
+		snprintf(str, size, "HDMI%c\n", dvo_port_name(dvo_port));
+		break;
+	case DVO_PORT_DPA:
+		snprintf(str, size, "DP%c\n", dvo_port_name(dvo_port));
+		break;
+	case DVO_PORT_MIPIA:
+		snprintf(str, size, "MIPI%c\n", dvo_port_name(dvo_port));
+		break;
+	case DVO_PORT_TV:
+		snprintf(str, size, "TV");
+		break;
+	case DVO_PORT_CRT:
+		snprintf(str, size, "CRT");
+		break;
+	default:
+		MISSING_CASE(dvo_port);
+		snprintf(str, size, "?");
+		break;
+	}
+
+	return str;
+}
+
 static int __dvo_port_to_port(int n_ports, int n_dvo,
 			      const s8 port_mapping[][2], u8 dvo_port)
 {
@@ -2717,8 +2750,12 @@ static void print_ddi_port(const struct intel_bios_encoder_data *devdata)
 	enum port port;
 
 	port = intel_bios_encoder_port(devdata);
-	if (port == PORT_NONE)
+	if (port == PORT_NONE) {
+		drm_dbg_kms(display->drm,
+			    "VBT reports port %s as supported, but that can't be true: skipping\n",
+			    dvo_port_name(port_name, sizeof(port_name), devdata->child.dvo_port));
 		return;
+	}
 
 	is_dvi = intel_bios_encoder_supports_dvi(devdata);
 	is_dp = intel_bios_encoder_supports_dp(devdata);
@@ -2731,8 +2768,9 @@ static void print_ddi_port(const struct intel_bios_encoder_data *devdata)
 	supports_tbt = intel_bios_encoder_supports_tbt(devdata);
 
 	drm_dbg_kms(display->drm,
-		    "VBT port %c: CRT:%d DVI:%d HDMI:%d DP:%d eDP:%d DSI:%d DP++:%d LSPCON:%d USB-Type-C:%d TBT:%d DSC:%d\n",
-		    port_name(port), is_crt, is_dvi, is_hdmi, is_dp, is_edp, is_dsi,
+		    "VBT port %s: CRT:%d DVI:%d HDMI:%d DP:%d eDP:%d DSI:%d DP++:%d LSPCON:%d USB-Type-C:%d TBT:%d DSC:%d\n",
+		    dvo_port_name(port_name, sizeof(port_name), devdata->child.dvo_port),
+		    is_crt, is_dvi, is_hdmi, is_dp, is_edp, is_dsi,
 		    intel_bios_encoder_supports_dp_dual_mode(devdata),
 		    intel_bios_encoder_is_lspcon(devdata),
 		    supports_typec_usb, supports_tbt,
@@ -2795,12 +2833,8 @@ static void parse_ddi_port(struct intel_bios_encoder_data *devdata)
 	enum port port;
 
 	port = intel_bios_encoder_port(devdata);
-	if (port == PORT_NONE) {
-		drm_dbg_kms(display->drm,
-			    "VBT reports port %c as supported, but that can't be true: skipping\n",
-			    port_name(port));
+	if (port == PORT_NONE)
 		return;
-	}
 
 	sanitize_dedicated_external(devdata, port);
 	sanitize_device_type(devdata, port);
