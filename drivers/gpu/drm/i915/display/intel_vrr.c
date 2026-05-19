@@ -786,10 +786,7 @@ bool intel_vrr_always_use_vrr_tg(struct intel_display *display)
 	if (!HAS_VRR(display))
 		return false;
 
-	if (DISPLAY_VER(display) >= 30)
-		return true;
-
-	return false;
+	return true;
 }
 
 static int intel_vrr_hw_vmin(const struct intel_crtc_state *crtc_state)
