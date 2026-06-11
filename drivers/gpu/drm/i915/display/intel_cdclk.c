@@ -3136,6 +3136,8 @@ static int intel_compute_min_cdclk(struct intel_atomic_state *state)
 	if (glk_cdclk_audio_wa_needed(display, cdclk_state))
 		min_cdclk = max(min_cdclk, 2 * 96000);
 
+	min_cdclk = max(min_cdclk, display->params.cdclk);
+
 	if (min_cdclk > display->cdclk.max_cdclk_freq) {
 		drm_dbg_kms(display->drm,
 			    "required cdclk (%d kHz) exceeds max (%d kHz)\n",
@@ -3639,6 +3641,7 @@ static int intel_modeset_calc_cdclk(struct intel_atomic_state *state)
 
 int intel_cdclk_atomic_check(struct intel_atomic_state *state)
 {
+	struct intel_display *display = to_intel_display(state);
 	const struct intel_cdclk_state *old_cdclk_state;
 	struct intel_cdclk_state *new_cdclk_state;
 	bool need_cdclk_calc = false;
@@ -3667,6 +3670,8 @@ int intel_cdclk_atomic_check(struct intel_atomic_state *state)
 
 		need_cdclk_calc = true;
 	}
+
+	drm_dbg_kms(display->drm, "need cdclk calc %d\n", need_cdclk_calc);
 
 	if (need_cdclk_calc) {
 		ret = intel_modeset_calc_cdclk(state);
@@ -3731,6 +3736,7 @@ static int intel_compute_max_dotclk(struct intel_display *display)
  */
 void intel_update_max_cdclk(struct intel_display *display)
 {
+
 	if (DISPLAY_VER(display) >= 35) {
 		display->cdclk.max_cdclk_freq = 787200;
 	} else if (DISPLAY_VERx100(display) >= 3002) {
@@ -3796,6 +3802,9 @@ void intel_update_max_cdclk(struct intel_display *display)
 		/* otherwise assume cdclk is fixed */
 		display->cdclk.max_cdclk_freq = display->cdclk.hw.cdclk;
 	}
+
+	if (display->params.cdclk)
+		display->cdclk.max_cdclk_freq = display->params.cdclk;
 
 	display->cdclk.max_dotclk_freq = intel_compute_max_dotclk(display);
 
