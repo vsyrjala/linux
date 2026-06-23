@@ -264,6 +264,41 @@ unsigned int intel_adjusted_rate(const struct drm_rect *src,
 				dst_w * dst_h);
 }
 
+static unsigned int hscale_cdclk(const struct drm_rect *src,
+				 const struct drm_rect *dst,
+				 unsigned int ppc)
+{
+	unsigned int hscale;
+
+	hscale = drm_rect_calc_hscale(src, dst, 0, INT_MAX);
+	hscale = max(hscale, 0x10000);
+
+	/* Double the <0.5 fractional part due to some 2 PPC granularity issue */
+	return (hscale & ~0x7fff) + ppc * (hscale & 0x7fff);
+}
+
+static unsigned int vscale_cdclk(const struct drm_rect *src,
+				 const struct drm_rect *dst)
+{
+	unsigned int vscale;
+
+	vscale = drm_rect_calc_vscale(src, dst,0, INT_MAX);
+	vscale = max(vscale, 0x10000);
+
+	return vscale;
+}
+
+unsigned int intel_adjusted_rate_cdclk(const struct drm_rect *src,
+				       const struct drm_rect *dst,
+				       unsigned int rate,
+				       unsigned int ppc)
+{
+	unsigned int hscale = hscale_cdclk(src, dst, ppc);
+	unsigned int vscale = vscale_cdclk(src, dst);
+
+	return DIV64_U64_ROUND_UP((u64) rate * hscale * vscale, 1ull << 32);
+}
+
 unsigned int intel_plane_pixel_rate(const struct intel_crtc_state *crtc_state,
 				    const struct intel_plane_state *plane_state)
 {
@@ -282,6 +317,17 @@ unsigned int intel_plane_pixel_rate(const struct intel_crtc_state *crtc_state,
 	return intel_adjusted_rate(&plane_state->uapi.src,
 				   &plane_state->uapi.dst,
 				   crtc_state->pixel_rate);
+}
+
+unsigned int intel_plane_pixel_rate_cdclk(const struct intel_crtc_state *crtc_state,
+					  const struct intel_plane_state *plane_state)
+{
+	struct intel_display *display = to_intel_display(crtc_state);
+	unsigned int ppc = HAS_2PPC(display) ? 2 : 1;
+
+	return intel_adjusted_rate_cdclk(&plane_state->uapi.src,
+					 &plane_state->uapi.dst,
+					 crtc_state->pixel_rate_cdclk, ppc);
 }
 
 unsigned int intel_plane_data_rate(const struct intel_crtc_state *crtc_state,
