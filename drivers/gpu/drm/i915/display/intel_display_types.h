@@ -1523,6 +1523,8 @@ struct intel_crtc {
 	/* Access to these should be protected by display->irq.lock. */
 	bool cpu_fifo_underrun_disabled;
 	bool pch_fifo_underrun_disabled;
+	u32 cpu_fifo_underrun_count;
+	u32 pch_fifo_underrun_count;
 
 	struct intel_flipq flipq[MAX_INTEL_FLIPQ];
 

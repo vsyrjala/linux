@@ -1398,4 +1398,7 @@ void intel_crtc_debugfs_add(struct intel_crtc *crtc)
 			    &i915_current_bpc_fops);
 	debugfs_create_file("i915_pipe", 0444, root, crtc,
 			    &intel_crtc_pipe_fops);
+
+	debugfs_create_u32("intel_cpu_fifo_underrun_count", 0444, root,
+			   &crtc->cpu_fifo_underrun_count);
 }
