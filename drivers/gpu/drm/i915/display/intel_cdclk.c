@@ -2978,7 +2978,8 @@ static int intel_cdclk_update_crtc_min_cdclk(struct intel_atomic_state *state,
 {
 	struct intel_display *display = to_intel_display(state);
 	struct intel_cdclk_state *cdclk_state;
-	bool allow_cdclk_decrease = intel_any_crtc_needs_modeset(state);
+	bool allow_cdclk_decrease = state->base.allow_modeset ||
+		intel_any_crtc_needs_modeset(state);
 	int ret;
 
 	if (new_min_cdclk == old_min_cdclk)
@@ -3023,7 +3024,8 @@ static int intel_cdclk_update_crtc_min_voltage_level(struct intel_atomic_state *
 {
 	struct intel_display *display = to_intel_display(state);
 	struct intel_cdclk_state *cdclk_state;
-	bool allow_voltage_level_decrease = intel_any_crtc_needs_modeset(state);
+	bool allow_voltage_level_decrease = state->base.allow_modeset ||
+		intel_any_crtc_needs_modeset(state);
 	int ret;
 
 	if (new_min_voltage_level == old_min_voltage_level)
@@ -3068,7 +3070,8 @@ int intel_cdclk_update_dbuf_bw_min_cdclk(struct intel_atomic_state *state,
 {
 	struct intel_display *display = to_intel_display(state);
 	struct intel_cdclk_state *cdclk_state;
-	bool allow_cdclk_decrease = intel_any_crtc_needs_modeset(state);
+	bool allow_cdclk_decrease = state->base.allow_modeset ||
+		intel_any_crtc_needs_modeset(state);
 	int ret;
 
 	if (new_min_cdclk == old_min_cdclk)
