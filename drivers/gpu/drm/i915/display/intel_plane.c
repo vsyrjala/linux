@@ -273,8 +273,8 @@ static unsigned int hscale_cdclk(const struct drm_rect *src,
 	hscale = drm_rect_calc_hscale(src, dst, 0, INT_MAX);
 	hscale = max(hscale, 0x10000);
 
-	/* Double the <0.5 fractional part due to some 2 PPC granularity issue */
-	return (hscale & ~0x7fff) + ppc * (hscale & 0x7fff);
+	/* Double the fractional part due to some 2 PPC granularity issue */
+	return (hscale & ~0xffff) + ppc * (hscale & 0xffff);
 }
 
 static unsigned int vscale_cdclk(const struct drm_rect *src,
