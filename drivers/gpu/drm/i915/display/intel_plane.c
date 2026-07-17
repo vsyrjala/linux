@@ -296,6 +296,8 @@ unsigned int intel_adjusted_rate_cdclk(const struct drm_rect *src,
 	unsigned int hscale = hscale_cdclk(src, dst, ppc);
 	unsigned int vscale = vscale_cdclk(src, dst);
 
+	return rate;//
+
 	return DIV64_U64_ROUND_UP((u64) rate * hscale * vscale, 1ull << 32);
 }
 
