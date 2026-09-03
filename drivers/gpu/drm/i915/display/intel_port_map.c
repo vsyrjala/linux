@@ -310,6 +310,23 @@ enum port intel_port_map_port(struct intel_display *display, enum port port)
 	return PORT_NONE;
 }
 
+enum port intel_port_map_phy_to_port(struct intel_display *display, enum phy phy)
+{
+	const struct intel_port_map *port_map = intel_port_map(display);
+
+	for (int port = PORT_A; port < port_map->num_ports; port++) {
+		if (!port_is_valid(display, port_map, port))
+			continue;
+
+		if (phy == port_map->ports[port].phy)
+			return port;
+	}
+
+	//MISSING_CASE(port);
+
+	return PORT_NONE;
+}
+
 enum phy intel_port_map_phy(struct intel_display *display, enum port port)
 {
 	const struct intel_port_map *port_map = intel_port_map(display);

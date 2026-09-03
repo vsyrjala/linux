@@ -20,5 +20,6 @@ enum phy intel_port_map_phy(struct intel_display *display, enum port port);
 enum tc_port intel_port_map_tc_port(struct intel_display *display, enum port port);
 enum hpd_pin intel_port_map_hpd_pin(struct intel_encoder *encoder);
 u8 intel_port_map_ddc_pin(struct intel_encoder *encoder);
+enum port intel_port_map_phy_to_port(struct intel_display *display, enum phy phy);
 
 #endif /* _INTEL_PORT_MAP_H */

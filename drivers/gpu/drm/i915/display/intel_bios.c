@@ -2431,7 +2431,7 @@ static enum port dvo_port_to_port(struct intel_display *display,
 						  ARRAY_SIZE(phy_mapping[0]),
 						  phy_mapping, dvo_port);
 
-		return (enum port)intel_port_map_phy(display, (enum port)phy);
+		return intel_port_map_phy_to_port(display, phy);
 	} else {
 		enum port port = __dvo_port_to_port(ARRAY_SIZE(port_mapping),
 						    ARRAY_SIZE(port_mapping[0]),
