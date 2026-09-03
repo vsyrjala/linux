@@ -40,6 +40,7 @@
 #include "intel_display_types.h"
 #include "intel_display_utils.h"
 #include "intel_gmbus.h"
+#include "intel_port_map.h"
 #include "intel_rom.h"
 #include "intel_vdsc.h"
 
@@ -2397,7 +2398,7 @@ static enum port dvo_port_to_port(struct intel_display *display,
 						  ARRAY_SIZE(phy_mapping[0]),
 						  phy_mapping, dvo_port);
 
-		return intel_port_map_phy(display, phy);
+		return (enum port)intel_port_map_phy(display, (enum port)phy);
 	} else {
 		enum port port = __dvo_port_to_port(ARRAY_SIZE(port_mapping),
 						    ARRAY_SIZE(port_mapping[0]),
@@ -2797,7 +2798,7 @@ static void parse_ddi_port(struct intel_bios_encoder_data *devdata)
 	if (port == PORT_NONE) {
 		drm_dbg_kms(display->drm,
 			    "VBT reports port %c as supported, but that can't be true: skipping\n",
-			    port_name(dvo_port));
+			    port_name(port));
 		return;
 	}
 
