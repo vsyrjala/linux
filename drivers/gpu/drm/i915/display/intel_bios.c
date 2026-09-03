@@ -2340,7 +2340,7 @@ static u8 dvo_port_type(u8 dvo_port)
 	}
 }
 
-static const char _dvo_port_name(u8 dvo_port)
+static char _dvo_port_name(u8 dvo_port)
 {
 	return dvo_port - dvo_port_type(dvo_port) + 'A';
 }
@@ -2348,15 +2348,15 @@ static const char _dvo_port_name(u8 dvo_port)
 static const char *dvo_port_name(char *str, size_t size,
 				 u8 dvo_port)
 {
-	switch (dvo_port_base) {
+	switch (dvo_port_type(dvo_port)) {
 	case DVO_PORT_HDMIA:
-		snprintf(str, size, "HDMI%c\n", dvo_port_name(dvo_port));
+		snprintf(str, size, "HDMI%c\n", _dvo_port_name(dvo_port));
 		break;
 	case DVO_PORT_DPA:
-		snprintf(str, size, "DP%c\n", dvo_port_name(dvo_port));
+		snprintf(str, size, "DP%c\n", _dvo_port_name(dvo_port));
 		break;
 	case DVO_PORT_MIPIA:
-		snprintf(str, size, "MIPI%c\n", dvo_port_name(dvo_port));
+		snprintf(str, size, "MIPI%c\n", _dvo_port_name(dvo_port));
 		break;
 	case DVO_PORT_TV:
 		snprintf(str, size, "TV");
@@ -2747,6 +2747,7 @@ static void print_ddi_port(const struct intel_bios_encoder_data *devdata)
 	const struct child_device_config *child = &devdata->child;
 	bool is_dvi, is_hdmi, is_dp, is_edp, is_dsi, is_crt, supports_typec_usb, supports_tbt;
 	int dp_boost_level, dp_max_link_rate, hdmi_boost_level, hdmi_level_shift, max_tmds_clock;
+	char port_name[8];
 	enum port port;
 
 	port = intel_bios_encoder_port(devdata);
@@ -2829,7 +2830,6 @@ static void print_ddi_port(const struct intel_bios_encoder_data *devdata)
 
 static void parse_ddi_port(struct intel_bios_encoder_data *devdata)
 {
-	struct intel_display *display = devdata->display;
 	enum port port;
 
 	port = intel_bios_encoder_port(devdata);
